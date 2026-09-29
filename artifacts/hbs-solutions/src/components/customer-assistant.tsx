@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from 'react';
-import { Link } from 'wouter';
 import { useAnswerCustomerInquiry } from '@workspace/api-client-react';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 
@@ -22,35 +21,32 @@ export function CustomerAssistant({ onAskOffice }: { onAskOffice: () => void }) 
     }
   }
 
-  return <section aria-labelledby="assistant-title" className="surface mb-8 overflow-hidden border border-sage-2">
-    <div className="flex items-start gap-4 border-b border-sage-2 bg-sage px-5 py-5 sm:px-8">
-      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-teal text-on-dark"><Sparkles size={21}/></div>
-      <div>
-        <div className="mb-1 text-[11px] font-bold text-copper">مساعد آلي · Anthropic</div>
-        <h2 id="assistant-title" className="display text-xl font-semibold">اسأل عن خدمات البوابة</h2>
-        <p className="muted mt-1 text-xs leading-6">مساعد آلي لإرشادك إلى استخدام البوابة فقط؛ لا يطّلع على معاملاتك، وإجابته ليست ردًا من المكتب.</p>
+  return <section aria-labelledby="assistant-title" className="surface overflow-hidden xl:sticky xl:top-24">
+    <div className="flex items-start gap-3 border-b border-sage-2 bg-sage px-5 py-4">
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-teal text-on-dark"><Sparkles size={19}/></div>
+      <div className="min-w-0">
+        <h2 id="assistant-title" className="display text-lg font-semibold">المساعد الآلي</h2>
+        <p className="muted mt-0.5 text-xs leading-6">يجيب عن أسئلة استخدام البوابة فقط، ولا يطّلع على طلباتك. إجابته ليست ردًا من المكتب.</p>
       </div>
     </div>
-    <div className="space-y-5 p-5 sm:p-8">
-      <form onSubmit={submit} className="space-y-4">
-        <label htmlFor="assistant-question" className="form-field">ما الذي تود معرفته؟
-          <textarea id="assistant-question" className="form-control !min-h-28" placeholder="مثل: كيف أتابع حالة طلبي؟" value={question} onChange={event => setQuestion(event.target.value)} minLength={5} maxLength={1000} required/>
+    <div className="space-y-4 p-5">
+      <form onSubmit={submit} className="space-y-3">
+        <label htmlFor="assistant-question" className="form-field">سؤالك
+          <textarea id="assistant-question" className="form-control !min-h-24" placeholder="مثل: كيف أتابع حالة طلبي؟" value={question} onChange={event => setQuestion(event.target.value)} minLength={5} maxLength={1000} required/>
         </label>
-        <p className="muted text-xs leading-6">يُرسل سؤالك إلى Anthropic عبر Replit AI Integrations لإعداد إجابة آلية. لا تكتب كلمات مرور أو أرقام هوية أو معلومات حساسة؛ المساعد لا يطّلع على طلباتك.</p>
-        <button className="btn btn-primary" type="submit" disabled={answer.isPending || question.trim().length < 5}>{answer.isPending ? 'جارٍ إعداد الإجابة...' : 'احصل على إجابة'}<Sparkles size={16}/></button>
+        <p className="text-xs leading-6 text-subtle">يُعالَج سؤالك لدى Anthropic عبر Replit AI Integrations. لا تكتب كلمات مرور أو أرقام هوية أو أي معلومات حساسة.</p>
+        <button className="btn btn-outline w-full" type="submit" disabled={answer.isPending || question.trim().length < 5}>{answer.isPending ? 'جارٍ إعداد الإجابة…' : 'اسأل المساعد'}<Sparkles size={16}/></button>
       </form>
-      {answer.isError && <div role="alert" className="rounded-lg bg-danger-soft p-4 text-sm text-danger">
-        {answer.error?.status === 429 ? 'وصلت إلى حد الأسئلة لهذا الوقت. يمكنك العودة لاحقًا أو إرسال استفسار للمكتب.' : answer.error?.status === 401 ? 'يجب تسجيل الدخول قبل سؤال المساعد.' : 'تعذّر الحصول على إجابة الآن. حاول مرة أخرى أو أرسل استفسارًا للمكتب.'}
+      {answer.isError && <div role="alert" className="rounded-lg bg-danger-soft p-4 text-sm leading-7 text-danger">
+        {answer.error?.status === 429 ? 'وصلت إلى حد الأسئلة لهذا الوقت. عد لاحقًا أو أرسل استفسارًا للمكتب.' : answer.error?.status === 401 ? 'يجب تسجيل الدخول قبل سؤال المساعد.' : 'تعذّر الحصول على إجابة الآن. حاول مرة أخرى أو أرسل استفسارًا للمكتب.'}
       </div>}
-      {exchange && <div aria-live="polite" className="rounded-xl border border-sage-2 bg-surface p-5">
+      {exchange && <div aria-live="polite" className="rounded-xl border border-sage-2 bg-paper p-4">
         <div className="text-xs font-bold text-subtle">سؤالك</div>
-        <p className="mt-2 whitespace-pre-wrap text-sm font-semibold">{exchange.question}</p>
-        <div className="mt-5 border-t border-sage-2 pt-5 text-xs font-bold text-teal-bright">إجابة المساعد</div>
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-8">{exchange.answer}</p>
-        <p className="muted mt-4 text-xs">تحتاج تأكيدًا رسميًا أو معلومات عن طلبك؟ أرسل استفسارًا إلى المكتب.</p>
-        <button type="button" onClick={onAskOffice} className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-copper">أرسل استفسارًا إلى المكتب <ArrowLeft size={15}/></button>
+        <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-7">{exchange.question}</p>
+        <div className="mt-4 border-t border-sage-2 pt-4 text-xs font-bold text-teal-bright">إجابة المساعد</div>
+        <p className="mt-1 whitespace-pre-wrap text-sm leading-8">{exchange.answer}</p>
+        <button type="button" onClick={onAskOffice} className="mt-3 inline-flex min-h-11 items-center gap-2 text-xs font-bold text-copper">تحتاج ردًا رسميًا؟ أرسل استفسارًا للمكتب<ArrowLeft size={15}/></button>
       </div>}
-      <div className="text-xs text-subtle">المساعد يجيب عن الأسئلة العامة فقط. <Link href="/requests" className="font-bold text-teal-bright">تابع طلباتك من حسابك.</Link></div>
     </div>
   </section>;
 }

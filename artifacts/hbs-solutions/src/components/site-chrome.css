@@ -36,14 +36,33 @@
 }
 @media (max-width: 767px) { .site-wrap { width: min(100% - 32px, 1280px); } .site-header-inner { min-height: 68px; } }
 
-.site-footer { background: var(--color-night); color: var(--color-on-dark-2); padding: 64px 0 28px; }
-:where(.site-footer a) { color: var(--color-on-dark-2); text-decoration: none; }
+/* ---------- Page end: the sheet lifts away and the city shows through ---------- */
+/* Paper sheets (inner pages and the landing body) end with rounded corners and
+   a soft shadow cast on the scene below. */
+.site-body, .lp-body { z-index: 2; border-radius: 0 0 var(--sheet-radius) var(--sheet-radius); box-shadow: 0 28px 48px -26px rgb(4 12 13 / .7); }
+:root { --sheet-radius: 36px; }
+@media (max-width: 767px) { :root { --sheet-radius: 24px; } }
+
+/* Transparent footer over the fixed scene. Tall enough that the skyline and
+   its landmarks stand above the links; the veil darkens only the lower part. */
+.site-footer { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: flex-end; min-height: clamp(480px, 60vh, 640px); margin-top: calc(var(--sheet-radius) * -1); padding: calc(var(--sheet-radius) + 40px) 0 0; color: var(--color-on-dark-2); background: transparent; }
+.site-footer-veil { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgb(8 26 28 / 0) 0%, rgb(8 26 28 / .1) 48%, rgb(8 26 28 / .6) 68%, rgb(8 26 28 / .88) 84%, var(--color-night) 100%); }
+.site-footer-content { position: relative; padding-bottom: 22px; }
+:where(.site-footer a) { color: var(--color-on-dark-2); text-decoration: none; transition: color var(--duration-hover) ease; }
 :where(.site-footer a):hover { color: var(--color-on-dark); }
-.site-footer-inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; }
-.site-footer-brand { max-width: 360px; }
-.site-footer-brand p { margin: 18px 0 0; font-size: 14px; line-height: 1.9; }
-.site-footer-links { display: flex; gap: 64px; }
-.site-footer-links > div { display: flex; flex-direction: column; gap: 12px; font-size: 14px; }
-.site-footer-links strong { color: var(--color-on-dark); font-size: 14px; margin-bottom: 4px; }
-.site-footer-bottom { margin-top: 48px; padding-top: 22px; border-top: 1px solid rgb(255 255 255 / .08); font-size: 13px; }
-@media (max-width: 640px) { .site-footer-links { gap: 40px; } }
+.site-footer a:focus-visible { outline: 2px solid var(--color-copper-light); outline-offset: 4px; border-radius: 4px; }
+.site-footer-main { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 32px 64px; padding-bottom: 32px; }
+.site-footer-links { display: flex; gap: clamp(40px, 6vw, 88px); }
+.site-footer-links h2 { margin: 0 0 14px; color: var(--color-on-dark); font-size: 13px; font-weight: 700; }
+.site-footer-links ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }
+.site-footer-links li a { display: inline-block; padding: 4px 0; }
+.site-footer-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding-top: 18px; border-top: 1px solid rgb(255 255 255 / .1); font-size: 13px; }
+.site-footer-city { display: inline-flex; align-items: baseline; gap: 8px; margin: 0; color: var(--color-on-dark-2); animation: site-city var(--duration-reveal) var(--ease-out-soft) both; }
+.site-footer-city strong { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--color-on-dark); }
+.site-footer-city-dot { align-self: center; width: 6px; height: 6px; border-radius: 50%; background: var(--color-copper-light); box-shadow: 0 0 0 4px rgb(229 162 123 / .18); }
+@keyframes site-city { from { opacity: 0; transform: translateY(6px); } }
+@media (max-width: 767px) {
+  .site-footer { min-height: max(70vh, 520px); min-height: max(70svh, 520px); }
+  .site-footer-main { flex-direction: column; align-items: flex-start; gap: 28px; }
+  .site-footer-links { gap: 48px; }
+}

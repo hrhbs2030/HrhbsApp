@@ -4,6 +4,8 @@ import { useClerk, useUser } from '@clerk/react';
 import { Archive, ArrowLeft, ArrowUpLeft, Check, CircleHelp, ClipboardList, History, Home, Inbox, LogOut, Menu, Plus, UserRoundCheck, UsersRound, X } from 'lucide-react';
 import { getGetPortalMeQueryKey, useGetPortalMe, type Inquiry, type ServiceRequest, type ServiceRequestStatus } from '@workspace/api-client-react';
 import { daysLabel, formatDate, formatNumber } from '@/lib/format';
+import { cityInfo, cityOrder } from './city-scene';
+import { SceneWindow, useSceneWindows } from './scene-window';
 import './portal-ui.css';
 
 export const categoryNames: Record<string, string> = { passports: 'الجوازات', labor: 'العمل', business: 'الأعمال', other: 'خدمات أخرى' };
@@ -38,6 +40,9 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
   useEffect(() => setMenuOpen(false), [location]);
   const ownerLinks = owner ? [{ href: '/office/legacy', label: 'الأرشيف القديم', icon: Archive }, { href: '/office/staff', label: 'فريق المكتب', icon: UsersRound }, { href: '/office/audit', label: 'سجل التدقيق', icon: History }] : [];
   const links = staff ? [{ href: '/office', label: 'نظرة عامة', icon: Home }, { href: '/office/registrations', label: 'طلبات التسجيل', icon: UserRoundCheck }, { href: '/office/requests', label: 'طلبات العملاء', icon: ClipboardList }, { href: '/office/inquiries', label: 'الاستفسارات', icon: CircleHelp }, ...ownerLinks] : registrationOnly ? [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }] : [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }, { href: '/dashboard', label: 'نظرة عامة', icon: Home }, { href: '/requests', label: 'طلباتي', icon: ClipboardList }, { href: '/inquiries', label: 'استفساراتي', icon: CircleHelp }];
+  const current = links.find(({ href }) => location === href) ?? links.filter(({ href }) => location.startsWith(href + '/')).sort((a, b) => b.href.length - a.href.length)[0];
+  const { city } = useSceneWindows();
+  const place = cityInfo[cityOrder[city] ?? 'riyadh'];
   return <div className="relative z-[1] min-h-[100dvh] lg:flex" dir="rtl">
     <aside className={`${menuOpen ? 'translate-x-0' : 'translate-x-full'} fixed inset-y-0 right-0 z-50 flex w-[270px] flex-col bg-ink px-5 py-7 text-on-dark transition-transform duration-300 lg:sticky lg:top-0 lg:h-[100dvh] lg:translate-x-0`}>
       <div className="mb-12 flex items-start justify-between px-2"><Brand light/><button className="lg:hidden" onClick={() => setMenuOpen(false)} aria-label="إغلاق القائمة"><X/></button></div>
@@ -47,7 +52,27 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
       <div className="mt-auto border-t border-line-dark pt-6"><div className="mb-4 flex items-center gap-3 px-2"><div className="grid h-9 w-9 place-items-center rounded-full bg-line-dark text-sm font-bold">{user?.firstName?.slice(0,1) || 'ح'}</div><div className="min-w-0"><div className="truncate text-xs font-semibold">{user?.fullName || user?.primaryEmailAddress?.emailAddress || 'حسابي'}</div><div className="mt-1 text-xs text-on-dark-2">{staff ? (owner ? 'مالك المكتب' : 'حساب المكتب') : 'حساب العميل'}</div></div></div><button onClick={() => signOut({redirectUrl: import.meta.env.BASE_URL})} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-on-dark-2 hover:bg-sidebar-2"><LogOut size={17}/>تسجيل الخروج</button></div>
     </aside>
     {menuOpen && <button onClick={() => setMenuOpen(false)} className="fixed inset-0 z-40 bg-night-2/50 lg:hidden" aria-label="إغلاق القائمة"/>}
-    <div className="flex min-w-0 flex-1 flex-col"><header className="portal-topbar sticky top-0 z-30 flex h-[72px] items-center justify-between px-5 text-on-dark sm:px-9 lg:px-12"><div className="flex items-center gap-3"><button className="rounded-lg border border-line-dark-2 p-2 text-on-dark lg:hidden" onClick={() => setMenuOpen(true)} aria-label="فتح القائمة"><Menu size={21}/></button><span className="hidden text-xs font-bold text-on-dark-2 sm:inline">{staff ? 'إدارة المعاملات' : 'بوابة العملاء'}</span></div><span className="text-xs text-on-dark-2">HBS / حلول الغد</span></header><div className="portal-band" aria-hidden="true" /><main className="portal-sheet flex-1"><div className="mx-auto max-w-[1130px] px-5 pb-20 pt-9 sm:px-9 sm:pt-12 lg:px-12">{children}</div></main></div>
+    <div className="flex min-w-0 flex-1 flex-col">
+      <header className="portal-topbar sticky top-0 z-30 flex h-[72px] items-center justify-between gap-4 px-5 text-on-dark sm:px-9 lg:px-12">
+        <div className="flex min-w-0 items-center gap-3">
+          <button className="rounded-lg border border-line-dark-2 p-2 text-on-dark lg:hidden" onClick={() => setMenuOpen(true)} aria-label="فتح القائمة"><Menu size={21}/></button>
+          <p className="portal-crumb"><span>{staff ? 'مساحة المكتب' : 'بوابة العملاء'}</span>{current && <><span aria-hidden="true" className="portal-crumb-sep">/</span><strong>{current.label}</strong></>}</p>
+        </div>
+        <span className="portal-topbar-brand lg:hidden" aria-hidden="true">HBS حلول الغد</span>
+        <Link href="/help" className="portal-topbar-help hidden lg:inline-flex"><CircleHelp size={17} strokeWidth={1.8} aria-hidden="true"/>المساعدة</Link>
+      </header>
+      <div className="portal-band" aria-hidden="true" />
+      <main className="portal-sheet flex-1"><div className="mx-auto max-w-[1130px] px-5 pb-20 pt-9 sm:px-9 sm:pt-12 lg:px-12">{children}</div></main>
+      <footer className="portal-foot">
+        <SceneWindow edge="bottom" />
+        <div className="portal-foot-line">
+          <span className="portal-foot-mark" aria-hidden="true">HBS</span>
+          <small>© {new Date().getFullYear()} HBS حلول الغد</small>
+          <span className="portal-foot-city" aria-hidden="true">{place.name} · {place.region}</span>
+          <Link href="/help" className="portal-foot-help">المساعدة</Link>
+        </div>
+      </footer>
+    </div>
   </div>;
 }
 

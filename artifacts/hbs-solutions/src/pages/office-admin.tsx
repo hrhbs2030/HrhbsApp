@@ -56,22 +56,28 @@ export function OfficeStaff() {
     }
   }
 
-  return <PortalLayout staff><PageHeading eyebrow="إدارة المكتب" title="فريق المكتب" subtitle="أضف موظفين بحساباتهم الموجودة أو أزل صلاحيتهم. الموظف يدير الطلبات والاستفسارات والتسجيل، أما الأرشيف وهذه الصفحة وسجل التدقيق فللمالك فقط."/>
-    <form onSubmit={submit} className="surface mb-6 p-5 sm:p-6">
-      <label htmlFor="staff-email" className="form-field">البريد الإلكتروني للموظف
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <input id="staff-email" type="email" dir="ltr" className="form-control" placeholder="name@example.com" value={email} onChange={event => setEmail(event.target.value)} maxLength={254} required/>
-          <button className="btn btn-primary shrink-0" type="submit" disabled={add.isPending || !email.trim()}><UserPlus size={17}/>{add.isPending ? 'جارٍ الإضافة…' : 'إضافة موظف'}</button>
-        </div>
-      </label>
-      <p className="muted mt-3 text-xs leading-6">يجب أن يكون الموظف قد أنشأ حسابًا في البوابة وأكّد هذا البريد. تبقى صلاحيته ما دام البريد مؤكدًا في حسابه.</p>
-      {notice && <div role={notice.kind === 'error' ? 'alert' : 'status'} className={`mt-4 rounded-lg px-4 py-3 text-sm ${notice.kind === 'error' ? 'bg-danger-soft text-danger' : 'bg-sage text-ok'}`}>{notice.text}</div>}
-    </form>
-    {staff.isLoading ? <LoadingBlock/> : staff.isError ? <ErrorBlock retry={() => staff.refetch()}/> : !staff.data?.length ? <EmptyBlock title="لا يوجد أعضاء بعد" text="سيظهر حساب المالك هنا بعد أول دخول له."/> :
-      <div className="surface overflow-hidden">{staff.data.map(member => <div key={member.userId} className="flex flex-wrap items-center justify-between gap-4 border-b border-line px-5 py-4 last:border-0 sm:px-6">
-        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="truncate font-bold" dir="ltr">{member.email ?? 'بريد المالك غير مؤكد'}</span><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${member.role === 'owner' ? 'bg-teal text-on-dark' : 'bg-info-soft text-ok'}`}>{member.role === 'owner' ? 'المالك' : 'موظف'}</span></div><div className="muted mt-1 text-xs">منذ {dateText(member.createdAt)}</div></div>
-        {member.role === 'staff' ? <button type="button" onClick={() => revoke(member)} disabled={removingId === member.userId} className="btn btn-outline !min-h-10 !px-4 text-sm"><Trash2 size={15}/>{removingId === member.userId ? 'جارٍ الإزالة…' : 'إزالة الصلاحية'}</button> : <span className="muted flex items-center gap-1.5 text-xs"><ShieldCheck size={15}/>مرتبط ببريد المكتب المعتمد</span>}
-      </div>)}</div>}
+  return <PortalLayout staff><PageHeading eyebrow="" title="فريق المكتب" subtitle="يدير الموظف الطلبات والاستفسارات والتسجيل. الأرشيف والفريق وسجل التدقيق للمالك فقط."/>
+    <div className="space-y-6">
+      <form onSubmit={submit} className="surface p-5 sm:p-6" aria-labelledby="add-staff-title">
+        <h2 id="add-staff-title" className="display mb-4 text-lg font-semibold">إضافة موظف</h2>
+        <label htmlFor="staff-email" className="form-field">البريد الإلكتروني
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input id="staff-email" type="email" dir="ltr" className="form-control" placeholder="name@example.com" value={email} onChange={event => setEmail(event.target.value)} maxLength={254} required/>
+            <button className="btn btn-primary shrink-0" type="submit" disabled={add.isPending || !email.trim()}><UserPlus size={17}/>{add.isPending ? 'جارٍ الإضافة…' : 'إضافة'}</button>
+          </div>
+          <small className="muted font-normal">يُشترط أن يملك الموظف حسابًا في البوابة بهذا البريد بعد تأكيده.</small>
+        </label>
+        {notice && <div role={notice.kind === 'error' ? 'alert' : 'status'} className={`mt-4 rounded-lg px-4 py-3 text-sm ${notice.kind === 'error' ? 'bg-danger-soft text-danger' : 'bg-ok-soft text-ok'}`}>{notice.text}</div>}
+      </form>
+      <section aria-labelledby="staff-list-title">
+        <h2 id="staff-list-title" className="display mb-3 text-lg font-semibold">الأعضاء{staff.data?.length ? <span className="nums mr-2 text-sm font-normal text-subtle">({new Intl.NumberFormat(LOCALE).format(staff.data.length)})</span> : null}</h2>
+        {staff.isLoading ? <LoadingBlock/> : staff.isError ? <ErrorBlock retry={() => staff.refetch()}/> : !staff.data?.length ? <EmptyBlock title="لا يوجد أعضاء بعد" text="يظهر حساب المالك هنا بعد أول دخول له."/> :
+          <ul className="surface m-0 list-none overflow-hidden p-0">{staff.data.map(member => <li key={member.userId} className="flex flex-col gap-3 border-b border-line px-5 py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="min-w-0 truncate font-bold" dir="ltr">{member.email ?? 'بريد المالك غير مؤكد'}</span><span className={`pill ${member.role === 'owner' ? 'bg-teal text-on-dark' : 'bg-info-soft text-info'}`}>{member.role === 'owner' ? 'المالك' : 'موظف'}</span></div><div className="mt-1 text-xs text-subtle">أُضيف في {dateText(member.createdAt)}</div></div>
+            {member.role === 'staff' ? <button type="button" onClick={() => revoke(member)} disabled={removingId === member.userId} className="btn btn-outline btn-sm !min-h-11 self-start sm:self-auto"><Trash2 size={15}/>{removingId === member.userId ? 'جارٍ الإزالة…' : 'إزالة الصلاحية'}</button> : <span className="flex items-center gap-1.5 text-xs text-subtle"><ShieldCheck size={15}/>مرتبط ببريد المكتب المعتمد</span>}
+          </li>)}</ul>}
+      </section>
+    </div>
   </PortalLayout>;
 }
 
@@ -103,12 +109,16 @@ function auditSummary(entry: AuditLogEntry): string {
 export function OfficeAuditLog() {
   const log = useListOfficeAuditLog({ query: { queryKey: getListOfficeAuditLogQueryKey(), refetchInterval: 60_000 } });
   const timeText = (value: string) => new Intl.DateTimeFormat(LOCALE, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-  return <PortalLayout staff><PageHeading eyebrow="إدارة المكتب" title="سجل التدقيق" subtitle="آخر 200 إجراء نفّذه فريق المكتب، الأحدث أولًا."/>
-    {log.isLoading ? <LoadingBlock/> : log.isError ? <ErrorBlock retry={() => log.refetch()}/> : !log.data?.length ? <EmptyBlock title="لا توجد إجراءات بعد" text="ستظهر هنا تحديثات الطلبات والردود ومراجعات التسجيل وتغييرات الفريق."/> :
-      <div className="surface overflow-hidden">{log.data.map(entry => <div key={entry.id} className="grid gap-1 border-b border-line px-5 py-4 last:border-0 sm:grid-cols-[150px_minmax(0,1fr)_auto] sm:items-center sm:gap-4 sm:px-6">
-        <span className="text-xs font-bold text-copper">{actionNames[entry.action]}</span>
-        <span className="min-w-0 text-sm">{auditSummary(entry)}<span className="muted block truncate text-xs" dir="ltr">{entry.actorEmail ?? entry.actorId}</span></span>
-        <span className="muted text-xs">{timeText(entry.createdAt)}</span>
-      </div>)}</div>}
+  return <PortalLayout staff><PageHeading eyebrow="" title="سجل التدقيق" subtitle="آخر 200 إجراء لفريق المكتب، الأحدث أولًا."/>
+    {log.isLoading ? <LoadingBlock/> : log.isError ? <ErrorBlock retry={() => log.refetch()}/> : !log.data?.length ? <EmptyBlock title="لا توجد إجراءات بعد" text="تظهر هنا تحديثات الطلبات والردود ومراجعات التسجيل وتغييرات الفريق."/> :
+      <div className="surface overflow-hidden">
+        <div className="hidden border-b border-line bg-sunk px-6 py-3 text-xs font-bold text-subtle lg:grid lg:grid-cols-[140px_minmax(0,1fr)_220px_170px] lg:gap-4" aria-hidden="true"><span>الإجراء</span><span>التفاصيل</span><span>المنفّذ</span><span>الوقت</span></div>
+        <ul className="m-0 list-none p-0">{log.data.map(entry => <li key={entry.id} className="grid gap-1.5 border-b border-line px-5 py-4 last:border-0 sm:px-6 lg:grid-cols-[140px_minmax(0,1fr)_220px_170px] lg:items-center lg:gap-4">
+          <span className="flex items-center justify-between gap-3 lg:block"><span className="inline-flex w-fit rounded-md bg-copper-soft px-2 py-0.5 text-xs font-bold text-copper">{actionNames[entry.action]}</span><span className="text-xs text-subtle lg:hidden">{timeText(entry.createdAt)}</span></span>
+          <span className="min-w-0 text-sm leading-7">{auditSummary(entry)}</span>
+          <span className="min-w-0 truncate text-xs text-quiet" dir="ltr" style={{ textAlign: 'right' }}>{entry.actorEmail ?? entry.actorId}</span>
+          <span className="hidden text-xs text-subtle lg:block">{timeText(entry.createdAt)}</span>
+        </li>)}</ul>
+      </div>}
   </PortalLayout>;
 }

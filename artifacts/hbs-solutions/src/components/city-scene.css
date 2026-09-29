@@ -10,6 +10,18 @@
 .cs--portal .cs-caption { bottom: 18px; padding: 8px 12px 10px; }
 .cs--portal .cs-caption strong { font-size: 16px; }
 @media (min-width: 1024px) { .cs--portal .cs-caption { left: 28px; } }
+/* Footer reveal: while a bottom window is on screen the scene stands full
+   height, skyline on the viewport's bottom edge. Snaps when the top band is
+   off screen (the change is hidden behind the paper sheet). */
+.cs--expanded { height: 100vh; height: 100lvh; }
+.cs[data-snap] { transition: none; }
+.cs-underlay { position: fixed; inset: 0; z-index: 0; background: var(--color-night); pointer-events: none; visibility: hidden; }
+.cs-underlay[data-on] { visibility: visible; }
+/* The footer carries its own caption, laid out clear of its links. */
+.cs--footer .cs-caption { opacity: 0; visibility: hidden; }
+/* A window onto the scene: transparent, decorative, fills its positioned parent. */
+.scene-window { position: absolute; inset: 0; pointer-events: none; visibility: hidden; }
+
 .cs-scene { position: absolute; inset: 0; opacity: 0; transition: opacity 1.8s var(--ease-in-out-soft); }
 .cs-scene[data-active="true"] { opacity: 1; }
 .cs-scene:not([data-active="true"]) * { animation-play-state: paused; }
@@ -69,3 +81,8 @@
 }
 @media (max-width: 1023px) { .cs--portal .cs-caption { display: none; } }
 @media (max-width: 720px) { .cs--full .cs-caption { display: none; } }
+
+/* The app-level top window, sized like the scene variant it looks onto. */
+.scene-window--top { inset: 0 0 auto 0; height: 100vh; height: 100svh; }
+.scene-window--band { height: var(--band-h); }
+.scene-window--portal { height: var(--portal-band-h); }

@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams, useSearch } from 'wouter';
-import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, CircleHelp, FileText, Hash, History, Info, MessageSquareText, Search, ShieldCheck, Shapes, UserRoundCheck } from 'lucide-react';
+import { ArrowLeft, BookUser, BriefcaseBusiness, Building2, CircleHelp, FileText, Hash, History, Info, KeyRound, MessageSquareText, Search, ShieldCheck, Shapes, UserRoundCheck } from 'lucide-react';
 import { PublicPage } from '@/components/site-chrome';
-import { StageRail } from '@/components/request-object';
 import { categories, categoryById, searchServices, serviceBySlug, services, type ServiceCategory } from '@/content/services';
 import { faqs, trustFacts } from '@/content/site';
 import './public.css';
@@ -11,15 +10,23 @@ const ICON = 1.75;
 const categoryIcons: Record<ServiceCategory, typeof BookUser> = { passports: BookUser, labor: BriefcaseBusiness, business: Building2, other: Shapes };
 const resultsLabel = (n: number) => (n === 0 ? 'لا توجد نتائج' : n === 1 ? 'خدمة واحدة' : n === 2 ? 'خدمتان' : n <= 10 ? `${n} خدمات` : `${n} خدمة`);
 
-function PageIntro({ kicker, title, text }: { kicker: string; title: string; text: string }) {
+function PageIntro({ kicker, title, text }: { kicker?: string; title: string; text?: string }) {
   return (
     <header className="pub-intro">
-      <p className="eyebrow">{kicker}</p>
+      {kicker && <p className="eyebrow">{kicker}</p>}
       <h1 className="display">{title}</h1>
-      <p>{text}</p>
+      {text && <p className="pub-intro-lead">{text}</p>}
     </header>
   );
 }
+
+// The four real portal statuses, with what each means for the customer.
+const statusSteps = [
+  { label: 'تم الاستلام', text: 'يصلك رقم مرجعي فور الإرسال.' },
+  { label: 'قيد المراجعة', text: 'يعمل المكتب على طلبك ويحدّث حالته.' },
+  { label: 'بانتظار العميل', text: 'يحتاج المكتب معلومة منك، ويظهر لك تنبيه.' },
+  { label: 'مكتملة', text: 'انتهى الطلب ويبقى في سجلك.' },
+];
 
 export function ServicesDirectory() {
   const search = useSearch();
@@ -40,13 +47,13 @@ export function ServicesDirectory() {
   }, [query, category, navigate]);
 
   return (
-    <PublicPage intro={<PageIntro kicker="دليل الخدمات" title="ما الخدمة التي تحتاجها؟" text="ابحث بالاسم أو اختر المجال. في صفحة كل خدمة تجد ما يفيد المكتب أن تكتبه في طلبك." />}>
+    <PublicPage intro={<PageIntro kicker="دليل الخدمات" title="ما الخدمة التي تحتاجها؟" text="ابحث بالاسم أو اختر المجال، وستجد في كل خدمة ما يفيد أن تكتبه في طلبك." />}>
       <div className="site-wrap pub-page">
         <div className="pub-toolbar">
           <label className="pub-search">
             <span className="sr-only">ابحث في الخدمات</span>
             <Search size={19} strokeWidth={ICON} aria-hidden="true" />
-            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="مثال: إقامة، سجل تجاري، تأمينات" autoComplete="off" />
+            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ابحث: إقامة، سجل تجاري، تأمينات" autoComplete="off" />
           </label>
           <div className="pub-chips" role="group" aria-label="تصفية حسب المجال">
             <button type="button" aria-pressed={category === null} onClick={() => setCategory(null)}>كل المجالات</button>
@@ -66,7 +73,7 @@ export function ServicesDirectory() {
                     <span className="pub-service-cat"><Icon size={16} strokeWidth={ICON} aria-hidden="true" />{categoryById[service.category].name}</span>
                     <strong>{service.name}</strong>
                     <span className="pub-service-summary">{service.summary}</span>
-                    <span className="pub-service-more">التفاصيل <ArrowLeft size={15} strokeWidth={ICON} aria-hidden="true" /></span>
+                    <ArrowLeft className="pub-service-arrow" size={18} strokeWidth={ICON} aria-hidden="true" />
                   </Link>
                 </li>
               );
@@ -76,7 +83,7 @@ export function ServicesDirectory() {
           <div className="surface pub-empty">
             <Search size={28} strokeWidth={1.5} aria-hidden="true" />
             <h2 className="display">لم نجد خدمة بهذا الاسم</h2>
-            <p>جرّب كلمة أخرى، أو اختر «خدمة غير مدرجة» وصف ما تحتاجه، وسيراجعه المكتب.</p>
+            <p>جرّب كلمة أخرى، أو اختر «خدمة غير مدرجة» وصِف ما تحتاجه.</p>
             <Link href="/services/other-service" className="btn btn-primary">خدمة غير مدرجة</Link>
           </div>
         )}
@@ -90,12 +97,12 @@ export function ServiceDetail() {
   const service = serviceBySlug[slug ?? ''];
   if (!service) {
     return (
-      <PublicPage intro={<PageIntro kicker="دليل الخدمات" title="الخدمة غير موجودة" text="قد يكون الرابط قديمًا." />}>
+      <PublicPage intro={<PageIntro kicker="دليل الخدمات" title="الخدمة غير موجودة" />}>
         <div className="site-wrap pub-page">
           <div className="surface pub-empty">
             <CircleHelp size={28} strokeWidth={1.5} aria-hidden="true" />
             <h2 className="display">لم نعثر على هذه الخدمة</h2>
-            <p>قد يكون الرابط قديمًا. تصفّح دليل الخدمات للعثور على ما تحتاجه.</p>
+            <p>قد يكون الرابط قديمًا. ابحث عن الخدمة في الدليل.</p>
             <Link href="/services" className="btn btn-primary">دليل الخدمات</Link>
           </div>
         </div>
@@ -103,7 +110,6 @@ export function ServiceDetail() {
     );
   }
   const category = categoryById[service.category];
-  const Icon = categoryIcons[service.category];
   const related = services.filter((s) => s.category === service.category && s.slug !== service.slug).slice(0, 3);
 
   const intro = (
@@ -115,7 +121,6 @@ export function ServiceDetail() {
           <span aria-hidden="true">/</span>
           <span aria-current="page">{service.name}</span>
         </nav>
-            <span className="pub-service-cat"><Icon size={16} strokeWidth={ICON} aria-hidden="true" />{category.name}</span>
             <h1 className="display pub-detail-title">{service.name}</h1>
             <p className="pub-detail-lead">{service.summary}</p>
     </div>
@@ -123,7 +128,7 @@ export function ServiceDetail() {
   return (
     <PublicPage intro={intro}>
       <div className="site-wrap pub-page">
-        <div className="pub-detail">
+        <div className="pub-split">
           <div className="pub-detail-main">
 
             <section className="surface pub-block" aria-labelledby="write-title">
@@ -131,27 +136,29 @@ export function ServiceDetail() {
               <ul className="pub-checklist">
                 {service.whatToWrite.map((item) => <li key={item}>{item}</li>)}
               </ul>
-              <p className="pub-note"><Info size={16} strokeWidth={ICON} aria-hidden="true" />هذه إرشادات لوصف حالتك، لا قائمة مستندات رسمية. يحدد المكتب ما يحتاجه بعد مراجعة طلبك، والبوابة لا تدعم رفع الملفات حاليًا.</p>
+              <p className="pub-note"><Info size={16} strokeWidth={ICON} aria-hidden="true" />إرشادات لوصف حالتك، وليست قائمة مستندات رسمية. لا يدعم النموذج رفع الملفات حاليًا.</p>
             </section>
 
             <section className="surface pub-block" aria-labelledby="flow-title">
-              <h2 id="flow-title" className="display"><History size={20} strokeWidth={ICON} aria-hidden="true" />كيف يسير طلبك</h2>
-              <div className="pub-rail"><StageRail stage={0} tone="light" /></div>
-              <ol className="pub-flow">
-                <li><strong>تم الاستلام:</strong> يصل الطلب برقم مرجعي فور إرساله.</li>
-                <li><strong>قيد المراجعة:</strong> يعمل المكتب على طلبك ويحدّث حالته.</li>
-                <li><strong>بانتظار العميل:</strong> يحتاج المكتب معلومة منك، وتظهر لك في أعلى حسابك.</li>
-                <li><strong>مكتملة:</strong> انتهى الطلب ويبقى في سجلك.</li>
+              <h2 id="flow-title" className="display"><History size={20} strokeWidth={ICON} aria-hidden="true" />مراحل الطلب</h2>
+              <ol className="pub-steps">
+                {statusSteps.map((step, index) => (
+                  <li key={step.label}>
+                    <span className="pub-step-num" aria-hidden="true">{index + 1}</span>
+                    <strong>{step.label}</strong>
+                    <span>{step.text}</span>
+                  </li>
+                ))}
               </ol>
             </section>
           </div>
 
-          <aside className="pub-detail-aside">
+          <aside className="pub-aside">
             <div className="pub-cta">
               <h2 className="display">ابدأ هذا الطلب</h2>
-              <p>تحتاج حسابًا معتمدًا من المكتب. إن كان لديك حساب، يفتح النموذج واسم الخدمة معبأ مسبقًا.</p>
+              <p>يُفتح النموذج واسم الخدمة معبّأ. يلزم حساب معتمد من المكتب.</p>
               <Link href={`/requests/new?service=${service.slug}`} className="btn btn-light">ابدأ الطلب <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
-              <Link href="/sign-up" className="pub-cta-link">لا أملك حسابًا: طلب التسجيل</Link>
+              <Link href="/sign-up" className="pub-cta-link">ليس لديك حساب؟ طلب التسجيل</Link>
             </div>
             {related.length > 0 && (
               <div className="pub-related">
@@ -163,7 +170,6 @@ export function ServiceDetail() {
             )}
           </aside>
         </div>
-        <Link href="/services" className="pub-back"><ArrowRight size={16} strokeWidth={ICON} aria-hidden="true" />العودة إلى دليل الخدمات</Link>
       </div>
     </PublicPage>
   );
@@ -171,21 +177,28 @@ export function ServiceDetail() {
 
 export function TrustPage() {
   const icons = [ShieldCheck, History, Hash];
+  const facts = [
+    ...trustFacts.map((fact, i) => ({ ...fact, Icon: icons[i] ?? ShieldCheck })),
+    { title: 'حسابات يراجعها المكتب', text: 'يُنشأ الحساب بالبريد الإلكتروني بعد تأكيده، ولا تُتاح الخدمات إلا بعد موافقة المكتب على طلب التسجيل.', Icon: UserRoundCheck },
+    { title: 'المساعد الآلي لا يرى طلباتك', text: 'يجيب عن أسئلة استخدام البوابة فقط. للسؤال عن طلبك، أرسل استفسارًا يطّلع عليه المكتب.', Icon: MessageSquareText },
+  ];
   return (
-    <PublicPage intro={<PageIntro kicker="الخصوصية والأمان" title="كيف نتعامل مع طلباتك" text="ما تجده هنا يصف ما تفعله البوابة فعلًا اليوم، لا وعودًا عامة." />}>
-      <div className="site-wrap pub-page pub-narrow">
-        <ul className="pub-facts">
-          {trustFacts.map((fact, i) => {
-            const Icon = icons[i] ?? ShieldCheck;
-            return <li key={fact.title} className="surface"><Icon size={22} strokeWidth={ICON} aria-hidden="true" /><div><h2 className="display">{fact.title}</h2><p>{fact.text}</p></div></li>;
-          })}
-          <li className="surface"><UserRoundCheck size={22} strokeWidth={ICON} aria-hidden="true" /><div><h2 className="display">حسابات يراجعها المكتب</h2><p>يُنشأ الحساب بالبريد الإلكتروني بعد التحقق منه، ثم يراجع المكتب طلب التسجيل قبل إتاحة الخدمات.</p></div></li>
-          <li className="surface"><MessageSquareText size={22} strokeWidth={ICON} aria-hidden="true" /><div><h2 className="display">المساعد الآلي لا يرى معاملاتك</h2><p>المساعد يجيب عن أسئلة عامة عن استخدام البوابة فقط. للسؤال عن طلبك أرسل استفسارًا يراه فريق المكتب.</p></div></li>
+    <PublicPage intro={<PageIntro kicker="الخصوصية والأمان" title="كيف نتعامل مع طلباتك" />}>
+      <div className="site-wrap pub-page pub-split">
+        <ul className="surface pub-facts">
+          {facts.map(({ title, text, Icon }) => (
+            <li key={title}>
+              <span className="pub-fact-icon"><Icon size={20} strokeWidth={ICON} aria-hidden="true" /></span>
+              <div><h2 className="display">{title}</h2><p>{text}</p></div>
+            </li>
+          ))}
         </ul>
-        <section className="surface pub-block">
-          <h2 className="display">ما الذي لا تطلبه البوابة منك</h2>
-          <p className="pub-muted">لا تشارك كلمات مرور المنصات الحكومية أو رموز التحقق في الطلبات أو الاستفسارات. إن احتاج المكتب معلومة، سيطلبها منك بوضوح في طلبك.</p>
-        </section>
+        <aside className="pub-aside">
+          <section className="pub-warn" aria-labelledby="warn-title">
+            <h2 id="warn-title" className="display"><KeyRound size={20} strokeWidth={ICON} aria-hidden="true" />لا تشارك كلمات المرور</h2>
+            <p>لا تكتب كلمات مرور المنصات الحكومية أو رموز التحقق في الطلبات أو الاستفسارات. إن احتاج المكتب معلومة، طلبها منك داخل طلبك.</p>
+          </section>
+        </aside>
       </div>
     </PublicPage>
   );
@@ -193,8 +206,8 @@ export function TrustPage() {
 
 export function HelpPage() {
   return (
-    <PublicPage intro={<PageIntro kicker="المساعدة" title="أسئلة وإجابات" text="إن لم تجد إجابتك هنا، أرسل استفسارًا من حسابك وسيرد المكتب في المكان نفسه." />}>
-      <div className="site-wrap pub-page pub-narrow">
+    <PublicPage intro={<PageIntro kicker="المساعدة" title="الأسئلة الشائعة" />}>
+      <div className="site-wrap pub-page pub-split">
         <div className="pub-faq">
           {faqs.map((faq, i) => (
             <details key={faq.question} className="pub-faq-item" open={i === 0}>
@@ -203,16 +216,16 @@ export function HelpPage() {
             </details>
           ))}
         </div>
-        <section className="pub-help-cta">
-          <div>
-            <h2 className="display">تحتاج التواصل مع المكتب؟</h2>
-            <p>التواصل يتم من داخل حسابك عبر صفحة الاستفسارات، ليبقى السؤال والرد مرتبطين بطلبك.</p>
-          </div>
-          <div className="pub-help-actions">
-            <Link href="/inquiries" className="btn btn-primary">استفساراتي</Link>
-            <Link href="/sign-up" className="btn btn-outline">طلب التسجيل</Link>
-          </div>
-        </section>
+        <aside className="pub-aside">
+          <section className="pub-help-cta" aria-labelledby="contact-title">
+            <h2 id="contact-title" className="display">لم تجد إجابتك؟</h2>
+            <p>أرسل استفسارًا من حسابك، ويصلك رد المكتب في المكان نفسه.</p>
+            <div className="pub-help-actions">
+              <Link href="/inquiries" className="btn btn-primary">استفساراتي</Link>
+              <Link href="/sign-up" className="btn btn-outline">طلب التسجيل</Link>
+            </div>
+          </section>
+        </aside>
       </div>
     </PublicPage>
   );

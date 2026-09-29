@@ -85,8 +85,8 @@ export function NewRequest() {
   return (
     <PortalLayout>
       <div className="nr">
-        <Link href="/requests" className="mb-7 inline-flex items-center gap-2 text-xs font-bold text-subtle"><ArrowRight size={16} />العودة إلى الطلبات</Link>
-        <PageHeading eyebrow="طلب خدمة" title="أخبرنا بما تحتاجه" subtitle="ثلاث خطوات قصيرة. بعد الإرسال يظهر الطلب في حسابك برقم مرجعي." />
+        <Link href="/requests" className="mb-4 inline-flex min-h-11 items-center gap-2 text-xs font-bold text-subtle no-underline hover:text-ink"><ArrowRight size={16} />طلباتي</Link>
+        <PageHeading eyebrow="" title="طلب خدمة جديد" />
 
         <ol className="nr-steps" aria-label="خطوات الطلب">
           {steps.map((label, index) => (
@@ -116,11 +116,15 @@ export function NewRequest() {
                     );
                   })}
                 </div>
-                <label className="form-field mt-7" htmlFor="field-service">اسم الخدمة المطلوبة
-                  <input id="field-service" className="form-control" list="service-suggestions" placeholder="اختر من القائمة أو اكتب اسم الخدمة" value={service} onChange={(e) => setService(e.target.value)} maxLength={LIMITS.service[1]} aria-invalid={!!errors.service} aria-describedby={errors.service ? 'err-service' : 'hint-service'} />
+                <label className="form-field mt-7" htmlFor="field-service">اسم الخدمة
+                  <input id="field-service" className="form-control" list="service-suggestions" placeholder="اكتب اسم الخدمة أو اختر من المقترحات" value={service} onChange={(e) => setService(e.target.value)} maxLength={LIMITS.service[1]} aria-invalid={!!errors.service} aria-describedby={errors.service ? 'err-service' : 'hint-service'} />
                   <datalist id="service-suggestions">{suggestions.map((s) => <option key={s.slug} value={s.name} />)}</datalist>
-                  {errors.service ? <span id="err-service" className="field-error" role="alert">{errors.service}</span> : <small id="hint-service" className="muted font-normal">اقتراحات {categoryById[category].name}: {suggestions.map((s) => s.name).join('، ')}.</small>}
+                  {errors.service && <span id="err-service" className="field-error" role="alert">{errors.service}</span>}
                 </label>
+                {suggestions.length > 0 && <div className="nr-suggest" role="group" aria-label={`خدمات ${categoryById[category].name} المقترحة`}>
+                  {suggestions.map((s) => <button key={s.slug} type="button" aria-pressed={service.trim() === s.name} onClick={() => { setService(s.name); setErrors({}); }}>{s.name}</button>)}
+                </div>}
+                {!errors.service && <p id="hint-service" className="muted mt-3 text-xs leading-6">لم تجد خدمتك؟ اكتبها بالاسم الذي تعرفه، أو تصفّح <Link href="/services" className="font-bold text-teal-bright underline">دليل الخدمات</Link>.</p>}
               </div>
             )}
 
@@ -129,13 +133,13 @@ export function NewRequest() {
                 <h2 tabIndex={-1} className="display nr-title">تفاصيل الطلب</h2>
                 {guidance && (
                   <div className="nr-guide">
-                    <strong>يفيد المكتب أن تذكر:</strong>
+                    <strong>اذكر في طلبك:</strong>
                     <ul>{guidance.map((g) => <li key={g}>{g}</li>)}</ul>
                   </div>
                 )}
                 <label className="form-field" htmlFor="field-description">ما الذي تحتاجه من المكتب؟
-                  <textarea id="field-description" className="form-control" placeholder="اكتب ما تريد من المكتب معرفته عن معاملتك…" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={LIMITS.description[1]} aria-invalid={!!errors.description} aria-describedby={errors.description ? 'err-description' : 'hint-description'} />
-                  {errors.description ? <span id="err-description" className="field-error" role="alert">{errors.description}</span> : <small id="hint-description" className="muted font-normal">لا تشارك كلمات مرور المنصات أو رموز التحقق. <span className="nums">{description.trim().length}/{LIMITS.description[1]}</span></small>}
+                  <textarea id="field-description" className="form-control" placeholder="صف المعاملة وما تحتاجه من المكتب" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={LIMITS.description[1]} aria-invalid={!!errors.description} aria-describedby={errors.description ? 'err-description' : 'hint-description'} />
+                  {errors.description ? <span id="err-description" className="field-error" role="alert">{errors.description}</span> : <small id="hint-description" className="muted flex justify-between gap-3 font-normal"><span>لا تشارك كلمات مرور المنصات أو رموز التحقق.</span><span className="nums shrink-0" dir="ltr">{description.trim().length}/{LIMITS.description[1]}</span></small>}
                 </label>
                 <label className="form-field mt-6" htmlFor="field-contactPhone">رقم للتواصل
                   <input id="field-contactPhone" dir="ltr" className="form-control text-right" type="tel" inputMode="tel" autoComplete="tel" placeholder="05XXXXXXXX" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} maxLength={LIMITS.phone[1]} aria-invalid={!!errors.contactPhone} aria-describedby={errors.contactPhone ? 'err-contactPhone' : undefined} />
@@ -146,14 +150,14 @@ export function NewRequest() {
 
             {step === 2 && (
               <div>
-                <h2 tabIndex={-1} className="display nr-title">راجع طلبك قبل الإرسال</h2>
+                <h2 tabIndex={-1} className="display nr-title">مراجعة الطلب</h2>
                 <dl className="nr-review">
                   <div><dt>المجال</dt><dd>{categoryById[category].name}</dd><button type="button" onClick={() => go(0)} aria-label="تعديل المجال"><Pencil size={15} /></button></div>
                   <div><dt>الخدمة</dt><dd>{service.trim()}</dd><button type="button" onClick={() => go(0)} aria-label="تعديل اسم الخدمة"><Pencil size={15} /></button></div>
                   <div className="nr-review-wide"><dt>التفاصيل</dt><dd className="whitespace-pre-wrap">{description.trim()}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل التفاصيل"><Pencil size={15} /></button></div>
                   <div><dt>رقم التواصل</dt><dd dir="ltr" className="text-right">{contactPhone.trim()}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل رقم التواصل"><Pencil size={15} /></button></div>
                 </dl>
-                <p className="muted mt-5 text-sm leading-7">بعد الإرسال يحصل الطلب على رقم مرجعي وحالة «تم الاستلام»، ويصل إلى المكتب فورًا. إرفاق المستندات غير متاح حاليًا؛ سيطلب المكتب ما يحتاجه.</p>
+                <p className="muted mt-5 text-sm leading-7">إرفاق المستندات غير متاح؛ سيطلب المكتب ما يلزم بعد مراجعة الطلب.</p>
                 {mutation.isError && <div role="alert" className="mt-5 rounded-lg bg-danger-soft p-4 text-sm text-danger">تعذّر إرسال الطلب. تحقق من اتصالك وحاول مرة أخرى؛ لن يُرسل الطلب مرتين.</div>}
               </div>
             )}
@@ -166,7 +170,6 @@ export function NewRequest() {
             </button>
           </div>
         </form>
-        <p className="muted mt-5 text-xs">لم تجد خدمتك؟ اكتب اسمها كما تعرفها، أو تصفّح <Link href="/services" className="font-bold text-teal-bright underline">دليل الخدمات</Link>.</p>
       </div>
     </PortalLayout>
   );

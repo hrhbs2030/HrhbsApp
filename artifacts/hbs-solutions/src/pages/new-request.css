@@ -24,11 +24,11 @@
 .nr-guide { margin-bottom: 20px; padding: 14px 18px; border-radius: 12px; background: var(--color-sunk); font-size: 14px; line-height: 1.8; }
 .nr-guide ul { margin: 6px 0 0; padding-inline-start: 20px; color: var(--color-quiet); }
 .nr-review { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
-.nr-review > div { position: relative; padding: 14px 16px; padding-inline-end: 48px; border-radius: 12px; background: var(--color-sunk); min-width: 0; }
+.nr-review > div { position: relative; padding: 14px 16px; padding-inline-end: 52px; border-radius: 12px; background: var(--color-sunk); min-width: 0; }
 .nr-review-wide { grid-column: 1 / -1; }
 .nr-review dt { font-size: 12.5px; font-weight: 700; color: var(--color-subtle); }
 .nr-review dd { margin: 4px 0 0; font-weight: 600; line-height: 1.8; overflow-wrap: anywhere; }
-.nr-review button { position: absolute; inset-inline-end: 8px; top: 8px; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 10px; background: transparent; color: var(--color-teal-bright); }
+.nr-review button { position: absolute; inset-inline-end: 4px; top: 4px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: var(--color-teal-bright); }
 .nr-review button:hover { background: var(--color-sage); }
 .nr-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--color-line); }
 .nr-spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgb(246 239 227 / .35); border-top-color: var(--color-on-dark); animation: nr-spin .8s linear infinite; }
@@ -38,3 +38,9 @@
   .nr-steps li { font-size: 12.5px; gap: 6px; }
   .nr-actions .btn { flex: 1; }
 }
+.nr-suggest { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.nr-suggest button { min-height: 36px; padding: 6px 14px; border-radius: 100px; border: 1px solid var(--color-line-strong); background: var(--color-surface); color: var(--color-quiet); font-size: 13px; font-weight: 600; transition: background-color var(--duration-hover) ease, border-color var(--duration-hover) ease; }
+.nr-suggest button:hover { background: var(--color-sage); }
+.nr-suggest button[aria-pressed="true"] { border-color: var(--color-teal); background: var(--color-teal); color: var(--color-on-dark); }
+.nr-suggest button:focus-visible { outline: 3px solid var(--color-copper); outline-offset: 2px; }
+@media (max-width: 560px) { .nr-suggest button { min-height: 44px; } }

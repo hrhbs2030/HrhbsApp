@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useReducedMotion } from '@/lib/motion';
+import { setSceneCity, useSceneWindows } from './scene-window';
 import { RiyadhScene } from './city-scenes/riyadh';
 // Riyadh paints first; the other two cities load right after, off the critical path.
 const JeddahScene = lazy(() => import('./city-scenes/jeddah').then((m) => ({ default: m.JeddahScene })));
@@ -14,7 +15,10 @@ import './city-scene.css';
 //   a restart while the visitor moves between pages; a route change moves on
 //   to the next city with the same crossfade.
 // - No video file or WebGL: nothing to download or fail. ~transform/opacity only.
-// - Paused when the tab is hidden or the scene is scrolled out of view.
+// - Seen through "windows" (scene-window.tsx): the page's top band and its
+//   footer. It plays only while a window is on screen and the tab is shown,
+//   and grows to full height while a footer window is visible, so the skyline
+//   stands on the viewport's bottom edge behind the footer.
 // - Reduced motion: one still frame, no drift, no cycling.
 
 export type CityKey = 'riyadh' | 'jeddah' | 'jazan';
@@ -33,11 +37,18 @@ export type SceneVariant = 'full' | 'band' | 'portal';
 export function CityScene({ routeKey, variant = 'full', showCaption = true }: { routeKey: string; variant?: SceneVariant; showCaption?: boolean }) {
   const reduced = useReducedMotion();
   // Review aid: ?city=jeddah pins one city (no cycling), for design QA.
-  const pinned = typeof window !== 'undefined' ? cityOrder.indexOf(new URLSearchParams(window.location.search).get('city') as CityKey) : -1;
+  // Read once: pages may rewrite the query string later (filters, search).
+  const [pinned] = useState(() => typeof window !== 'undefined' ? cityOrder.indexOf(new URLSearchParams(window.location.search).get('city') as CityKey) : -1);
   const [index, setIndex] = useState(pinned >= 0 ? pinned : 0);
-  const [paused, setPaused] = useState(false);
   const firstRoute = useRef(true);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const windows = useSceneWindows();
+  // Nothing registered yet (first paint): keep playing rather than flash a pause.
+  const paused = windows.hidden || (windows.registered && !windows.any);
+  // Grow for the footer. When the top band is off screen the change happens
+  // behind the paper sheet, so it snaps (no per-frame SVG re-layout); when
+  // both windows are visible (a short page) it animates.
+  const expanded = windows.bottom && variant !== 'full';
+  const snap = !windows.top;
 
   // Advance like a video loop.
   useEffect(() => {
@@ -52,18 +63,15 @@ export function CityScene({ routeKey, variant = 'full', showCaption = true }: { 
     if (!reduced && pinned < 0) setIndex((i) => (i + 1) % cityOrder.length);
   }, [routeKey, reduced, pinned]);
 
-  // Pause when the tab is hidden or the scene is scrolled away.
-  useEffect(() => {
-    const update = () => setPaused(document.hidden || window.scrollY > (rootRef.current?.offsetHeight ?? window.innerHeight) + 40);
-    update();
-    document.addEventListener('visibilitychange', update);
-    window.addEventListener('scroll', update, { passive: true });
-    return () => { document.removeEventListener('visibilitychange', update); window.removeEventListener('scroll', update); };
-  }, []);
+  useEffect(() => setSceneCity(index), [index]);
 
   const active = cityOrder[index];
   return (
-    <div ref={rootRef} className={`cs cs--${variant} ${paused || reduced ? 'cs--paused' : ''}`} aria-hidden="true">
+    <>
+    {/* Night fill under the scene while a footer is on screen, so the gap never
+        shows the paper page while the scene grows or shrinks. */}
+    <div className="cs-underlay" data-on={windows.bottom || undefined} aria-hidden="true" />
+    <div className={`cs cs--${variant}${expanded ? ' cs--expanded' : ''}${windows.bottom ? ' cs--footer' : ''}${paused || reduced ? ' cs--paused' : ''}`} data-snap={snap || undefined} aria-hidden="true">
       {cityOrder.map((key) => (
         <div key={key} className="cs-scene" data-active={key === active} data-city={key}>
           <Suspense fallback={null}>{scenes[key]()}</Suspense>
@@ -79,5 +87,6 @@ export function CityScene({ routeKey, variant = 'full', showCaption = true }: { 
         </div>
       )}
     </div>
+    </>
   );
 }
