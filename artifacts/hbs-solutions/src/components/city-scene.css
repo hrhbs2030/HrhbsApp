@@ -10,22 +10,30 @@
 .cs--portal .cs-caption { bottom: 18px; padding: 8px 12px 10px; }
 .cs--portal .cs-caption strong { font-size: 16px; }
 @media (min-width: 1024px) { .cs--portal .cs-caption { left: 28px; } }
-/* Footer reveal: while a bottom window is on screen the scene stands full
-   height, skyline on the viewport's bottom edge. Snaps when the top band is
-   off screen (the change is hidden behind the paper sheet). */
+/* A footer window expands the fixed scene behind the paper sheet so its
+   skyline stays on the viewport's lower edge. When the top window is gone,
+   the size change is hidden behind the sheet and can snap without reflowing
+   the SVG on every frame. */
 .cs--expanded { height: 100vh; height: 100lvh; }
 .cs[data-snap] { transition: none; }
 .cs-underlay { position: fixed; inset: 0; z-index: 0; background: var(--color-night); pointer-events: none; visibility: hidden; }
 .cs-underlay[data-on] { visibility: visible; }
-/* The footer carries its own caption, laid out clear of its links. */
 .cs--footer .cs-caption { opacity: 0; visibility: hidden; }
-/* A window onto the scene: transparent, decorative, fills its positioned parent. */
+/* A transparent, non-interactive window onto the app-level scene. */
 .scene-window { position: absolute; inset: 0; pointer-events: none; visibility: hidden; }
-
 .cs-scene { position: absolute; inset: 0; opacity: 0; transition: opacity 1.8s var(--ease-in-out-soft); }
 .cs-scene[data-active="true"] { opacity: 1; }
+.cs-static-fallback { position: absolute; inset: 0; background: linear-gradient(160deg, #123239 0%, #254849 52%, #ad755e 100%); }
+.cs-retry { position: fixed; z-index: 20; left: 16px; bottom: 16px; max-width: calc(100vw - 32px); padding: 9px 14px; border: 1px solid rgb(255 255 255 / .35); border-radius: 12px; background: #123239; color: #fff; font: inherit; font-size: 13px; cursor: pointer; box-shadow: 0 4px 16px rgb(0 0 0 / .25); }
+.cs-retry:hover, .cs-retry:focus-visible { border-color: var(--color-copper-light); }
+.cs-retry:focus-visible { outline: 2px solid var(--color-copper-light); outline-offset: 2px; }
 .cs-scene:not([data-active="true"]) * { animation-play-state: paused; }
 .cs--paused * { animation-play-state: paused !important; }
+/* A paused entrance animation can otherwise leave the caption invisible. */
+@media (prefers-reduced-motion: reduce) {
+  .cs, .cs-scene { transition: none; }
+  .cs *, .cs-scene[data-active="true"] { animation: none !important; }
+}
 
 /* Camera drift with parallax: deeper layers move less. */
 .cs-layer { position: absolute; top: 0; left: -7%; width: 114%; height: 100%; will-change: transform; animation: 26s var(--ease-in-out-soft) infinite alternate; }
@@ -52,7 +60,7 @@
 .cs-shimmer--slow { animation-duration: 6s; }
 @keyframes cs-shimmer { from { transform: translateX(-14px); opacity: .55; } to { transform: translateX(14px); opacity: 1; } }
 
-/* Film grain and lens vignette: the two cheap cues that stop flat vector art reading as clip-art. */
+/* Film grain and vignette add depth to the scene. */
 .cs-grain { position: absolute; inset: -50%; opacity: .09; mix-blend-mode: overlay; pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
   animation: cs-grain 1.2s steps(6) infinite; }
@@ -82,7 +90,6 @@
 @media (max-width: 1023px) { .cs--portal .cs-caption { display: none; } }
 @media (max-width: 720px) { .cs--full .cs-caption { display: none; } }
 
-/* The app-level top window, sized like the scene variant it looks onto. */
 .scene-window--top { inset: 0 0 auto 0; height: 100vh; height: 100svh; }
 .scene-window--band { height: var(--band-h); }
 .scene-window--portal { height: var(--portal-band-h); }

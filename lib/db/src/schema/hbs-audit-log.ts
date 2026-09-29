@@ -1,7 +1,6 @@
 import { index, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 
-// Append-only record of office actions. Written in the same transaction as
-// the change it describes.
+// Append-only audit of office staff access changes.
 export const hbsAuditLog = pgTable("hbs_audit_log", {
   id: serial("id").primaryKey(),
   actorId: text("actor_id").notNull(),

@@ -26,15 +26,8 @@
 }
 @keyframes tl-grow-x { from { transform: scaleX(0); } }
 
-/* Portal shell over the city backdrop: a dark glass top bar, a see-through
-   band that shows the scene, the paper working sheet, then a short window
-   onto the city with a slim footer line. */
-.portal-topbar { background: rgb(8 26 28 / .35); backdrop-filter: blur(10px) saturate(1.2); border-bottom: 1px solid rgb(255 255 255 / .08); transition: background-color var(--duration-hover) ease; }
-/* Once the sheet scrolls under it, the bar darkens so it reads as a bar, not a grey film. */
-@supports (animation-timeline: scroll()) {
-  .portal-topbar { animation: portal-topbar linear both; animation-timeline: scroll(root); animation-range: 0 160px; }
-  @keyframes portal-topbar { to { background-color: rgb(8 26 28 / .86); } }
-}
+/* Keep portal content readable while the shared city backdrop remains visible above it. */
+.portal-topbar { background: rgb(8 26 28 / .96); backdrop-filter: blur(10px) saturate(1.2); border-bottom: 1px solid rgb(255 255 255 / .08); transition: background-color var(--duration-hover) ease; }
 .portal-crumb { display: flex; align-items: baseline; gap: 8px; min-width: 0; margin: 0; font-size: 13px; color: var(--color-on-dark-2); white-space: nowrap; }
 .portal-crumb strong { overflow: hidden; text-overflow: ellipsis; color: var(--color-on-dark); font-weight: 700; }
 .portal-crumb-sep { opacity: .5; }

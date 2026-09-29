@@ -8,6 +8,7 @@
 import type { OfficeCustomer } from './officeCustomer';
 import type { OfficeServiceRequestCategory } from './officeServiceRequestCategory';
 import type { OfficeServiceRequestStatus } from './officeServiceRequestStatus';
+import type { ServiceAttachment } from './serviceAttachment';
 
 export interface OfficeServiceRequest {
   id: number;
@@ -19,7 +20,10 @@ export interface OfficeServiceRequest {
   status: OfficeServiceRequestStatus;
   /** @nullable */
   officeNote?: string | null;
-  customer: OfficeCustomer | null;
+  /** @nullable */
+  customerMessage: string | null;
   createdAt: Date;
   updatedAt: Date;
+  attachments: ServiceAttachment[];
+  customer: OfficeCustomer | null;
 }

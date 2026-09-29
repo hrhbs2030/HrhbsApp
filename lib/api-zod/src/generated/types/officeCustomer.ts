@@ -6,9 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-/**
- * The customer's registration details, when they registered through the portal.
- */
 export interface OfficeCustomer {
   fullName: string;
   email: string;

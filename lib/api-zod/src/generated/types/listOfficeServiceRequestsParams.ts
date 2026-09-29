@@ -10,15 +10,28 @@ import type { ListOfficeServiceRequestsSort } from './listOfficeServiceRequestsS
 import type { ListOfficeServiceRequestsStatus } from './listOfficeServiceRequestsStatus';
 
 export type ListOfficeServiceRequestsParams = {
-status?: ListOfficeServiceRequestsStatus;
-category?: ListOfficeServiceRequestsCategory;
 /**
+ * 1-based page; defaults to 1
+ * @minimum 1
+ * @maximum 1000000
+ */
+page?: number;
+/**
+ * Defaults to 20; capped at 100
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+/**
+ * Case-insensitive literal substring of reference, service, description or contact phone
+ * @minLength 1
  * @maxLength 120
  */
 q?: string;
-sort?: ListOfficeServiceRequestsSort;
+status?: ListOfficeServiceRequestsStatus;
+category?: ListOfficeServiceRequestsCategory;
 /**
- * @minimum 1
+ * Newest created first or oldest updated first; ID breaks ties
  */
-page?: number;
+sort?: ListOfficeServiceRequestsSort;
 };

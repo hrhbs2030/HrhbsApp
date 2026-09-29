@@ -1,8 +1,8 @@
-import { lazy, Suspense, useEffect, useRef, type ReactNode } from 'react';
+import { createContext, lazy, Suspense, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ClerkProvider, SignIn, SignUp, useAuth, useClerk } from '@clerk/react';
 import { arSA } from '@clerk/localizations';
 import { publishableKeyFromHost } from '@clerk/react/internal';
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
 import { useGetPortalMe, getGetPortalMeQueryKey } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -46,7 +46,26 @@ const clerkPubKey = publishableKeyFromHost(
 );
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
-const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: 1, refetchOnWindowFocus: true } } });
+const officeDeniedEvent = 'hbs:office-access-denied';
+const authChangedEvent = 'hbs:auth-changed';
+function isOfficeDenied(error: unknown): boolean {
+  const response = error as { status?: number; url?: string } | null;
+  if (response?.status !== 403 || typeof response.url !== 'string') return false;
+  try {
+    return new URL(response.url, window.location.origin).pathname.startsWith('/api/office/');
+  } catch {
+    return false;
+  }
+}
+function onOfficeError(error: unknown) {
+  if (isOfficeDenied(error)) window.dispatchEvent(new Event(officeDeniedEvent));
+}
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({ onError: onOfficeError }),
+  mutationCache: new MutationCache({ onError: onOfficeError }),
+  defaultOptions: { queries: { staleTime: 15_000, retry: (count, error) => !isOfficeDenied(error) && count < 1, refetchOnWindowFocus: true } },
+});
+const OfficeAccessContext = createContext<{ denied: boolean; restore: () => void }>({ denied: false, restore: () => {} });
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath) ? path.slice(basePath.length) || '/' : path;
 }
@@ -83,18 +102,53 @@ function CacheResetOnAuthChange() {
   useEffect(() => {
     const unsubscribe = addListener(({user}) => {
       const id = user?.id ?? null;
-      if (previous.current !== undefined && previous.current !== id) qc.clear();
+      if (previous.current !== undefined && previous.current !== id) {
+        qc.clear();
+        window.dispatchEvent(new Event(authChangedEvent));
+      }
       previous.current = id;
     });
     return () => { if (typeof unsubscribe === 'function') unsubscribe(); };
   }, [addListener,qc]);
   return null;
 }
+function OfficeAccessProvider({ children }: { children: ReactNode }) {
+  const qc = useQueryClient();
+  const [denied, setDenied] = useState(false);
+  const lastRole = useRef<string | null>(null);
+  const lock = () => {
+    setDenied(true);
+    // clear() also detaches in-flight queries, preventing a late response from
+    // putting another customer's details back on screen after access is revoked.
+    qc.clear();
+  };
+  useEffect(() => {
+    const onDenied = () => lock();
+    const onAuthChanged = () => { lastRole.current = null; setDenied(false); };
+    window.addEventListener(officeDeniedEvent, onDenied);
+    window.addEventListener(authChangedEvent, onAuthChanged);
+    const unsubscribe = qc.getQueryCache().subscribe(event => {
+      if (event.type !== 'updated' || event.query.queryHash !== JSON.stringify(getGetPortalMeQueryKey()) || event.action.type !== 'success') return;
+      const role = (event.query.state.data as { role?: string } | undefined)?.role ?? null;
+      if (lastRole.current === 'staff' && role !== 'staff') lock();
+      lastRole.current = role;
+    });
+    return () => { window.removeEventListener(officeDeniedEvent, onDenied); window.removeEventListener(authChangedEvent, onAuthChanged); unsubscribe(); };
+  }, [qc]);
+  const restore = () => { setDenied(false); lastRole.current = null; };
+  return <OfficeAccessContext.Provider value={{ denied, restore }}>{children}</OfficeAccessContext.Provider>;
+}
 function RoleGate({ children, staff = false, owner = false, registration = false }: { children: ReactNode; staff?: boolean; owner?: boolean; registration?: boolean }) {
   const { isLoaded, isSignedIn } = useAuth();
+  const { denied, restore } = useContext(OfficeAccessContext);
   const me = useGetPortalMe({ query: { enabled: !!isLoaded && !!isSignedIn, queryKey: getGetPortalMeQueryKey(), refetchInterval: 20_000 } });
   if (!isLoaded) return <div dir="rtl" className="mx-auto max-w-2xl p-10"><LoadingBlock/></div>;
   if (!isSignedIn) return <Redirect to="/sign-in"/>;
+  if (staff && (denied || (me.data && me.data.role !== 'staff'))) return <div dir="rtl" role="alert" className="mx-auto max-w-2xl p-10">
+    <div className="surface p-8 text-center"><h1 className="display text-2xl">لم تعد لديك صلاحية الوصول إلى المكتب</h1>
+      <p className="muted my-4 text-sm">أُخفيت بيانات المكتب من هذا التبويب. إذا أُعيدت صلاحيتك، تحقق منها مجددًا.</p>
+      <button className="btn btn-outline" onClick={async () => { try { const result = await me.refetch(); if (result.data?.role === 'staff') restore(); } catch { /* keep the office locked */ } }}>التحقق من الصلاحية</button>
+    </div></div>;
   if (me.isLoading) return <div dir="rtl" className="mx-auto max-w-2xl p-10"><LoadingBlock/></div>;
   if (me.isError) return <div dir="rtl" className="mx-auto max-w-2xl p-10"><ErrorBlock retry={()=>me.refetch()}/></div>;
   if (staff && me.data?.role !== 'staff') return <Redirect to="/dashboard"/>;
@@ -115,14 +169,14 @@ function AuthPage({kind}:{kind:'sign-in'|'sign-up'}) {
   return <div dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center gap-7 px-4 py-10"><SceneWindow edge="top"/><a href={basePath || '/'} className="display rounded-full bg-night/60 px-5 py-2 text-xl font-semibold text-on-dark no-underline backdrop-blur">HBS / حلول الغد</a>{kind==='sign-up' && <p className="max-w-sm rounded-2xl bg-night/70 px-5 py-3 text-center text-sm leading-7 text-on-dark-2 backdrop-blur">أنشئ حسابًا بالبريد الإلكتروني وتحقق منه، ثم قدّم طلب تسجيل يراجعه المكتب قبل إتاحة خدمات البوابة.</p>}<div dir="rtl" className="w-full max-w-[440px]">{kind==='sign-in' ? <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /> : <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />}</div><p className="rounded-full bg-night/70 px-4 py-2 text-center text-xs text-on-dark-2 backdrop-blur">تتوفر خدمات العملاء بعد موافقة المكتب على طلب التسجيل.</p></div>;
 }
 function Missing() { return <main dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center p-6 text-center text-on-dark"><SceneWindow edge="top"/><div className="relative rounded-[22px] bg-night/70 px-8 py-10 backdrop-blur"><div className="display text-7xl font-semibold text-copper-light">404</div><h1 className="display mt-5 text-2xl">الصفحة غير موجودة</h1><p className="mt-3 text-sm text-on-dark-2">قد يكون الرابط غير صحيح أو تغيّر مكان الصفحة.</p><a href={basePath || '/'} className="btn btn-light mt-7">العودة للرئيسية</a></div></main>; }
-const routeTitles: Record<string,string> = {'/':'الرئيسية','/services':'دليل الخدمات','/trust':'الخصوصية والأمان','/help':'المساعدة','/privacy':'سياسة الخصوصية','/terms':'شروط الاستخدام','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم','/office/staff':'فريق المكتب','/office/audit':'سجل التدقيق'};
 const isPublicPath = (location: string) => location === '/' || location === '/services' || location.startsWith('/services/') || location === '/trust' || location === '/help' || location === '/privacy' || location === '/terms';
 const isPortalPath = (location: string) => ['/registration', '/dashboard', '/requests', '/inquiries', '/office'].some((p) => location === p || location.startsWith(p + '/'));
+const routeTitles: Record<string,string> = {'/':'الرئيسية','/services':'دليل الخدمات','/trust':'الخصوصية والأمان','/help':'المساعدة','/privacy':'سياسة الخصوصية','/terms':'شروط الاستخدام','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم','/office/staff':'فريق المكتب','/office/audit':'سجل التدقيق'};
 function Routes() {
   const [location]=useLocation();
   const { isSignedIn } = useAuth();
-  // One city backdrop for the whole app, outside <Switch>: it keeps playing,
-  // without restarting, as the visitor moves between any pages.
+  // One backdrop across public, auth and portal routes; changing the variant
+  // preserves the active scene without restarting it on navigation.
   const sceneVariant = location === '/' && !isSignedIn ? 'full'
     : location.startsWith('/sign-in') || location.startsWith('/sign-up') ? 'full'
     : isPublicPath(location) ? 'band' : isPortalPath(location) ? 'portal' : 'full';
@@ -131,16 +185,29 @@ function Routes() {
     document.title=`${title} | HBS حلول الغد`;
     const isPublic = isPublicPath(location);
     document.querySelector('meta[name="robots"]')?.setAttribute('content', isPublic ? 'index, follow' : 'noindex, nofollow');
-    document.querySelector('meta[name="description"]')?.setAttribute('content', location === '/'
+    const description = location === '/'
       ? 'HBS حلول الغد: أرسل طلب خدمة أو استفسارًا وتابع حالته من حسابك عبر بوابة العملاء.'
       : location.startsWith('/services') ? 'دليل خدمات حلول الغد: الجوازات والعمل والأعمال وخدمات أخرى، وما يفيد أن تكتبه في طلبك.'
-      : `${title} في بوابة HBS حلول الغد.`);
+      : location === '/privacy' ? 'تعرّف على بيانات بوابة HBS حلول الغد، بما فيها مرفقات الطلبات، وكيفية حفظها ومشاركتها وحقوقك.'
+      : location === '/terms' ? 'شروط استخدام موقع HBS حلول الغد وبوابة العملاء، والطلبات والمرفقات والمساعدة الآلية.'
+      : location === '/help' ? 'إجابات عن استخدام بوابة HBS حلول الغد، مع وسائل التواصل مع المكتب.'
+      : location === '/trust' ? 'اطّلع على ضوابط الخصوصية والأمان في بوابة HBS حلول الغد.'
+      : `${title} في بوابة HBS حلول الغد.`;
+    document.querySelector('meta[name="description"]')?.setAttribute('content', description);
+    document.querySelector('meta[property="og:title"]')?.setAttribute('content', `${title} | HBS حلول الغد`);
+    document.querySelector('meta[property="og:description"]')?.setAttribute('content', description);
+    document.querySelector('meta[name="twitter:title"]')?.setAttribute('content', `${title} | HBS حلول الغد`);
+    document.querySelector('meta[name="twitter:description"]')?.setAttribute('content', description);
     // Canonical URL without query strings, for public pages only.
     let canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
     if (isPublic) {
       if (!canonical) { canonical = document.createElement('link'); canonical.rel = 'canonical'; document.head.appendChild(canonical); }
       canonical.href = `${window.location.origin}${basePath}${location === '/' ? '/' : location}`;
-    } else canonical?.remove();
+      document.querySelector('meta[property="og:url"]')?.setAttribute('content', canonical.href);
+    } else {
+      canonical?.remove();
+      document.querySelector('meta[property="og:url"]')?.removeAttribute('content');
+    }
   },[location]);
   // The top window: the first screen (full), the dark band (public pages) or
   // the strip above the working sheet (portal). Footers add bottom windows.
@@ -176,7 +243,7 @@ function ClerkWithRoutes() {
     signInUrl={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`}
     localization={{...arSA, formFieldLabel__emailAddress: 'البريد الإلكتروني', formFieldInputPlaceholder__emailAddress: 'أدخل بريدك الإلكتروني'}}
     routerPush={to=>setLocation(stripBase(to))} routerReplace={to=>setLocation(stripBase(to),{replace:true})}>
-    <QueryClientProvider client={queryClient}><CacheResetOnAuthChange/><Routes/></QueryClientProvider>
+    <QueryClientProvider client={queryClient}><OfficeAccessProvider><CacheResetOnAuthChange/><Routes/></OfficeAccessProvider></QueryClientProvider>
   </ClerkProvider>;
 }
 function App() { return <WouterRouter base={basePath}><ClerkWithRoutes/></WouterRouter>; }

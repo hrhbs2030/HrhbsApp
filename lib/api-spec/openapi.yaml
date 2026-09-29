@@ -34,7 +34,7 @@ paths:
     post:
       operationId: extractTransaction
       tags: [openai]
-      summary: Extract transaction details from text (office staff only)
+      summary: Extract transaction details from text
       requestBody:
         required: true
         content:
@@ -50,10 +50,8 @@ paths:
                 $ref: "#/components/schemas/ExtractedTransaction"
         "400":
           description: Invalid request
-        "401":
-          description: Sign-in required
         "403":
-          description: Origin is not allowed or office access required
+          description: Origin is not allowed
         "413":
           description: Request body is too large
         "429":
@@ -86,6 +84,164 @@ paths:
           description: Rate limit reached
         "502":
           description: Assistant temporarily unavailable
+  /office/approved-information:
+    get:
+      operationId: listApprovedInformation
+      tags: [portal]
+      summary: Staff-only knowledge drafts and publication history
+      responses:
+        "200":
+          description: Office information
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApprovedInformation"
+    post:
+      operationId: createApprovedInformation
+      tags: [portal]
+      summary: Create an unpublished draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovedInformationInput"
+      responses:
+        "201":
+          description: Created draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovedInformation"
+  /office/approved-information/{id}:
+    patch:
+      operationId: updateApprovedInformation
+      tags: [portal]
+      summary: Edit draft without changing the published version
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovedInformationUpdate"
+      responses:
+        "200":
+          description: Updated draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovedInformation"
+        "404":
+          description: Information not found
+        "409":
+          description: Information changed since it was loaded
+  /office/approved-information/{id}/history:
+    get:
+      operationId: listApprovedInformationHistory
+      tags: [portal]
+      summary: Staff-only publication and withdrawal history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Past publication events, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApprovedInformationHistory"
+        "404":
+          description: Information not found
+  /office/approved-information/{id}/review:
+    post:
+      operationId: reviewApprovedInformation
+      tags: [portal]
+      summary: Mark the current draft as reviewed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovedInformationMutation"
+      responses:
+        "200":
+          description: Reviewed draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovedInformation"
+        "404":
+          description: Information not found
+        "409":
+          description: Information changed since it was loaded
+  /office/approved-information/{id}/publish:
+    post:
+      operationId: publishApprovedInformation
+      tags: [portal]
+      summary: Publish the reviewed draft
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovedInformationMutation"
+      responses:
+        "200":
+          description: Published information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovedInformation"
+        "409":
+          description: Information changed or draft has not been reviewed
+  /office/approved-information/{id}/unpublish:
+    post:
+      operationId: unpublishApprovedInformation
+      tags: [portal]
+      summary: Withdraw information from the assistant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovedInformationMutation"
+      responses:
+        "200":
+          description: Withdrawn information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovedInformation"
+        "404":
+          description: Information not found
+        "409":
+          description: Information changed since it was loaded
   /portal/me:
     get:
       operationId: getPortalMe
@@ -190,6 +346,62 @@ paths:
           description: Authentication required
         "403":
           description: Customer registration approval required
+  /service-requests/attachments/upload-url:
+    post:
+      operationId: requestServiceAttachmentUpload
+      tags: [portal]
+      summary: Reserve a private upload for an approved customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttachmentUploadInput"
+      responses:
+        "200":
+          description: Temporary direct upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttachmentUploadReservation"
+        "400":
+          description: Invalid file
+  /service-requests/attachments/{attachmentId}/download:
+    get:
+      operationId: downloadServiceAttachment
+      tags: [portal]
+      summary: Download a submitted attachment owned by the customer
+      parameters:
+        - name: attachmentId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Attachment bytes
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "404":
+          description: Not found or not owned
+  /office/service-requests/attachments/{attachmentId}/download:
+    get:
+      operationId: downloadOfficeServiceAttachment
+      tags: [portal]
+      summary: Authorized staff download of a submitted attachment
+      parameters:
+        - name: attachmentId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Attachment bytes
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "403":
+          description: Office access required
   /service-requests/{id}:
     get:
       operationId: getServiceRequest
@@ -244,7 +456,7 @@ paths:
     get:
       operationId: listInquiries
       tags: [portal]
-      summary: List the signed-in customer's inquiries
+      summary: List the signed-in customer's inquiries (including older unlinked inquiries)
       responses:
         "200":
           description: Inquiries
@@ -258,6 +470,7 @@ paths:
       operationId: createInquiry
       tags: [portal]
       summary: Send an inquiry to the office
+      description: An optional linked service request must belong to the signed-in customer. Unknown and other-customer request IDs receive the same error.
       requestBody:
         required: true
         content:
@@ -272,7 +485,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Inquiry"
         "400":
-          description: Invalid inquiry
+          description: Invalid inquiry or linked service request
         "401":
           description: Authentication required
         "403":
@@ -295,22 +508,23 @@ paths:
     get:
       operationId: listOfficeServiceRequests
       tags: [portal]
-      summary: Staff-only list of customer requests, filtered and paged
+      summary: Staff-only paginated customer requests
       parameters:
-        - { name: status, in: query, required: false, schema: { type: string, enum: [received, reviewing, waiting_on_customer, completed] } }
-        - { name: category, in: query, required: false, schema: { type: string, enum: [passports, labor, business, other] } }
-        - { name: q, in: query, required: false, schema: { type: string, maxLength: 120 } }
-        - { name: sort, in: query, required: false, schema: { type: string, enum: [newest, oldest_update], default: newest } }
-        - { name: page, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page, in: query, description: "1-based page; defaults to 1", schema: { type: integer, minimum: 1, maximum: 1000000 } }
+        - { name: pageSize, in: query, description: "Defaults to 20; capped at 100", schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: q, in: query, description: "Case-insensitive literal substring of reference, service, description or contact phone", schema: { type: string, minLength: 1, maxLength: 120 } }
+        - { name: status, in: query, schema: { type: string, enum: [received, reviewing, waiting_on_customer, completed] } }
+        - { name: category, in: query, schema: { type: string, enum: [passports, labor, business, other] } }
+        - { name: sort, in: query, description: "Newest created first or oldest updated first; ID breaks ties", schema: { type: string, enum: [newest, oldest_update] } }
       responses:
         "200":
-          description: One page of matching customer requests
+          description: Matching page and total count across all matching records
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/OfficeServiceRequestPage"
         "400":
-          description: Invalid filter
+          description: Invalid pagination or filter
         "401":
           description: Authentication required
         "403":
@@ -391,24 +605,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OfficeServiceRequest"
+        "404":
+          description: Request not found
+        "409":
+          description: Request changed since it was loaded
   /office/inquiries:
     get:
       operationId: listOfficeInquiries
       tags: [portal]
-      summary: Staff-only customer inquiries, filtered and paged
+      summary: Staff-only paginated customer inquiries
       parameters:
-        - { name: status, in: query, required: false, schema: { type: string, enum: [open, answered] } }
-        - { name: q, in: query, required: false, schema: { type: string, maxLength: 120 } }
-        - { name: page, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page, in: query, description: "1-based page; defaults to 1", schema: { type: integer, minimum: 1, maximum: 1000000 } }
+        - { name: pageSize, in: query, description: "Defaults to 20; capped at 100", schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: q, in: query, description: "Case-insensitive literal substring of subject, message or linked request reference", schema: { type: string, minLength: 1, maxLength: 120 } }
+        - { name: status, in: query, schema: { type: string, enum: [open, answered] } }
       responses:
         "200":
-          description: One page of matching inquiries
+          description: Matching page and total count across all matching records
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/OfficeInquiryPage"
         "400":
-          description: Invalid filter
+          description: Invalid pagination or filter
         "401":
           description: Authentication required
         "403":
@@ -560,7 +779,7 @@ paths:
     get:
       operationId: listOfficeAuditLog
       tags: [portal]
-      summary: Latest office actions, newest first (owner only)
+      summary: Latest office staff access changes, newest first (owner only)
       responses:
         "200":
           description: Up to 200 most recent audit entries
@@ -587,7 +806,7 @@ components:
       required: [userId, email, role, addedBy, createdAt]
       properties:
         userId: { type: string }
-        email: { type: ["string", "null"] }
+        email: { type: ["string", "null"], format: email }
         role:
           type: string
           enum: [owner, staff]
@@ -599,10 +818,10 @@ components:
       properties:
         id: { type: integer }
         actorId: { type: string }
-        actorEmail: { type: ["string", "null"] }
+        actorEmail: { type: ["string", "null"], format: email }
         action:
           type: string
-          enum: [service_request.update, inquiry.answer, registration.review, legacy.import, staff.add, staff.remove]
+          enum: [staff.add, staff.remove, service_request.update, inquiry.answer]
         targetType: { type: string }
         targetId: { type: string }
         details:
@@ -660,9 +879,68 @@ components:
         question: { type: string, minLength: 5, maxLength: 1000 }
     CustomerAIAnswer:
       type: object
-      required: [answer]
+      required: [answer, sources, needsOffice]
       properties:
         answer: { type: string }
+        needsOffice: { type: boolean }
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApprovedInformationSource"
+    ApprovedInformationSource:
+      type: object
+      required: [id, title, reviewedAt, publishedAt]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        reviewedAt: { type: string, format: date-time }
+        publishedAt: { type: string, format: date-time }
+    ApprovedInformationInput:
+      type: object
+      additionalProperties: false
+      required: [title, content]
+      properties:
+        title: { type: string, minLength: 3, maxLength: 120 }
+        content: { type: string, minLength: 10, maxLength: 2000 }
+    ApprovedInformationUpdate:
+      type: object
+      additionalProperties: false
+      required: [title, content, expectedUpdatedAt]
+      properties:
+        title: { type: string, minLength: 3, maxLength: 120 }
+        content: { type: string, minLength: 10, maxLength: 2000 }
+        expectedUpdatedAt: { type: string, format: date-time }
+    ApprovedInformationMutation:
+      type: object
+      additionalProperties: false
+      required: [expectedUpdatedAt]
+      properties:
+        expectedUpdatedAt: { type: string, format: date-time }
+    ApprovedInformation:
+      type: object
+      required: [id, title, content, publishedTitle, publishedContent, reviewedAt, publishedReviewedAt, publishedAt, updatedAt]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        content: { type: string }
+        publishedTitle: { type: ["string", "null"] }
+        publishedContent: { type: ["string", "null"] }
+        reviewedAt: { type: ["string", "null"], format: date-time }
+        publishedReviewedAt: { type: ["string", "null"], format: date-time }
+        publishedAt: { type: ["string", "null"], format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ApprovedInformationHistory:
+      type: object
+      required: [id, informationId, action, title, content, reviewedAt, publishedAt, changedAt]
+      properties:
+        id: { type: integer }
+        informationId: { type: integer }
+        action: { type: string, enum: [published, withdrawn] }
+        title: { type: string }
+        content: { type: string }
+        reviewedAt: { type: string, format: date-time }
+        publishedAt: { type: string, format: date-time }
+        changedAt: { type: string, format: date-time }
     PortalUser:
       type: object
       required: [role, officeRole, registrationStatus]
@@ -721,7 +999,7 @@ components:
         reason: { type: ["string", "null"], maxLength: 1000 }
     ServiceRequest:
       type: object
-      required: [id, reference, category, service, description, contactPhone, status, createdAt, updatedAt]
+      required: [id, reference, category, service, description, contactPhone, status, customerMessage, clientRequestId, createdAt, updatedAt, attachments]
       properties:
         id: { type: integer }
         reference: { type: string }
@@ -734,8 +1012,13 @@ components:
         status:
           type: string
           enum: [received, reviewing, waiting_on_customer, completed]
+        customerMessage: { type: ["string", "null"] }
+        clientRequestId: { type: ["string", "null"] }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+        attachments:
+          type: array
+          items: { $ref: "#/components/schemas/ServiceAttachment" }
     ServiceRequestStatusEvent:
       type: object
       required: [status, at]
@@ -744,9 +1027,15 @@ components:
           type: string
           enum: [received, reviewing, waiting_on_customer, completed]
         at: { type: string, format: date-time }
+    OfficeCustomer:
+      type: object
+      required: [fullName, email]
+      properties:
+        fullName: { type: string }
+        email: { type: string, format: email }
     OfficeServiceRequest:
       type: object
-      required: [id, reference, category, service, description, contactPhone, status, customer, createdAt, updatedAt]
+      required: [id, reference, category, service, description, contactPhone, status, customerMessage, createdAt, updatedAt, attachments, customer]
       properties:
         id: { type: integer }
         reference: { type: string }
@@ -760,12 +1049,50 @@ components:
           type: string
           enum: [received, reviewing, waiting_on_customer, completed]
         officeNote: { type: ["string", "null"] }
+        customerMessage: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        attachments:
+          type: array
+          items: { $ref: "#/components/schemas/ServiceAttachment" }
         customer:
           oneOf:
             - $ref: "#/components/schemas/OfficeCustomer"
             - type: "null"
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
+    OfficeServiceRequestPage:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OfficeServiceRequest" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+    ServiceAttachment:
+      type: object
+      required: [id, name, contentType, size]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        contentType: { type: string }
+        size: { type: integer }
+    AttachmentUploadInput:
+      type: object
+      additionalProperties: false
+      required: [name, size, contentType]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        size: { type: integer, minimum: 1, maximum: 10485760 }
+        contentType:
+          type: string
+          enum: [application/pdf, image/jpeg, image/png]
+    AttachmentUploadReservation:
+      type: object
+      required: [attachmentId, uploadURL]
+      properties:
+        attachmentId: { type: integer }
+        uploadURL: { type: string }
     ServiceRequestInput:
       type: object
       required: [category, service, description, contactPhone]
@@ -776,14 +1103,22 @@ components:
         service: { type: string, minLength: 2, maxLength: 120 }
         description: { type: string, minLength: 10, maxLength: 5000 }
         contactPhone: { type: string, minLength: 9, maxLength: 24 }
+        clientRequestId: { type: string, format: uuid }
+        attachmentIds:
+          type: array
+          maxItems: 3
+          uniqueItems: true
+          items: { type: integer, minimum: 1 }
     ServiceRequestUpdate:
       type: object
-      required: [status]
+      required: [status, expectedUpdatedAt]
       properties:
+        expectedUpdatedAt: { type: string, format: date-time }
         status:
           type: string
           enum: [received, reviewing, waiting_on_customer, completed]
         officeNote: { type: ["string", "null"], maxLength: 2000 }
+        customerMessage: { type: ["string", "null"], maxLength: 2000 }
     Inquiry:
       type: object
       required: [id, subject, message, status, createdAt, linkedServiceRequestReference]
@@ -812,35 +1147,16 @@ components:
               oneOf:
                 - $ref: "#/components/schemas/OfficeCustomer"
                 - type: "null"
-    OfficeCustomer:
-      type: object
-      description: The customer's registration details, when they registered through the portal.
-      required: [fullName, email]
-      properties:
-        fullName: { type: string }
-        email: { type: string }
-    OfficeServiceRequestPage:
-      type: object
-      required: [items, total, page, pageSize]
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/OfficeServiceRequest"
-        total: { type: integer }
-        page: { type: integer }
-        pageSize: { type: integer }
     OfficeInquiryPage:
       type: object
       required: [items, total, page, pageSize]
       properties:
         items:
           type: array
-          items:
-            $ref: "#/components/schemas/OfficeInquiry"
-        total: { type: integer }
-        page: { type: integer }
-        pageSize: { type: integer }
+          items: { $ref: "#/components/schemas/OfficeInquiry" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
     LinkedServiceRequestContext:
       type: object
       required: [reference, category, service, description, status]
@@ -889,9 +1205,7 @@ components:
         totalRequests: { type: integer }
         newRequests: { type: integer }
         activeRequests: { type: integer }
-        staleRequests:
-          type: integer
-          description: Requests not completed and not updated for 3 days or more
+        staleRequests: { type: integer, description: "Active requests last updated at least 3 days ago" }
         openInquiries: { type: integer }
     ExtractTransactionRequest:
       type: object

@@ -1,5 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { startExpiredRequestAttachmentCleanup } from "./lib/expired-request-attachments";
+import { ensureRequestTrackingGuide } from "./lib/portal-usage-information";
 
 const rawPort = process.env["PORT"];
 
@@ -15,11 +17,15 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
+ensureRequestTrackingGuide().then(() => app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   }
 
   logger.info({ port }, "Server listening");
+  startExpiredRequestAttachmentCleanup();
+})).catch(err => {
+  logger.error({ err }, "Failed to initialize portal usage information");
+  process.exitCode = 1;
 });

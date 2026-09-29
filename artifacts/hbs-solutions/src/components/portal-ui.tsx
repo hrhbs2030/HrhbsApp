@@ -4,10 +4,8 @@ import { useClerk, useUser } from '@clerk/react';
 import { Archive, ArrowLeft, ArrowUpLeft, Check, CircleHelp, ClipboardList, History, Home, Inbox, LogOut, Menu, Plus, UserRoundCheck, UsersRound, X } from 'lucide-react';
 import { getGetPortalMeQueryKey, useGetPortalMe, type Inquiry, type ServiceRequest, type ServiceRequestStatus } from '@workspace/api-client-react';
 import { daysLabel, formatDate, formatNumber } from '@/lib/format';
-import { Logo, LogoMark } from '@/components/brand/logo';
-import { PrintFrame } from '@/components/brand/print';
-import { cityInfo, cityOrder } from './city-scene';
-import { SceneWindow, useSceneWindows } from './scene-window';
+import { Logo, LogoMark } from './brand/logo';
+import { PrintFrame } from './brand/print';
 import './portal-ui.css';
 
 export const categoryNames: Record<string, string> = { passports: 'الجوازات والإقامة', labor: 'الموارد البشرية والعمل', business: 'تأسيس الشركات والتراخيص', other: 'دعم الأعمال' };
@@ -16,8 +14,8 @@ export const statusOptions: ServiceRequestStatus[] = ['received', 'reviewing', '
 export const dateText = (value: string | null | undefined) => formatDate(value);
 
 export function Brand({ light = false }: { light?: boolean }) {
-  return <Link href="/" className="inline-flex no-underline" aria-label="HBS حلول الغد - الرئيسية">
-    <Logo tone={light ? 'light' : 'dark'} size={42} tagline />
+  return <Link href="/" className={`inline-flex items-center gap-3 no-underline ${light ? 'text-on-dark' : 'text-teal'}`} aria-label="HBS حلول الغد - الرئيسية">
+    <Logo tone={light ? 'light' : 'dark'} size={44} tagline/>
   </Link>;
 }
 export function Status({ value }: { value: string }) { return <span className={`pill pill-${value}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{statusNames[value] ?? value}</span>; }
@@ -42,8 +40,6 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
   const ownerLinks = owner ? [{ href: '/office/legacy', label: 'الأرشيف القديم', icon: Archive }, { href: '/office/staff', label: 'فريق المكتب', icon: UsersRound }, { href: '/office/audit', label: 'سجل التدقيق', icon: History }] : [];
   const links = staff ? [{ href: '/office', label: 'نظرة عامة', icon: Home }, { href: '/office/registrations', label: 'طلبات التسجيل', icon: UserRoundCheck }, { href: '/office/requests', label: 'طلبات العملاء', icon: ClipboardList }, { href: '/office/inquiries', label: 'الاستفسارات', icon: CircleHelp }, ...ownerLinks] : registrationOnly ? [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }] : [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }, { href: '/dashboard', label: 'نظرة عامة', icon: Home }, { href: '/requests', label: 'طلباتي', icon: ClipboardList }, { href: '/inquiries', label: 'استفساراتي', icon: CircleHelp }];
   const current = links.find(({ href }) => location === href) ?? links.filter(({ href }) => location.startsWith(href + '/')).sort((a, b) => b.href.length - a.href.length)[0];
-  const { city } = useSceneWindows();
-  const place = cityInfo[cityOrder[city] ?? 'riyadh'];
   return <div className="relative z-[1] min-h-[100dvh] lg:flex" dir="rtl">
     <aside className={`${menuOpen ? 'translate-x-0' : 'translate-x-full'} fixed inset-y-0 right-0 z-50 flex w-[270px] flex-col bg-ink px-5 py-7 text-on-dark transition-transform duration-300 lg:sticky lg:top-0 lg:h-[100dvh] lg:translate-x-0`}>
       <div className="mb-12 flex items-start justify-between px-2"><Brand light/><button className="lg:hidden" onClick={() => setMenuOpen(false)} aria-label="إغلاق القائمة"><X/></button></div>
@@ -57,22 +53,16 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
       <header className="portal-topbar sticky top-0 z-30 flex h-[72px] items-center justify-between gap-4 px-5 text-on-dark sm:px-9 lg:px-12">
         <div className="flex min-w-0 items-center gap-3">
           <button className="rounded-lg border border-line-dark-2 p-2 text-on-dark lg:hidden" onClick={() => setMenuOpen(true)} aria-label="فتح القائمة"><Menu size={21}/></button>
-          <p className="portal-crumb"><span>{staff ? 'مساحة المكتب' : 'بوابة العملاء'}</span>{current && <><span aria-hidden="true" className="portal-crumb-sep">/</span><strong>{current.label}</strong></>}</p>
+          <p className="portal-crumb"><span>{staff ? 'مساحة المكتب' : registrationOnly ? 'بوابة العملاء' : 'مساحتي'}</span>{current && <><span aria-hidden="true" className="portal-crumb-sep">/</span><strong>{current.label}</strong></>}</p>
         </div>
-        <span className="portal-topbar-brand lg:hidden" aria-hidden="true">HBS حلول الغد</span>
+        <span className="portal-topbar-brand inline-flex items-center gap-2 lg:hidden" aria-hidden="true"><LogoMark size={28}/>HBS حلول الغد</span>
         <Link href="/help" className="portal-topbar-help hidden lg:inline-flex"><CircleHelp size={17} strokeWidth={1.8} aria-hidden="true"/>المساعدة</Link>
       </header>
       <div className="portal-band" aria-hidden="true" />
-      <main className="portal-sheet flex-1"><div className="mx-auto max-w-[1130px] px-5 pb-20 pt-9 sm:px-9 sm:pt-12 lg:px-12"><PrintFrame />{children}</div></main>
-      <footer className="portal-foot">
-        <SceneWindow edge="bottom" />
-        <div className="portal-foot-line">
-          <LogoMark size={28} className="portal-foot-mark" />
-          <small>© {new Date().getFullYear()} HBS حلول الغد</small>
-          <span className="portal-foot-city" aria-hidden="true">{place.name} · {place.region}</span>
-          <Link href="/help" className="portal-foot-help">المساعدة</Link>
-        </div>
-      </footer>
+      <main className="portal-sheet flex-1"><div className="mx-auto max-w-[1130px] px-5 pb-20 pt-9 sm:px-9 sm:pt-12 lg:px-12">
+        <PrintFrame staff={staff} title={location === '/office/audit' ? 'سجل التدقيق' : location.startsWith('/requests/') ? 'تفاصيل الطلب' : current?.label ?? 'بوابة العملاء'}/>
+        {children}
+      </div></main>
     </div>
   </div>;
 }

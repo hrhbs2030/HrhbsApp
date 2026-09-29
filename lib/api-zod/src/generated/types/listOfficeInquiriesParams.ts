@@ -8,13 +8,23 @@
 import type { ListOfficeInquiriesStatus } from './listOfficeInquiriesStatus';
 
 export type ListOfficeInquiriesParams = {
-status?: ListOfficeInquiriesStatus;
 /**
+ * 1-based page; defaults to 1
+ * @minimum 1
+ * @maximum 1000000
+ */
+page?: number;
+/**
+ * Defaults to 20; capped at 100
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+/**
+ * Case-insensitive literal substring of subject, message or linked request reference
+ * @minLength 1
  * @maxLength 120
  */
 q?: string;
-/**
- * @minimum 1
- */
-page?: number;
+status?: ListOfficeInquiriesStatus;
 };

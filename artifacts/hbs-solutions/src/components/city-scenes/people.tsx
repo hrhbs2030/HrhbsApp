@@ -1,22 +1,8 @@
 import { memo, type ReactNode } from 'react';
 import './people.css';
 
-// Residents of the city scenes: small figures in each region's traditional
-// dress, standing in pairs and talking about their transactions, plus a few
-// passers-by. Drawn in SVG in the foreground layer; moved with CSS
-// transform/opacity only (see people.css). Decorative and aria-hidden like
-// the rest of the scene.
-//
-// Dress, by region:
-//   Najd (Riyadh)   white thobe, red shemagh with agal; an elder in a bisht
-//   Hijaz (Jeddah)  thobe with sideri vest and ghabana turban; white ghutra
-//   Jazan           shirt over a striped izar with a flower wreath (عصابة)
-//                   or a straw hat; women in the tall straw hat (المظلة)
-//   Everywhere      women in the abaya
-//
-// Local coordinates: feet at y=0, the figure about 66 units tall, facing the
-// viewer. `flip` mirrors the figure so a pair can face each other.
-
+// Decorative SVG residents in each city's foreground. Coordinates use the
+// scene's 1600 × 700 viewBox; each person's feet are at their given y.
 export type Kind = 'najdi' | 'najdi-bisht' | 'abaya' | 'hijazi' | 'hijazi-ghabana' | 'janubi-wreath' | 'janubi-hat' | 'janubiya';
 export type Pose = 'idle' | 'talk' | 'phone' | 'folder';
 
@@ -38,11 +24,9 @@ function Defs({ p }: { p: string }) {
       <linearGradient id={`${p}-bisht`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#4a3020" /><stop offset="1" stopColor="#1a100a" /></linearGradient>
       <linearGradient id={`${p}-gold`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ecc066" /><stop offset="1" stopColor="#9a6a24" /></linearGradient>
       <linearGradient id={`${p}-straw`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#e2bd78" /><stop offset="1" stopColor="#9b7440" /></linearGradient>
-      {/* Red-and-white shemagh check */}
       <pattern id={`${p}-shemagh`} width="2.2" height="2.2" patternUnits="userSpaceOnUse">
         <rect width="2.2" height="2.2" fill="#b02a30" /><rect width="1.1" height="1.1" fill="#f3e6dc" opacity=".45" />
       </pattern>
-      {/* Striped izar of the south */}
       <pattern id={`${p}-izar`} width="4" height="5" patternUnits="userSpaceOnUse">
         <rect width="4" height="5" fill="#2b5c5b" /><rect y="1.2" width="4" height="1" fill="#e5a27b" /><rect y="3.3" width="4" height=".5" fill="#b8453c" />
       </pattern>
@@ -51,8 +35,6 @@ function Defs({ p }: { p: string }) {
     </defs>
   );
 }
-
-// ---- parts -----------------------------------------------------------------
 
 const face = <circle cx="0" cy="-55.4" r="5" fill={SKIN} />;
 const sandals = <path d="M-5.6 -1.6h4v1.6h-4zM1.6 -1.6h4v1.6h-4z" fill="#1b120d" />;
@@ -180,8 +162,6 @@ const Person = memo(function Person({ kind, pose = 'idle', x, g, s = 1, flip, p,
   return <g className={className} transform={`translate(${x} ${g}) scale(${flip ? -s : s} ${s})`}>{kids}</g>;
 });
 
-// A speech bubble above a speaker. `at` is its start time (seconds) inside
-// the 12 s city cycle; people.css shows it for about 2.6 s.
 function Say({ x, y, text, at, tail }: { x: number; y: number; text: string; at: number; tail: 'left' | 'right' }) {
   const w = Math.round(text.length * 6.3 + 22);
   const h = 24;
@@ -207,21 +187,19 @@ export const Residents = memo(function Residents({ id, crowd }: { id: string; cr
       ))}
       {crowd.people.map((f, i) => <Person key={i} {...f} p={id} />)}
       <g className="pp-lines">{crowd.lines.map((l, i) => {
-        // The bubble leans away from the partner, its tail over the speaker's head.
         const f = crowd.people[l.who]; const s = f.s ?? 1;
         const w = Math.round(l.text.length * 6.3 + 22);
-        const tail = f.flip ? 'left' : 'right';
-        const x = f.flip ? f.x + w / 2 - 20 : f.x - w / 2 + 20;
+        // The scene is center-cropped on desktop. Keep the leftmost bubbles
+        // within that crop and point their tails back toward the speaker.
+        const preferredLeft = f.flip ? f.x - 20 : f.x - w + 20;
+        const left = Math.max(440, preferredLeft);
+        const tail = left > preferredLeft || f.flip ? 'left' : 'right';
+        const x = left + w / 2;
         return <Say key={i} x={x} y={f.g - 72 * s - 4} text={l.text} at={l.at} tail={tail} />;
       })}</g>
     </g>
   );
 });
-
-// ---- per-city casts ----------------------------------------------------------
-// Groups stand at x≈430–510 (below the request card) and x≈740–800 (in front of
-// the landmark column, clear of the darker text-side veil). Bubbles rise from
-// their speaker's head and stay below the hero's text and search field.
 
 export const riyadhCrowd: Crowd = {
   pools: [[470, 692], [770, 694], [1300, 696, 60]],
@@ -232,7 +210,7 @@ export const riyadhCrowd: Crowd = {
     { kind: 'abaya', pose: 'talk', x: 800, g: 695, s: 1.12, flip: true },
   ],
   lines: [
-    { who: 0, text: 'وش صار على تجديد الإقامة؟', at: .6 },
+    { who: 0, text: 'وش صار على تأسيس شركتك؟', at: .6 },
     { who: 1, text: 'قيد المراجعة، أتابعه من جوالي', at: 3.2 },
     { who: 2, text: 'المكتب طلب معلومة إضافية', at: 6.2 },
     { who: 3, text: 'ردّي عليهم من صفحة الطلب', at: 8.8 },
@@ -252,7 +230,7 @@ export const jeddahCrowd: Crowd = {
     { kind: 'hijazi', pose: 'talk', x: 800, g: 695, s: 1.22, flip: true },
   ],
   lines: [
-    { who: 0, text: 'إيش صار على نقل الخدمات؟', at: .6 },
+    { who: 0, text: 'إيش صار على إدارة المنصات؟', at: .6 },
     { who: 1, text: 'اكتمل، وصلني التحديث', at: 3.2 },
     { who: 2, text: 'سألت «أم مشعل» عن الخطوات', at: 6.2 },
     { who: 3, text: 'والمكتب يكمّل الباقي', at: 8.8 },
@@ -271,7 +249,7 @@ export const jazanCrowd: Crowd = {
     { kind: 'abaya', pose: 'talk', x: 800, g: 695, s: 1.1, flip: true },
   ],
   lines: [
-    { who: 0, text: 'جدّدت رخصة العمل؟', at: .6 },
+    { who: 0, text: 'خلصت معاملات المنشأة؟', at: .6 },
     { who: 1, text: 'رفعت الطلب وأتابع حالته', at: 3.2 },
     { who: 2, text: 'وصلني رقم مرجعي للطلب', at: 6.2 },
     { who: 3, text: 'كذا تعرفين وين وصل', at: 8.8 },

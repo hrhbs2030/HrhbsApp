@@ -5,8 +5,8 @@ import { ArrowLeft, ArrowRight, CircleAlert, CircleCheck, CircleHelp, Link2, Plu
 import { getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, getListInquiriesQueryKey, getGetServiceRequestQueryKey, getGetServiceRequestHistoryQueryKey, useGetServiceRequestHistory, useGetPortalSummary, useListServiceRequests, useGetServiceRequest, useListInquiries, useCreateInquiry, type Inquiry } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock, RequestRow, Status, StatusTrack, dateText, categoryNames, statusNames } from '@/components/portal-ui';
 import { CustomerAssistant } from '@/components/customer-assistant';
-import { LOCALE, formatDateTime } from '@/lib/format';
 import { PrintButton } from '@/components/brand/print';
+import { LOCALE, formatDateTime } from '@/lib/format';
 
 const count = (value: number) => new Intl.NumberFormat(LOCALE).format(value);
 
@@ -21,7 +21,6 @@ function LinkedRequest({ reference }: { reference: string }) {
   return <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-sunk px-2 py-0.5 text-xs text-quiet"><Link2 size={12} aria-hidden="true"/>الطلب <span dir="ltr" className="nums font-bold">{reference}</span></span>;
 }
 
-/** Full inquiry with the office answer; the linked request sits in the meta line. */
 function InquiryItem({ inquiry }: { inquiry: Inquiry }) {
   return <article className="border-b border-line px-5 py-5 last:border-0 sm:px-6">
     <div className="flex items-start justify-between gap-3">
@@ -39,7 +38,6 @@ function InquiryItem({ inquiry }: { inquiry: Inquiry }) {
   </article>;
 }
 
-/** One-line inquiry for the dashboard; the full thread lives on /inquiries. */
 function InquiryLine({ inquiry }: { inquiry: Inquiry }) {
   return <Link href="/inquiries" className="flex items-center justify-between gap-3 border-b border-line px-5 py-4 text-inherit no-underline transition-colors last:border-0 hover:bg-paper sm:px-6">
     <div className="min-w-0">
@@ -59,7 +57,6 @@ function WaitingOnYou() {
     <div className="mt-4 overflow-hidden rounded-xl border border-warn-line bg-field">{waiting.map(r => <RequestRow key={r.id} request={r}/>)}</div>
   </section>;
 }
-
 export function Dashboard() {
   const q = useGetPortalSummary({query:{queryKey:getGetPortalSummaryQueryKey(),refetchInterval:30000}});
   return <PortalLayout><PageHeading eyebrow="" title="نظرة عامة" action={<Link href="/requests/new" className="btn btn-primary"><Plus size={18}/>طلب خدمة جديد</Link>}/>
@@ -77,7 +74,6 @@ export function Dashboard() {
     </div>
   </PortalLayout>;
 }
-
 const requestFilters = ['all', 'received', 'reviewing', 'waiting_on_customer', 'completed'] as const;
 export function Requests() {
   const q = useListServiceRequests({query:{queryKey:getListServiceRequestsQueryKey(),refetchInterval:30000}}); const [filter,setFilter] = useState('all');
@@ -90,7 +86,6 @@ export function Requests() {
     </>}
   </PortalLayout>;
 }
-
 export { NewRequest } from './new-request';
 
 function BackLink({ href, children }: { href: string; children: ReactNode }) {
@@ -102,7 +97,7 @@ export function RequestDetail() {
   return <PortalLayout><div className="max-w-[860px]"><BackLink href="/requests">طلباتي</BackLink>
     {!Number.isInteger(parsed)||parsed<=0 ? <EmptyBlock title="الطلب غير متاح" text="تحقق من رابط الطلب وحاول مرة أخرى."/> : q.isLoading ? <LoadingBlock/> : q.error?.status === 404 ? <EmptyBlock title="الطلب غير متاح" text="هذا الطلب غير موجود في حسابك."/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : q.data && <>
       {justSent && <div role="status" className="rise mb-6 flex items-start gap-3 rounded-2xl border border-sage-2 bg-ok-soft p-4 text-ok sm:p-5"><CircleCheck className="mt-0.5 shrink-0" size={22}/><div><strong className="block text-ink">تم إرسال طلبك إلى المكتب</strong><span className="text-sm leading-7">الرقم المرجعي <span dir="ltr" className="nums font-bold">{q.data.reference}</span>. تابع حالته من هذه الصفحة.</span></div></div>}
-      <PageHeading eyebrow={`طلب رقم ${q.data.reference}`} title={q.data.service} action={<div className="flex flex-wrap gap-2"><PrintButton /><Link href={`/inquiries?request=${q.data.id}`} className="btn btn-outline"><CircleHelp size={17}/>استفسر عن الطلب</Link></div>}/>
+      <PageHeading eyebrow={`طلب رقم ${q.data.reference}`} title={q.data.service} action={<div className="flex flex-wrap gap-2"><PrintButton label="طباعة الطلب"/><Link href={`/inquiries?request=${q.data.id}`} className="btn btn-outline"><CircleHelp size={17}/>استفسر عن الطلب</Link></div>}/>
       <div className="surface overflow-hidden">
         <section aria-label="مراحل الطلب" className="px-5 py-6 sm:px-8">
           <StatusTrack status={q.data.status} createdAt={q.data.createdAt} updatedAt={q.data.updatedAt}/>
@@ -138,7 +133,7 @@ export function Inquiries() {
   const q=useListInquiries({query:{queryKey:getListInquiriesQueryKey(),refetchInterval:30000}}); const requests=useListServiceRequests({query:{queryKey:getListServiceRequestsQueryKey(),refetchInterval:30000}}); const qc=useQueryClient(); const mutation=useCreateInquiry(); const [subject,setSubject]=useState(''); const [message,setMessage]=useState(''); const [linkedServiceRequestId,setLinkedServiceRequestId]=useState(requestFromLink ? String(requestFromLink) : ''); const [showForm,setShowForm]=useState(Boolean(requestFromLink));
   async function submit(e:FormEvent) { e.preventDefault(); try { await mutation.mutateAsync({data:{subject:subject.trim(),message:message.trim(),linkedServiceRequestId:linkedServiceRequestId?Number(linkedServiceRequestId):null}}); setSubject('');setMessage('');setLinkedServiceRequestId('');setShowForm(false); await Promise.all([qc.invalidateQueries({queryKey:getListInquiriesQueryKey()}),qc.invalidateQueries({queryKey:getGetPortalSummaryQueryKey()})]); } catch { /* error shown */ } }
   function openForm() { setShowForm(true); requestAnimationFrame(() => document.getElementById('inquiry-subject')?.focus()); }
-  return <PortalLayout><PageHeading eyebrow="" title="استفساراتي" action={!showForm && <button type="button" onClick={openForm} className="btn btn-primary"><Plus size={18}/>استفسار جديد</button>}/>
+  return <PortalLayout><PageHeading eyebrow="تواصل مع المكتب" title="استفساراتي" action={!showForm && <button type="button" onClick={openForm} className="btn btn-primary"><Plus size={18}/>استفسار جديد</button>}/>
     {showForm && <form onSubmit={submit} className="surface mb-8 p-5 sm:p-7" aria-labelledby="inquiry-form-title">
       <h2 id="inquiry-form-title" className="display mb-5 text-lg font-semibold sm:text-xl">استفسار جديد</h2>
       <div className="grid gap-5 md:grid-cols-2">

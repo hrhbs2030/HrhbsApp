@@ -2,32 +2,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { prefersReducedMotion, safeStorage } from '@/lib/motion';
 import './intro.css';
 
-// First-visit intro, a cinematic logo reveal: darkness, an anamorphic light
-// streak that becomes the horizon, the H pillars rise, the sun of tomorrow
-// comes up behind the horizon, a specular glint crosses the mark, then the
-// wordmark "HBS | حلول الغد" resolves with a light sweep and the page opens.
-//
-// Engineering notes
-// - Pure CSS 3D (transform/opacity keyframes). No WebGL: nothing to download,
-//   nothing that can fail to load, and the page underneath renders at once.
-// - Plays once per browser. Completing or skipping stores the flag; the full
-//   sequence never replays on navigation or on later visits.
-// - Skipped entirely under prefers-reduced-motion (the hero does a static
-//   fade instead). `?intro=1` forces a replay for review; `?intro=0` skips.
-// - All text is HTML. The overlay is aria-hidden because the same headline is
-//   the page's real <h1>; the Skip button sits outside it and is focusable.
-
+// First-visit logo reveal; all animated properties are transforms or opacity.
+// The real page renders underneath, and reduced-motion visitors skip the overlay.
 const STORAGE_KEY = 'hbs:intro:v2';
-const DESKTOP_MS = 4600;
+const DESKTOP_MS = 4300;
 const MOBILE_MS = 3400;
 const EXIT_MS = 520;
 
 export function shouldPlayIntro(): boolean {
   if (typeof window === 'undefined') return false;
   const param = new URLSearchParams(window.location.search).get('intro');
+  if (prefersReducedMotion()) return false;
   if (param === '0') return false;
   if (param === '1' || param === 'hold') return true;
-  if (prefersReducedMotion()) return false;
   if (window.location.hash) return false;
   return safeStorage.get(STORAGE_KEY) !== 'done';
 }
@@ -49,20 +36,20 @@ export function IntroSequence({ onDone }: { onDone: () => void }) {
   const leave = useCallback((fast: boolean) => {
     if (doneRef.current) return;
     doneRef.current = true;
+    if (fast) { onDone(); return; }
     setLeaving(true);
-    window.setTimeout(onDone, fast ? 260 : EXIT_MS);
+    window.setTimeout(onDone, EXIT_MS);
   }, [onDone]);
 
   useEffect(() => {
     const mobile = window.matchMedia('(max-width: 720px)').matches;
-    // ?intro=hold keeps the final frame on screen, for design review only.
     const hold = new URLSearchParams(window.location.search).get('intro') === 'hold';
-    const timer = hold ? 0 : window.setTimeout(() => leave(false), mobile ? MOBILE_MS : DESKTOP_MS);
+    const timer = hold ? undefined : window.setTimeout(() => leave(false), mobile ? MOBILE_MS : DESKTOP_MS);
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') leave(true); };
     window.addEventListener('keydown', onKey);
     document.documentElement.style.overflow = 'hidden';
     return () => {
-      window.clearTimeout(timer);
+      if (timer !== undefined) window.clearTimeout(timer);
       window.removeEventListener('keydown', onKey);
       document.documentElement.style.overflow = '';
     };
@@ -83,7 +70,7 @@ export function IntroSequence({ onDone }: { onDone: () => void }) {
               <svg viewBox="0 0 64 64" width="100%" height="100%">
                 <defs>
                   <linearGradient id="intro-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#1d5a60" /><stop offset="1" stopColor="#0c2a2d" /></linearGradient>
-                  <linearGradient id="intro-sun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffd9bb" /><stop offset="1" stopColor="#d9804f" /></linearGradient>
+                  <linearGradient id="intro-sun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f6c49f" /><stop offset="1" stopColor="#d9804f" /></linearGradient>
                   <radialGradient id="intro-sunglow" cx=".5" cy=".5" r=".5"><stop offset="0" stopColor="#f6c49f" stopOpacity=".75" /><stop offset="1" stopColor="#f6c49f" stopOpacity="0" /></radialGradient>
                   <clipPath id="intro-sky"><rect x="0" y="0" width="64" height="35" /></clipPath>
                 </defs>

@@ -1,5 +1,5 @@
-// Office contact details, shown in the footer, the help page and the legal
-// pages, and in the structured data in index.html (keep both in sync).
+// Office contact details used by the footer, help and legal pages, and the
+// structured data in index.html. Keep the published values in sync.
 export const contact = {
   phone: '0555208213',
   phoneIntl: '+966555208213',

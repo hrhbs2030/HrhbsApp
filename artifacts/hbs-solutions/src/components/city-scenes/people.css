@@ -1,7 +1,7 @@
-/* City residents. transform/opacity only; paused with the rest of the scene. */
+/* City residents. Transform/opacity only; paused with the rest of the scene. */
 .pp-text { font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; fill: #173e42; }
 
-/* Speech bubbles: each shows for ~2.6 s inside the 12 s city cycle. */
+/* Each bubble shows for about 2.6 s inside the 12 s city cycle. */
 .pp-say { opacity: 0; transform-box: fill-box; transform-origin: 50% 100%; animation: pp-say 12s var(--ease-out-soft) infinite both; }
 @keyframes pp-say {
   0% { opacity: 0; transform: translateY(6px) scale(.86); }
@@ -9,10 +9,8 @@
   19% { opacity: 1; transform: none; }
   23%, 100% { opacity: 0; transform: translateY(-4px); }
 }
-/* Restart the conversation each time the city comes on screen. */
 .cs-scene:not([data-active="true"]) .pp-say { animation: none; }
 
-/* Small idle gestures. */
 .pp-gesture { transform-box: fill-box; transform-origin: 0% 0%; animation: pp-gesture 2.2s ease-in-out infinite alternate; }
 @keyframes pp-gesture { from { transform: rotate(-6deg); } to { transform: rotate(9deg); } }
 .pp-nod { transform-box: fill-box; transform-origin: 50% 100%; animation: pp-nod 3.4s ease-in-out infinite alternate; }
@@ -20,7 +18,6 @@
 .pp-folder { transform-box: fill-box; transform-origin: 50% 0%; animation: pp-folder 4s ease-in-out infinite alternate; }
 @keyframes pp-folder { from { transform: rotate(-2deg); } to { transform: rotate(3deg); } }
 
-/* Passers-by cross the street slowly, with a light step. */
 .pp-walk { animation: pp-walk-l 80s linear infinite; }
 .pp-walk--r { animation-name: pp-walk-r; }
 @keyframes pp-walk-l { from { transform: translateX(0); } to { transform: translateX(-1800px); } }
@@ -28,7 +25,6 @@
 .pp-bob { animation: pp-bob .55s ease-in-out infinite alternate; }
 @keyframes pp-bob { from { transform: translateY(0); } to { transform: translateY(-1.4px); } }
 
-/* Conversations need room: not in the narrow portal strip, nor on phones
-   where the scene sits behind the hero text. */
+/* Conversations need room: hide them in narrow scenes and behind the footer. */
 .cs--portal .pp-lines, .cs--footer .pp-lines { display: none; }
 @media (max-width: 1180px) { .pp-lines { display: none; } }

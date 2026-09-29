@@ -12,7 +12,7 @@ export const faqs = [
   },
   {
     question: 'ماذا تعني حالة «بانتظار العميل»؟',
-    answer: 'يحتاج المكتب معلومة منك لإكمال الطلب. افتح الطلب واضغط «استفسر عن هذا الطلب» لمعرفة المطلوب.',
+    answer: 'يحتاج المكتب معلومة أو مستندًا منك لإكمال الطلب. افتح الطلب واضغط «استفسر عن هذا الطلب» لمعرفة المطلوب.',
   },
   {
     question: 'هل يمكن إرفاق مستندات مع الطلب؟',
@@ -31,11 +31,12 @@ export const faqs = [
 // The journey, in the order a customer lives it. Each chapter maps to a
 // portal stage index (see components/request-object.tsx) for the visual.
 export const journey = [
-  { stage: 0, title: 'اختر الخدمة واكتب طلبك', text: 'ابحث في الدليل، ثم املأ النموذج: الخدمة، والتفاصيل ورقم التواصل، ومراجعة قبل الإرسال.' },
-  { stage: 0, title: 'رقم مرجعي فور الإرسال', text: 'يظهر الطلب في حسابك بحالة «تم الاستلام»، ويصل إلى المكتب في اللحظة نفسها.' },
-  { stage: 1, title: 'المكتب يراجع ويحدّث الحالة', text: 'كل تحديث يظهر في صفحة طلبك، دون حاجة إلى الاتصال للسؤال.' },
-  { stage: 2, title: 'إن احتاج المكتب شيئًا، تعرف فورًا', text: 'تصبح الحالة «بانتظار العميل» ويظهر تنبيه في حسابك، فتردّ باستفسار مرتبط بالطلب.' },
-  { stage: 3, title: 'اكتمل الطلب', text: 'تصبح الحالة «مكتملة»، ويبقى الطلب بتفاصيله في سجلك.' },
+  { stage: 0, kicker: 'قبل الطلب', title: 'اختر الخدمة من الدليل', text: 'ابحث في دليل الخدمات أو اختر المجال، واقرأ ما يفيد المكتب أن تكتبه في طلبك.' },
+  { stage: 0, kicker: 'الطلب', title: 'اكتب التفاصيل وراجعها', text: 'نموذج من ثلاث خطوات: الخدمة، ثم التفاصيل ورقم التواصل، ثم مراجعة قبل الإرسال.' },
+  { stage: 0, kicker: 'فور الإرسال', title: 'رقم مرجعي فور الإرسال', text: 'يظهر الطلب في حسابك بحالة «تم الاستلام»، ويصل إلى المكتب في اللحظة نفسها.' },
+  { stage: 1, kicker: 'أثناء العمل', title: 'المكتب يراجع ويحدّث الحالة', text: 'كل تحديث يظهر في صفحة طلبك، دون حاجة إلى الاتصال للسؤال.' },
+  { stage: 2, kicker: 'عند الحاجة', title: 'إن احتاج المكتب شيئًا، تعرف فورًا', text: 'تصبح الحالة «بانتظار العميل» ويظهر تنبيه في حسابك، فتردّ باستفسار مرتبط بالطلب.' },
+  { stage: 3, kicker: 'النهاية', title: 'اكتمل الطلب', text: 'تصبح الحالة «مكتملة»، ويبقى الطلب بتفاصيله في سجلك.' },
 ];
 
 export const trustFacts = [
@@ -44,9 +45,8 @@ export const trustFacts = [
   { title: 'رقم مرجعي لكل طلب', text: 'يصدر عند الإرسال، وتستخدمه في أي تواصل لاحق مع المكتب.' },
 ];
 
-// «أم مشعل»: the portal's AI assistant. Sample answers restate the facts in
-// the assistant's server prompt (api-server/src/routes/anthropic.ts) and are
-// shown on the landing page as examples only; the live assistant needs sign-in.
+// Public examples only. The live assistant answers from office-reviewed
+// published guidance and redirects to the office when no verified answer exists.
 export const assistantName = 'أم مشعل';
 export const assistantExamples = [
   {
@@ -58,8 +58,8 @@ export const assistantExamples = [
     answer: 'يحتاج المكتب معلومة منك لإكمال الطلب. افتح الطلب وأرسل استفسارًا مرتبطًا به لمعرفة المطلوب.',
   },
   {
-    question: 'هل يمكنك تجديد إقامتي الآن؟',
-    answer: 'لا أستطيع تنفيذ أي معاملة. أرسل طلب «تجديد إقامة» من حسابك، وسيراجعه فريق المكتب ويتواصل معك.',
+    question: 'هل يمكنك تأسيس شركتي الآن؟',
+    answer: 'لا أستطيع تنفيذ أي معاملة. أرسل طلب «تأسيس شركة» من حسابك، وسيراجعه فريق المكتب ويتواصل معك.',
   },
   {
     question: 'هل أرفق صور المستندات مع الطلب؟',

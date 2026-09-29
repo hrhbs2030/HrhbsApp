@@ -1,6 +1,7 @@
 import { clerkClient, getAuth } from "@clerk/express";
-import { and, asc, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
-import { Router, type IRouter, type RequestHandler } from "express";
+import { randomUUID } from "node:crypto";
+import { and, asc, desc, eq, inArray, isNotNull, or, sql, type AnyColumn, type SQL } from "drizzle-orm";
+import { Router, type IRouter, type Request, type RequestHandler } from "express";
 import {
   db,
   hbsAuditLog,
@@ -9,9 +10,11 @@ import {
   hbsLegacyRecords,
   hbsRegistrationRequests,
   hbsServiceRequests,
+  hbsRequestAttachments,
   type HbsInquiry,
   type HbsRegistrationRequest,
   type HbsServiceRequest,
+  type HbsRequestAttachment,
 } from "@workspace/db";
 import {
   AnswerOfficeInquiryBody,
@@ -21,6 +24,8 @@ import {
   CreateInquiryResponse,
   CreateServiceRequestBody,
   CreateServiceRequestResponse,
+  RequestServiceAttachmentUploadBody,
+  RequestServiceAttachmentUploadResponse,
   GetOfficeSummaryResponse,
   GetPortalMeResponse,
   GetPortalRegistrationResponse,
@@ -30,11 +35,11 @@ import {
   GetServiceRequestParams,
   GetServiceRequestResponse,
   ListInquiriesResponse,
-  ListOfficeInquiriesQueryParams,
   ListOfficeInquiriesResponse,
+  ListOfficeInquiriesQueryParams,
   ListOfficeRegistrationsResponse,
-  ListOfficeServiceRequestsQueryParams,
   ListOfficeServiceRequestsResponse,
+  ListOfficeServiceRequestsQueryParams,
   PreviewLegacyBackupBody,
   PreviewLegacyBackupResponse,
   ImportLegacyBackupBody,
@@ -61,24 +66,53 @@ import {
   statusChangedMail,
 } from "../lib/notify";
 import { statusHistory } from "../lib/request-history";
-import { emptyLegacyGroup, groupLegacyIds, inspectLegacyBackup, legacyKinds } from "../lib/legacy-backup";
+import { inspectLegacyBackup, legacyKinds, type LegacyKind } from "../lib/legacy-backup";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { officeCustomer, type OfficeCustomer } from "../lib/office-search";
 import {
-  OFFICE_PAGE_SIZE,
-  STALE_AFTER_DAYS,
-  containsPattern,
-  officeCustomer,
-  requestIdFromReference,
-  type OfficeCustomer,
-} from "../lib/office-search";
-import {
-  clerkUsersById,
   getOfficeRole,
-  requireOfficeOwner,
   requireOfficeStaff,
-  verifiedEmailOf,
 } from "../lib/office-access";
 
 const router: IRouter = Router();
+const storage = new ObjectStorageService();
+const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+const allowedAttachmentTypes = new Set(["application/pdf", "image/jpeg", "image/png"]);
+
+function attachmentInfo(row: HbsRequestAttachment) {
+  return { id: row.id, name: row.name, size: row.size, contentType: row.contentType };
+}
+
+async function attachmentsFor(requestIds: number[]) {
+  const rows = requestIds.length
+    ? await db.select().from(hbsRequestAttachments)
+      .where(and(inArray(hbsRequestAttachments.requestId, requestIds), isNotNull(hbsRequestAttachments.requestId)))
+    : [];
+  const grouped = new Map<number, ReturnType<typeof attachmentInfo>[]>();
+  for (const row of rows) {
+    if (row.requestId === null) continue;
+    grouped.set(row.requestId, [...(grouped.get(row.requestId) ?? []), attachmentInfo(row)]);
+  }
+  return grouped;
+}
+
+async function validObject(path: string, expected: HbsRequestAttachment) {
+  const file = await storage.getObjectEntityFile(path);
+  const [metadata, bytes] = await Promise.all([
+    file.getMetadata(), file.download({ start: 0, end: 7 }),
+  ]);
+  const size = Number(metadata[0].size);
+  const header = bytes[0];
+  const matches = expected.contentType === "application/pdf"
+    ? header.subarray(0, 5).toString() === "%PDF-"
+    : expected.contentType === "image/jpeg"
+      ? header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff
+      : header.equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  if (size !== expected.size || size < 1 || size > MAX_ATTACHMENT_SIZE || !matches) {
+    throw new Error("Invalid uploaded file");
+  }
+  return file;
+}
 
 const requirePortalAuth: RequestHandler = (req, res, next) => {
   if (!getAuth(req).userId) {
@@ -118,7 +152,7 @@ export const requireApprovedCustomer: RequestHandler = async (req, res, next) =>
   next();
 };
 
-function publicRequest(record: HbsServiceRequest) {
+function publicRequest(record: HbsServiceRequest, attachments: ReturnType<typeof attachmentInfo>[] = []) {
   // Internal office notes must never be included in customer responses.
   return {
     id: record.id,
@@ -128,13 +162,24 @@ function publicRequest(record: HbsServiceRequest) {
     description: record.description,
     contactPhone: record.contactPhone,
     status: record.status,
+    customerMessage: record.status === "waiting_on_customer" ? record.customerMessage : null,
+    clientRequestId: record.clientRequestId,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
+    attachments,
   };
 }
 
-function officeRequest(record: HbsServiceRequest, customer: OfficeCustomer) {
-  return { ...publicRequest(record), officeNote: record.officeNote, customer };
+function officeRequest(
+  record: HbsServiceRequest,
+  attachments: ReturnType<typeof attachmentInfo>[] = [],
+  customer?: OfficeCustomer,
+) {
+  return {
+    ...publicRequest(record, attachments),
+    officeNote: record.officeNote,
+    ...(customer !== undefined ? { customer } : {}),
+  };
 }
 
 // The address the customer registered with, for notifications.
@@ -179,11 +224,15 @@ function inquiry(record: HbsInquiry, linkedRequest?: HbsServiceRequest | null) {
   };
 }
 
-function officeInquiry(record: HbsInquiry, linkedRequest: HbsServiceRequest | null, customer: OfficeCustomer) {
+function officeInquiry(
+  record: HbsInquiry,
+  linkedRequest?: HbsServiceRequest | null,
+  customer?: OfficeCustomer,
+) {
   return {
     ...inquiry(record, linkedRequest),
     linkedServiceRequest: linkedRequest ? linkedRequestContext(linkedRequest) : null,
-    customer,
+    ...(customer !== undefined ? { customer } : {}),
   };
 }
 
@@ -201,13 +250,17 @@ function portalRegistration(record: HbsRegistrationRequest) {
 }
 
 async function verifiedRegistrationEmail(record: HbsRegistrationRequest): Promise<string | null> {
-  return verifiedEmailOf(await clerkClient.users.getUser(record.userId), record.email);
+  const user = await clerkClient.users.getUser(record.userId);
+  return user.emailAddresses.find(
+    (entry) => entry.emailAddress.toLowerCase() === record.email.toLowerCase() &&
+      entry.verification?.status === "verified",
+  )?.emailAddress ?? null;
 }
 
-function officeRegistration(record: HbsRegistrationRequest, email: string | null) {
+async function officeRegistration(record: HbsRegistrationRequest) {
   return {
     ...portalRegistration(record),
-    email,
+    email: await verifiedRegistrationEmail(record),
     reviewerId: record.reviewerId,
   };
 }
@@ -317,12 +370,13 @@ router.get("/portal/summary", requirePortalAuth, requireApprovedCustomer, async 
       .where(eq(hbsInquiries.userId, userId))
       .orderBy(desc(hbsInquiries.createdAt), desc(hbsInquiries.id)).limit(5),
   ]);
+  const attached = await attachmentsFor(recentRequests.map(r => r.id));
   res.json(GetPortalSummaryResponse.parse({
     totalRequests: requests.total,
     activeRequests: requests.active,
     completedRequests: requests.completed,
     openInquiries: inquiries.open,
-    recentRequests: recentRequests.map(publicRequest),
+    recentRequests: recentRequests.map(r => publicRequest(r, attached.get(r.id))),
     recentInquiries: recentInquiries.map(({ inquiry: record, request }) => inquiry(record, request)),
   }));
 });
@@ -331,7 +385,34 @@ router.get("/service-requests", requirePortalAuth, requireApprovedCustomer, asyn
   const records = await db.select().from(hbsServiceRequests)
     .where(eq(hbsServiceRequests.userId, getAuth(req).userId!))
     .orderBy(desc(hbsServiceRequests.createdAt), desc(hbsServiceRequests.id));
-  res.json(ListServiceRequestsResponse.parse(records.map(publicRequest)));
+  const attached = await attachmentsFor(records.map(r => r.id));
+  res.json(ListServiceRequestsResponse.parse(records.map(r => publicRequest(r, attached.get(r.id)))));
+});
+
+router.post("/service-requests/attachments/upload-url", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
+  const parsed = RequestServiceAttachmentUploadBody.safeParse(req.body);
+  if (!parsed.success || !allowedAttachmentTypes.has(parsed.data.contentType) ||
+      !parsed.data.name.trim() || /[/\\\x00-\x1f\x7f]/.test(parsed.data.name)) {
+    res.status(400).json({ error: "Invalid attachment. Use PDF, JPEG or PNG up to 10 MB." });
+    return;
+  }
+  const userId = getAuth(req).userId!;
+  const [{ count }] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(hbsRequestAttachments)
+    .where(and(eq(hbsRequestAttachments.userId, userId), sql`${hbsRequestAttachments.requestId} is null`,
+      sql`${hbsRequestAttachments.expiresAt} > now()`));
+  if (count >= 12) {
+    res.status(429).json({ error: "Too many pending uploads. Try again later." });
+    return;
+  }
+  const uploadURL = await storage.getObjectEntityUploadURL();
+  const objectPath = storage.normalizeObjectEntityPath(uploadURL);
+  const [row] = await db.insert(hbsRequestAttachments).values({
+    userId, objectPath, name: parsed.data.name.trim(),
+    contentType: parsed.data.contentType, size: parsed.data.size,
+    expiresAt: new Date(Date.now() + 15 * 60_000),
+  }).returning();
+  res.json(RequestServiceAttachmentUploadResponse.parse({ attachmentId: row.id, uploadURL }));
 });
 
 router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
@@ -343,16 +424,107 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
     res.status(400).json({ error: "Complete all request fields" });
     return;
   }
-  const [record] = await db.insert(hbsServiceRequests).values({
-    userId: getAuth(req).userId!,
-    category: parsed.data.category,
-    service: parsed.data.service.trim(),
-    description: parsed.data.description.trim(),
-    contactPhone: parsed.data.contactPhone.trim(),
-  }).returning();
-  const created = publicRequest(record);
-  res.status(201).json(CreateServiceRequestResponse.parse(created));
-  notify(officeNewRequestMail({ id: record.id, reference: created.reference, service: record.service, category: record.category }));
+  const userId = getAuth(req).userId!;
+  const requestId = parsed.data.clientRequestId;
+  const existingRequest = async () => {
+    if (!requestId) return null;
+    const [record] = await db.select().from(hbsServiceRequests).where(and(
+      eq(hbsServiceRequests.userId, userId),
+      eq(hbsServiceRequests.clientRequestId, requestId),
+    )).limit(1);
+    return record ?? null;
+  };
+  const respondExisting = async (record: HbsServiceRequest) => {
+    if (record.category !== parsed.data.category ||
+        record.service !== parsed.data.service.trim() ||
+        record.description !== parsed.data.description.trim() ||
+        record.contactPhone !== parsed.data.contactPhone.trim()) {
+      res.status(409).json({ error: "This submission identifier was used for a different request." });
+      return;
+    }
+    const attached = await attachmentsFor([record.id]);
+    res.json(CreateServiceRequestResponse.parse(publicRequest(record, attached.get(record.id))));
+  };
+  const previous = await existingRequest();
+  if (previous) {
+    await respondExisting(previous);
+    return;
+  }
+  const ids = parsed.data.attachmentIds ?? [];
+  const pending = ids.length ? await db.select().from(hbsRequestAttachments).where(and(
+    inArray(hbsRequestAttachments.id, ids), eq(hbsRequestAttachments.userId, userId),
+    sql`${hbsRequestAttachments.requestId} is null`, sql`${hbsRequestAttachments.expiresAt} > now()`,
+  )) : [];
+  if (pending.length !== ids.length) {
+    res.status(400).json({ error: "Invalid or expired attachment. Upload again." });
+    return;
+  }
+  const finalized: { row: HbsRequestAttachment; path: string }[] = [];
+  try {
+    // Copy to a different private key: the temporary signed PUT must never be able to overwrite a submitted file.
+    for (const row of pending) {
+      const source = await validObject(row.objectPath, row);
+      const path = `/objects/submitted/${randomUUID()}`;
+      const dir = storage.getPrivateObjectDir().replace(/\/$/, "");
+      const [, ...prefix] = dir.replace(/^\//, "").split("/");
+      const destination = source.bucket.file(`${prefix.join("/")}/submitted/${path.split("/").at(-1)}`);
+      await source.copy(destination);
+      finalized.push({ row, path });
+      await validObject(path, row);
+    }
+  } catch (error) {
+    req.log.warn({ err: error }, "Attachment verification failed");
+    await Promise.allSettled(finalized.map(async ({ path }) => (await storage.getObjectEntityFile(path)).delete()));
+    res.status(400).json({ error: "File upload incomplete or invalid. Check each file and retry." });
+    return;
+  }
+  let record: HbsServiceRequest;
+  try {
+    record = await db.transaction(async (tx) => {
+      if (ids.length) {
+        const locked = await tx.select().from(hbsRequestAttachments).where(and(
+          inArray(hbsRequestAttachments.id, ids), eq(hbsRequestAttachments.userId, userId),
+          sql`${hbsRequestAttachments.requestId} is null`, sql`${hbsRequestAttachments.expiresAt} > now()`,
+        )).for("update");
+        if (locked.length !== ids.length) throw new Error("Attachments already submitted or expired");
+      }
+      const [created] = await tx.insert(hbsServiceRequests).values({
+        userId, category: parsed.data.category, service: parsed.data.service.trim(),
+        description: parsed.data.description.trim(), contactPhone: parsed.data.contactPhone.trim(),
+        clientRequestId: requestId ?? null,
+      }).returning();
+      for (const { row, path } of finalized) {
+        await tx.update(hbsRequestAttachments).set({ requestId: created.id, objectPath: path })
+          .where(eq(hbsRequestAttachments.id, row.id));
+      }
+      return created;
+    });
+  } catch (error) {
+    req.log.error({ err: error }, "Failed to save request and attachments");
+    // A lost connection can throw after the transaction commits. Never delete
+    // copied files here: committed attachment rows may already point to them.
+    try {
+      const previous = await existingRequest();
+      if (previous) {
+        await respondExisting(previous);
+        return;
+      }
+    } catch (lookupError) {
+      req.log.error({ err: lookupError }, "Could not reconcile uncertain request submission");
+    }
+    res.status(503).json({ error: "Could not confirm submission. Check your requests before retrying." });
+    return;
+  }
+  // A response failure after commit must not delete the submitted copies.
+  res.status(201).json(CreateServiceRequestResponse.parse(publicRequest(record, pending.map(attachmentInfo))));
+  notify(officeNewRequestMail({
+    id: record.id,
+    reference: `HBS-${record.createdAt.getUTCFullYear()}-${String(record.id).padStart(5, "0")}`,
+    service: record.service,
+    category: record.category,
+  }));
+  // Cleanup is best-effort after the record has been committed; pending keys cannot be downloaded.
+  void Promise.allSettled(pending.map(async row => (await storage.getObjectEntityFile(row.objectPath)).delete()));
 });
 
 router.get("/service-requests/:id", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
@@ -370,8 +542,42 @@ router.get("/service-requests/:id", requirePortalAuth, requireApprovedCustomer, 
     res.status(404).json({ error: "Request not found" });
     return;
   }
-  res.json(GetServiceRequestResponse.parse(publicRequest(record)));
+  const attached = await attachmentsFor([record.id]);
+  res.json(GetServiceRequestResponse.parse(publicRequest(record, attached.get(record.id))));
 });
+
+async function sendAttachment(req: Request, res: import("express").Response, staff: boolean) {
+  const attachmentId = Number(req.params.attachmentId);
+  if (!Number.isSafeInteger(attachmentId) || attachmentId < 1) {
+    res.status(404).json({ error: "Attachment not found" }); return;
+  }
+  const [row] = await db.select({ attachment: hbsRequestAttachments, request: hbsServiceRequests })
+    .from(hbsRequestAttachments)
+    .innerJoin(hbsServiceRequests, eq(hbsRequestAttachments.requestId, hbsServiceRequests.id))
+    .where(and(eq(hbsRequestAttachments.id, attachmentId),
+      ...(staff ? [] : [eq(hbsServiceRequests.userId, getAuth(req).userId!)]))).limit(1);
+  if (!row) { res.status(404).json({ error: "Attachment not found" }); return; }
+  try {
+    const file = await storage.getObjectEntityFile(row.attachment.objectPath);
+    res.setHeader("Content-Type", row.attachment.contentType);
+    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(row.attachment.name)}`);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "private, no-store");
+    file.createReadStream().on("error", err => {
+      req.log.error({ err }, "Attachment stream failed");
+      if (!res.headersSent) res.status(500).end();
+      else res.destroy(err);
+    }).pipe(res);
+  } catch (error) {
+    if (error instanceof ObjectNotFoundError) res.status(404).json({ error: "Attachment not found" });
+    else { req.log.error({ err: error }, "Attachment download failed"); res.status(500).end(); }
+  }
+}
+
+router.get("/service-requests/attachments/:attachmentId/download",
+  requirePortalAuth, requireApprovedCustomer, (req, res) => { void sendAttachment(req, res, false); });
+router.get("/office/service-requests/attachments/:attachmentId/download",
+  requireOfficeStaff, (req, res) => { void sendAttachment(req, res, true); });
 
 router.get("/service-requests/:id/history", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
   const params = GetServiceRequestHistoryParams.safeParse(req.params);
@@ -446,9 +652,8 @@ router.post("/inquiries", requirePortalAuth, requireApprovedCustomer, async (req
 router.get("/office/registrations", requireOfficeStaff, async (_req, res): Promise<void> => {
   const records = await db.select().from(hbsRegistrationRequests)
     .orderBy(desc(hbsRegistrationRequests.createdAt), desc(hbsRegistrationRequests.id));
-  const users = await clerkUsersById(records.map((record) => record.userId));
-  res.json(ListOfficeRegistrationsResponse.parse(records.map((record) =>
-    officeRegistration(record, verifiedEmailOf(users.get(record.userId), record.email)))));
+  const response = await Promise.all(records.map(officeRegistration));
+  res.json(ListOfficeRegistrationsResponse.parse(response));
 });
 
 router.patch("/office/registrations/:id", requireOfficeStaff, async (req, res): Promise<void> => {
@@ -471,26 +676,15 @@ router.patch("/office/registrations/:id", requireOfficeStaff, async (req, res): 
     }
   }
 
-  const actorId = getAuth(req).userId!;
-  const reason = parsed.data.reason?.trim() || null;
-  const record = await db.transaction(async tx => {
-    const [updated] = await tx.update(hbsRegistrationRequests).set({
-      status: parsed.data.status,
-      reason,
-      reviewerId: actorId,
-      updatedAt: new Date(),
-    }).where(and(
-      eq(hbsRegistrationRequests.id, params.data.id),
-      eq(hbsRegistrationRequests.status, "pending"),
-    )).returning();
-    if (updated) {
-      await recordAudit(tx, {
-        actorId, action: "registration.review", targetType: "registration", targetId: updated.id,
-        details: { status: updated.status, ...(reason ? { reason } : {}) },
-      });
-    }
-    return updated;
-  });
+  const [record] = await db.update(hbsRegistrationRequests).set({
+    status: parsed.data.status,
+    reason: parsed.data.reason?.trim() || null,
+    reviewerId: getAuth(req).userId!,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(hbsRegistrationRequests.id, params.data.id),
+    eq(hbsRegistrationRequests.status, "pending"),
+  )).returning();
   if (!record) {
     const [existing] = await db.select({ id: hbsRegistrationRequests.id, status: hbsRegistrationRequests.status })
       .from(hbsRegistrationRequests)
@@ -502,8 +696,7 @@ router.patch("/office/registrations/:id", requireOfficeStaff, async (req, res): 
     res.status(409).json({ error: "Registration request is no longer pending" });
     return;
   }
-  res.json(ReviewOfficeRegistrationResponse.parse(
-    officeRegistration(record, await verifiedRegistrationEmail(record))));
+  res.json(ReviewOfficeRegistrationResponse.parse(await officeRegistration(record)));
   notify(registrationDecisionMail(record.email, record.status === "approved"));
 });
 
@@ -513,7 +706,7 @@ router.get("/office/summary", requireOfficeStaff, async (_req, res): Promise<voi
       total: sql<number>`count(*)::int`,
       received: sql<number>`count(*) filter (where status = 'received')::int`,
       active: sql<number>`count(*) filter (where status <> 'completed')::int`,
-      stale: sql<number>`count(*) filter (where status <> 'completed' and updated_at < now() - make_interval(days => ${STALE_AFTER_DAYS}))::int`,
+      stale: sql<number>`count(*) filter (where status <> 'completed' and updated_at <= now() - interval '3 days')::int`,
     }).from(hbsServiceRequests),
     db.select({
       open: sql<number>`count(*) filter (where status = 'open')::int`,
@@ -528,54 +721,40 @@ router.get("/office/summary", requireOfficeStaff, async (_req, res): Promise<voi
   }));
 });
 
+// Search uses literal substring matching, including % and _, matching the old local search.
+function contains(column: AnyColumn | SQL, text: string) {
+  return sql`position(lower(${text}) in lower(${column})) > 0`;
+}
+function requestReference() {
+  return sql`concat('HBS-', extract(year from ${hbsServiceRequests.createdAt})::int, '-', lpad(${hbsServiceRequests.id}::text, 5, '0'))`;
+}
+
 router.get("/office/service-requests", requireOfficeStaff, async (req, res): Promise<void> => {
-  const query = ListOfficeServiceRequestsQueryParams.safeParse(req.query);
-  if (!query.success) {
-    res.status(400).json({ error: "Invalid filter" });
-    return;
-  }
-  const { status, category, sort, page } = query.data;
-  const text = query.data.q?.trim();
-  const conditions: SQL[] = [];
-  if (status) conditions.push(eq(hbsServiceRequests.status, status));
-  if (category) conditions.push(eq(hbsServiceRequests.category, category));
-  if (text) {
-    const pattern = containsPattern(text);
-    const id = requestIdFromReference(text);
-    conditions.push(or(
-      ilike(hbsServiceRequests.service, pattern),
-      ilike(hbsServiceRequests.description, pattern),
-      ilike(hbsServiceRequests.contactPhone, pattern),
-      ilike(hbsRegistrationRequests.fullName, pattern),
-      ilike(hbsRegistrationRequests.email, pattern),
-      ...(id ? [eq(hbsServiceRequests.id, id)] : []),
-    )!);
-  }
-  const where = conditions.length ? and(...conditions) : undefined;
-  const customerJoin = eq(hbsRegistrationRequests.userId, hbsServiceRequests.userId);
-  const [rows, [{ total }]] = await Promise.all([
-    db.select({
-      request: hbsServiceRequests,
-      fullName: hbsRegistrationRequests.fullName,
-      email: hbsRegistrationRequests.email,
-    }).from(hbsServiceRequests)
-      .leftJoin(hbsRegistrationRequests, customerJoin)
-      .where(where)
+  const parsed = ListOfficeServiceRequestsQueryParams.safeParse(req.query);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid request filters" }); return; }
+  const { page = 1, pageSize = 20, q, status, category, sort = "newest" } = parsed.data;
+  const filter = and(
+    status ? eq(hbsServiceRequests.status, status) : undefined,
+    category ? eq(hbsServiceRequests.category, category) : undefined,
+    q ? or(contains(hbsServiceRequests.service, q), contains(hbsServiceRequests.description, q),
+      contains(hbsServiceRequests.contactPhone, q), contains(requestReference(), q)) : undefined,
+  );
+  const [[{ total }], records] = await Promise.all([
+    db.select({ total: sql<number>`count(*)::int` }).from(hbsServiceRequests).where(filter),
+    db.select().from(hbsServiceRequests).where(filter)
       .orderBy(...(sort === "oldest_update"
         ? [asc(hbsServiceRequests.updatedAt), asc(hbsServiceRequests.id)]
         : [desc(hbsServiceRequests.createdAt), desc(hbsServiceRequests.id)]))
-      .limit(OFFICE_PAGE_SIZE)
-      .offset((page - 1) * OFFICE_PAGE_SIZE),
-    db.select({ total: sql<number>`count(*)::int` }).from(hbsServiceRequests)
-      .leftJoin(hbsRegistrationRequests, customerJoin)
-      .where(where),
+      .limit(pageSize).offset((page - 1) * pageSize),
   ]);
-  res.json(ListOfficeServiceRequestsResponse.parse({
-    items: rows.map(({ request, fullName, email }) => officeRequest(request, officeCustomer(fullName, email))),
-    total,
-    page,
-    pageSize: OFFICE_PAGE_SIZE,
-  }));
+  const attached = await attachmentsFor(records.map(r => r.id));
+  const response = {
+    items: await Promise.all(records.map(async r =>
+      officeRequest(r, attached.get(r.id), await customerOf(r.userId)))),
+    total, page, pageSize,
+  };
+  ListOfficeServiceRequestsResponse.parse(response);
+  res.json(response);
 });
 
 router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res): Promise<void> => {
@@ -585,20 +764,40 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
     res.status(400).json({ error: "Invalid request update" });
     return;
   }
+  const customerMessage = parsed.data.customerMessage?.trim() || null;
+  if (parsed.data.status === "waiting_on_customer" && !customerMessage) {
+    res.status(400).json({ error: "Explain to the customer what is needed." });
+    return;
+  }
+  const updatedAt = new Date(Math.max(Date.now(), parsed.data.expectedUpdatedAt.getTime() + 1));
   let previousStatus: string | null = null;
+  let stale = false;
   const record = await db.transaction(async tx => {
-    const [previous] = await tx.select({ status: hbsServiceRequests.status, officeNote: hbsServiceRequests.officeNote })
-      .from(hbsServiceRequests).where(eq(hbsServiceRequests.id, params.data.id)).for("update");
+    const [previous] = await tx.select({
+      status: hbsServiceRequests.status,
+      officeNote: hbsServiceRequests.officeNote,
+    }).from(hbsServiceRequests)
+      .where(eq(hbsServiceRequests.id, params.data.id)).for("update");
     if (!previous) return undefined;
     previousStatus = previous.status;
     const [updated] = await tx.update(hbsServiceRequests).set({
       status: parsed.data.status,
       ...(parsed.data.officeNote !== undefined ? { officeNote: parsed.data.officeNote } : {}),
-      updatedAt: new Date(),
-    }).where(eq(hbsServiceRequests.id, params.data.id)).returning();
+      customerMessage: parsed.data.status === "waiting_on_customer" ? customerMessage : null,
+      updatedAt,
+    }).where(and(
+      eq(hbsServiceRequests.id, params.data.id),
+      sql`date_trunc('milliseconds', ${hbsServiceRequests.updatedAt}) = ${parsed.data.expectedUpdatedAt}`,
+    )).returning();
+    if (!updated) {
+      stale = true;
+      return undefined;
+    }
     await recordAudit(tx, {
-      actorId: getAuth(req).userId!, action: "service_request.update",
-      targetType: "service_request", targetId: updated.id,
+      actorId: getAuth(req).userId!,
+      action: "service_request.update",
+      targetType: "service_request",
+      targetId: updated.id,
       details: {
         fromStatus: previous.status,
         toStatus: updated.status,
@@ -608,11 +807,18 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
     return updated;
   });
   if (!record) {
+    if (stale) {
+      res.status(409).json({ error: "This request changed since you opened it. Refresh and review the latest version." });
+      return;
+    }
     res.status(404).json({ error: "Request not found" });
     return;
   }
   const customer = await customerOf(record.userId);
-  res.json(UpdateOfficeServiceRequestResponse.parse(officeRequest(record, customer)));
+  const attached = await attachmentsFor([record.id]);
+  const response = officeRequest(record, attached.get(record.id), customer);
+  UpdateOfficeServiceRequestResponse.parse(response);
+  res.json(response);
   if (previousStatus !== record.status) {
     notify(statusChangedMail(await customerEmail(record.userId),
       { id: record.id, reference: publicRequest(record).reference, service: record.service }, record.status));
@@ -620,50 +826,30 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
 });
 
 router.get("/office/inquiries", requireOfficeStaff, async (req, res): Promise<void> => {
-  const query = ListOfficeInquiriesQueryParams.safeParse(req.query);
-  if (!query.success) {
-    res.status(400).json({ error: "Invalid filter" });
-    return;
-  }
-  const { status, page } = query.data;
-  const text = query.data.q?.trim();
-  const conditions: SQL[] = [];
-  if (status) conditions.push(eq(hbsInquiries.status, status));
-  if (text) {
-    const pattern = containsPattern(text);
-    conditions.push(or(
-      ilike(hbsInquiries.subject, pattern),
-      ilike(hbsInquiries.message, pattern),
-      ilike(hbsRegistrationRequests.fullName, pattern),
-      ilike(hbsRegistrationRequests.email, pattern),
-    )!);
-  }
-  const where = conditions.length ? and(...conditions) : undefined;
-  const customerJoin = eq(hbsRegistrationRequests.userId, hbsInquiries.userId);
-  const [rows, [{ total }]] = await Promise.all([
-    db.select({
-      inquiry: hbsInquiries,
-      request: hbsServiceRequests,
-      fullName: hbsRegistrationRequests.fullName,
-      email: hbsRegistrationRequests.email,
-    }).from(hbsInquiries)
-      .leftJoin(hbsServiceRequests, eq(hbsInquiries.linkedServiceRequestId, hbsServiceRequests.id))
-      .leftJoin(hbsRegistrationRequests, customerJoin)
-      .where(where)
-      .orderBy(desc(hbsInquiries.createdAt), desc(hbsInquiries.id))
-      .limit(OFFICE_PAGE_SIZE)
-      .offset((page - 1) * OFFICE_PAGE_SIZE),
+  const parsed = ListOfficeInquiriesQueryParams.safeParse(req.query);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid inquiry filters" }); return; }
+  const { page = 1, pageSize = 20, q, status } = parsed.data;
+  const filter = and(
+    status ? eq(hbsInquiries.status, status) : undefined,
+    q ? or(contains(hbsInquiries.subject, q), contains(hbsInquiries.message, q),
+      contains(requestReference(), q)) : undefined,
+  );
+  const base = () => db.select({ inquiry: hbsInquiries, request: hbsServiceRequests })
+    .from(hbsInquiries)
+    .leftJoin(hbsServiceRequests, eq(hbsInquiries.linkedServiceRequestId, hbsServiceRequests.id));
+  const [[{ total }], records] = await Promise.all([
     db.select({ total: sql<number>`count(*)::int` }).from(hbsInquiries)
-      .leftJoin(hbsRegistrationRequests, customerJoin)
-      .where(where),
+      .leftJoin(hbsServiceRequests, eq(hbsInquiries.linkedServiceRequestId, hbsServiceRequests.id)).where(filter),
+    base().where(filter).orderBy(desc(hbsInquiries.createdAt), desc(hbsInquiries.id))
+      .limit(pageSize).offset((page - 1) * pageSize),
   ]);
-  res.json(ListOfficeInquiriesResponse.parse({
-    items: rows.map(({ inquiry: record, request, fullName, email }) =>
-      officeInquiry(record, request, officeCustomer(fullName, email))),
-    total,
-    page,
-    pageSize: OFFICE_PAGE_SIZE,
-  }));
+  const response = {
+    items: await Promise.all(records.map(async ({ inquiry: record, request }) =>
+      officeInquiry(record, request, await customerOf(record.userId)))),
+    total, page, pageSize,
+  };
+  ListOfficeInquiriesResponse.parse(response);
+  res.json(response);
 });
 
 router.patch("/office/inquiries/:id", requireOfficeStaff, async (req, res): Promise<void> => {
@@ -699,11 +885,13 @@ router.patch("/office/inquiries/:id", requireOfficeStaff, async (req, res): Prom
     [linkedRequest] = await db.select().from(hbsServiceRequests)
       .where(eq(hbsServiceRequests.id, record.linkedServiceRequestId)).limit(1);
   }
-  res.json(AnswerOfficeInquiryResponse.parse(officeInquiry(record, linkedRequest, await customerOf(record.userId))));
+  const response = officeInquiry(record, linkedRequest, await customerOf(record.userId));
+  AnswerOfficeInquiryResponse.parse(response);
+  res.json(response);
   if (firstAnswer) notify(inquiryAnsweredMail(await customerEmail(record.userId), record.subject));
 });
 
-router.post("/office/legacy/preview", requireOfficeOwner, async (req, res): Promise<void> => {
+router.post("/office/legacy/preview", requireOfficeStaff, async (req, res): Promise<void> => {
   const body = PreviewLegacyBackupBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "حجم النسخة أو صيغة الطلب غير صالحة." }); return; }
   try {
@@ -714,7 +902,7 @@ router.post("/office/legacy/preview", requireOfficeOwner, async (req, res): Prom
   }
 });
 
-router.post("/office/legacy/import", requireOfficeOwner, async (req, res): Promise<void> => {
+router.post("/office/legacy/import", requireOfficeStaff, async (req, res): Promise<void> => {
   const body = ImportLegacyBackupBody.safeParse(req.body);
   if (!body.success || body.data.confirmed !== true) {
     res.status(400).json({ error: "يجب مراجعة النسخة والموافقة صراحةً قبل الاستيراد." }); return;
@@ -736,31 +924,37 @@ router.post("/office/legacy/import", requireOfficeOwner, async (req, res): Promi
       }));
       if (rows.length) await tx.insert(hbsLegacyRecords).values(rows);
     }
-    await recordAudit(tx, {
-      actorId: batch.importedBy, action: "legacy.import", targetType: "legacy_import", targetId: batch.id,
-      details: { digest: batch.digest, counts: preview.counts },
-    });
     return batch;
   });
   if (!imported) { res.status(409).json({ error: "هذه النسخة مستوردة مسبقًا. تحقق من سجل الاستيراد." }); return; }
   const savedRows = await db.select({
-    importId: hbsLegacyRecords.importId, kind: hbsLegacyRecords.kind, legacyId: hbsLegacyRecords.legacyId,
+    kind: hbsLegacyRecords.kind, legacyId: hbsLegacyRecords.legacyId,
   }).from(hbsLegacyRecords).where(eq(hbsLegacyRecords.importId, imported.id));
-  const { ids: savedIds, counts: savedCounts } = groupLegacyIds(savedRows).get(imported.id) ?? emptyLegacyGroup();
+  const savedIds: Record<LegacyKind, string[]> = { clients: [], transactions: [], tasks: [], notes: [] };
+  for (const row of savedRows) {
+    if (legacyKinds.includes(row.kind as LegacyKind)) savedIds[row.kind as LegacyKind].push(row.legacyId);
+  }
+  for (const kind of legacyKinds) savedIds[kind].sort();
+  const savedCounts = Object.fromEntries(legacyKinds.map(kind => [kind, savedIds[kind].length]));
   res.status(201).json(ImportLegacyBackupResponse.parse({
     id: imported.id, importedAt: imported.importedAt,
     exportedAt: imported.exportedAt, digest: imported.digest, counts: savedCounts, ids: savedIds,
   }));
 });
 
-router.get("/office/legacy/imports", requireOfficeOwner, async (_req, res): Promise<void> => {
+router.get("/office/legacy/imports", requireOfficeStaff, async (_req, res): Promise<void> => {
   const batches = await db.select().from(hbsLegacyImports).orderBy(desc(hbsLegacyImports.importedAt));
   const records = await db.select({
     importId: hbsLegacyRecords.importId, kind: hbsLegacyRecords.kind, legacyId: hbsLegacyRecords.legacyId,
   }).from(hbsLegacyRecords);
-  const grouped = groupLegacyIds(records);
   res.json(ListLegacyImportsResponse.parse(batches.map(batch => {
-    const { ids, counts } = grouped.get(batch.id) ?? emptyLegacyGroup();
+    const ids: Record<LegacyKind, string[]> = { clients: [], transactions: [], tasks: [], notes: [] };
+    for (const row of records) {
+      if (row.importId === batch.id && legacyKinds.includes(row.kind as LegacyKind))
+        ids[row.kind as LegacyKind].push(row.legacyId);
+    }
+    for (const kind of legacyKinds) ids[kind].sort();
+    const counts = Object.fromEntries(legacyKinds.map(kind => [kind, ids[kind].length]));
     return { id: batch.id, importedAt: batch.importedAt, exportedAt: batch.exportedAt, digest: batch.digest, ids, counts };
   })));
 });

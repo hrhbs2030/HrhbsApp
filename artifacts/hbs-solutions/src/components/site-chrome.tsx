@@ -80,10 +80,6 @@ function navigateHash(event: MouseEvent<HTMLAnchorElement>, href: string) {
   }
 }
 
-// The page ends on a window onto the city: the paper sheet above lifts away
-// (rounded, shadowed) and the fixed scene shows through this transparent
-// footer, its skyline on the viewport's bottom edge. A dark veil at the foot
-// keeps the links legible; the caption names the city being shown.
 export function SiteFooter() {
   const { city } = useSceneWindows();
   const place = cityInfo[cityOrder[city] ?? 'riyadh'];

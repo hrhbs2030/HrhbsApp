@@ -1,91 +1,100 @@
-/* Cinematic logo intro. Timings scale with --t (1 desktop, .74 phones).
-   Only transform, opacity and background-position are animated. */
+/* One first-visit logo reveal. Animations affect only transform and opacity. */
 .intro {
   --t: 1;
   position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; overflow: hidden;
-  background: radial-gradient(80% 60% at 50% 50%, #0a2023 0%, #030a0b 70%, #000 100%);
+  background: radial-gradient(80% 65% at 50% 50%, var(--color-night-2), var(--color-night) 75%);
   color: var(--color-on-dark); cursor: pointer;
-  transition: opacity 560ms var(--ease-in-out-soft), visibility 560ms;
+  transition: opacity 520ms var(--ease-in-out-soft), visibility 520ms;
 }
 .intro--leaving { opacity: 0; visibility: hidden; }
-.intro--leaving .intro-stage { transform: scale(1.1); filter: blur(2px); }
-@media (max-width: 720px) { .intro { --t: .74; } }
-
-.intro-grain { position: absolute; inset: -50%; opacity: .07; mix-blend-mode: overlay; pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
-  animation: intro-grain 1s steps(5) infinite; }
-@keyframes intro-grain { 0% { transform: translate(0, 0); } 25% { transform: translate(-3%, 2%); } 50% { transform: translate(2%, -2%); } 75% { transform: translate(-1%, 3%); } 100% { transform: translate(0, 0); } }
-
-.intro-stage { position: relative; display: grid; place-items: center; width: 100%; height: 100%; transition: transform 560ms var(--ease-in-out-soft), filter 560ms; }
-
-/* Act 1: an anamorphic streak opens the darkness, then narrows into the horizon. */
-.intro-flare { position: absolute; left: 50%; top: calc(var(--mark) * .58); width: 0; height: 0; pointer-events: none; z-index: 2; }
-.intro-streak { position: absolute; left: -50vw; top: -1px; width: 100vw; height: 2px; border-radius: 2px;
-  background: linear-gradient(90deg, transparent, rgb(143 208 198 / .35) 18%, #ffe6d2 46%, #fff 50%, #ffe6d2 54%, rgb(229 162 123 / .45) 82%, transparent);
-  transform: scaleX(0); opacity: 0; animation: intro-streak calc(var(--t) * 1500ms) var(--ease-out-soft) calc(var(--t) * 250ms) both; }
-.intro-streak--thin { top: -8px; height: 1px; opacity: 0; filter: blur(.5px); animation-name: intro-streak-thin; animation-delay: calc(var(--t) * 420ms); }
-@keyframes intro-streak { 0% { transform: scaleX(0); opacity: 0; } 20% { opacity: 1; } 60% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(.06); opacity: 0; } }
-@keyframes intro-streak-thin { 0% { transform: scaleX(0); opacity: 0; } 30% { opacity: .6; } 70% { transform: scaleX(.8); opacity: .4; } 100% { transform: scaleX(.1); opacity: 0; } }
-.intro-bloom { position: absolute; left: -260px; top: -90px; width: 520px; height: 180px; border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(255 222 196 / .55), rgb(229 162 123 / .18) 55%, transparent);
-  opacity: 0; transform: scale(.3, .2); animation: intro-bloom calc(var(--t) * 2200ms) var(--ease-out-soft) calc(var(--t) * 350ms) both; }
-@keyframes intro-bloom { 0% { opacity: 0; transform: scale(.3, .2); } 35% { opacity: 1; transform: scale(1, .6); } 70% { opacity: .55; transform: scale(.7, .9); } 100% { opacity: .25; transform: scale(.9, 1.3); } }
-
-/* Act 2: the mark assembles with a slow camera settle. */
+.intro--leaving .intro-stage { transform: scale(1.06); }
+.intro-grain {
+  position: absolute; inset: -50%; opacity: .07; mix-blend-mode: overlay; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: intro-grain 1s steps(5) infinite;
+}
+@keyframes intro-grain { 0%, 100% { transform: translate(0); } 25% { transform: translate(-3%, 2%); } 50% { transform: translate(2%, -2%); } 75% { transform: translate(-1%, 3%); } }
+.intro-stage { position: relative; display: grid; place-items: center; width: 100%; height: 100%; transition: transform 520ms var(--ease-in-out-soft); }
 .intro-logo { --mark: 132px; position: relative; display: grid; justify-items: center; gap: 26px; perspective: 900px; }
-.intro-mark { position: relative; width: var(--mark); height: var(--mark); border-radius: 24%; transform-style: preserve-3d;
-  animation: intro-camera calc(var(--t) * 2600ms) var(--ease-out-soft) calc(var(--t) * 900ms) both; }
+
+/* Light beam becomes the horizon before the mark assembles. */
+.intro-flare { position: absolute; left: 50%; top: calc(var(--mark) * .58); width: 0; height: 0; pointer-events: none; z-index: 2; }
+.intro-streak {
+  position: absolute; left: -50vw; top: -1px; width: 100vw; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-copper-light) 45%, var(--color-on-dark) 50%, var(--color-copper-light) 55%, transparent);
+  animation: intro-streak calc(var(--t) * 1500ms) var(--ease-out-soft) calc(var(--t) * 250ms) both;
+}
+.intro-streak--thin { top: -8px; height: 1px; animation-delay: calc(var(--t) * 420ms); }
+@keyframes intro-streak {
+  0% { transform: scaleX(0); opacity: 0; }
+  25% { opacity: 1; }
+  60% { transform: scaleX(1); opacity: 1; }
+  100% { transform: scaleX(.06); opacity: 0; }
+}
+.intro-bloom {
+  position: absolute; left: -260px; top: -90px; width: 520px; height: 180px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(229 162 123 / .5), rgb(229 162 123 / .15) 55%, transparent);
+  animation: intro-bloom calc(var(--t) * 2200ms) var(--ease-out-soft) calc(var(--t) * 350ms) both;
+}
+@keyframes intro-bloom {
+  0% { opacity: 0; transform: scale(.3, .2); }
+  35% { opacity: 1; transform: scale(1, .6); }
+  70% { opacity: .55; transform: scale(.7, .9); }
+  100% { opacity: .25; transform: scale(.9, 1.3); }
+}
+.intro-mark {
+  position: relative; width: var(--mark); height: var(--mark); border-radius: 24%; transform-style: preserve-3d;
+  animation: intro-camera calc(var(--t) * 2600ms) var(--ease-out-soft) calc(var(--t) * 900ms) both;
+}
 @keyframes intro-camera { from { transform: rotateX(28deg) rotateY(-14deg) scale(.86); } to { transform: none; } }
 .intro-mark svg { display: block; overflow: visible; }
 .intro-mark svg * { transform-box: fill-box; }
-.im-bg, .im-edge { opacity: 0; transform-origin: center; animation: intro-bg calc(var(--t) * 900ms) var(--ease-out-soft) calc(var(--t) * 1500ms) both; }
+.im-bg, .im-edge { transform-origin: center; animation: intro-bg calc(var(--t) * 900ms) var(--ease-out-soft) calc(var(--t) * 1500ms) both; }
 @keyframes intro-bg { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: none; } }
-.im-bar { transform-origin: center; transform: scaleX(0); animation: intro-bar calc(var(--t) * 700ms) var(--ease-out-soft) calc(var(--t) * 1050ms) both; }
+.im-bar { transform-origin: center; animation: intro-bar calc(var(--t) * 700ms) var(--ease-out-soft) calc(var(--t) * 1050ms) both; }
 @keyframes intro-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-.im-pillar { transform-origin: 50% 65%; transform: scaleY(0); animation: intro-pillar calc(var(--t) * 800ms) var(--ease-out-soft) calc(var(--t) * 1450ms) both; }
+.im-pillar { transform-origin: 50% 65%; animation: intro-pillar calc(var(--t) * 800ms) var(--ease-out-soft) calc(var(--t) * 1450ms) both; }
 .im-pillar--b { animation-delay: calc(var(--t) * 1550ms); }
 @keyframes intro-pillar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-.im-sun { transform: translateY(120%); animation: intro-sun calc(var(--t) * 1100ms) var(--ease-out-soft) calc(var(--t) * 1900ms) both; }
+.im-sun { animation: intro-sun calc(var(--t) * 1100ms) var(--ease-out-soft) calc(var(--t) * 1900ms) both; }
 @keyframes intro-sun { from { transform: translateY(120%); } to { transform: none; } }
-.im-glow { opacity: 0; transform-origin: center; animation: intro-glow calc(var(--t) * 1600ms) ease-out calc(var(--t) * 2100ms) both; }
+.im-glow { transform-origin: center; animation: intro-glow calc(var(--t) * 1600ms) ease-out calc(var(--t) * 2100ms) both; }
 @keyframes intro-glow { 0% { opacity: 0; transform: scale(.5); } 50% { opacity: 1; } 100% { opacity: .55; transform: scale(1); } }
 
-/* The specular glint crossing the finished mark. */
+/* Glint passes over the mark, then the HBS wordmark settles into view. */
 .intro-glint { position: absolute; inset: 0; border-radius: 24%; overflow: hidden; pointer-events: none; }
-.intro-glint::before { content: ""; position: absolute; top: -30%; bottom: -30%; width: 38%; left: -60%;
-  background: linear-gradient(100deg, transparent, rgb(255 255 255 / .55) 50%, transparent); transform: skewX(-18deg);
-  animation: intro-glint calc(var(--t) * 900ms) var(--ease-in-out-soft) calc(var(--t) * 2700ms) both; }
-@keyframes intro-glint { from { left: -60%; } to { left: 130%; } }
-
-/* Act 3: the wordmark resolves, lit by a passing sheen. */
+.intro-glint::before {
+  content: ""; position: absolute; top: -30%; bottom: -30%; width: 38%; left: 0;
+  background: linear-gradient(100deg, transparent, rgb(255 255 255 / .55) 50%, transparent);
+  animation: intro-glint calc(var(--t) * 900ms) var(--ease-in-out-soft) calc(var(--t) * 2700ms) both;
+}
+@keyframes intro-glint { from { transform: translateX(-150%) skewX(-18deg); } to { transform: translateX(340%) skewX(-18deg); } }
 .intro-words { display: flex; align-items: center; gap: 18px; direction: rtl; }
-.intro-latin { font-family: var(--font-display); font-weight: 700; font-size: 40px; letter-spacing: .12em; opacity: 0;
-  animation: intro-track calc(var(--t) * 1100ms) var(--ease-out-soft) calc(var(--t) * 2750ms) both; }
-@keyframes intro-track { from { opacity: 0; letter-spacing: .7em; filter: blur(6px); } to { opacity: 1; letter-spacing: .12em; filter: none; } }
-.intro-sep { display: block; width: 1px; height: 30px; background: var(--color-copper-light); transform: scaleY(0); animation: intro-sep calc(var(--t) * 500ms) var(--ease-out-soft) calc(var(--t) * 2950ms) both; }
-@keyframes intro-sep { to { transform: scaleY(1); } }
-.intro-ar { font-family: var(--font-display); font-weight: 600; font-size: 38px; opacity: 0;
-  background: linear-gradient(100deg, var(--color-on-dark) 0%, var(--color-on-dark) 40%, #fff 50%, var(--color-copper-light) 55%, var(--color-on-dark) 65%, var(--color-on-dark) 100%);
-  background-size: 300% 100%; background-position: 100% 0; -webkit-background-clip: text; background-clip: text; color: transparent;
-  animation: intro-ar calc(var(--t) * 1300ms) var(--ease-out-soft) calc(var(--t) * 3000ms) both; }
-@keyframes intro-ar { 0% { opacity: 0; transform: translateY(8px); background-position: 100% 0; } 30% { opacity: 1; transform: none; } 100% { opacity: 1; background-position: 0% 0; } }
-.intro-tagline { margin: 0; font-size: 16px; color: var(--color-on-dark-2); opacity: 0; letter-spacing: 0;
-  animation: intro-fade calc(var(--t) * 800ms) var(--ease-out-soft) calc(var(--t) * 3450ms) both; }
-@keyframes intro-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.intro-latin { font-family: var(--font-display); font-weight: 700; font-size: 40px; letter-spacing: .12em; animation: intro-word calc(var(--t) * 1100ms) var(--ease-out-soft) calc(var(--t) * 2750ms) both; }
+.intro-sep { display: block; width: 1px; height: 30px; background: var(--color-copper-light); animation: intro-sep calc(var(--t) * 500ms) var(--ease-out-soft) calc(var(--t) * 2950ms) both; }
+.intro-ar { font-family: var(--font-display); font-weight: 600; font-size: 38px; animation: intro-word calc(var(--t) * 1000ms) var(--ease-out-soft) calc(var(--t) * 3100ms) both; }
+@keyframes intro-word { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes intro-sep { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.intro-tagline { margin: 0; font-size: 16px; color: var(--color-on-dark-2); animation: intro-word calc(var(--t) * 800ms) var(--ease-out-soft) calc(var(--t) * 3450ms) both; }
 
 .intro-skip {
   position: fixed; z-index: 201; inset-inline-start: 24px; bottom: 24px; min-height: 44px; padding: 0 18px; border-radius: 999px;
-  border: 1px solid rgb(246 239 227 / .3); background: rgb(3 10 11 / .6); color: var(--color-on-dark); font-weight: 700; font-size: 14px;
-  backdrop-filter: blur(8px); transition: opacity 260ms ease, background-color var(--duration-hover) ease;
+  border: 1px solid rgb(246 239 227 / .3); background: rgb(8 26 28 / .7); color: var(--color-on-dark); font-weight: 700; font-size: 14px;
+  backdrop-filter: blur(8px); transition: opacity 260ms ease;
 }
-.intro-skip:hover { background: rgb(246 239 227 / .12); }
+.intro-skip:hover { background: var(--color-night-2); }
+.intro-skip:focus-visible { outline: 2px solid var(--color-copper-light); outline-offset: 3px; }
 .intro-skip--leaving { opacity: 0; pointer-events: none; }
 
 @media (max-width: 720px) {
+  .intro { --t: .74; }
   .intro-logo { --mark: 96px; }
   .intro-latin { font-size: 28px; }
   .intro-ar { font-size: 27px; }
   .intro-sep { height: 22px; }
   .intro-tagline { font-size: 14px; padding: 0 24px; text-align: center; }
   .intro-bloom { left: -180px; width: 360px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro, .intro * { animation: none !important; transition: none !important; }
 }

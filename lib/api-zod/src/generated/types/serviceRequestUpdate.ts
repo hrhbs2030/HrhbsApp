@@ -8,10 +8,16 @@
 import type { ServiceRequestUpdateStatus } from './serviceRequestUpdateStatus';
 
 export interface ServiceRequestUpdate {
+  expectedUpdatedAt: Date;
   status: ServiceRequestUpdateStatus;
   /**
      * @maxLength 2000
      * @nullable
      */
   officeNote?: string | null;
+  /**
+     * @maxLength 2000
+     * @nullable
+     */
+  customerMessage?: string | null;
 }

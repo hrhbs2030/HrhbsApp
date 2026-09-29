@@ -9,17 +9,11 @@ import './landing-previews.css';
 
 const ICON = 1.75;
 
-// ---------------------------------------------------------------------------
-// Client dashboard preview. Demo data only, labelled as such on screen.
-// Documents and invoices are drawn because customers ask about them, but each
-// is marked as not available in the portal today: the preview must not
-// promise features the product does not have.
-// ---------------------------------------------------------------------------
-
+// Illustrative data only; unavailable portal capabilities are labeled as such.
 const demoRequests = [
-  { ref: 'HBS-2026-00041', title: 'تجديد إقامة', area: 'الجوازات والإقامة', stage: 2, updated: 'اليوم' },
-  { ref: 'HBS-2026-00037', title: 'تعديل نشاط السجل التجاري', area: 'تأسيس الشركات والتراخيص', stage: 1, updated: 'أمس' },
-  { ref: 'HBS-2026-00029', title: 'نقل خدمات عامل', area: 'الموارد البشرية والعمل', stage: 3, updated: '8 سبتمبر' },
+  { ref: 'HBS-2026-00041', title: 'تأسيس شركة', area: 'تأسيس الشركات والتراخيص', stage: 2, updated: 'اليوم' },
+  { ref: 'HBS-2026-00037', title: 'إدارة المنصات الحكومية', area: 'دعم الأعمال', stage: 1, updated: 'أمس' },
+  { ref: 'HBS-2026-00029', title: 'إنهاء معاملات منشأة', area: 'دعم الأعمال', stage: 3, updated: '8 سبتمبر' },
 ];
 const stageTone = ['info', 'info', 'warn', 'ok'] as const;
 
@@ -99,16 +93,16 @@ export function DashboardPreview() {
               <h3 className="dp-card-title"><MessageSquareText size={16} strokeWidth={ICON} aria-hidden="true" />الرسائل</h3>
               <div className="dp-msg dp-msg--office">
                 <span><Building2 size={13} strokeWidth={ICON} aria-hidden="true" />المكتب</span>
-                <p>نحتاج تاريخ انتهاء الإقامة الحالي لإكمال طلب التجديد.</p>
+                <p>نحتاج تفاصيل إضافية عن النشاط المطلوب لإكمال مراجعة الطلب.</p>
               </div>
-              <div className="dp-msg dp-msg--me"><p>تنتهي في 2 نوفمبر.</p></div>
+              <div className="dp-msg dp-msg--me"><p>النشاط: تجارة التجزئة</p></div>
             </section>
 
             <section className="dp-card dp-mini" aria-label="المستندات المطلوبة (مثال)">
               <h3 className="dp-card-title"><FileText size={16} strokeWidth={ICON} aria-hidden="true" />المستندات المطلوبة</h3>
               <ul className="dp-docs">
-                <li data-done="true"><Check size={12} strokeWidth={3} aria-hidden="true" />صورة الجواز</li>
-                <li><span aria-hidden="true" />تاريخ انتهاء الإقامة</li>
+                <li data-done="true"><Check size={12} strokeWidth={3} aria-hidden="true" />بيانات المنشأة</li>
+                <li><span aria-hidden="true" />تفاصيل النشاط</li>
               </ul>
               <p className="dp-soon">رفع الملفات غير متاح حاليًا؛ يطلب المكتب ما يلزم عبر الرسائل.</p>
             </section>
@@ -125,11 +119,7 @@ export function DashboardPreview() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// «أم مشعل»: example exchanges. Answers are pre-written from the facts the
-// live assistant is given; nothing is sent to a server from the landing page.
-// ---------------------------------------------------------------------------
-
+// Public examples are pre-written. The live assistant requires sign-in.
 export function AssistantShowcase() {
   const [active, setActive] = useState(0);
   const [typing, setTyping] = useState(false);
@@ -151,7 +141,7 @@ export function AssistantShowcase() {
       <div className="as-copy">
         <p className="as-kicker"><Sparkles size={16} strokeWidth={ICON} aria-hidden="true" />المساعدة الآلية</p>
         <h2 id="assistant-title" className="lp-heading lp-heading--dark">اسأل «{assistantName}»</h2>
-        <p className="as-lead">إجابات فورية عن استخدام البوابة ومعنى كل حالة، في أي وقت ومن داخل حسابك.</p>
+        <p className="as-lead">إجابات عن استخدام البوابة ومعنى كل حالة، من داخل حسابك.</p>
         <dl className="as-split">
           <div>
             <dt><Sparkles size={16} strokeWidth={ICON} aria-hidden="true" />{assistantName}</dt>

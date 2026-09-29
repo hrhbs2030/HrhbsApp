@@ -5,7 +5,10 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ApprovedInformationSource } from './approvedInformationSource';
 
 export interface CustomerAIAnswer {
   answer: string;
+  needsOffice: boolean;
+  sources: ApprovedInformationSource[];
 }

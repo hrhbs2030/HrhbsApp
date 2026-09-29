@@ -24,4 +24,10 @@ export interface ServiceRequestInput {
      * @maxLength 24
      */
   contactPhone: string;
+  clientRequestId?: string;
+  /**
+     * @maxItems 3
+     * @items.minimum 1
+     */
+  attachmentIds?: number[];
 }

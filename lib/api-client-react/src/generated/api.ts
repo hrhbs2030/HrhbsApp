@@ -20,6 +20,13 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ApprovedInformation,
+  ApprovedInformationHistory,
+  ApprovedInformationInput,
+  ApprovedInformationMutation,
+  ApprovedInformationUpdate,
+  AttachmentUploadInput,
+  AttachmentUploadReservation,
   AuditLogEntry,
   CustomerAIAnswer,
   CustomerAIQuestion,
@@ -169,7 +176,7 @@ export const getExtractTransactionUrl = () => {
 }
 
 /**
- * @summary Extract transaction details from text (office staff only)
+ * @summary Extract transaction details from text
  */
 export const extractTransaction = async (extractTransactionRequest: ExtractTransactionRequest, options?: Parameters<typeof customFetch>[1]): Promise<ExtractedTransaction> => {
 
@@ -235,7 +242,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type ExtractTransactionMutationVariables = {data: BodyType<ExtractTransactionRequest>}
 
     /**
- * @summary Extract transaction details from text (office staff only)
+ * @summary Extract transaction details from text
  */
 export const useExtractTransaction = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractTransaction>>, TError,ExtractTransactionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -334,6 +341,604 @@ export const useAnswerCustomerInquiry = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getAnswerCustomerInquiryMutationOptions(options));
+    }
+
+export const getListApprovedInformationUrl = () => {
+
+
+
+
+  return `/api/office/approved-information`
+}
+
+/**
+ * @summary Staff-only knowledge drafts and publication history
+ */
+export const listApprovedInformation = async ( options?: Parameters<typeof customFetch>[1]): Promise<ApprovedInformation[]> => {
+
+  return customFetch<ApprovedInformation[]>(getListApprovedInformationUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListApprovedInformationQueryKey = () => {
+    return [
+    `/api/office/approved-information`
+    ] as const;
+    }
+
+
+export const getListApprovedInformationQueryOptions = <TData = Awaited<ReturnType<typeof listApprovedInformation>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listApprovedInformation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListApprovedInformationQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listApprovedInformation>>> = ({ signal }) => listApprovedInformation({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listApprovedInformation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListApprovedInformationQueryResult = NonNullable<Awaited<ReturnType<typeof listApprovedInformation>>>
+export type ListApprovedInformationQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Staff-only knowledge drafts and publication history
+ */
+
+export function useListApprovedInformation<TData = Awaited<ReturnType<typeof listApprovedInformation>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listApprovedInformation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListApprovedInformationQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateApprovedInformationUrl = () => {
+
+
+
+
+  return `/api/office/approved-information`
+}
+
+/**
+ * @summary Create an unpublished draft
+ */
+export const createApprovedInformation = async (approvedInformationInput: ApprovedInformationInput, options?: Parameters<typeof customFetch>[1]): Promise<ApprovedInformation> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ApprovedInformation>(getCreateApprovedInformationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(approvedInformationInput)
+  }
+);}
+
+
+
+
+
+export const getCreateApprovedInformationMutationKey = () => ['createApprovedInformation'] as const;
+
+export const getCreateApprovedInformationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createApprovedInformation>>, TError,CreateApprovedInformationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createApprovedInformation>>, TError,CreateApprovedInformationMutationVariables, TContext> => {
+
+const mutationKey = getCreateApprovedInformationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createApprovedInformation>>, CreateApprovedInformationMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createApprovedInformation(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateApprovedInformationMutationResult = NonNullable<Awaited<ReturnType<typeof createApprovedInformation>>>
+    export type CreateApprovedInformationMutationBody = BodyType<ApprovedInformationInput>
+    export type CreateApprovedInformationMutationError = ErrorType<unknown>
+    export type CreateApprovedInformationMutationVariables = {data: BodyType<ApprovedInformationInput>}
+
+    /**
+ * @summary Create an unpublished draft
+ */
+export const useCreateApprovedInformation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createApprovedInformation>>, TError,CreateApprovedInformationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createApprovedInformation>>,
+        TError,
+        CreateApprovedInformationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateApprovedInformationMutationOptions(options));
+    }
+
+export const getUpdateApprovedInformationUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/approved-information/${id}`
+}
+
+/**
+ * @summary Edit draft without changing the published version
+ */
+export const updateApprovedInformation = async (id: number,
+    approvedInformationUpdate: ApprovedInformationUpdate, options?: Parameters<typeof customFetch>[1]): Promise<ApprovedInformation> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ApprovedInformation>(getUpdateApprovedInformationUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(approvedInformationUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateApprovedInformationMutationKey = () => ['updateApprovedInformation'] as const;
+
+export const getUpdateApprovedInformationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateApprovedInformation>>, TError,UpdateApprovedInformationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateApprovedInformation>>, TError,UpdateApprovedInformationMutationVariables, TContext> => {
+
+const mutationKey = getUpdateApprovedInformationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateApprovedInformation>>, UpdateApprovedInformationMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateApprovedInformation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateApprovedInformationMutationResult = NonNullable<Awaited<ReturnType<typeof updateApprovedInformation>>>
+    export type UpdateApprovedInformationMutationBody = BodyType<ApprovedInformationUpdate>
+    export type UpdateApprovedInformationMutationError = ErrorType<void>
+    export type UpdateApprovedInformationMutationVariables = {id: number;data: BodyType<ApprovedInformationUpdate>}
+
+    /**
+ * @summary Edit draft without changing the published version
+ */
+export const useUpdateApprovedInformation = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateApprovedInformation>>, TError,UpdateApprovedInformationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateApprovedInformation>>,
+        TError,
+        UpdateApprovedInformationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateApprovedInformationMutationOptions(options));
+    }
+
+export const getListApprovedInformationHistoryUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/approved-information/${id}/history`
+}
+
+/**
+ * @summary Staff-only publication and withdrawal history
+ */
+export const listApprovedInformationHistory = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ApprovedInformationHistory[]> => {
+
+  return customFetch<ApprovedInformationHistory[]>(getListApprovedInformationHistoryUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListApprovedInformationHistoryQueryKey = (id: number,) => {
+    return [
+    `/api/office/approved-information/${id}/history`
+    ] as const;
+    }
+
+
+export const getListApprovedInformationHistoryQueryOptions = <TData = Awaited<ReturnType<typeof listApprovedInformationHistory>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listApprovedInformationHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListApprovedInformationHistoryQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listApprovedInformationHistory>>> = ({ signal }) => listApprovedInformationHistory(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listApprovedInformationHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListApprovedInformationHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof listApprovedInformationHistory>>>
+export type ListApprovedInformationHistoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Staff-only publication and withdrawal history
+ */
+
+export function useListApprovedInformationHistory<TData = Awaited<ReturnType<typeof listApprovedInformationHistory>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listApprovedInformationHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListApprovedInformationHistoryQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReviewApprovedInformationUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/approved-information/${id}/review`
+}
+
+/**
+ * @summary Mark the current draft as reviewed
+ */
+export const reviewApprovedInformation = async (id: number,
+    approvedInformationMutation: ApprovedInformationMutation, options?: Parameters<typeof customFetch>[1]): Promise<ApprovedInformation> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ApprovedInformation>(getReviewApprovedInformationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(approvedInformationMutation)
+  }
+);}
+
+
+
+
+
+export const getReviewApprovedInformationMutationKey = () => ['reviewApprovedInformation'] as const;
+
+export const getReviewApprovedInformationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewApprovedInformation>>, TError,ReviewApprovedInformationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewApprovedInformation>>, TError,ReviewApprovedInformationMutationVariables, TContext> => {
+
+const mutationKey = getReviewApprovedInformationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewApprovedInformation>>, ReviewApprovedInformationMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  reviewApprovedInformation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewApprovedInformationMutationResult = NonNullable<Awaited<ReturnType<typeof reviewApprovedInformation>>>
+    export type ReviewApprovedInformationMutationBody = BodyType<ApprovedInformationMutation>
+    export type ReviewApprovedInformationMutationError = ErrorType<void>
+    export type ReviewApprovedInformationMutationVariables = {id: number;data: BodyType<ApprovedInformationMutation>}
+
+    /**
+ * @summary Mark the current draft as reviewed
+ */
+export const useReviewApprovedInformation = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewApprovedInformation>>, TError,ReviewApprovedInformationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reviewApprovedInformation>>,
+        TError,
+        ReviewApprovedInformationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReviewApprovedInformationMutationOptions(options));
+    }
+
+export const getPublishApprovedInformationUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/approved-information/${id}/publish`
+}
+
+/**
+ * @summary Publish the reviewed draft
+ */
+export const publishApprovedInformation = async (id: number,
+    approvedInformationMutation: ApprovedInformationMutation, options?: Parameters<typeof customFetch>[1]): Promise<ApprovedInformation> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ApprovedInformation>(getPublishApprovedInformationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(approvedInformationMutation)
+  }
+);}
+
+
+
+
+
+export const getPublishApprovedInformationMutationKey = () => ['publishApprovedInformation'] as const;
+
+export const getPublishApprovedInformationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishApprovedInformation>>, TError,PublishApprovedInformationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof publishApprovedInformation>>, TError,PublishApprovedInformationMutationVariables, TContext> => {
+
+const mutationKey = getPublishApprovedInformationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof publishApprovedInformation>>, PublishApprovedInformationMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  publishApprovedInformation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PublishApprovedInformationMutationResult = NonNullable<Awaited<ReturnType<typeof publishApprovedInformation>>>
+    export type PublishApprovedInformationMutationBody = BodyType<ApprovedInformationMutation>
+    export type PublishApprovedInformationMutationError = ErrorType<void>
+    export type PublishApprovedInformationMutationVariables = {id: number;data: BodyType<ApprovedInformationMutation>}
+
+    /**
+ * @summary Publish the reviewed draft
+ */
+export const usePublishApprovedInformation = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishApprovedInformation>>, TError,PublishApprovedInformationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof publishApprovedInformation>>,
+        TError,
+        PublishApprovedInformationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPublishApprovedInformationMutationOptions(options));
+    }
+
+export const getUnpublishApprovedInformationUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/approved-information/${id}/unpublish`
+}
+
+/**
+ * @summary Withdraw information from the assistant
+ */
+export const unpublishApprovedInformation = async (id: number,
+    approvedInformationMutation: ApprovedInformationMutation, options?: Parameters<typeof customFetch>[1]): Promise<ApprovedInformation> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ApprovedInformation>(getUnpublishApprovedInformationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(approvedInformationMutation)
+  }
+);}
+
+
+
+
+
+export const getUnpublishApprovedInformationMutationKey = () => ['unpublishApprovedInformation'] as const;
+
+export const getUnpublishApprovedInformationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unpublishApprovedInformation>>, TError,UnpublishApprovedInformationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unpublishApprovedInformation>>, TError,UnpublishApprovedInformationMutationVariables, TContext> => {
+
+const mutationKey = getUnpublishApprovedInformationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unpublishApprovedInformation>>, UnpublishApprovedInformationMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  unpublishApprovedInformation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnpublishApprovedInformationMutationResult = NonNullable<Awaited<ReturnType<typeof unpublishApprovedInformation>>>
+    export type UnpublishApprovedInformationMutationBody = BodyType<ApprovedInformationMutation>
+    export type UnpublishApprovedInformationMutationError = ErrorType<void>
+    export type UnpublishApprovedInformationMutationVariables = {id: number;data: BodyType<ApprovedInformationMutation>}
+
+    /**
+ * @summary Withdraw information from the assistant
+ */
+export const useUnpublishApprovedInformation = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unpublishApprovedInformation>>, TError,UnpublishApprovedInformationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unpublishApprovedInformation>>,
+        TError,
+        UnpublishApprovedInformationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUnpublishApprovedInformationMutationOptions(options));
     }
 
 export const getGetPortalMeUrl = () => {
@@ -820,6 +1425,248 @@ export const useCreateServiceRequest = <TError = ErrorType<void>,
       return useMutation(getCreateServiceRequestMutationOptions(options));
     }
 
+export const getRequestServiceAttachmentUploadUrl = () => {
+
+
+
+
+  return `/api/service-requests/attachments/upload-url`
+}
+
+/**
+ * @summary Reserve a private upload for an approved customer
+ */
+export const requestServiceAttachmentUpload = async (attachmentUploadInput: AttachmentUploadInput, options?: Parameters<typeof customFetch>[1]): Promise<AttachmentUploadReservation> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AttachmentUploadReservation>(getRequestServiceAttachmentUploadUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(attachmentUploadInput)
+  }
+);}
+
+
+
+
+
+export const getRequestServiceAttachmentUploadMutationKey = () => ['requestServiceAttachmentUpload'] as const;
+
+export const getRequestServiceAttachmentUploadMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestServiceAttachmentUpload>>, TError,RequestServiceAttachmentUploadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestServiceAttachmentUpload>>, TError,RequestServiceAttachmentUploadMutationVariables, TContext> => {
+
+const mutationKey = getRequestServiceAttachmentUploadMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestServiceAttachmentUpload>>, RequestServiceAttachmentUploadMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestServiceAttachmentUpload(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestServiceAttachmentUploadMutationResult = NonNullable<Awaited<ReturnType<typeof requestServiceAttachmentUpload>>>
+    export type RequestServiceAttachmentUploadMutationBody = BodyType<AttachmentUploadInput>
+    export type RequestServiceAttachmentUploadMutationError = ErrorType<void>
+    export type RequestServiceAttachmentUploadMutationVariables = {data: BodyType<AttachmentUploadInput>}
+
+    /**
+ * @summary Reserve a private upload for an approved customer
+ */
+export const useRequestServiceAttachmentUpload = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestServiceAttachmentUpload>>, TError,RequestServiceAttachmentUploadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestServiceAttachmentUpload>>,
+        TError,
+        RequestServiceAttachmentUploadMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRequestServiceAttachmentUploadMutationOptions(options));
+    }
+
+export const getDownloadServiceAttachmentUrl = (attachmentId: number,) => {
+
+
+
+
+  return `/api/service-requests/attachments/${attachmentId}/download`
+}
+
+/**
+ * @summary Download a submitted attachment owned by the customer
+ */
+export const downloadServiceAttachment = async (attachmentId: number, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadServiceAttachmentUrl(attachmentId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadServiceAttachmentQueryKey = (attachmentId: number,) => {
+    return [
+    `/api/service-requests/attachments/${attachmentId}/download`
+    ] as const;
+    }
+
+
+export const getDownloadServiceAttachmentQueryOptions = <TData = Awaited<ReturnType<typeof downloadServiceAttachment>>, TError = ErrorType<void>>(attachmentId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadServiceAttachment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadServiceAttachmentQueryKey(attachmentId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadServiceAttachment>>> = ({ signal }) => downloadServiceAttachment(attachmentId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: attachmentId !== null && attachmentId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadServiceAttachment>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadServiceAttachmentQueryResult = NonNullable<Awaited<ReturnType<typeof downloadServiceAttachment>>>
+export type DownloadServiceAttachmentQueryError = ErrorType<void>
+
+
+/**
+ * @summary Download a submitted attachment owned by the customer
+ */
+
+export function useDownloadServiceAttachment<TData = Awaited<ReturnType<typeof downloadServiceAttachment>>, TError = ErrorType<void>>(
+ attachmentId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadServiceAttachment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadServiceAttachmentQueryOptions(attachmentId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadOfficeServiceAttachmentUrl = (attachmentId: number,) => {
+
+
+
+
+  return `/api/office/service-requests/attachments/${attachmentId}/download`
+}
+
+/**
+ * @summary Authorized staff download of a submitted attachment
+ */
+export const downloadOfficeServiceAttachment = async (attachmentId: number, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadOfficeServiceAttachmentUrl(attachmentId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadOfficeServiceAttachmentQueryKey = (attachmentId: number,) => {
+    return [
+    `/api/office/service-requests/attachments/${attachmentId}/download`
+    ] as const;
+    }
+
+
+export const getDownloadOfficeServiceAttachmentQueryOptions = <TData = Awaited<ReturnType<typeof downloadOfficeServiceAttachment>>, TError = ErrorType<void>>(attachmentId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadOfficeServiceAttachment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadOfficeServiceAttachmentQueryKey(attachmentId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadOfficeServiceAttachment>>> = ({ signal }) => downloadOfficeServiceAttachment(attachmentId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: attachmentId !== null && attachmentId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadOfficeServiceAttachment>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadOfficeServiceAttachmentQueryResult = NonNullable<Awaited<ReturnType<typeof downloadOfficeServiceAttachment>>>
+export type DownloadOfficeServiceAttachmentQueryError = ErrorType<void>
+
+
+/**
+ * @summary Authorized staff download of a submitted attachment
+ */
+
+export function useDownloadOfficeServiceAttachment<TData = Awaited<ReturnType<typeof downloadOfficeServiceAttachment>>, TError = ErrorType<void>>(
+ attachmentId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadOfficeServiceAttachment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadOfficeServiceAttachmentQueryOptions(attachmentId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetServiceRequestUrl = (id: number,) => {
 
 
@@ -983,7 +1830,7 @@ export const getListInquiriesUrl = () => {
 }
 
 /**
- * @summary List the signed-in customer's inquiries
+ * @summary List the signed-in customer's inquiries (including older unlinked inquiries)
  */
 export const listInquiries = async ( options?: Parameters<typeof customFetch>[1]): Promise<Inquiry[]> => {
 
@@ -1030,7 +1877,7 @@ export type ListInquiriesQueryError = ErrorType<unknown>
 
 
 /**
- * @summary List the signed-in customer's inquiries
+ * @summary List the signed-in customer's inquiries (including older unlinked inquiries)
  */
 
 export function useListInquiries<TData = Awaited<ReturnType<typeof listInquiries>>, TError = ErrorType<unknown>>(
@@ -1060,6 +1907,7 @@ export const getCreateInquiryUrl = () => {
 }
 
 /**
+ * An optional linked service request must belong to the signed-in customer. Unknown and other-customer request IDs receive the same error.
  * @summary Send an inquiry to the office
  */
 export const createInquiry = async (inquiryInput: InquiryInput, options?: Parameters<typeof customFetch>[1]): Promise<Inquiry> => {
@@ -1232,7 +2080,7 @@ export const getListOfficeServiceRequestsUrl = (params?: ListOfficeServiceReques
 }
 
 /**
- * @summary Staff-only list of customer requests, filtered and paged
+ * @summary Staff-only paginated customer requests
  */
 export const listOfficeServiceRequests = async (params?: ListOfficeServiceRequestsParams, options?: Parameters<typeof customFetch>[1]): Promise<OfficeServiceRequestPage> => {
 
@@ -1279,7 +2127,7 @@ export type ListOfficeServiceRequestsQueryError = ErrorType<void>
 
 
 /**
- * @summary Staff-only list of customer requests, filtered and paged
+ * @summary Staff-only paginated customer requests
  */
 
 export function useListOfficeServiceRequests<TData = Awaited<ReturnType<typeof listOfficeServiceRequests>>, TError = ErrorType<void>>(
@@ -1509,7 +2357,7 @@ return customFetch<OfficeServiceRequest>(getUpdateOfficeServiceRequestUrl(id),
 
 export const getUpdateOfficeServiceRequestMutationKey = () => ['updateOfficeServiceRequest'] as const;
 
-export const getUpdateOfficeServiceRequestMutationOptions = <TError = ErrorType<unknown>,
+export const getUpdateOfficeServiceRequestMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficeServiceRequest>>, TError,UpdateOfficeServiceRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateOfficeServiceRequest>>, TError,UpdateOfficeServiceRequestMutationVariables, TContext> => {
 
@@ -1538,13 +2386,13 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type UpdateOfficeServiceRequestMutationResult = NonNullable<Awaited<ReturnType<typeof updateOfficeServiceRequest>>>
     export type UpdateOfficeServiceRequestMutationBody = BodyType<ServiceRequestUpdate>
-    export type UpdateOfficeServiceRequestMutationError = ErrorType<unknown>
+    export type UpdateOfficeServiceRequestMutationError = ErrorType<void>
     export type UpdateOfficeServiceRequestMutationVariables = {id: number;data: BodyType<ServiceRequestUpdate>}
 
     /**
  * @summary Staff-only update of request progress
  */
-export const useUpdateOfficeServiceRequest = <TError = ErrorType<unknown>,
+export const useUpdateOfficeServiceRequest = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficeServiceRequest>>, TError,UpdateOfficeServiceRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateOfficeServiceRequest>>,
@@ -1571,7 +2419,7 @@ export const getListOfficeInquiriesUrl = (params?: ListOfficeInquiriesParams,) =
 }
 
 /**
- * @summary Staff-only customer inquiries, filtered and paged
+ * @summary Staff-only paginated customer inquiries
  */
 export const listOfficeInquiries = async (params?: ListOfficeInquiriesParams, options?: Parameters<typeof customFetch>[1]): Promise<OfficeInquiryPage> => {
 
@@ -1618,7 +2466,7 @@ export type ListOfficeInquiriesQueryError = ErrorType<void>
 
 
 /**
- * @summary Staff-only customer inquiries, filtered and paged
+ * @summary Staff-only paginated customer inquiries
  */
 
 export function useListOfficeInquiries<TData = Awaited<ReturnType<typeof listOfficeInquiries>>, TError = ErrorType<void>>(
@@ -2229,7 +3077,7 @@ export const getListOfficeAuditLogUrl = () => {
 }
 
 /**
- * @summary Latest office actions, newest first (owner only)
+ * @summary Latest office staff access changes, newest first (owner only)
  */
 export const listOfficeAuditLog = async ( options?: Parameters<typeof customFetch>[1]): Promise<AuditLogEntry[]> => {
 
@@ -2276,7 +3124,7 @@ export type ListOfficeAuditLogQueryError = ErrorType<void>
 
 
 /**
- * @summary Latest office actions, newest first (owner only)
+ * @summary Latest office staff access changes, newest first (owner only)
  */
 
 export function useListOfficeAuditLog<TData = Awaited<ReturnType<typeof listOfficeAuditLog>>, TError = ErrorType<void>>(

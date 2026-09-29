@@ -13,7 +13,6 @@ import { recordAudit } from "../lib/audit";
 import {
   approvedOfficeEmail,
   clerkUsersById,
-  forgetOfficeAccess,
   requireOfficeOwner,
   verifiedEmailOf,
 } from "../lib/office-access";
@@ -21,7 +20,6 @@ import {
 const router: IRouter = Router();
 const AUDIT_LOG_LIMIT = 200;
 
-// Rows without an email were created for the owner of HBS_OFFICE_EMAIL.
 function staffMember(record: HbsOfficeStaffMember, ownerEmail: string | null) {
   return {
     userId: record.userId,
@@ -47,18 +45,18 @@ router.post("/office/staff", requireOfficeOwner, async (req, res): Promise<void>
   const parsed = AddOfficeStaffBody.safeParse(req.body);
   const email = parsed.success ? parsed.data.email.trim().toLowerCase() : "";
   if (!parsed.success || !email) {
-    res.status(400).json({ error: "أدخل بريدًا إلكترونيًا صالحًا." });
+    res.status(400).json({ error: "Enter a valid email address." });
     return;
   }
   if (email === approvedOfficeEmail()) {
-    res.status(409).json({ error: "هذا بريد مالك المكتب، ولديه الصلاحية مسبقًا." });
+    res.status(409).json({ error: "The office owner already has access." });
     return;
   }
 
   const { data } = await clerkClient.users.getUserList({ emailAddress: [email], limit: 10 });
   const user = data.find((candidate) => verifiedEmailOf(candidate, email));
   if (!user) {
-    res.status(404).json({ error: "لا يوجد حساب بهذا البريد بعد التحقق منه. اطلب من الموظف إنشاء حساب وتأكيد بريده أولًا." });
+    res.status(404).json({ error: "No existing account has this verified email address." });
     return;
   }
 
@@ -76,17 +74,16 @@ router.post("/office/staff", requireOfficeOwner, async (req, res): Promise<void>
     return inserted;
   });
   if (!record) {
-    res.status(409).json({ error: "هذا الحساب أو البريد لديه صلاحية المكتب مسبقًا." });
+    res.status(409).json({ error: "This account already has office access." });
     return;
   }
-  forgetOfficeAccess(record.userId);
   res.status(201).json(AddOfficeStaffResponse.parse(staffMember(record, null)));
 });
 
 router.delete("/office/staff/:userId", requireOfficeOwner, async (req, res): Promise<void> => {
   const params = RemoveOfficeStaffParams.safeParse(req.params);
   if (!params.success) {
-    res.status(400).json({ error: "معرّف غير صالح." });
+    res.status(400).json({ error: "Invalid user ID." });
     return;
   }
   const actorId = getAuth(req).userId!;
@@ -103,14 +100,13 @@ router.delete("/office/staff/:userId", requireOfficeOwner, async (req, res): Pro
     return "removed" as const;
   });
   if (outcome === "missing") {
-    res.status(404).json({ error: "الموظف غير موجود." });
+    res.status(404).json({ error: "Staff account not found." });
     return;
   }
   if (outcome === "owner") {
-    res.status(400).json({ error: "لا يمكن إزالة حساب مالك المكتب من هنا." });
+    res.status(400).json({ error: "The office owner cannot be removed." });
     return;
   }
-  forgetOfficeAccess(params.data.userId);
   res.status(204).end();
 });
 

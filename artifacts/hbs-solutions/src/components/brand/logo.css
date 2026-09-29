@@ -4,9 +4,9 @@
 .logo-line { display: inline-flex; align-items: center; gap: calc(var(--logo-size) * .22); white-space: nowrap; }
 .logo-latin { font-family: var(--font-display); font-weight: 700; font-size: calc(var(--logo-size) * .44); letter-spacing: .1em; }
 .logo-sep { display: block; width: 1px; height: calc(var(--logo-size) * .5); background: currentColor; opacity: .35; }
-.logo-ar { font-family: var(--font-display); font-weight: 600; font-size: calc(var(--logo-size) * .42); letter-spacing: 0; }
-.logo-tag { font-size: max(11.5px, calc(var(--logo-size) * .26)); font-weight: 600; opacity: .8; }
+.logo-ar { font-family: var(--font-display); font-weight: 600; font-size: calc(var(--logo-size) * .42); }
+.logo-tag { font-size: max(11.5px, calc(var(--logo-size) * .26)); font-weight: 600; }
 .logo--dark { color: var(--color-teal); }
 .logo--light { color: var(--color-on-dark); }
-.logo--light .logo-tag { color: var(--color-on-dark-2); opacity: 1; }
-.logo--dark .logo-tag { color: var(--color-quiet); opacity: 1; }
+.logo--light .logo-tag { color: var(--color-on-dark-2); }
+.logo--dark .logo-tag { color: var(--color-quiet); }

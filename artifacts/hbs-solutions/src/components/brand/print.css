@@ -4,22 +4,18 @@
   @page { size: A4; margin: 16mm 14mm 18mm; }
   html, body { background: #fff !important; color: #111 !important; }
   * { animation: none !important; transition: none !important; box-shadow: none !important; }
-  /* Everything that is chrome, not content. */
-  .cs, .cs-underlay, .intro, .intro-skip, aside, .portal-topbar, .portal-band, .portal-foot, .site-header, .site-footer,
-  .no-print, button, a.btn, [role="search"], .cs-caption { display: none !important; }
-  .portal-sheet { border-radius: 0 !important; background: #fff !important; }
+  .city-scene, .cs, .cs-underlay, .scene-window, .intro, .intro-skip, aside, .portal-topbar, .portal-band,
+  .site-header, .site-footer, .no-print, button, a.btn, [role="search"] { display: none !important; }
+  .portal-sheet { border-radius: 0 !important; background: #fff !important; box-shadow: none !important; }
   .portal-sheet > div { padding: 0 !important; max-width: none !important; }
-  .surface { border-color: #d9d6cc !important; background: #fff !important; break-inside: avoid; }
-  a { color: inherit !important; text-decoration: none !important; }
-
-  .print-only { display: block; }
-  .print-head { display: flex !important; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 10px; margin-bottom: 18px; border-bottom: 2px solid #174b50; }
-  .print-head-meta { display: grid; gap: 2px; text-align: left; font-size: 11px; color: #4a605e; }
-  .print-head-meta strong { font-size: 14px; color: #173e42; }
-  /* Watermark: fixed elements repeat on every printed page. */
-  /* Above the content, like a paper watermark; faint enough not to hurt legibility. */
-  .print-watermark { position: fixed; inset: 0; z-index: 50; pointer-events: none; display: grid !important; place-items: center; opacity: .06; }
-  .print-watermark svg { width: 55%; height: auto; filter: grayscale(.2); }
-  .print-foot { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9.5px; color: #5d706a; border-top: 1px solid #d9d6cc; padding-top: 4px; }
+  .portal-sheet .surface { background: #fff !important; border-color: #d9d6cc !important; break-inside: avoid; }
+  .portal-sheet a { color: inherit !important; text-decoration: none !important; }
+  .portal-sheet .print-only { display: block; }
+  .portal-sheet .print-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 10px; margin-bottom: 18px; border-bottom: 2px solid var(--color-teal); }
+  .print-head-meta { display: grid; gap: 2px; text-align: left; font-size: 11px; color: var(--color-quiet); }
+  .print-head-meta strong { font-size: 14px; color: var(--color-ink); }
+  .portal-sheet .print-watermark { position: fixed; inset: 0; z-index: 0; pointer-events: none; display: grid; place-items: center; opacity: .06; }
+  .print-watermark svg { width: 55%; height: auto; }
+  .portal-sheet .print-foot { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9.5px; color: var(--color-subtle); border-top: 1px solid var(--color-line); padding-top: 4px; }
   .portal-sheet > div > *:not(.print-watermark):not(.print-foot) { position: relative; z-index: 1; }
 }

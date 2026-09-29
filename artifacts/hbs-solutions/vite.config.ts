@@ -1,10 +1,12 @@
 import path from 'path';
+import { readFileSync } from 'fs';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { readFileSync } from 'fs';
 import { defineConfig, type Plugin } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
+import { reactQueryBuildCheck } from './react-query-build-check';
+import { reactBuildCheck } from './react-build-check';
 
 const rawPort = process.env.PORT;
 
@@ -28,20 +30,35 @@ if (!basePath) {
   );
 }
 
-// Writes sitemap.xml at build time: the public pages plus one entry per
-// service slug found in src/content/services.ts, so it follows the catalogue.
+// Build a crawlable sitemap from the same complete catalogue as the directory.
+// The count assertion makes a source-format change or missed slug fail loudly.
 function sitemap(siteUrl: string): Plugin {
   return {
     name: 'hbs-sitemap',
     apply: 'build',
     generateBundle() {
-      const source = readFileSync(path.resolve(import.meta.dirname, 'src/content/services.ts'), 'utf8');
-      const slugs = [...new Set([...source.matchAll(/slug:\s*'([a-z0-9-]+)'/g)].map((m) => m[1]))];
+      const contentDir = path.resolve(import.meta.dirname, 'src/content');
+      const core = readFileSync(path.join(contentDir, 'services.ts'), 'utf8');
+      const platform = readFileSync(path.join(contentDir, 'platform-services.ts'), 'utf8');
       const categorySlugs = new Set(['passports', 'labor', 'business', 'other']);
-      const paths = ['/', '/services', '/trust', '/help', '/privacy', '/terms', ...slugs.filter((s) => !categorySlugs.has(s)).map((s) => `/services/${s}`)];
+      const coreSlugs = [...core.matchAll(/slug:\s*'([a-z0-9-]+)'/g)]
+        .map((match) => match[1])
+        .filter((slug) => !categorySlugs.has(slug));
+      const platformSlugs = [...platform.matchAll(/request\(\s*'([a-z0-9-]+)'/g)].map((match) => match[1]);
+      const slugs = [...coreSlugs, ...platformSlugs];
+      const uniqueSlugs = new Set(slugs);
+      const expectedServiceCount = 55;
+      if (slugs.length !== expectedServiceCount || uniqueSlugs.size !== expectedServiceCount) {
+        throw new Error(`HBS sitemap expected ${expectedServiceCount} unique service slugs, extracted ${slugs.length} (${uniqueSlugs.size} unique). Update the extractor or catalogue.`);
+      }
       const base = siteUrl.replace(/\/$/, '');
-      const body = paths.map((p) => `  <url><loc>${base}${p}</loc></url>`).join('\n');
-      this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n` });
+      const paths = ['/', '/services', '/trust', '/help', '/privacy', '/terms', ...slugs.map((slug) => `/services/${slug}`)];
+      const body = paths.map((route) => `  <url><loc>${base}${route}</loc></url>`).join('\n');
+      this.emitFile({
+        type: 'asset',
+        fileName: 'sitemap.xml',
+        source: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`,
+      });
     },
   };
 }
@@ -52,6 +69,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    reactQueryBuildCheck(),
+    reactBuildCheck(),
     sitemap(process.env.SITE_URL ?? 'https://hrhbs.com'),
     ...(process.env.NODE_ENV !== 'production' &&
     process.env.REPL_ID !== undefined
@@ -77,7 +96,7 @@ export default defineConfig({
         'attached_assets',
       ),
     },
-    dedupe: ['react', 'react-dom'],
+    dedupe: ['react', 'react-dom', '@tanstack/react-query'],
   },
   root: path.resolve(import.meta.dirname),
   build: {

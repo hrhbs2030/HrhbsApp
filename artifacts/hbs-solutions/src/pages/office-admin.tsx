@@ -2,9 +2,9 @@ import { useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { getListOfficeAuditLogQueryKey, getListOfficeStaffQueryKey, useAddOfficeStaff, useListOfficeAuditLog, useListOfficeStaff, useRemoveOfficeStaff, type AuditLogEntry, type OfficeStaffMember } from '@workspace/api-client-react';
-import { EmptyBlock, ErrorBlock, LoadingBlock, PageHeading, PortalLayout, dateText, statusNames } from '@/components/portal-ui';
-import { LOCALE } from '@/lib/format';
+import { EmptyBlock, ErrorBlock, LoadingBlock, PageHeading, PortalLayout, dateText } from '@/components/portal-ui';
 import { PrintButton } from '@/components/brand/print';
+import { LOCALE } from '@/lib/format';
 
 function serverMessage(error: unknown, fallback: string): string {
   const data = (error as { data?: unknown } | null)?.data;
@@ -57,22 +57,22 @@ export function OfficeStaff() {
     }
   }
 
-  return <PortalLayout staff><PageHeading eyebrow="" title="فريق المكتب" subtitle="يدير الموظف الطلبات والاستفسارات والتسجيل. الأرشيف والفريق وسجل التدقيق للمالك فقط."/>
+  return <PortalLayout staff><PageHeading eyebrow="إدارة المكتب" title="فريق المكتب" subtitle="يدير الموظف الطلبات والاستفسارات والتسجيل. الأرشيف والفريق وسجل التدقيق للمالك فقط."/>
     <div className="space-y-6">
       <form onSubmit={submit} className="surface p-5 sm:p-6" aria-labelledby="add-staff-title">
         <h2 id="add-staff-title" className="display mb-4 text-lg font-semibold">إضافة موظف</h2>
-        <label htmlFor="staff-email" className="form-field">البريد الإلكتروني
+        <label htmlFor="staff-email" className="form-field">البريد الإلكتروني للموظف
           <div className="flex flex-col gap-3 sm:flex-row">
             <input id="staff-email" type="email" dir="ltr" className="form-control" placeholder="name@example.com" value={email} onChange={event => setEmail(event.target.value)} maxLength={254} required/>
-            <button className="btn btn-primary shrink-0" type="submit" disabled={add.isPending || !email.trim()}><UserPlus size={17}/>{add.isPending ? 'جارٍ الإضافة…' : 'إضافة'}</button>
+            <button className="btn btn-primary shrink-0" type="submit" disabled={add.isPending || !email.trim()}><UserPlus size={17}/>{add.isPending ? 'جارٍ الإضافة…' : 'إضافة موظف'}</button>
           </div>
-          <small className="muted font-normal">يُشترط أن يملك الموظف حسابًا في البوابة بهذا البريد بعد تأكيده.</small>
+          <small className="muted font-normal">يجب أن يكون الموظف قد أنشأ حسابًا في البوابة وأكّد هذا البريد. تبقى صلاحيته ما دام البريد مؤكدًا في حسابه.</small>
         </label>
         {notice && <div role={notice.kind === 'error' ? 'alert' : 'status'} className={`mt-4 rounded-lg px-4 py-3 text-sm ${notice.kind === 'error' ? 'bg-danger-soft text-danger' : 'bg-ok-soft text-ok'}`}>{notice.text}</div>}
       </form>
       <section aria-labelledby="staff-list-title">
         <h2 id="staff-list-title" className="display mb-3 text-lg font-semibold">الأعضاء{staff.data?.length ? <span className="nums mr-2 text-sm font-normal text-subtle">({new Intl.NumberFormat(LOCALE).format(staff.data.length)})</span> : null}</h2>
-        {staff.isLoading ? <LoadingBlock/> : staff.isError ? <ErrorBlock retry={() => staff.refetch()}/> : !staff.data?.length ? <EmptyBlock title="لا يوجد أعضاء بعد" text="يظهر حساب المالك هنا بعد أول دخول له."/> :
+        {staff.isLoading ? <LoadingBlock/> : staff.isError ? <ErrorBlock retry={() => staff.refetch()}/> : !staff.data?.length ? <EmptyBlock title="لا يوجد أعضاء بعد" text="سيظهر حساب المالك هنا بعد أول دخول له."/> :
           <ul className="surface m-0 list-none overflow-hidden p-0">{staff.data.map(member => <li key={member.userId} className="flex flex-col gap-3 border-b border-line px-5 py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="min-w-0 truncate font-bold" dir="ltr">{member.email ?? 'بريد المالك غير مؤكد'}</span><span className={`pill ${member.role === 'owner' ? 'bg-teal text-on-dark' : 'bg-info-soft text-info'}`}>{member.role === 'owner' ? 'المالك' : 'موظف'}</span></div><div className="mt-1 text-xs text-subtle">أُضيف في {dateText(member.createdAt)}</div></div>
             {member.role === 'staff' ? <button type="button" onClick={() => revoke(member)} disabled={removingId === member.userId} className="btn btn-outline btn-sm !min-h-11 self-start sm:self-auto"><Trash2 size={15}/>{removingId === member.userId ? 'جارٍ الإزالة…' : 'إزالة الصلاحية'}</button> : <span className="flex items-center gap-1.5 text-xs text-subtle"><ShieldCheck size={15}/>مرتبط ببريد المكتب المعتمد</span>}
@@ -83,35 +83,21 @@ export function OfficeStaff() {
 }
 
 const actionNames: Record<AuditLogEntry['action'], string> = {
-  'service_request.update': 'تحديث طلب',
-  'inquiry.answer': 'رد على استفسار',
-  'registration.review': 'مراجعة تسجيل',
-  'legacy.import': 'استيراد أرشيف',
   'staff.add': 'إضافة موظف',
   'staff.remove': 'إزالة موظف',
+  'service_request.update': 'تحديث طلب خدمة',
+  'inquiry.answer': 'الرد على استفسار',
 };
 
 function auditSummary(entry: AuditLogEntry): string {
-  const d = entry.details as Record<string, unknown>;
-  const text = (value: unknown) => typeof value === 'string' ? statusNames[value] ?? value : '';
-  switch (entry.action) {
-    case 'service_request.update': {
-      const statusPart = d.fromStatus === d.toStatus ? `الحالة ${text(d.toStatus)}` : `من ${text(d.fromStatus)} إلى ${text(d.toStatus)}`;
-      return `طلب رقم ${entry.targetId}: ${statusPart}${d.noteChanged ? '، مع تعديل ملاحظة المكتب' : ''}`;
-    }
-    case 'inquiry.answer': return `استفسار رقم ${entry.targetId}${d.edited ? ' (تعديل رد سابق)' : ''}`;
-    case 'registration.review': return `طلب تسجيل رقم ${entry.targetId}: ${d.status === 'approved' ? 'موافقة' : 'رفض'}${typeof d.reason === 'string' ? `، السبب: ${d.reason}` : ''}`;
-    case 'legacy.import': return `دفعة رقم ${entry.targetId}`;
-    case 'staff.add':
-    case 'staff.remove': return typeof d.email === 'string' ? d.email : entry.targetId;
-  }
+  return typeof entry.details.email === 'string' ? entry.details.email : entry.targetId;
 }
 
 export function OfficeAuditLog() {
   const log = useListOfficeAuditLog({ query: { queryKey: getListOfficeAuditLogQueryKey(), refetchInterval: 60_000 } });
   const timeText = (value: string) => new Intl.DateTimeFormat(LOCALE, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-  return <PortalLayout staff><PageHeading eyebrow="" title="سجل التدقيق" subtitle="آخر 200 إجراء لفريق المكتب، الأحدث أولًا." action={<PrintButton />}/>
-    {log.isLoading ? <LoadingBlock/> : log.isError ? <ErrorBlock retry={() => log.refetch()}/> : !log.data?.length ? <EmptyBlock title="لا توجد إجراءات بعد" text="تظهر هنا تحديثات الطلبات والردود ومراجعات التسجيل وتغييرات الفريق."/> :
+  return <PortalLayout staff><PageHeading eyebrow="إدارة المكتب" title="سجل التدقيق" subtitle="آخر 200 تغيير في صلاحيات فريق المكتب، الأحدث أولًا." action={<PrintButton label="طباعة السجل"/>}/>
+    {log.isLoading ? <LoadingBlock/> : log.isError ? <ErrorBlock retry={() => log.refetch()}/> : !log.data?.length ? <EmptyBlock title="لا توجد إجراءات بعد" text="ستظهر هنا إضافات وإزالات أعضاء فريق المكتب."/> :
       <div className="surface overflow-hidden">
         <div className="hidden border-b border-line bg-sunk px-6 py-3 text-xs font-bold text-subtle lg:grid lg:grid-cols-[140px_minmax(0,1fr)_220px_170px] lg:gap-4" aria-hidden="true"><span>الإجراء</span><span>التفاصيل</span><span>المنفّذ</span><span>الوقت</span></div>
         <ul className="m-0 list-none p-0">{log.data.map(entry => <li key={entry.id} className="grid gap-1.5 border-b border-line px-5 py-4 last:border-0 sm:px-6 lg:grid-cols-[140px_minmax(0,1fr)_220px_170px] lg:items-center lg:gap-4">

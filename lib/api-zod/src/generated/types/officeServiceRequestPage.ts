@@ -9,7 +9,10 @@ import type { OfficeServiceRequest } from './officeServiceRequest';
 
 export interface OfficeServiceRequestPage {
   items: OfficeServiceRequest[];
+  /** @minimum 0 */
   total: number;
+  /** @minimum 1 */
   page: number;
+  /** @minimum 1 */
   pageSize: number;
 }

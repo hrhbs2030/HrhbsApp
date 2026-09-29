@@ -10,7 +10,7 @@ export interface OfficeSummary {
   totalRequests: number;
   newRequests: number;
   activeRequests: number;
-  /** Requests not completed and not updated for 3 days or more */
+  /** Active requests last updated at least 3 days ago */
   staleRequests: number;
   openInquiries: number;
 }

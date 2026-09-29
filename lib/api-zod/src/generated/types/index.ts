@@ -6,6 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './approvedInformation';
+export * from './approvedInformationHistory';
+export * from './approvedInformationHistoryAction';
+export * from './approvedInformationInput';
+export * from './approvedInformationMutation';
+export * from './approvedInformationSource';
+export * from './approvedInformationUpdate';
+export * from './attachmentUploadInput';
+export * from './attachmentUploadInputContentType';
+export * from './attachmentUploadReservation';
 export * from './auditLogEntry';
 export * from './auditLogEntryAction';
 export * from './auditLogEntryDetails';
@@ -56,6 +66,7 @@ export * from './portalUserRole';
 export * from './registrationRequestInput';
 export * from './registrationReview';
 export * from './registrationReviewStatus';
+export * from './serviceAttachment';
 export * from './serviceRequest';
 export * from './serviceRequestCategory';
 export * from './serviceRequestInput';

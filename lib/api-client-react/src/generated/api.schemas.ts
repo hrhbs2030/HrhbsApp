@@ -32,12 +32,10 @@ export type AuditLogEntryAction = typeof AuditLogEntryAction[keyof typeof AuditL
 
 
 export const AuditLogEntryAction = {
-  service_requestupdate: 'service_request.update',
-  inquiryanswer: 'inquiry.answer',
-  registrationreview: 'registration.review',
-  legacyimport: 'legacy.import',
   staffadd: 'staff.add',
   staffremove: 'staff.remove',
+  service_requestupdate: 'service_request.update',
+  inquiryanswer: 'inquiry.answer',
 } as const;
 
 export type AuditLogEntryDetails = { [key: string]: unknown };
@@ -110,8 +108,84 @@ export interface CustomerAIQuestion {
   question: string;
 }
 
+export interface ApprovedInformationSource {
+  id: number;
+  title: string;
+  reviewedAt: string;
+  publishedAt: string;
+}
+
 export interface CustomerAIAnswer {
   answer: string;
+  needsOffice: boolean;
+  sources: ApprovedInformationSource[];
+}
+
+export interface ApprovedInformationInput {
+  /**
+     * @minLength 3
+     * @maxLength 120
+     */
+  title: string;
+  /**
+     * @minLength 10
+     * @maxLength 2000
+     */
+  content: string;
+}
+
+export interface ApprovedInformationUpdate {
+  /**
+     * @minLength 3
+     * @maxLength 120
+     */
+  title: string;
+  /**
+     * @minLength 10
+     * @maxLength 2000
+     */
+  content: string;
+  expectedUpdatedAt: string;
+}
+
+export interface ApprovedInformationMutation {
+  expectedUpdatedAt: string;
+}
+
+export interface ApprovedInformation {
+  id: number;
+  title: string;
+  content: string;
+  /** @nullable */
+  publishedTitle: string | null;
+  /** @nullable */
+  publishedContent: string | null;
+  /** @nullable */
+  reviewedAt: string | null;
+  /** @nullable */
+  publishedReviewedAt: string | null;
+  /** @nullable */
+  publishedAt: string | null;
+  updatedAt: string;
+}
+
+export type ApprovedInformationHistoryAction = typeof ApprovedInformationHistoryAction[keyof typeof ApprovedInformationHistoryAction];
+
+
+export const ApprovedInformationHistoryAction = {
+  published: 'published',
+  withdrawn: 'withdrawn',
+} as const;
+
+export interface ApprovedInformationHistory {
+  id: number;
+  informationId: number;
+  action: ApprovedInformationHistoryAction;
+  title: string;
+  content: string;
+  reviewedAt: string;
+  publishedAt: string;
+  changedAt: string;
 }
 
 export type PortalUserRole = typeof PortalUserRole[keyof typeof PortalUserRole];
@@ -236,6 +310,13 @@ export const ServiceRequestStatus = {
   completed: 'completed',
 } as const;
 
+export interface ServiceAttachment {
+  id: number;
+  name: string;
+  contentType: string;
+  size: number;
+}
+
 export interface ServiceRequest {
   id: number;
   reference: string;
@@ -244,8 +325,13 @@ export interface ServiceRequest {
   description: string;
   contactPhone: string;
   status: ServiceRequestStatus;
+  /** @nullable */
+  customerMessage: string | null;
+  /** @nullable */
+  clientRequestId: string | null;
   createdAt: string;
   updatedAt: string;
+  attachments: ServiceAttachment[];
 }
 
 export type ServiceRequestStatusEventStatus = typeof ServiceRequestStatusEventStatus[keyof typeof ServiceRequestStatusEventStatus];
@@ -261,6 +347,11 @@ export const ServiceRequestStatusEventStatus = {
 export interface ServiceRequestStatusEvent {
   status: ServiceRequestStatusEventStatus;
   at: string;
+}
+
+export interface OfficeCustomer {
+  fullName: string;
+  email: string;
 }
 
 export type OfficeServiceRequestCategory = typeof OfficeServiceRequestCategory[keyof typeof OfficeServiceRequestCategory];
@@ -283,14 +374,6 @@ export const OfficeServiceRequestStatus = {
   completed: 'completed',
 } as const;
 
-/**
- * The customer's registration details, when they registered through the portal.
- */
-export interface OfficeCustomer {
-  fullName: string;
-  email: string;
-}
-
 export interface OfficeServiceRequest {
   id: number;
   reference: string;
@@ -301,9 +384,50 @@ export interface OfficeServiceRequest {
   status: OfficeServiceRequestStatus;
   /** @nullable */
   officeNote?: string | null;
-  customer: OfficeCustomer | null;
+  /** @nullable */
+  customerMessage: string | null;
   createdAt: string;
   updatedAt: string;
+  attachments: ServiceAttachment[];
+  customer: OfficeCustomer | null;
+}
+
+export interface OfficeServiceRequestPage {
+  items: OfficeServiceRequest[];
+  /** @minimum 0 */
+  total: number;
+  /** @minimum 1 */
+  page: number;
+  /** @minimum 1 */
+  pageSize: number;
+}
+
+export type AttachmentUploadInputContentType = typeof AttachmentUploadInputContentType[keyof typeof AttachmentUploadInputContentType];
+
+
+export const AttachmentUploadInputContentType = {
+  'application/pdf': 'application/pdf',
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+} as const;
+
+export interface AttachmentUploadInput {
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  name: string;
+  /**
+     * @minimum 1
+     * @maximum 10485760
+     */
+  size: number;
+  contentType: AttachmentUploadInputContentType;
+}
+
+export interface AttachmentUploadReservation {
+  attachmentId: number;
+  uploadURL: string;
 }
 
 export type ServiceRequestInputCategory = typeof ServiceRequestInputCategory[keyof typeof ServiceRequestInputCategory];
@@ -333,6 +457,12 @@ export interface ServiceRequestInput {
      * @maxLength 24
      */
   contactPhone: string;
+  clientRequestId?: string;
+  /**
+     * @maxItems 3
+     * @items.minimum 1
+     */
+  attachmentIds?: number[];
 }
 
 export type ServiceRequestUpdateStatus = typeof ServiceRequestUpdateStatus[keyof typeof ServiceRequestUpdateStatus];
@@ -346,12 +476,18 @@ export const ServiceRequestUpdateStatus = {
 } as const;
 
 export interface ServiceRequestUpdate {
+  expectedUpdatedAt: string;
   status: ServiceRequestUpdateStatus;
   /**
      * @maxLength 2000
      * @nullable
      */
   officeNote?: string | null;
+  /**
+     * @maxLength 2000
+     * @nullable
+     */
+  customerMessage?: string | null;
 }
 
 export type InquiryStatus = typeof InquiryStatus[keyof typeof InquiryStatus];
@@ -409,17 +545,13 @@ export type OfficeInquiry = Inquiry & ({
   customer: OfficeCustomer | null;
 });
 
-export interface OfficeServiceRequestPage {
-  items: OfficeServiceRequest[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
-
 export interface OfficeInquiryPage {
   items: OfficeInquiry[];
+  /** @minimum 0 */
   total: number;
+  /** @minimum 1 */
   page: number;
+  /** @minimum 1 */
   pageSize: number;
 }
 
@@ -462,7 +594,7 @@ export interface OfficeSummary {
   totalRequests: number;
   newRequests: number;
   activeRequests: number;
-  /** Requests not completed and not updated for 3 days or more */
+  /** Active requests last updated at least 3 days ago */
   staleRequests: number;
   openInquiries: number;
 }
@@ -523,17 +655,30 @@ export interface HealthStatus {
 }
 
 export type ListOfficeServiceRequestsParams = {
-status?: ListOfficeServiceRequestsStatus;
-category?: ListOfficeServiceRequestsCategory;
 /**
+ * 1-based page; defaults to 1
+ * @minimum 1
+ * @maximum 1000000
+ */
+page?: number;
+/**
+ * Defaults to 20; capped at 100
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+/**
+ * Case-insensitive literal substring of reference, service, description or contact phone
+ * @minLength 1
  * @maxLength 120
  */
 q?: string;
-sort?: ListOfficeServiceRequestsSort;
+status?: ListOfficeServiceRequestsStatus;
+category?: ListOfficeServiceRequestsCategory;
 /**
- * @minimum 1
+ * Newest created first or oldest updated first; ID breaks ties
  */
-page?: number;
+sort?: ListOfficeServiceRequestsSort;
 };
 
 export type ListOfficeServiceRequestsStatus = typeof ListOfficeServiceRequestsStatus[keyof typeof ListOfficeServiceRequestsStatus];
@@ -565,15 +710,25 @@ export const ListOfficeServiceRequestsSort = {
 } as const;
 
 export type ListOfficeInquiriesParams = {
-status?: ListOfficeInquiriesStatus;
 /**
+ * 1-based page; defaults to 1
+ * @minimum 1
+ * @maximum 1000000
+ */
+page?: number;
+/**
+ * Defaults to 20; capped at 100
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+/**
+ * Case-insensitive literal substring of subject, message or linked request reference
+ * @minLength 1
  * @maxLength 120
  */
 q?: string;
-/**
- * @minimum 1
- */
-page?: number;
+status?: ListOfficeInquiriesStatus;
 };
 
 export type ListOfficeInquiriesStatus = typeof ListOfficeInquiriesStatus[keyof typeof ListOfficeInquiriesStatus];

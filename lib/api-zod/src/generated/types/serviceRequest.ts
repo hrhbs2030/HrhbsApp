@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ServiceAttachment } from './serviceAttachment';
 import type { ServiceRequestCategory } from './serviceRequestCategory';
 import type { ServiceRequestStatus } from './serviceRequestStatus';
 
@@ -16,6 +17,11 @@ export interface ServiceRequest {
   description: string;
   contactPhone: string;
   status: ServiceRequestStatus;
+  /** @nullable */
+  customerMessage: string | null;
+  /** @nullable */
+  clientRequestId: string | null;
   createdAt: Date;
   updatedAt: Date;
+  attachments: ServiceAttachment[];
 }

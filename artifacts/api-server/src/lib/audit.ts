@@ -11,8 +11,7 @@ export type AuditEntry = {
   details?: Record<string, unknown>;
 };
 
-// Call inside the transaction that makes the change, so the change and its
-// audit entry are saved together or not at all.
+// Audit rows are written in the same transaction as the office access change.
 export async function recordAudit(tx: Transaction, entry: AuditEntry): Promise<void> {
   await tx.insert(hbsAuditLog).values({
     actorId: entry.actorId,

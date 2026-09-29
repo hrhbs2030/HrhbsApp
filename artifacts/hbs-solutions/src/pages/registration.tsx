@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react';
-import { Link } from 'wouter';
-import { AlertCircle, ArrowLeft, Check, CheckCircle2, Clock3, Inbox, RotateCcw, UserRoundCheck, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Check, CheckCircle2, Clock3, Inbox, Info, RotateCcw, ShieldCheck, UserRoundCheck, X } from 'lucide-react';
 import './registration.css';
 import { LOCALE } from '@/lib/format';
+import { Link } from 'wouter';
 import { PageHeading } from '@/components/portal-ui';
 
 export type RegistrationStatus = 'pending' | 'approved' | 'rejected';
@@ -103,6 +103,7 @@ function ProcessAside() {
         <li><span className="reg-step-num">٣</span><div><strong>القرار</strong><p>تظهر النتيجة في هذه الصفحة.</p></div></li>
       </ol>
     </section>
+    <div className="reg-aside-note"><ShieldCheck size={19} aria-hidden="true" /><p>بريدك الإلكتروني مرتبط بحسابك، ولا يمكن تغييره من هذا النموذج. إذا كان غير صحيح، صحّحه من إعدادات حسابك قبل إرسال الطلب.</p></div>
   </aside>;
 }
 
@@ -144,12 +145,12 @@ export function RegistrationRequestPage({ email, values, onChange, onSubmit, reg
     if (!submitting) void onSubmit(values);
   };
   return <div className="registration-page" dir="rtl">
-    <PageHeading eyebrow="" title={rejected ? 'إعادة تقديم طلب التسجيل' : 'طلب التسجيل'} subtitle={rejected ? 'راجع ملاحظة المكتب، ثم حدّث بياناتك وأعد التقديم.' : 'يراجع المكتب بياناتك قبل تفعيل خدمات البوابة لحسابك.'} />
+    <PageHeading eyebrow="" title={rejected ? 'إعادة تقديم طلب التسجيل' : 'طلب التسجيل'} subtitle={rejected ? 'راجع ملاحظة المكتب، ثم حدّث بياناتك وأعد التقديم.' : 'يراجع المكتب بياناتك قبل تفعيل خدمات البوابة.'} />
     {error && <ErrorNotice message={error} onRetry={onRetry} />}
-    {rejected && <div className="reg-alert reg-alert-rejected" role="status" data-testid="status-registration-rejected"><AlertCircle size={19} aria-hidden="true" /><div><strong>لم تتم الموافقة على الطلب السابق</strong><p>{registration.reason || 'راجع بياناتك وأعد التقديم.'}</p></div></div>}
+    {rejected && <div className="reg-alert reg-alert-rejected" role="status" data-testid="status-registration-rejected"><AlertCircle size={19} aria-hidden="true" /><div><strong>لم تتم الموافقة على الطلب السابق</strong><p>{registration.reason || 'يمكنك مراجعة البيانات وإعادة تقديم الطلب.'}</p></div></div>}
     <div className="reg-grid">
       <section className="reg-card" aria-labelledby="registration-form-title">
-        <div className="reg-card-head"><h2 id="registration-form-title">بيانات مقدم الطلب</h2></div>
+        <div className="reg-card-head"><div><h2 id="registration-form-title">بيانات مقدم الطلب</h2><p>الحقول المطلوبة مميزة بعلامة النجمة.</p></div></div>
         <form className="reg-form" onSubmit={submit}>
           <div className="reg-fields">
             <div className="reg-field"><label htmlFor="reg-full-name">الاسم الكامل <span aria-hidden="true">*</span></label><input className="reg-input" id="reg-full-name" name="fullName" type="text" autoComplete="name" required minLength={2} maxLength={120} value={values.fullName} onChange={event => onChange('fullName', event.target.value)} placeholder="الاسم الكامل" disabled={submitting} data-testid="input-registration-full-name" /></div>
@@ -157,7 +158,7 @@ export function RegistrationRequestPage({ email, values, onChange, onSubmit, reg
             <div className="reg-field reg-field-wide"><label htmlFor="reg-email">البريد الإلكتروني</label><input className="reg-input" id="reg-email" name="email" type="email" autoComplete="email" dir="ltr" style={{ textAlign: 'right' }} value={email} readOnly aria-describedby="reg-email-help" data-testid="input-registration-email" /><p className="reg-help" id="reg-email-help">مرتبط بحسابك ولا يُعدَّل من هنا. إن كان غير صحيح، صحّحه من إعدادات حسابك قبل الإرسال.</p></div>
             <div className="reg-field reg-field-wide"><label htmlFor="reg-note">ملاحظة للمكتب <span className="reg-optional">(اختياري)</span></label><textarea className="reg-input" id="reg-note" name="note" maxLength={1000} value={values.note} onChange={event => onChange('note', event.target.value)} placeholder="أي معلومة تساعد المكتب في مراجعة طلبك" disabled={submitting} data-testid="input-registration-note" /></div>
           </div>
-          <div className="reg-form-footer"><button className="reg-btn" type="submit" disabled={submitting || !email} data-testid="button-submit-registration">{submitting ? 'جارٍ إرسال الطلب…' : rejected ? 'إعادة تقديم الطلب' : 'إرسال طلب التسجيل'}{!submitting && <ArrowLeft size={17} aria-hidden="true" />}</button></div>
+          <div className="reg-form-footer"><p>بعد الإرسال، تابع حالة طلبك من هذه الصفحة.</p><button className="reg-btn" type="submit" disabled={submitting || !email} data-testid="button-submit-registration">{submitting ? 'جارٍ إرسال الطلب…' : rejected ? 'إعادة تقديم الطلب' : 'إرسال طلب التسجيل'}{!submitting && <ArrowLeft size={17} aria-hidden="true" />}</button></div>
         </form>
       </section>
       <ProcessAside />
@@ -194,5 +195,6 @@ export function OfficeRegistrationsPage({ registrations, loading = false, error,
           </li>;
         })}</ul>}
     </section>}
+    <div className="reg-aside-note" style={{ marginTop: 16, maxWidth: 710 }}><Info size={18} aria-hidden="true" /><p>تظهر أسباب عدم الموافقة لمقدم الطلب. تأكد من وضوح السبب قبل تأكيد القرار؛ لا يمكن تغيير حالة الطلب من هذه الشاشة بعد اتخاذ القرار.</p></div>
   </div>;
 }

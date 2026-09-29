@@ -7,12 +7,28 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "test": "node ./test.mjs",
+    "test": "node ../../scripts/run-tests.mjs api",
+    "test:db-guards": "node --test ../../scripts/db-command-guards.test.mjs ../../scripts/db-physical-identity.test.mjs",
+    "test:db": "node ../../scripts/run-tests.mjs api-db",
+    "test:portal-isolation": "node ../../scripts/run-db-test.mjs tests/portal-inquiry-isolation.test.ts",
+    "test:service-requests": "node ../../scripts/run-db-test.mjs tests/service-request-regressions.test.ts",
+    "test:attachment-cleanup": "node ../../scripts/run-db-test.mjs tests/expired-request-attachments.test.ts",
+    "test:attachment-access": "HBS_OFFICE_EMAIL=attachment-access-office@example.invalid node ../../scripts/run-db-test.mjs tests/request-attachment-access.test.ts",
+    "test:attachment-storage": "HBS_OFFICE_EMAIL=attachment-storage-office@example.invalid node ../../scripts/run-db-test.mjs tests/request-attachment-storage.test.ts",
+    "test:assistant-retrieval": "tsx --test tests/assistant-retrieval.test.ts",
+    "test:notifications": "tsx --test tests/notifications.test.ts",
+    "test:assistant-citations": "node ../../scripts/run-db-test.mjs tests/assistant-citations.test.ts",
+    "test:approved-information-history": "HBS_OFFICE_EMAIL=history-test-office@example.invalid node ../../scripts/run-db-test.mjs tests/approved-information-history.test.ts",
+    "test:api-security": "tsx --test tests/openai-security.test.ts",
+    "test:office-access": "tsx --test tests/office-access.test.ts",
+    "test:office-staff-management": "HBS_OFFICE_EMAIL=office-staff-test-owner@example.invalid node ../../scripts/run-db-test.mjs tests/office-staff-management.test.ts",
+    "test:office-revocation": "HBS_OFFICE_EMAIL=revocation-test-owner@example.invalid node ../../scripts/run-db-test.mjs tests/office-revocation-routes.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@clerk/express": "^2.1.72",
     "@clerk/shared": "^4.36.0",
+    "@google-cloud/storage": "^8.2.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/integrations-anthropic-ai": "workspace:*",
@@ -21,6 +37,7 @@
     "cors": "^2.8.6",
     "drizzle-orm": "catalog:",
     "express": "^5.2.1",
+    "google-auth-library": "^11.1.0",
     "http-proxy-middleware": "^4.2.0",
     "nodemailer": "^10.0.12",
     "pino": "^9.14.0",
@@ -36,6 +53,7 @@
     "esbuild": "0.28.2",
     "esbuild-plugin-pino": "^2.3.3",
     "pino-pretty": "^13.1.3",
-    "thread-stream": "3.1.0"
+    "thread-stream": "3.1.0",
+    "tsx": "catalog:"
   }
 }

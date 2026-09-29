@@ -10,10 +10,8 @@ export type AuditLogEntryAction = typeof AuditLogEntryAction[keyof typeof AuditL
 
 
 export const AuditLogEntryAction = {
-  service_requestupdate: 'service_request.update',
-  inquiryanswer: 'inquiry.answer',
-  registrationreview: 'registration.review',
-  legacyimport: 'legacy.import',
   staffadd: 'staff.add',
   staffremove: 'staff.remove',
+  service_requestupdate: 'service_request.update',
+  inquiryanswer: 'inquiry.answer',
 } as const;

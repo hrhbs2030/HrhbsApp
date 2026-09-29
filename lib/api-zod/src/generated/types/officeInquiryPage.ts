@@ -9,7 +9,10 @@ import type { OfficeInquiry } from './officeInquiry';
 
 export interface OfficeInquiryPage {
   items: OfficeInquiry[];
+  /** @minimum 0 */
   total: number;
+  /** @minimum 1 */
   page: number;
+  /** @minimum 1 */
   pageSize: number;
 }

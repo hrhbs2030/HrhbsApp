@@ -54,7 +54,7 @@ function ServiceSearch() {
     <form className="lp-search" role="search" onSubmit={submit}>
       <label htmlFor="hero-search" className="sr-only">ابحث عن خدمة</label>
       <Search size={19} strokeWidth={ICON} aria-hidden="true" />
-      <input id="hero-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ابحث عن خدمة: تجديد إقامة، سجل تجاري…" autoComplete="off" />
+      <input id="hero-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ابحث عن خدمة: تأسيس شركة، إدارة المنصات…" autoComplete="off" />
       <button type="submit" className="btn btn-accent btn-sm">بحث</button>
     </form>
   );
@@ -68,6 +68,20 @@ export default function Landing() {
   const chapters = useActiveChapter(journey.length);
   const chapterStage = journey[chapters.active]?.stage ?? 0;
   let wordIndex = 0;
+
+  // Landing is lazy-loaded: the browser's initial hash scroll can happen
+  // before the target section exists in the DOM.
+  useEffect(() => {
+    if (intro.playing) return;
+    const scrollToChapter = () => {
+      const id = window.location.hash.slice(1);
+      if (id !== 'dashboard' && id !== 'assistant') return;
+      window.requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: 'start' }));
+    };
+    scrollToChapter();
+    window.addEventListener('hashchange', scrollToChapter);
+    return () => window.removeEventListener('hashchange', scrollToChapter);
+  }, [intro.playing]);
 
   return (
     <div className="hbs-landing site" dir="rtl" ref={rootRef} data-intro={intro.playing ? 'playing' : 'done'}>
@@ -94,7 +108,7 @@ export default function Landing() {
                   </span>
                 ))}
               </h1>
-              <p className="lp-hero-lead lp-enter">أرسل طلبك إلى المكتب، واحصل على رقم مرجعي فورًا، وتابع حالته من حسابك.</p>
+              <p className="lp-hero-lead lp-enter">من تأسيس الشركات وإدارة المنصات الحكومية إلى إنهاء المعاملات؛ أرسل طلبك إلى المكتب وتابع حالته من حسابك.</p>
               <div className="lp-hero-actions lp-enter">
                 <Link href="/sign-up" className="btn btn-light lp-btn-lg">طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
                 <Link href="/services" className="btn btn-ghost-dark lp-btn-lg">تصفّح الخدمات</Link>
