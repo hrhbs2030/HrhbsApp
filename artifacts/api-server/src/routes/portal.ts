@@ -120,7 +120,7 @@ async function hasOfficeAccess(req: Request, bootstrap = false): Promise<boolean
   return true;
 }
 
-const requireOfficeStaff: RequestHandler = async (req, res, next) => {
+export const requireOfficeStaff: RequestHandler = async (req, res, next) => {
   if (!getAuth(req).userId) {
     res.status(401).json({ error: "Sign in to continue" });
     return;

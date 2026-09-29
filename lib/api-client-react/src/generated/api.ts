@@ -161,7 +161,7 @@ export const getExtractTransactionUrl = () => {
 }
 
 /**
- * @summary Extract transaction details from text
+ * @summary Extract transaction details from text (office staff only)
  */
 export const extractTransaction = async (extractTransactionRequest: ExtractTransactionRequest, options?: Parameters<typeof customFetch>[1]): Promise<ExtractedTransaction> => {
 
@@ -227,7 +227,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type ExtractTransactionMutationVariables = {data: BodyType<ExtractTransactionRequest>}
 
     /**
- * @summary Extract transaction details from text
+ * @summary Extract transaction details from text (office staff only)
  */
 export const useExtractTransaction = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractTransaction>>, TError,ExtractTransactionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}

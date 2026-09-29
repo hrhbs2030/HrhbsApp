@@ -18,7 +18,7 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * @summary Extract transaction details from text
+ * @summary Extract transaction details from text (office staff only)
  */
 export const extractTransactionBodyTextMax = 2000;
 
