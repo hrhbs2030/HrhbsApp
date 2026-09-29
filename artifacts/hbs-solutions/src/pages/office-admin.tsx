@@ -87,9 +87,17 @@ const actionNames: Record<AuditLogEntry['action'], string> = {
   'staff.remove': 'إزالة موظف',
   'service_request.update': 'تحديث طلب خدمة',
   'inquiry.answer': 'الرد على استفسار',
+  'attachment.upload': 'إرفاق مستند',
+  'attachment.download': 'تنزيل مستند',
+  'attachment.delete': 'حذف مستند',
+  'attachment.purge': 'حذف تلقائي لمستند',
 };
 
 function auditSummary(entry: AuditLogEntry): string {
+  if (entry.action.startsWith('attachment.')) {
+    const name = typeof entry.details.name === 'string' ? `«${entry.details.name}»` : 'مستند';
+    return `طلب رقم ${entry.targetId}: ${name}${entry.action === 'attachment.purge' ? ' بعد 90 يومًا من اكتمال الطلب' : ''}`;
+  }
   return typeof entry.details.email === 'string' ? entry.details.email : entry.targetId;
 }
 
@@ -103,7 +111,7 @@ export function OfficeAuditLog() {
         <ul className="m-0 list-none p-0">{log.data.map(entry => <li key={entry.id} className="grid gap-1.5 border-b border-line px-5 py-4 last:border-0 sm:px-6 lg:grid-cols-[140px_minmax(0,1fr)_220px_170px] lg:items-center lg:gap-4">
           <span className="flex items-center justify-between gap-3 lg:block"><span className="inline-flex w-fit rounded-md bg-copper-soft px-2 py-0.5 text-xs font-bold text-copper">{actionNames[entry.action]}</span><span className="text-xs text-subtle lg:hidden">{timeText(entry.createdAt)}</span></span>
           <span className="min-w-0 text-sm leading-7">{auditSummary(entry)}</span>
-          <span className="min-w-0 truncate text-xs text-quiet" dir="ltr" style={{ textAlign: 'right' }}>{entry.actorEmail ?? entry.actorId}</span>
+          <span className="min-w-0 truncate text-xs text-quiet" dir="ltr" style={{ textAlign: 'right' }}>{entry.actorId === 'system' ? 'النظام' : entry.actorEmail ?? entry.actorId}</span>
           <span className="hidden text-xs text-subtle lg:block">{timeText(entry.createdAt)}</span>
         </li>)}</ul>
       </div>}
