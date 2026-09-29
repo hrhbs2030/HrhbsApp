@@ -33,11 +33,17 @@
 .cs-shimmer--slow { animation-duration: 6s; }
 @keyframes cs-shimmer { from { transform: translateX(-14px); opacity: .55; } to { transform: translateX(14px); opacity: 1; } }
 
+/* Film grain and lens vignette: the two cheap cues that stop flat vector art reading as clip-art. */
+.cs-grain { position: absolute; inset: -50%; opacity: .09; mix-blend-mode: overlay; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: cs-grain 1.2s steps(6) infinite; }
+@keyframes cs-grain { 0% { transform: translate(0, 0); } 20% { transform: translate(-3%, 2%); } 40% { transform: translate(2%, -3%); } 60% { transform: translate(-2%, -1%); } 80% { transform: translate(3%, 3%); } 100% { transform: translate(0, 0); } }
 /* Legibility veil: darker on the text side (inline start) and under the header. */
 .cs-veil { position: absolute; inset: 0; background:
   linear-gradient(to bottom, rgb(8 26 28 / .75), rgb(8 26 28 / 0) 22%),
   linear-gradient(to left, rgb(8 26 28 / .88) 0%, rgb(8 26 28 / .62) 34%, rgb(8 26 28 / .08) 52%, rgb(8 26 28 / .12) 100%),
-  linear-gradient(to top, rgb(8 26 28 / .55), rgb(8 26 28 / 0) 30%); }
+  linear-gradient(to top, rgb(8 26 28 / .55), rgb(8 26 28 / 0) 30%),
+  radial-gradient(120% 90% at 50% 45%, transparent 55%, rgb(4 12 13 / .55) 100%); }
 [dir="ltr"] .cs-veil { transform: scaleX(-1); }
 
 .cs-caption { position: absolute; left: 32px; bottom: 32px; display: grid; gap: 2px; min-width: 150px; padding: 12px 16px 14px; border-radius: 14px; background: rgb(8 26 28 / .55); border: 1px solid rgb(255 255 255 / .1); color: var(--color-on-dark); backdrop-filter: blur(8px); animation: cs-caption .9s var(--ease-out-soft) both; }
