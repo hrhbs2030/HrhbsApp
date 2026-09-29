@@ -1,0 +1,56 @@
+/* City scene backdrop. Every animation is transform/opacity on a few layers. */
+:root { --band-h: clamp(440px, 58vh, 560px); }
+.cs { position: fixed; inset: 0 0 auto 0; height: 100vh; height: 100lvh; z-index: 0; overflow: hidden; background: var(--color-night); pointer-events: none; contain: strict; transition: height var(--duration-scene) var(--ease-in-out-soft); }
+/* Inner pages: the scene shrinks to the page's dark band so the skyline sits on its lower edge. */
+.cs--compact { height: var(--band-h); }
+.cs-scene { position: absolute; inset: 0; opacity: 0; transition: opacity 1.8s var(--ease-in-out-soft); }
+.cs-scene[data-active="true"] { opacity: 1; }
+.cs-scene:not([data-active="true"]) * { animation-play-state: paused; }
+.cs--paused * { animation-play-state: paused !important; }
+
+/* Camera drift with parallax: deeper layers move less. */
+.cs-layer { position: absolute; top: 0; left: -7%; width: 114%; height: 100%; will-change: transform; animation: 26s var(--ease-in-out-soft) infinite alternate; }
+.cs-layer--1 { animation-name: cs-drift-1; }
+.cs-layer--2 { animation-name: cs-drift-2; }
+.cs-layer--3 { animation-name: cs-drift-3; }
+.cs-layer--4 { animation-name: cs-drift-4; }
+@keyframes cs-drift-1 { from { transform: translate3d(0, 0, 0) scale(1.04); } to { transform: translate3d(-1%, -.5%, 0) scale(1); } }
+@keyframes cs-drift-2 { from { transform: translate3d(1%, 0, 0); } to { transform: translate3d(-2%, 0, 0); } }
+@keyframes cs-drift-3 { from { transform: translate3d(2%, 0, 0); } to { transform: translate3d(-3.5%, 0, 0); } }
+@keyframes cs-drift-4 { from { transform: translate3d(3.5%, 0, 0) scale(1.02); } to { transform: translate3d(-5.5%, 0, 0) scale(1.02); } }
+/* Each city enters with a short camera push. */
+.cs-scene[data-active="true"] { animation: cs-push 2.4s var(--ease-out-soft) both; }
+@keyframes cs-push { from { transform: scale(1.06); } to { transform: scale(1); } }
+
+.cs-windows rect { fill: #ffd2a8; opacity: .8; }
+.cs-twinkle { animation: cs-twinkle 3.2s ease-in-out infinite alternate; }
+@keyframes cs-twinkle { from { opacity: .15; } to { opacity: .95; } }
+.cs-glow { animation: cs-glow 4.5s ease-in-out infinite alternate; }
+@keyframes cs-glow { from { opacity: .45; } to { opacity: 1; } }
+.cs-fountain { transform-box: fill-box; transform-origin: 50% 100%; animation: cs-fountain 2.6s ease-in-out infinite alternate; }
+@keyframes cs-fountain { from { transform: scaleY(.95) scaleX(1); opacity: .8; } to { transform: scaleY(1.03) scaleX(1.08); opacity: 1; } }
+.cs-shimmer { animation: cs-shimmer 3.4s ease-in-out infinite alternate; }
+.cs-shimmer--slow { animation-duration: 6s; }
+@keyframes cs-shimmer { from { transform: translateX(-14px); opacity: .55; } to { transform: translateX(14px); opacity: 1; } }
+
+/* Legibility veil: darker on the text side (inline start) and under the header. */
+.cs-veil { position: absolute; inset: 0; background:
+  linear-gradient(to bottom, rgb(8 26 28 / .75), rgb(8 26 28 / 0) 22%),
+  linear-gradient(to left, rgb(8 26 28 / .88) 0%, rgb(8 26 28 / .62) 34%, rgb(8 26 28 / .08) 52%, rgb(8 26 28 / .12) 100%),
+  linear-gradient(to top, rgb(8 26 28 / .55), rgb(8 26 28 / 0) 30%); }
+[dir="ltr"] .cs-veil { transform: scaleX(-1); }
+
+.cs-caption { position: absolute; left: 32px; bottom: 32px; display: grid; gap: 2px; min-width: 150px; padding: 12px 16px 14px; border-radius: 14px; background: rgb(8 26 28 / .55); border: 1px solid rgb(255 255 255 / .1); color: var(--color-on-dark); backdrop-filter: blur(8px); animation: cs-caption .9s var(--ease-out-soft) both; }
+.cs-caption strong { font-family: var(--font-display); font-size: 20px; font-weight: 600; }
+.cs-caption span { font-size: 12.5px; color: var(--color-on-dark-2); }
+.cs-progress { display: block; height: 2px; margin-top: 8px; border-radius: 2px; background: var(--color-copper-light); transform-origin: right; animation: cs-progress var(--scene-ms) linear both; }
+@keyframes cs-progress { from { transform: scaleX(0); } }
+@keyframes cs-caption { from { opacity: 0; transform: translateY(8px); } }
+
+@media (max-width: 720px) {
+  .cs-layer { animation-duration: 34s; }
+  .cs-veil { background: linear-gradient(to bottom, rgb(8 26 28 / .8), rgb(8 26 28 / .45) 45%, rgb(8 26 28 / .75)); }
+  .cs-caption { left: 16px; bottom: 16px; min-width: 0; padding: 8px 12px 10px; }
+  .cs-caption strong { font-size: 16px; }
+  .cs-windows rect:nth-child(3n) { display: none; }
+}

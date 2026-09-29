@@ -70,8 +70,6 @@ export default function Landing() {
 
       <main id="main" tabIndex={-1}>
         <section className="lp-hero" aria-labelledby="landing-title">
-          <div className="lp-hero-glow" aria-hidden="true" />
-          <div className="lp-hero-lines" aria-hidden="true" />
           <div className="site-wrap lp-hero-grid">
             <div className="lp-hero-content">
               <p className="lp-eyebrow lp-enter"><span className="lp-pulse" aria-hidden="true" />بوابة عملاء حلول الغد</p>
@@ -106,6 +104,7 @@ export default function Landing() {
           </div>
         </section>
 
+        <div className="lp-body">
         <section className="lp-categories" aria-labelledby="categories-title">
           <div className="site-wrap">
             <div className="lp-section-head reveal">
@@ -216,6 +215,7 @@ export default function Landing() {
             <Link href="/sign-in" className="btn btn-ghost-dark lp-btn-lg">لدي حساب</Link>
           </div>
         </section>
+        </div>
       </main>
 
       <SiteFooter />

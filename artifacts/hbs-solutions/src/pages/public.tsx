@@ -40,9 +40,8 @@ export function ServicesDirectory() {
   }, [query, category, navigate]);
 
   return (
-    <PublicPage>
+    <PublicPage intro={<PageIntro kicker="دليل الخدمات" title="ما الخدمة التي تحتاجها؟" text="ابحث بالاسم أو اختر المجال. في صفحة كل خدمة تجد ما يفيد المكتب أن تكتبه في طلبك." />}>
       <div className="site-wrap pub-page">
-        <PageIntro kicker="دليل الخدمات" title="ما الخدمة التي تحتاجها؟" text="ابحث بالاسم أو اختر المجال. في صفحة كل خدمة تجد ما يفيد المكتب أن تكتبه في طلبك." />
         <div className="pub-toolbar">
           <label className="pub-search">
             <span className="sr-only">ابحث في الخدمات</span>
@@ -91,11 +90,11 @@ export function ServiceDetail() {
   const service = serviceBySlug[slug ?? ''];
   if (!service) {
     return (
-      <PublicPage>
+      <PublicPage intro={<PageIntro kicker="دليل الخدمات" title="الخدمة غير موجودة" text="قد يكون الرابط قديمًا." />}>
         <div className="site-wrap pub-page">
           <div className="surface pub-empty">
             <CircleHelp size={28} strokeWidth={1.5} aria-hidden="true" />
-            <h1 className="display">الخدمة غير موجودة</h1>
+            <h2 className="display">لم نعثر على هذه الخدمة</h2>
             <p>قد يكون الرابط قديمًا. تصفّح دليل الخدمات للعثور على ما تحتاجه.</p>
             <Link href="/services" className="btn btn-primary">دليل الخدمات</Link>
           </div>
@@ -107,9 +106,8 @@ export function ServiceDetail() {
   const Icon = categoryIcons[service.category];
   const related = services.filter((s) => s.category === service.category && s.slug !== service.slug).slice(0, 3);
 
-  return (
-    <PublicPage>
-      <div className="site-wrap pub-page">
+  const intro = (
+    <div className="pub-intro">
         <nav aria-label="مسار التنقل" className="pub-crumbs">
           <Link href="/services">دليل الخدمات</Link>
           <span aria-hidden="true">/</span>
@@ -117,11 +115,16 @@ export function ServiceDetail() {
           <span aria-hidden="true">/</span>
           <span aria-current="page">{service.name}</span>
         </nav>
-        <div className="pub-detail">
-          <div className="pub-detail-main">
             <span className="pub-service-cat"><Icon size={16} strokeWidth={ICON} aria-hidden="true" />{category.name}</span>
             <h1 className="display pub-detail-title">{service.name}</h1>
             <p className="pub-detail-lead">{service.summary}</p>
+    </div>
+  );
+  return (
+    <PublicPage intro={intro}>
+      <div className="site-wrap pub-page">
+        <div className="pub-detail">
+          <div className="pub-detail-main">
 
             <section className="surface pub-block" aria-labelledby="write-title">
               <h2 id="write-title" className="display"><FileText size={20} strokeWidth={ICON} aria-hidden="true" />ما يفيد أن تكتبه في طلبك</h2>
@@ -169,9 +172,8 @@ export function ServiceDetail() {
 export function TrustPage() {
   const icons = [ShieldCheck, History, Hash];
   return (
-    <PublicPage>
+    <PublicPage intro={<PageIntro kicker="الخصوصية والأمان" title="كيف نتعامل مع طلباتك" text="ما تجده هنا يصف ما تفعله البوابة فعلًا اليوم، لا وعودًا عامة." />}>
       <div className="site-wrap pub-page pub-narrow">
-        <PageIntro kicker="الخصوصية والأمان" title="كيف نتعامل مع طلباتك" text="ما تجده هنا يصف ما تفعله البوابة فعلًا اليوم، لا وعودًا عامة." />
         <ul className="pub-facts">
           {trustFacts.map((fact, i) => {
             const Icon = icons[i] ?? ShieldCheck;
@@ -191,9 +193,8 @@ export function TrustPage() {
 
 export function HelpPage() {
   return (
-    <PublicPage>
+    <PublicPage intro={<PageIntro kicker="المساعدة" title="أسئلة وإجابات" text="إن لم تجد إجابتك هنا، أرسل استفسارًا من حسابك وسيرد المكتب في المكان نفسه." />}>
       <div className="site-wrap pub-page pub-narrow">
-        <PageIntro kicker="المساعدة" title="أسئلة وإجابات" text="إن لم تجد إجابتك هنا، أرسل استفسارًا من حسابك وسيرد المكتب في المكان نفسه." />
         <div className="pub-faq">
           {faqs.map((faq, i) => (
             <details key={faq.question} className="pub-faq-item" open={i === 0}>

@@ -1,4 +1,8 @@
-.site { min-height: 100dvh; background: var(--color-paper); color: var(--color-ink); display: flex; flex-direction: column; }
+.site { position: relative; z-index: 1; min-height: 100dvh; background: transparent; color: var(--color-ink); display: flex; flex-direction: column; }
+/* Dark band over the city backdrop, then the paper page body. */
+.site-band { position: relative; min-height: var(--band-h, 520px); display: flex; align-items: flex-end; padding: 130px 0 clamp(90px, 14vh, 150px); color: var(--color-on-dark); }
+.site-body { position: relative; flex: 1; background: var(--color-paper); }
+.site-footer { position: relative; z-index: 1; }
 .site > main { flex: 1; outline: none; }
 .site-wrap { width: min(100% - 48px, 1280px); margin-inline: auto; }
 .site-skip { position: absolute; inset-inline-start: 16px; top: -60px; z-index: 100; padding: 10px 16px; border-radius: 10px; background: var(--color-surface); color: var(--color-ink); font-weight: 700; text-decoration: none; transition: top var(--duration-hover) ease; }

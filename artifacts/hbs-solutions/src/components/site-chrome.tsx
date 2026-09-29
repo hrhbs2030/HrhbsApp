@@ -106,12 +106,15 @@ export function SiteFooter() {
   );
 }
 
-export function PublicPage({ children, tone = 'light' }: { children: ReactNode; tone?: 'dark' | 'light' }) {
+export function PublicPage({ children, intro }: { children: ReactNode; intro?: ReactNode }) {
   return (
     <div className="site" dir="rtl">
       <a className="site-skip" href="#main">تخطَّ إلى المحتوى</a>
-      <SiteHeader tone={tone} />
-      <main id="main" tabIndex={-1}>{children}</main>
+      <SiteHeader tone="dark" />
+      <main id="main" tabIndex={-1}>
+        <section className="site-band"><div className="site-wrap">{intro}</div></section>
+        <div className="site-body">{children}</div>
+      </main>
       <SiteFooter />
     </div>
   );
