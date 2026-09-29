@@ -1,0 +1,12 @@
+.contact-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.contact-list a { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14.5px; text-decoration: none; transition: color var(--duration-hover) ease; }
+.contact-list svg { flex: none; }
+.contact-list--light a { color: var(--color-ink); }
+.contact-list--light svg { color: var(--color-copper); }
+.contact-list--light a:hover { color: var(--color-teal-bright); }
+.contact-list--dark a { color: var(--color-on-dark-2); }
+.contact-list--dark svg { color: var(--color-copper-light); }
+.contact-list--dark a:hover { color: var(--color-on-dark); }
+
+.contact-card { padding: 22px 24px; border-radius: var(--radius-panel); border: 1px solid var(--color-line); background: var(--color-surface); }
+.contact-card h2 { margin: 0 0 8px; font-size: 19px; font-weight: 600; }

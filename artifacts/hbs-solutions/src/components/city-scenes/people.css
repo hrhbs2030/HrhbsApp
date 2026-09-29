@@ -30,5 +30,5 @@
 
 /* Conversations need room: not in the narrow portal strip, nor on phones
    where the scene sits behind the hero text. */
-.cs--portal .pp-lines { display: none; }
-@media (max-width: 720px) { .pp-lines { display: none; } }
+.cs--portal .pp-lines, .cs--footer .pp-lines { display: none; }
+@media (max-width: 1180px) { .pp-lines { display: none; } }

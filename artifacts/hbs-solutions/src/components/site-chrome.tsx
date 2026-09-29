@@ -4,6 +4,7 @@ import { ArrowLeft, Menu, X } from 'lucide-react';
 import { Brand } from '@/components/portal-ui';
 import { cityInfo, cityOrder } from '@/components/city-scene';
 import { SceneWindow, useSceneWindows } from '@/components/scene-window';
+import { ContactList } from '@/components/contact-card';
 import './site-chrome.css';
 
 const ICON = 1.75;
@@ -112,10 +113,18 @@ export function SiteFooter() {
                 <li><Link href="/help">المساعدة</Link></li>
               </ul>
             </div>
+            <div className="site-footer-contact">
+              <h2>تواصل معنا</h2>
+              <ContactList tone="dark" />
+            </div>
           </nav>
         </div>
         <div className="site-footer-bottom">
-          <small>© {new Date().getFullYear()} HBS حلول الغد</small>
+          <div className="site-footer-legal">
+            <small>© {new Date().getFullYear()} HBS حلول الغد</small>
+            <Link href="/privacy">سياسة الخصوصية</Link>
+            <Link href="/terms">شروط الاستخدام</Link>
+          </div>
           <p className="site-footer-city" aria-hidden="true" key={place.name}>
             <span className="site-footer-city-dot" />
             <strong>{place.name}</strong>

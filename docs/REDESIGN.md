@@ -83,3 +83,12 @@
 - `components/city-scenes/people.tsx` draws small residents in each city's foreground layer, in regional dress: Najdi thobe, red shemagh and agal, and a bisht (Riyadh); Hijazi sideri vest with ghabana turban, and white ghutra (Jeddah); striped izar with flower wreath or straw hat, and the tall straw hat المظلة for women (Jazan); the abaya in all three.
 - Pairs talk about their transactions in speech bubbles timed to the 12 s city cycle (restarted each time a city comes on screen). Passers-by cross slowly. All motion is transform/opacity and pauses with the scene.
 - Bubbles are hidden in the portal strip and on phones; reduced-motion users see the residents without bubbles. Edit the casts and lines at the bottom of `people.tsx`.
+
+## Site review fixes (30 Sep 2026)
+
+- Office contact details in `src/content/contact.ts` (footer column, help page card, legal pages) and in the JSON-LD block of `index.html` — keep the two in sync.
+- New pages `/privacy` (سياسة الخصوصية, written against the fields the API actually stores and PDPL rights) and `/terms` (شروط الاستخدام). Update `legalUpdated` when their text changes. Should be reviewed before relying on them legally.
+- `sitemap.xml` generated at build time from the public routes and the service slugs in `content/services.ts`; `robots.txt` points to it. Absolute `og:image`, `og:url`, `og:locale`, `og:site_name`.
+- Header switches to the menu button below 1180px (it wrapped before); residents' speech bubbles hidden below 1180px and behind the footer.
+- Footer links are 44px tap targets; heading order fixed on the inquiries list and empty/error blocks.
+- Not in code (deployment side): gzip/brotli compression and security headers, and the Clerk application name.

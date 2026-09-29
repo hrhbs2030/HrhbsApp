@@ -136,7 +136,7 @@ export function Inquiries() {
       <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-line pt-5"><button type="button" onClick={()=>setShowForm(false)} className="btn btn-outline" disabled={mutation.isPending}>إلغاء</button><button disabled={mutation.isPending} type="submit" className="btn btn-primary">{mutation.isPending?'جارٍ الإرسال…':'إرسال الاستفسار'}<Send size={16}/></button></div>
     </form>}
     <div className="grid grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
-      <section aria-label="سجل الاستفسارات" className="min-w-0">{q.isLoading?<LoadingBlock/>:q.isError?<ErrorBlock retry={()=>q.refetch()}/>:!q.data?.length?<EmptyBlock title="لا توجد استفسارات بعد" text="يظهر هنا كل استفسار ترسله مع رد المكتب عليه." action="استفسار جديد" onAction={openForm}/>:<div className="surface overflow-hidden">{q.data.map(i=><InquiryItem key={i.id} inquiry={i}/>)}</div>}</section>
+      <section aria-labelledby="inquiries-list-title" className="min-w-0"><h2 id="inquiries-list-title" className="sr-only">سجل الاستفسارات</h2>{q.isLoading?<LoadingBlock/>:q.isError?<ErrorBlock retry={()=>q.refetch()}/>:!q.data?.length?<EmptyBlock title="لا توجد استفسارات بعد" text="يظهر هنا كل استفسار ترسله مع رد المكتب عليه." action="استفسار جديد" onAction={openForm}/>:<div className="surface overflow-hidden">{q.data.map(i=><InquiryItem key={i.id} inquiry={i}/>)}</div>}</section>
       <CustomerAssistant onAskOffice={openForm}/>
     </div>
   </PortalLayout>;
