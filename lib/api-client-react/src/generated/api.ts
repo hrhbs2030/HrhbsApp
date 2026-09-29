@@ -33,9 +33,13 @@ import type {
   LegacyBackupSummary,
   LegacyImportInput,
   LegacyImportSummary,
+  ListOfficeInquiriesParams,
+  ListOfficeServiceRequestsParams,
   OfficeInquiry,
+  OfficeInquiryPage,
   OfficeRegistration,
   OfficeServiceRequest,
+  OfficeServiceRequestPage,
   OfficeStaffInput,
   OfficeStaffMember,
   OfficeSummary,
@@ -1134,20 +1138,27 @@ export function useGetOfficeSummary<TData = Awaited<ReturnType<typeof getOfficeS
 
 
 
-export const getListOfficeServiceRequestsUrl = () => {
+export const getListOfficeServiceRequestsUrl = (params?: ListOfficeServiceRequestsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/office/service-requests`
+  return stringifiedParams.length > 0 ? `/api/office/service-requests?${stringifiedParams}` : `/api/office/service-requests`
 }
 
 /**
- * @summary Staff-only list of customer requests
+ * @summary Staff-only list of customer requests, filtered and paged
  */
-export const listOfficeServiceRequests = async ( options?: Parameters<typeof customFetch>[1]): Promise<OfficeServiceRequest[]> => {
+export const listOfficeServiceRequests = async (params?: ListOfficeServiceRequestsParams, options?: Parameters<typeof customFetch>[1]): Promise<OfficeServiceRequestPage> => {
 
-  return customFetch<OfficeServiceRequest[]>(getListOfficeServiceRequestsUrl(),
+  return customFetch<OfficeServiceRequestPage>(getListOfficeServiceRequestsUrl(params),
   {
     ...options,
     method: 'GET'
@@ -1160,23 +1171,23 @@ export const listOfficeServiceRequests = async ( options?: Parameters<typeof cus
 
 
 
-export const getListOfficeServiceRequestsQueryKey = () => {
+export const getListOfficeServiceRequestsQueryKey = (params?: ListOfficeServiceRequestsParams,) => {
     return [
-    `/api/office/service-requests`
+    `/api/office/service-requests`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListOfficeServiceRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeServiceRequests>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListOfficeServiceRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeServiceRequests>>, TError = ErrorType<void>>(params?: ListOfficeServiceRequestsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListOfficeServiceRequestsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeServiceRequestsQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeServiceRequests>>> = ({ signal }) => listOfficeServiceRequests({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeServiceRequests>>> = ({ signal }) => listOfficeServiceRequests(params, { signal, ...requestOptions });
 
 
 
@@ -1186,19 +1197,19 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type ListOfficeServiceRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeServiceRequests>>>
-export type ListOfficeServiceRequestsQueryError = ErrorType<unknown>
+export type ListOfficeServiceRequestsQueryError = ErrorType<void>
 
 
 /**
- * @summary Staff-only list of customer requests
+ * @summary Staff-only list of customer requests, filtered and paged
  */
 
-export function useListOfficeServiceRequests<TData = Awaited<ReturnType<typeof listOfficeServiceRequests>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListOfficeServiceRequests<TData = Awaited<ReturnType<typeof listOfficeServiceRequests>>, TError = ErrorType<void>>(
+ params?: ListOfficeServiceRequestsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListOfficeServiceRequestsQueryOptions(options)
+  const queryOptions = getListOfficeServiceRequestsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1466,20 +1477,27 @@ export const useUpdateOfficeServiceRequest = <TError = ErrorType<unknown>,
       return useMutation(getUpdateOfficeServiceRequestMutationOptions(options));
     }
 
-export const getListOfficeInquiriesUrl = () => {
+export const getListOfficeInquiriesUrl = (params?: ListOfficeInquiriesParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/office/inquiries`
+  return stringifiedParams.length > 0 ? `/api/office/inquiries?${stringifiedParams}` : `/api/office/inquiries`
 }
 
 /**
- * @summary Staff-only customer inquiries
+ * @summary Staff-only customer inquiries, filtered and paged
  */
-export const listOfficeInquiries = async ( options?: Parameters<typeof customFetch>[1]): Promise<OfficeInquiry[]> => {
+export const listOfficeInquiries = async (params?: ListOfficeInquiriesParams, options?: Parameters<typeof customFetch>[1]): Promise<OfficeInquiryPage> => {
 
-  return customFetch<OfficeInquiry[]>(getListOfficeInquiriesUrl(),
+  return customFetch<OfficeInquiryPage>(getListOfficeInquiriesUrl(params),
   {
     ...options,
     method: 'GET'
@@ -1492,23 +1510,23 @@ export const listOfficeInquiries = async ( options?: Parameters<typeof customFet
 
 
 
-export const getListOfficeInquiriesQueryKey = () => {
+export const getListOfficeInquiriesQueryKey = (params?: ListOfficeInquiriesParams,) => {
     return [
-    `/api/office/inquiries`
+    `/api/office/inquiries`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListOfficeInquiriesQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeInquiries>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeInquiries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListOfficeInquiriesQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeInquiries>>, TError = ErrorType<void>>(params?: ListOfficeInquiriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeInquiries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListOfficeInquiriesQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeInquiriesQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeInquiries>>> = ({ signal }) => listOfficeInquiries({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeInquiries>>> = ({ signal }) => listOfficeInquiries(params, { signal, ...requestOptions });
 
 
 
@@ -1518,19 +1536,19 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type ListOfficeInquiriesQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeInquiries>>>
-export type ListOfficeInquiriesQueryError = ErrorType<unknown>
+export type ListOfficeInquiriesQueryError = ErrorType<void>
 
 
 /**
- * @summary Staff-only customer inquiries
+ * @summary Staff-only customer inquiries, filtered and paged
  */
 
-export function useListOfficeInquiries<TData = Awaited<ReturnType<typeof listOfficeInquiries>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeInquiries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListOfficeInquiries<TData = Awaited<ReturnType<typeof listOfficeInquiries>>, TError = ErrorType<void>>(
+ params?: ListOfficeInquiriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeInquiries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListOfficeInquiriesQueryOptions(options)
+  const queryOptions = getListOfficeInquiriesQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

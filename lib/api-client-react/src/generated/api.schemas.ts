@@ -268,6 +268,14 @@ export const OfficeServiceRequestStatus = {
   completed: 'completed',
 } as const;
 
+/**
+ * The customer's registration details, when they registered through the portal.
+ */
+export interface OfficeCustomer {
+  fullName: string;
+  email: string;
+}
+
 export interface OfficeServiceRequest {
   id: number;
   reference: string;
@@ -278,6 +286,7 @@ export interface OfficeServiceRequest {
   status: OfficeServiceRequestStatus;
   /** @nullable */
   officeNote?: string | null;
+  customer: OfficeCustomer | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -382,7 +391,22 @@ export interface LinkedServiceRequestContext {
 
 export type OfficeInquiry = Inquiry & ({
   linkedServiceRequest: LinkedServiceRequestContext | null;
+  customer: OfficeCustomer | null;
 });
+
+export interface OfficeServiceRequestPage {
+  items: OfficeServiceRequest[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface OfficeInquiryPage {
+  items: OfficeInquiry[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
 
 export interface InquiryInput {
   /**
@@ -423,6 +447,8 @@ export interface OfficeSummary {
   totalRequests: number;
   newRequests: number;
   activeRequests: number;
+  /** Requests not completed and not updated for 3 days or more */
+  staleRequests: number;
   openInquiries: number;
 }
 
@@ -480,4 +506,66 @@ export interface ExtractedTransaction {
 export interface HealthStatus {
   status: string;
 }
+
+export type ListOfficeServiceRequestsParams = {
+status?: ListOfficeServiceRequestsStatus;
+category?: ListOfficeServiceRequestsCategory;
+/**
+ * @maxLength 120
+ */
+q?: string;
+sort?: ListOfficeServiceRequestsSort;
+/**
+ * @minimum 1
+ */
+page?: number;
+};
+
+export type ListOfficeServiceRequestsStatus = typeof ListOfficeServiceRequestsStatus[keyof typeof ListOfficeServiceRequestsStatus];
+
+
+export const ListOfficeServiceRequestsStatus = {
+  received: 'received',
+  reviewing: 'reviewing',
+  waiting_on_customer: 'waiting_on_customer',
+  completed: 'completed',
+} as const;
+
+export type ListOfficeServiceRequestsCategory = typeof ListOfficeServiceRequestsCategory[keyof typeof ListOfficeServiceRequestsCategory];
+
+
+export const ListOfficeServiceRequestsCategory = {
+  passports: 'passports',
+  labor: 'labor',
+  business: 'business',
+  other: 'other',
+} as const;
+
+export type ListOfficeServiceRequestsSort = typeof ListOfficeServiceRequestsSort[keyof typeof ListOfficeServiceRequestsSort];
+
+
+export const ListOfficeServiceRequestsSort = {
+  newest: 'newest',
+  oldest_update: 'oldest_update',
+} as const;
+
+export type ListOfficeInquiriesParams = {
+status?: ListOfficeInquiriesStatus;
+/**
+ * @maxLength 120
+ */
+q?: string;
+/**
+ * @minimum 1
+ */
+page?: number;
+};
+
+export type ListOfficeInquiriesStatus = typeof ListOfficeInquiriesStatus[keyof typeof ListOfficeInquiriesStatus];
+
+
+export const ListOfficeInquiriesStatus = {
+  open: 'open',
+  answered: 'answered',
+} as const;
 

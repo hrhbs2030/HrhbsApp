@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { OfficeCustomer } from './officeCustomer';
 import type { OfficeServiceRequestCategory } from './officeServiceRequestCategory';
 import type { OfficeServiceRequestStatus } from './officeServiceRequestStatus';
 
@@ -18,6 +19,7 @@ export interface OfficeServiceRequest {
   status: OfficeServiceRequestStatus;
   /** @nullable */
   officeNote?: string | null;
+  customer: OfficeCustomer | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -1,5 +1,5 @@
 import { clerkClient, getAuth } from "@clerk/express";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
 import { Router, type IRouter, type RequestHandler } from "express";
 import {
   db,
@@ -27,8 +27,10 @@ import {
   GetServiceRequestParams,
   GetServiceRequestResponse,
   ListInquiriesResponse,
+  ListOfficeInquiriesQueryParams,
   ListOfficeInquiriesResponse,
   ListOfficeRegistrationsResponse,
+  ListOfficeServiceRequestsQueryParams,
   ListOfficeServiceRequestsResponse,
   PreviewLegacyBackupBody,
   PreviewLegacyBackupResponse,
@@ -47,6 +49,14 @@ import {
 } from "@workspace/api-zod";
 import { recordAudit } from "../lib/audit";
 import { emptyLegacyGroup, groupLegacyIds, inspectLegacyBackup, legacyKinds } from "../lib/legacy-backup";
+import {
+  OFFICE_PAGE_SIZE,
+  STALE_AFTER_DAYS,
+  containsPattern,
+  officeCustomer,
+  requestIdFromReference,
+  type OfficeCustomer,
+} from "../lib/office-search";
 import {
   clerkUsersById,
   getOfficeRole,
@@ -110,8 +120,15 @@ function publicRequest(record: HbsServiceRequest) {
   };
 }
 
-function officeRequest(record: HbsServiceRequest) {
-  return { ...publicRequest(record), officeNote: record.officeNote };
+function officeRequest(record: HbsServiceRequest, customer: OfficeCustomer) {
+  return { ...publicRequest(record), officeNote: record.officeNote, customer };
+}
+
+async function customerOf(userId: string): Promise<OfficeCustomer> {
+  const [registration] = await db.select({
+    fullName: hbsRegistrationRequests.fullName, email: hbsRegistrationRequests.email,
+  }).from(hbsRegistrationRequests).where(eq(hbsRegistrationRequests.userId, userId)).limit(1);
+  return officeCustomer(registration?.fullName ?? null, registration?.email ?? null);
 }
 
 function linkedRequestContext(record: HbsServiceRequest) {
@@ -137,10 +154,11 @@ function inquiry(record: HbsInquiry, linkedRequest?: HbsServiceRequest | null) {
   };
 }
 
-function officeInquiry(record: HbsInquiry, linkedRequest?: HbsServiceRequest | null) {
+function officeInquiry(record: HbsInquiry, linkedRequest: HbsServiceRequest | null, customer: OfficeCustomer) {
   return {
     ...inquiry(record, linkedRequest),
     linkedServiceRequest: linkedRequest ? linkedRequestContext(linkedRequest) : null,
+    customer,
   };
 }
 
@@ -436,6 +454,7 @@ router.get("/office/summary", requireOfficeStaff, async (_req, res): Promise<voi
       total: sql<number>`count(*)::int`,
       received: sql<number>`count(*) filter (where status = 'received')::int`,
       active: sql<number>`count(*) filter (where status <> 'completed')::int`,
+      stale: sql<number>`count(*) filter (where status <> 'completed' and updated_at < now() - make_interval(days => ${STALE_AFTER_DAYS}))::int`,
     }).from(hbsServiceRequests),
     db.select({
       open: sql<number>`count(*) filter (where status = 'open')::int`,
@@ -445,14 +464,59 @@ router.get("/office/summary", requireOfficeStaff, async (_req, res): Promise<voi
     totalRequests: requests.total,
     newRequests: requests.received,
     activeRequests: requests.active,
+    staleRequests: requests.stale,
     openInquiries: inquiries.open,
   }));
 });
 
-router.get("/office/service-requests", requireOfficeStaff, async (_req, res): Promise<void> => {
-  const records = await db.select().from(hbsServiceRequests)
-    .orderBy(desc(hbsServiceRequests.createdAt), desc(hbsServiceRequests.id));
-  res.json(ListOfficeServiceRequestsResponse.parse(records.map(officeRequest)));
+router.get("/office/service-requests", requireOfficeStaff, async (req, res): Promise<void> => {
+  const query = ListOfficeServiceRequestsQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "Invalid filter" });
+    return;
+  }
+  const { status, category, sort, page } = query.data;
+  const text = query.data.q?.trim();
+  const conditions: SQL[] = [];
+  if (status) conditions.push(eq(hbsServiceRequests.status, status));
+  if (category) conditions.push(eq(hbsServiceRequests.category, category));
+  if (text) {
+    const pattern = containsPattern(text);
+    const id = requestIdFromReference(text);
+    conditions.push(or(
+      ilike(hbsServiceRequests.service, pattern),
+      ilike(hbsServiceRequests.description, pattern),
+      ilike(hbsServiceRequests.contactPhone, pattern),
+      ilike(hbsRegistrationRequests.fullName, pattern),
+      ilike(hbsRegistrationRequests.email, pattern),
+      ...(id ? [eq(hbsServiceRequests.id, id)] : []),
+    )!);
+  }
+  const where = conditions.length ? and(...conditions) : undefined;
+  const customerJoin = eq(hbsRegistrationRequests.userId, hbsServiceRequests.userId);
+  const [rows, [{ total }]] = await Promise.all([
+    db.select({
+      request: hbsServiceRequests,
+      fullName: hbsRegistrationRequests.fullName,
+      email: hbsRegistrationRequests.email,
+    }).from(hbsServiceRequests)
+      .leftJoin(hbsRegistrationRequests, customerJoin)
+      .where(where)
+      .orderBy(...(sort === "oldest_update"
+        ? [asc(hbsServiceRequests.updatedAt), asc(hbsServiceRequests.id)]
+        : [desc(hbsServiceRequests.createdAt), desc(hbsServiceRequests.id)]))
+      .limit(OFFICE_PAGE_SIZE)
+      .offset((page - 1) * OFFICE_PAGE_SIZE),
+    db.select({ total: sql<number>`count(*)::int` }).from(hbsServiceRequests)
+      .leftJoin(hbsRegistrationRequests, customerJoin)
+      .where(where),
+  ]);
+  res.json(ListOfficeServiceRequestsResponse.parse({
+    items: rows.map(({ request, fullName, email }) => officeRequest(request, officeCustomer(fullName, email))),
+    total,
+    page,
+    pageSize: OFFICE_PAGE_SIZE,
+  }));
 });
 
 router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res): Promise<void> => {
@@ -486,15 +550,54 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
     res.status(404).json({ error: "Request not found" });
     return;
   }
-  res.json(UpdateOfficeServiceRequestResponse.parse(officeRequest(record)));
+  res.json(UpdateOfficeServiceRequestResponse.parse(officeRequest(record, await customerOf(record.userId))));
 });
 
-router.get("/office/inquiries", requireOfficeStaff, async (_req, res): Promise<void> => {
-  const records = await db.select({ inquiry: hbsInquiries, request: hbsServiceRequests })
-    .from(hbsInquiries)
-    .leftJoin(hbsServiceRequests, eq(hbsInquiries.linkedServiceRequestId, hbsServiceRequests.id))
-    .orderBy(desc(hbsInquiries.createdAt), desc(hbsInquiries.id));
-  res.json(ListOfficeInquiriesResponse.parse(records.map(({ inquiry: record, request }) => officeInquiry(record, request))));
+router.get("/office/inquiries", requireOfficeStaff, async (req, res): Promise<void> => {
+  const query = ListOfficeInquiriesQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "Invalid filter" });
+    return;
+  }
+  const { status, page } = query.data;
+  const text = query.data.q?.trim();
+  const conditions: SQL[] = [];
+  if (status) conditions.push(eq(hbsInquiries.status, status));
+  if (text) {
+    const pattern = containsPattern(text);
+    conditions.push(or(
+      ilike(hbsInquiries.subject, pattern),
+      ilike(hbsInquiries.message, pattern),
+      ilike(hbsRegistrationRequests.fullName, pattern),
+      ilike(hbsRegistrationRequests.email, pattern),
+    )!);
+  }
+  const where = conditions.length ? and(...conditions) : undefined;
+  const customerJoin = eq(hbsRegistrationRequests.userId, hbsInquiries.userId);
+  const [rows, [{ total }]] = await Promise.all([
+    db.select({
+      inquiry: hbsInquiries,
+      request: hbsServiceRequests,
+      fullName: hbsRegistrationRequests.fullName,
+      email: hbsRegistrationRequests.email,
+    }).from(hbsInquiries)
+      .leftJoin(hbsServiceRequests, eq(hbsInquiries.linkedServiceRequestId, hbsServiceRequests.id))
+      .leftJoin(hbsRegistrationRequests, customerJoin)
+      .where(where)
+      .orderBy(desc(hbsInquiries.createdAt), desc(hbsInquiries.id))
+      .limit(OFFICE_PAGE_SIZE)
+      .offset((page - 1) * OFFICE_PAGE_SIZE),
+    db.select({ total: sql<number>`count(*)::int` }).from(hbsInquiries)
+      .leftJoin(hbsRegistrationRequests, customerJoin)
+      .where(where),
+  ]);
+  res.json(ListOfficeInquiriesResponse.parse({
+    items: rows.map(({ inquiry: record, request, fullName, email }) =>
+      officeInquiry(record, request, officeCustomer(fullName, email))),
+    total,
+    page,
+    pageSize: OFFICE_PAGE_SIZE,
+  }));
 });
 
 router.patch("/office/inquiries/:id", requireOfficeStaff, async (req, res): Promise<void> => {
@@ -528,7 +631,7 @@ router.patch("/office/inquiries/:id", requireOfficeStaff, async (req, res): Prom
     [linkedRequest] = await db.select().from(hbsServiceRequests)
       .where(eq(hbsServiceRequests.id, record.linkedServiceRequestId)).limit(1);
   }
-  res.json(AnswerOfficeInquiryResponse.parse(officeInquiry(record, linkedRequest)));
+  res.json(AnswerOfficeInquiryResponse.parse(officeInquiry(record, linkedRequest, await customerOf(record.userId))));
 });
 
 router.post("/office/legacy/preview", requireOfficeOwner, async (req, res): Promise<void> => {

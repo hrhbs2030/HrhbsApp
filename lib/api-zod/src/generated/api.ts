@@ -287,14 +287,31 @@ export const GetOfficeSummaryResponse = zod.object({
   "totalRequests": zod.number().int(),
   "newRequests": zod.number().int(),
   "activeRequests": zod.number().int(),
+  "staleRequests": zod.number().int().describe('Requests not completed and not updated for 3 days or more'),
   "openInquiries": zod.number().int()
 })
 
 
 /**
- * @summary Staff-only list of customer requests
+ * @summary Staff-only list of customer requests, filtered and paged
  */
-export const ListOfficeServiceRequestsResponseItem = zod.object({
+export const listOfficeServiceRequestsQueryQMax = 120;
+
+export const listOfficeServiceRequestsQuerySortDefault = `newest`;
+export const listOfficeServiceRequestsQueryPageDefault = 1;
+
+
+
+export const ListOfficeServiceRequestsQueryParams = zod.object({
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']).optional(),
+  "category": zod.enum(['passports', 'labor', 'business', 'other']).optional(),
+  "q": zod.coerce.string().max(listOfficeServiceRequestsQueryQMax).optional(),
+  "sort": zod.enum(['newest', 'oldest_update']).default(listOfficeServiceRequestsQuerySortDefault),
+  "page": zod.coerce.number().int().min(1).default(listOfficeServiceRequestsQueryPageDefault)
+})
+
+export const ListOfficeServiceRequestsResponse = zod.object({
+  "items": zod.array(zod.object({
   "id": zod.number().int(),
   "reference": zod.string(),
   "category": zod.enum(['passports', 'labor', 'business', 'other']),
@@ -303,10 +320,17 @@ export const ListOfficeServiceRequestsResponseItem = zod.object({
   "contactPhone": zod.string(),
   "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']),
   "officeNote": zod.string().nullish(),
+  "customer": zod.union([zod.object({
+  "fullName": zod.string(),
+  "email": zod.string()
+}).describe('The customer\'s registration details, when they registered through the portal.'),zod.null()]),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
+})),
+  "total": zod.number().int(),
+  "page": zod.number().int(),
+  "pageSize": zod.number().int()
 })
-export const ListOfficeServiceRequestsResponse = zod.array(ListOfficeServiceRequestsResponseItem)
 
 
 /**
@@ -384,15 +408,32 @@ export const UpdateOfficeServiceRequestResponse = zod.object({
   "contactPhone": zod.string(),
   "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']),
   "officeNote": zod.string().nullish(),
+  "customer": zod.union([zod.object({
+  "fullName": zod.string(),
+  "email": zod.string()
+}).describe('The customer\'s registration details, when they registered through the portal.'),zod.null()]),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
 
 
 /**
- * @summary Staff-only customer inquiries
+ * @summary Staff-only customer inquiries, filtered and paged
  */
-export const ListOfficeInquiriesResponseItem = zod.object({
+export const listOfficeInquiriesQueryQMax = 120;
+
+export const listOfficeInquiriesQueryPageDefault = 1;
+
+
+
+export const ListOfficeInquiriesQueryParams = zod.object({
+  "status": zod.enum(['open', 'answered']).optional(),
+  "q": zod.coerce.string().max(listOfficeInquiriesQueryQMax).optional(),
+  "page": zod.coerce.number().int().min(1).default(listOfficeInquiriesQueryPageDefault)
+})
+
+export const ListOfficeInquiriesResponse = zod.object({
+  "items": zod.array(zod.object({
   "id": zod.number().int(),
   "subject": zod.string(),
   "message": zod.string(),
@@ -408,9 +449,16 @@ export const ListOfficeInquiriesResponseItem = zod.object({
   "service": zod.string(),
   "description": zod.string(),
   "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed'])
-}),zod.null()])
-}))
-export const ListOfficeInquiriesResponse = zod.array(ListOfficeInquiriesResponseItem)
+}),zod.null()]),
+  "customer": zod.union([zod.object({
+  "fullName": zod.string(),
+  "email": zod.string()
+}).describe('The customer\'s registration details, when they registered through the portal.'),zod.null()])
+}))),
+  "total": zod.number().int(),
+  "page": zod.number().int(),
+  "pageSize": zod.number().int()
+})
 
 
 /**
@@ -445,7 +493,11 @@ export const AnswerOfficeInquiryResponse = zod.object({
   "service": zod.string(),
   "description": zod.string(),
   "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed'])
-}),zod.null()])
+}),zod.null()]),
+  "customer": zod.union([zod.object({
+  "fullName": zod.string(),
+  "email": zod.string()
+}).describe('The customer\'s registration details, when they registered through the portal.'),zod.null()])
 }))
 
 

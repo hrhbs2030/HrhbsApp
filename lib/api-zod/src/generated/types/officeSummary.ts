@@ -10,5 +10,7 @@ export interface OfficeSummary {
   totalRequests: number;
   newRequests: number;
   activeRequests: number;
+  /** Requests not completed and not updated for 3 days or more */
+  staleRequests: number;
   openInquiries: number;
 }

@@ -70,3 +70,19 @@ test("derives the office role from verified emails only", () => {
   assert.equal(officeRoleFor(account(["other@example.test", "verified"]), owner, "staff@example.test"), null);
   assert.equal(officeRoleFor(account(["office@example.test", "unverified"]), owner, null), null);
 });
+
+test("office search treats typed text literally and reads request references", async () => {
+  const { containsPattern, requestIdFromReference, officeCustomer } = await import("../src/lib/office-search");
+  assert.equal(containsPattern("أحمد"), "%أحمد%");
+  assert.equal(containsPattern("50%_off\\"), "%50\\%\\_off\\\\%");
+
+  assert.equal(requestIdFromReference("HBS-2026-00041"), 41);
+  assert.equal(requestIdFromReference(" hbs-2025-00007 "), 7);
+  assert.equal(requestIdFromReference("41"), 41);
+  assert.equal(requestIdFromReference("00000"), null);
+  assert.equal(requestIdFromReference("تجديد 41"), null);
+  assert.equal(requestIdFromReference("0501234567890"), null);
+
+  assert.deepEqual(officeCustomer("سارة العتيبي", "sara@example.test"), { fullName: "سارة العتيبي", email: "sara@example.test" });
+  assert.equal(officeCustomer(null, null), null);
+});
