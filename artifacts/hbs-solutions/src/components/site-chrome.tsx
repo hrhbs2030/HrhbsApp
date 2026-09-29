@@ -2,6 +2,8 @@ import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ArrowLeft, Menu, X } from 'lucide-react';
 import { Brand } from '@/components/portal-ui';
+import { cityInfo, cityOrder } from '@/components/city-scene';
+import { SceneWindow, useSceneWindows } from '@/components/scene-window';
 import './site-chrome.css';
 
 const ICON = 1.75;
@@ -76,31 +78,47 @@ function navigateHash(event: MouseEvent<HTMLAnchorElement>, href: string) {
   }
 }
 
+// The page ends on a window onto the city: the paper sheet above lifts away
+// (rounded, shadowed) and the fixed scene shows through this transparent
+// footer, its skyline on the viewport's bottom edge. A dark veil at the foot
+// keeps the links legible; the caption names the city being shown.
 export function SiteFooter() {
+  const { city } = useSceneWindows();
+  const place = cityInfo[cityOrder[city] ?? 'riyadh'];
   return (
     <footer className="site-footer">
-      <div className="site-wrap site-footer-inner">
-        <div className="site-footer-brand">
-          <Brand light />
-          <p>بوابة إلكترونية لإرسال طلبات الخدمة والاستفسارات إلى مكتب حلول الغد، ومتابعتها من حسابك.</p>
+      <SceneWindow edge="bottom" />
+      <div className="site-footer-veil" aria-hidden="true" />
+      <div className="site-wrap site-footer-content">
+        <div className="site-footer-main">
+          <div className="site-footer-brand"><Brand light /></div>
+          <nav className="site-footer-links" aria-label="روابط التذييل">
+            <div>
+              <h2>البوابة</h2>
+              <ul>
+                <li><Link href="/sign-up">طلب التسجيل</Link></li>
+                <li><Link href="/sign-in">تسجيل الدخول</Link></li>
+                <li><a href="/#how" onClick={(e) => navigateHash(e, '/#how')}>كيف تعمل البوابة</a></li>
+              </ul>
+            </div>
+            <div>
+              <h2>المكتب</h2>
+              <ul>
+                <li><Link href="/services">دليل الخدمات</Link></li>
+                <li><Link href="/trust">الخصوصية والأمان</Link></li>
+                <li><Link href="/help">المساعدة</Link></li>
+              </ul>
+            </div>
+          </nav>
         </div>
-        <nav className="site-footer-links" aria-label="روابط التذييل">
-          <div>
-            <strong>البوابة</strong>
-            <Link href="/sign-up">طلب التسجيل</Link>
-            <Link href="/sign-in">تسجيل الدخول</Link>
-            <a href="/#how" onClick={(e) => navigateHash(e, '/#how')}>كيف تعمل البوابة</a>
-          </div>
-          <div>
-            <strong>تعرّف علينا</strong>
-            <Link href="/services">دليل الخدمات</Link>
-            <Link href="/trust">الخصوصية والأمان</Link>
-            <Link href="/help">المساعدة والأسئلة</Link>
-          </div>
-        </nav>
-      </div>
-      <div className="site-wrap site-footer-bottom">
-        <small>© {new Date().getFullYear()} HBS حلول الغد</small>
+        <div className="site-footer-bottom">
+          <small>© {new Date().getFullYear()} HBS حلول الغد</small>
+          <p className="site-footer-city" aria-hidden="true" key={place.name}>
+            <span className="site-footer-city-dot" />
+            <strong>{place.name}</strong>
+            <span>{place.region}</span>
+          </p>
+        </div>
       </div>
     </footer>
   );

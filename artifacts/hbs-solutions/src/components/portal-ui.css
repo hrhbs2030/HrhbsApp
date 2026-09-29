@@ -27,8 +27,36 @@
 @keyframes tl-grow-x { from { transform: scaleX(0); } }
 
 /* Portal shell over the city backdrop: a dark glass top bar, a see-through
-   band that shows the scene, then the paper working sheet. */
+   band that shows the scene, the paper working sheet, then a short window
+   onto the city with a slim footer line. */
 .portal-topbar { background: rgb(8 26 28 / .35); backdrop-filter: blur(10px) saturate(1.2); border-bottom: 1px solid rgb(255 255 255 / .08); transition: background-color var(--duration-hover) ease; }
+/* Once the sheet scrolls under it, the bar darkens so it reads as a bar, not a grey film. */
+@supports (animation-timeline: scroll()) {
+  .portal-topbar { animation: portal-topbar linear both; animation-timeline: scroll(root); animation-range: 0 160px; }
+  @keyframes portal-topbar { to { background-color: rgb(8 26 28 / .86); } }
+}
+.portal-crumb { display: flex; align-items: baseline; gap: 8px; min-width: 0; margin: 0; font-size: 13px; color: var(--color-on-dark-2); white-space: nowrap; }
+.portal-crumb strong { overflow: hidden; text-overflow: ellipsis; color: var(--color-on-dark); font-weight: 700; }
+.portal-crumb-sep { opacity: .5; }
+@media (max-width: 479px) { .portal-crumb > span:first-child, .portal-crumb-sep { display: none; } }
+.portal-topbar-brand { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--color-on-dark); white-space: nowrap; }
+.portal-topbar-help { align-items: center; gap: 8px; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid rgb(255 255 255 / .14); font-size: 13px; font-weight: 700; color: var(--color-on-dark-2); text-decoration: none; transition: color var(--duration-hover) ease, background-color var(--duration-hover) ease; }
+.portal-topbar-help:hover { color: var(--color-on-dark); background: rgb(255 255 255 / .08); }
 .portal-band { height: calc(var(--portal-band-h, 270px) - 72px - 28px); flex: none; }
-.portal-sheet { position: relative; background: var(--color-paper); border-radius: 28px 28px 0 0; box-shadow: 0 -20px 40px -24px rgb(0 0 0 / .45); }
+.portal-sheet { position: relative; background: var(--color-paper); border-radius: 28px; box-shadow: 0 -20px 40px -24px rgb(0 0 0 / .45), 0 26px 44px -26px rgb(4 12 13 / .7); }
 @media (min-width: 1024px) { .portal-sheet { border-start-start-radius: 0; } }
+/* Bottom window: the skyline shows under the sheet; the line sits on a short veil.
+   z-index -1 tucks it under the sheet (for the shadow) without making the sheet
+   a stacking context, so nothing inside the sheet gets trapped. */
+.portal-foot { position: relative; z-index: -1; flex: none; display: flex; align-items: flex-end; height: 240px; margin-top: -28px; color: var(--color-on-dark-2); }
+.portal-foot::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgb(8 26 28 / 0) 40%, rgb(8 26 28 / .82) 78%, var(--color-night)); }
+.portal-foot-line { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; width: 100%; max-width: 1130px; margin-inline: auto; padding: 0 20px 18px; font-size: 12.5px; }
+.portal-foot-mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; background: var(--color-copper-light); color: var(--color-teal); font-size: 9.5px; font-weight: 700; letter-spacing: -.04em; }
+.portal-foot-city { margin-inline-start: auto; }
+.portal-foot-help { color: var(--color-on-dark); font-weight: 700; text-decoration: none; }
+.portal-foot-help:hover { text-decoration: underline; text-underline-offset: 4px; }
+.portal-foot a:focus-visible, .portal-topbar-help:focus-visible { outline: 2px solid var(--color-copper-light); outline-offset: 3px; border-radius: 6px; }
+@media (min-width: 640px) { .portal-foot-line { padding-inline: 36px; } }
+@media (min-width: 1024px) { .portal-foot-line { padding-inline: 48px; } }
+@media (max-width: 1023px) { .portal-foot { height: 220px; } }
+@media (max-width: 479px) { .portal-foot-city { display: none; } }

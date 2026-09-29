@@ -72,7 +72,6 @@ export default function Landing() {
         <section className="lp-hero" aria-labelledby="landing-title">
           <div className="site-wrap lp-hero-grid">
             <div className="lp-hero-content">
-              <p className="lp-eyebrow lp-enter"><span className="lp-pulse" aria-hidden="true" />بوابة عملاء حلول الغد</p>
               <h1 id="landing-title">
                 {headline.map((line, lineIndex) => (
                   <span key={lineIndex} className={line.accent ? 'lp-line lp-line--accent' : 'lp-line'}>
@@ -88,15 +87,15 @@ export default function Landing() {
                   </span>
                 ))}
               </h1>
-              <p className="lp-hero-lead lp-enter">أرسل طلب خدمتك إلى المكتب من حسابك، واحصل على رقم مرجعي فورًا، وتابع كل تحديث على طلبك في مكان واحد.</p>
+              <p className="lp-hero-lead lp-enter">أرسل طلبك إلى المكتب، واحصل على رقم مرجعي فورًا، وتابع حالته من حسابك.</p>
               <div className="lp-hero-actions lp-enter">
-                <Link href="/sign-up" className="btn btn-light lp-btn-lg">ابدأ بطلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
+                <Link href="/sign-up" className="btn btn-light lp-btn-lg">طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
                 <Link href="/services" className="btn btn-ghost-dark lp-btn-lg">تصفّح الخدمات</Link>
               </div>
               <div className="lp-enter lp-search-wrap"><ServiceSearch /></div>
             </div>
             <div className="lp-hero-visual lp-enter-visual">
-              <RequestObject stage={hero.stage} tilt caption="مثال توضيحي لطلب في حسابك." />
+              <RequestObject stage={hero.stage} tilt caption="مثال" />
               <div className="lp-hero-rail">
                 <StageRail stage={hero.stage} onSelect={hero.select} />
               </div>
@@ -108,10 +107,7 @@ export default function Landing() {
         <section className="lp-categories" aria-labelledby="categories-title">
           <div className="site-wrap">
             <div className="lp-section-head reveal">
-              <div>
-                <p className="lp-kicker">مجالات الخدمات</p>
-                <h2 id="categories-title" className="lp-heading">أربعة مجالات، ودليل يوضح لك ما تكتبه.</h2>
-              </div>
+              <h2 id="categories-title" className="lp-heading">مجالات الخدمات</h2>
               <Link href="/services" className="lp-arrow-link">كل الخدمات <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
             </div>
             <ul className="lp-category-grid">
@@ -124,7 +120,7 @@ export default function Landing() {
                       <span className="lp-category-icon"><Icon size={24} strokeWidth={ICON} aria-hidden="true" /></span>
                       <strong>{category.name}</strong>
                       <span className="lp-category-text">{category.description}</span>
-                      <span className="lp-category-foot">{servicesLabel(count)} في الدليل <ArrowLeft size={15} strokeWidth={ICON} aria-hidden="true" /></span>
+                      <span className="lp-category-foot">{servicesLabel(count)} <ArrowLeft size={15} strokeWidth={ICON} aria-hidden="true" /></span>
                     </Link>
                   </li>
                 );
@@ -137,8 +133,7 @@ export default function Landing() {
           <div className="lp-journey-glow" aria-hidden="true" />
           <div className="site-wrap">
             <div className="lp-journey-head reveal">
-              <p className="lp-kicker lp-kicker--dark">رحلة الطلب</p>
-              <h2 id="journey-title" className="lp-heading lp-heading--dark">من أول سطر تكتبه، إلى آخر تحديث.</h2>
+              <h2 id="journey-title" className="lp-heading lp-heading--dark">كيف تعمل البوابة</h2>
             </div>
             <div className="lp-journey-grid">
               <div className="lp-journey-visual" aria-hidden="true">
@@ -152,7 +147,6 @@ export default function Landing() {
                   <li key={chapter.title} ref={chapters.register(index)} className="lp-chapter" data-active={chapters.active === index ? 'true' : undefined}>
                     <span className="lp-chapter-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
                     <div>
-                      <p className="lp-chapter-kicker">{chapter.kicker}</p>
                       <h3>{chapter.title}</h3>
                       <p>{chapter.text}</p>
                     </div>
@@ -166,18 +160,15 @@ export default function Landing() {
         <section className="lp-trust" aria-labelledby="trust-title">
           <div className="site-wrap">
             <div className="lp-section-head reveal">
-              <div>
-                <p className="lp-kicker">داخل حسابك</p>
-                <h2 id="trust-title" className="lp-heading">وضوح لا يحتاج اتصالًا للسؤال.</h2>
-              </div>
-              <Link href="/trust" className="lp-arrow-link">الخصوصية والأمان <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
+              <h2 id="trust-title" className="lp-heading">الخصوصية والأمان</h2>
+              <Link href="/trust" className="lp-arrow-link">التفاصيل <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
             </div>
             <ul className="lp-trust-grid">
               {trustFacts.map((fact, index) => {
                 const Icon = trustIcons[index] ?? FileText;
                 return (
                   <li key={fact.title} className="lp-trust-card reveal" style={{ transitionDelay: `${index * 80}ms` }}>
-                    <Icon size={24} strokeWidth={ICON} aria-hidden="true" />
+                    <span className="lp-trust-icon"><Icon size={20} strokeWidth={ICON} aria-hidden="true" /></span>
                     <h3>{fact.title}</h3>
                     <p>{fact.text}</p>
                   </li>
@@ -189,11 +180,9 @@ export default function Landing() {
 
         <section id="questions" className="lp-faq" aria-labelledby="faq-title">
           <div className="site-wrap lp-faq-grid">
-            <div className="reveal">
-              <p className="lp-kicker">الأسئلة الشائعة</p>
-              <h2 id="faq-title" className="lp-heading">قبل أن تبدأ.</h2>
-              <p className="lp-copy">وإن لم تجد ما تبحث عنه، أرسل استفسارًا من حسابك وسيرد المكتب في المكان نفسه.</p>
-              <Link href="/help" className="lp-arrow-link">كل الأسئلة والمساعدة <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
+            <div className="lp-faq-head reveal">
+              <h2 id="faq-title" className="lp-heading">الأسئلة الشائعة</h2>
+              <Link href="/help" className="lp-arrow-link">كل الأسئلة <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
             </div>
             <div className="lp-faq-list reveal">
               {faqs.slice(0, 5).map((faq) => (
@@ -208,11 +197,11 @@ export default function Landing() {
 
         <section className="site-wrap lp-final reveal" aria-labelledby="final-title">
           <div className="lp-final-orbit" aria-hidden="true" />
-          <h2 id="final-title">ابدأ بطلب التسجيل.</h2>
+          <h2 id="final-title">ابدأ بطلب التسجيل</h2>
           <p>بعد موافقة المكتب على تسجيلك، ترسل طلباتك وتتابعها من حسابك.</p>
           <div className="lp-final-actions">
             <Link href="/sign-up" className="btn btn-light lp-btn-lg">طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
-            <Link href="/sign-in" className="btn btn-ghost-dark lp-btn-lg">لدي حساب</Link>
+            <Link href="/sign-in" className="btn btn-ghost-dark lp-btn-lg">تسجيل الدخول</Link>
           </div>
         </section>
         </div>

@@ -9,6 +9,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { color, font } from '@/design/tokens';
 import { serviceBySlug } from '@/content/services';
 import { CityScene } from '@/components/city-scene';
+import { SceneWindow } from '@/components/scene-window';
 import Landing from '@/pages/landing';
 import { ErrorBlock, LoadingBlock } from '@/components/portal-ui';
 
@@ -108,11 +109,12 @@ function HomeRoute() {
 function AuthPage({kind}:{kind:'sign-in'|'sign-up'}) {
   const { isSignedIn } = useAuth();
   if (isSignedIn) return <RoleGate><Redirect to="/dashboard"/></RoleGate>;
-  return <div dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center gap-7 px-4 py-10"><a href={basePath || '/'} className="display rounded-full bg-night/60 px-5 py-2 text-xl font-semibold text-on-dark no-underline backdrop-blur">HBS / حلول الغد</a>{kind==='sign-up' && <p className="max-w-sm rounded-2xl bg-night/70 px-5 py-3 text-center text-sm leading-7 text-on-dark-2 backdrop-blur">أنشئ حسابًا بالبريد الإلكتروني وتحقق منه، ثم قدّم طلب تسجيل يراجعه المكتب قبل إتاحة خدمات البوابة.</p>}<div dir="rtl" className="w-full max-w-[440px]">{kind==='sign-in' ? <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /> : <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />}</div><p className="rounded-full bg-night/70 px-4 py-2 text-center text-xs text-on-dark-2 backdrop-blur">تتوفر خدمات العملاء بعد موافقة المكتب على طلب التسجيل.</p></div>;
+  return <div dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center gap-7 px-4 py-10"><SceneWindow edge="top"/><a href={basePath || '/'} className="display rounded-full bg-night/60 px-5 py-2 text-xl font-semibold text-on-dark no-underline backdrop-blur">HBS / حلول الغد</a>{kind==='sign-up' && <p className="max-w-sm rounded-2xl bg-night/70 px-5 py-3 text-center text-sm leading-7 text-on-dark-2 backdrop-blur">أنشئ حسابًا بالبريد الإلكتروني وتحقق منه، ثم قدّم طلب تسجيل يراجعه المكتب قبل إتاحة خدمات البوابة.</p>}<div dir="rtl" className="w-full max-w-[440px]">{kind==='sign-in' ? <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /> : <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />}</div><p className="rounded-full bg-night/70 px-4 py-2 text-center text-xs text-on-dark-2 backdrop-blur">تتوفر خدمات العملاء بعد موافقة المكتب على طلب التسجيل.</p></div>;
 }
-function Missing() { return <div dir="rtl" className="flex min-h-[100dvh] flex-col items-center justify-center bg-paper p-6 text-center"><div className="display text-7xl font-semibold text-copper">404</div><h1 className="display mt-5 text-2xl">الصفحة غير موجودة</h1><p className="mt-3 text-sm text-subtle">قد يكون الرابط غير صحيح أو تغيّر مكان الصفحة.</p><a href={basePath || '/'} className="btn btn-primary mt-7">العودة للرئيسية</a></div>; }
+function Missing() { return <main dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center p-6 text-center text-on-dark"><SceneWindow edge="top"/><div className="relative rounded-[22px] bg-night/70 px-8 py-10 backdrop-blur"><div className="display text-7xl font-semibold text-copper-light">404</div><h1 className="display mt-5 text-2xl">الصفحة غير موجودة</h1><p className="mt-3 text-sm text-on-dark-2">قد يكون الرابط غير صحيح أو تغيّر مكان الصفحة.</p><a href={basePath || '/'} className="btn btn-light mt-7">العودة للرئيسية</a></div></main>; }
 const routeTitles: Record<string,string> = {'/':'الرئيسية','/services':'دليل الخدمات','/trust':'الخصوصية والأمان','/help':'المساعدة','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم','/office/staff':'فريق المكتب','/office/audit':'سجل التدقيق'};
 const isPublicPath = (location: string) => location === '/' || location === '/services' || location.startsWith('/services/') || location === '/trust' || location === '/help';
+const isPortalPath = (location: string) => ['/registration', '/dashboard', '/requests', '/inquiries', '/office'].some((p) => location === p || location.startsWith(p + '/'));
 function Routes() {
   const [location]=useLocation();
   const { isSignedIn } = useAuth();
@@ -120,7 +122,7 @@ function Routes() {
   // without restarting, as the visitor moves between any pages.
   const sceneVariant = location === '/' && !isSignedIn ? 'full'
     : location.startsWith('/sign-in') || location.startsWith('/sign-up') ? 'full'
-    : isPublicPath(location) ? 'band' : 'portal';
+    : isPublicPath(location) ? 'band' : isPortalPath(location) ? 'portal' : 'full';
   useEffect(()=>{
     const title = routeTitles[location] || (location.startsWith('/services/')?(serviceBySlug[location.slice(10)]?.name ?? 'الخدمة'):location.startsWith('/requests/')?'تفاصيل الطلب':location.startsWith('/sign-in')?'تسجيل الدخول':location.startsWith('/sign-up')?'إنشاء حساب':'الصفحة');
     document.title=`${title} | HBS حلول الغد`;
@@ -137,7 +139,9 @@ function Routes() {
       canonical.href = `${window.location.origin}${basePath}${location === '/' ? '/' : location}`;
     } else canonical?.remove();
   },[location]);
-  return <><CityScene routeKey={location} variant={sceneVariant} /><ErrorBoundary resetKey={location}><Suspense fallback={<div dir="rtl" className="mx-auto max-w-2xl p-10"><LoadingBlock/></div>}><Switch>
+  // The top window: the first screen (full), the dark band (public pages) or
+  // the strip above the working sheet (portal). Footers add bottom windows.
+  return <><CityScene routeKey={location} variant={sceneVariant} /><SceneWindow edge="top" className={`scene-window--top scene-window--${sceneVariant}`} /><ErrorBoundary resetKey={location}><Suspense fallback={<div dir="rtl" className="mx-auto max-w-2xl p-10"><LoadingBlock/></div>}><Switch>
     <Route path="/" component={HomeRoute}/>
     <Route path="/services" component={ServicesDirectory}/>
     <Route path="/services/:slug" component={ServiceDetail}/>
