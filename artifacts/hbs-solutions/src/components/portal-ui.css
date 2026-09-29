@@ -25,3 +25,10 @@
   .timeline li { flex-direction: column; gap: 12px; }
 }
 @keyframes tl-grow-x { from { transform: scaleX(0); } }
+
+/* Portal shell over the city backdrop: a dark glass top bar, a see-through
+   band that shows the scene, then the paper working sheet. */
+.portal-topbar { background: rgb(8 26 28 / .35); backdrop-filter: blur(10px) saturate(1.2); border-bottom: 1px solid rgb(255 255 255 / .08); transition: background-color var(--duration-hover) ease; }
+.portal-band { height: calc(var(--portal-band-h, 270px) - 72px - 28px); flex: none; }
+.portal-sheet { position: relative; background: var(--color-paper); border-radius: 28px 28px 0 0; box-shadow: 0 -20px 40px -24px rgb(0 0 0 / .45); }
+@media (min-width: 1024px) { .portal-sheet { border-start-start-radius: 0; } }

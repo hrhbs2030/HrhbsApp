@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useReducedMotion } from '@/lib/motion';
 import { RiyadhScene } from './city-scenes/riyadh';
-import { JeddahScene } from './city-scenes/jeddah';
-import { JazanScene } from './city-scenes/jazan';
+// Riyadh paints first; the other two cities load right after, off the critical path.
+const JeddahScene = lazy(() => import('./city-scenes/jeddah').then((m) => ({ default: m.JeddahScene })));
+const JazanScene = lazy(() => import('./city-scenes/jazan').then((m) => ({ default: m.JazanScene })));
 import './city-scene.css';
 
 // Animated backdrop of three Saudi cities, drawn in SVG and moved with CSS
@@ -27,7 +28,9 @@ const SCENE_MS = 12000;
 
 const scenes: Record<CityKey, () => ReactNode> = { riyadh: () => <RiyadhScene />, jeddah: () => <JeddahScene />, jazan: () => <JazanScene /> };
 
-export function CityScene({ routeKey, compact = false, showCaption = true }: { routeKey: string; compact?: boolean; showCaption?: boolean }) {
+export type SceneVariant = 'full' | 'band' | 'portal';
+
+export function CityScene({ routeKey, variant = 'full', showCaption = true }: { routeKey: string; variant?: SceneVariant; showCaption?: boolean }) {
   const reduced = useReducedMotion();
   // Review aid: ?city=jeddah pins one city (no cycling), for design QA.
   const pinned = typeof window !== 'undefined' ? cityOrder.indexOf(new URLSearchParams(window.location.search).get('city') as CityKey) : -1;
@@ -60,10 +63,10 @@ export function CityScene({ routeKey, compact = false, showCaption = true }: { r
 
   const active = cityOrder[index];
   return (
-    <div ref={rootRef} className={`cs ${compact ? 'cs--compact' : ''} ${paused || reduced ? 'cs--paused' : ''}`} aria-hidden="true">
+    <div ref={rootRef} className={`cs cs--${variant} ${paused || reduced ? 'cs--paused' : ''}`} aria-hidden="true">
       {cityOrder.map((key) => (
         <div key={key} className="cs-scene" data-active={key === active} data-city={key}>
-          {scenes[key]()}
+          <Suspense fallback={null}>{scenes[key]()}</Suspense>
         </div>
       ))}
       <div className="cs-grain" />

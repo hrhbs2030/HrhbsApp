@@ -1,0 +1,26 @@
+/* Riyadh scene motion. transform/opacity only; paused with the rest of the scene. */
+.ry-drift { animation: ry-drift 70s ease-in-out infinite alternate; }
+@keyframes ry-drift { from { transform: translateX(-18px); } to { transform: translateX(22px); } }
+
+/* Airliner crossing the sky, with nav lights and a strobe. */
+.ry-plane { animation: ry-plane 95s linear infinite; }
+@keyframes ry-plane { from { transform: translate(0, 0); } to { transform: translate(-1900px, 46px); } }
+.ry-strobe { animation: ry-strobe 1.4s steps(1, end) infinite; }
+@keyframes ry-strobe { 0% { opacity: 1; } 10% { opacity: 0; } }
+
+/* Aircraft warning lights: slow red pulse. */
+.ry-warn { animation: ry-warn 2.4s ease-in-out infinite; }
+@keyframes ry-warn { 0%, 100% { opacity: .25; } 45% { opacity: 1; } 60% { opacity: 1; } }
+
+/* Kingdom Centre LED: two colours crossfading (blue <-> violet). */
+.ry-led-a { animation: ry-led 9s ease-in-out infinite alternate; }
+.ry-led-b { animation: ry-led 9s ease-in-out infinite alternate-reverse; }
+@keyframes ry-led { from { opacity: .15; } to { opacity: 1; } }
+.ry-breathe { animation: ry-breathe 5s ease-in-out infinite alternate; }
+@keyframes ry-breathe { from { opacity: .55; } to { opacity: 1; } }
+
+/* Long-exposure light trails on King Fahd Road. */
+.ry-car { animation: ry-car-l 9s linear infinite; }
+.ry-car--r { animation-name: ry-car-r; }
+@keyframes ry-car-l { from { transform: translateX(0); } to { transform: translateX(-1880px); } }
+@keyframes ry-car-r { from { transform: translateX(0); } to { transform: translateX(1880px); } }

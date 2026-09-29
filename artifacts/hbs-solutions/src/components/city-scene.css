@@ -1,8 +1,15 @@
 /* City scene backdrop. Every animation is transform/opacity on a few layers. */
-:root { --band-h: clamp(440px, 58vh, 560px); }
+:root { --band-h: clamp(440px, 58vh, 560px); --portal-band-h: 270px; }
+@media (max-width: 1023px) { :root { --portal-band-h: 220px; } }
 .cs { position: fixed; inset: 0 0 auto 0; height: 100vh; height: 100lvh; z-index: 0; overflow: hidden; background: var(--color-night); pointer-events: none; contain: strict; transition: height var(--duration-scene) var(--ease-in-out-soft); }
 /* Inner pages: the scene shrinks to the page's dark band so the skyline sits on its lower edge. */
-.cs--compact { height: var(--band-h); }
+.cs--band { height: var(--band-h); }
+/* Portal and office: a strip above the working area, lighter veil, no caption crowding. */
+.cs--portal { height: var(--portal-band-h); }
+.cs--portal .cs-veil { background: linear-gradient(to bottom, rgb(8 26 28 / .7), rgb(8 26 28 / .1) 45%, rgb(8 26 28 / .35)); }
+.cs--portal .cs-caption { bottom: 18px; padding: 8px 12px 10px; }
+.cs--portal .cs-caption strong { font-size: 16px; }
+@media (min-width: 1024px) { .cs--portal .cs-caption { left: 28px; } }
 .cs-scene { position: absolute; inset: 0; opacity: 0; transition: opacity 1.8s var(--ease-in-out-soft); }
 .cs-scene[data-active="true"] { opacity: 1; }
 .cs-scene:not([data-active="true"]) * { animation-play-state: paused; }
@@ -55,8 +62,10 @@
 
 @media (max-width: 720px) {
   .cs-layer { animation-duration: 34s; }
-  .cs-veil { background: linear-gradient(to bottom, rgb(8 26 28 / .8), rgb(8 26 28 / .45) 45%, rgb(8 26 28 / .75)); }
+  .cs-veil { background: linear-gradient(to bottom, rgb(8 26 28 / .8), rgb(8 26 28 / .38) 45%, rgb(8 26 28 / .7)); }
   .cs-caption { left: 16px; bottom: 16px; min-width: 0; padding: 8px 12px 10px; }
   .cs-caption strong { font-size: 16px; }
   .cs-windows rect:nth-child(3n) { display: none; }
 }
+@media (max-width: 1023px) { .cs--portal .cs-caption { display: none; } }
+@media (max-width: 720px) { .cs--full .cs-caption { display: none; } }

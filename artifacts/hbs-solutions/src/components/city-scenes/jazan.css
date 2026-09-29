@@ -1,0 +1,19 @@
+/* Jazan scene motion: transform/opacity only, slow and subtle. */
+.jz-mist { animation: jz-mist 40s ease-in-out infinite alternate; }
+.jz-mist--b { animation-duration: 56s; animation-direction: alternate-reverse; }
+@keyframes jz-mist { from { transform: translateX(-36px); opacity: .75; } to { transform: translateX(36px); opacity: 1; } }
+.jz-cloud { animation: jz-cloud 80s ease-in-out infinite alternate; }
+@keyframes jz-cloud { from { transform: translateX(-24px); } to { transform: translateX(24px); } }
+.jz-blink { animation: jz-blink 2.6s steps(1, end) infinite; }
+@keyframes jz-blink { 0% { opacity: 1; } 18% { opacity: .08; } 100% { opacity: .08; } }
+.jz-glint { transform-box: fill-box; transform-origin: 50% 50%; animation: jz-glint 2.6s ease-in-out infinite alternate; }
+@keyframes jz-glint { from { opacity: .15; transform: scaleX(.6); } to { opacity: 1; transform: scaleX(1.15); } }
+.jz-fly { animation: jz-fly 9s ease-in-out infinite alternate; }
+@keyframes jz-fly {
+  0% { transform: translate(0, 0); opacity: 0; }
+  25% { opacity: .9; }
+  50% { transform: translate(14px, -10px); opacity: .2; }
+  75% { opacity: 1; }
+  100% { transform: translate(-8px, -22px); opacity: 0; }
+}
+@media (max-width: 720px) { .jz-fly:nth-child(2n) { display: none; } }
