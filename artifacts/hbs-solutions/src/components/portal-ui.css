@@ -1,0 +1,27 @@
+/* Request timeline: vertical on phones, horizontal from 640px. */
+.timeline { --tl-progress: 0; position: relative; list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+.timeline::before, .timeline::after { content: ""; position: absolute; inset-inline-start: 13px; top: 14px; bottom: 14px; width: 2px; border-radius: 2px; background: var(--color-sage-2); }
+.timeline::after { background: var(--color-teal); transform-origin: top; transform: scaleY(var(--tl-progress)); animation: tl-grow-y var(--duration-scene) var(--ease-out-soft) .15s both; }
+@keyframes tl-grow-y { from { transform: scaleY(0); } }
+.timeline li { position: relative; display: flex; align-items: flex-start; gap: 14px; }
+.timeline-node { position: relative; z-index: 1; flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--color-line-strong); background: var(--color-surface); color: var(--color-on-dark); transition: background-color var(--duration-enter) ease, border-color var(--duration-enter) ease; animation: tl-node var(--duration-enter) var(--ease-out-soft) both; animation-delay: calc(var(--i) * 120ms + 150ms); }
+@keyframes tl-node { from { transform: scale(.6); opacity: 0; } }
+.timeline li[data-state="done"] .timeline-node { background: var(--color-teal); border-color: var(--color-teal); }
+.timeline li[data-state="current"] .timeline-node { border-color: var(--color-copper); background: var(--color-surface); }
+.timeline li[data-state="current"] .timeline-node::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--color-copper); }
+.timeline li[data-state="current"] .timeline-node::before { content: ""; position: absolute; inset: -2px; border-radius: 50%; border: 2px solid var(--color-copper); animation: tl-pulse 1.6s var(--ease-out-soft) .9s 2 both; }
+@keyframes tl-pulse { from { opacity: .7; transform: scale(1); } to { opacity: 0; transform: scale(1.9); } }
+.timeline-body { display: flex; flex-direction: column; gap: 3px; padding-top: 3px; min-width: 0; }
+.timeline-label { font-size: 14px; font-weight: 700; color: var(--color-subtle); }
+.timeline li[data-state="done"] .timeline-label { color: var(--color-ink); }
+.timeline li[data-state="current"] .timeline-label { color: var(--color-ink); font-size: 15px; }
+.timeline-note { font-size: 13px; line-height: 1.7; color: var(--color-quiet); }
+.timeline-date { font-size: 12px; color: var(--color-subtle); white-space: nowrap; }
+@media (min-width: 640px) {
+  .timeline { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .timeline::before, .timeline::after { inset-inline: 12.5%; inset-inline-start: 14px; top: 13px; bottom: auto; width: auto; height: 2px; inset-inline-end: calc(25% - 14px); }
+  .timeline::after { transform-origin: right; transform: scaleX(var(--tl-progress)); animation-name: tl-grow-x; }
+  [dir="ltr"] .timeline::after { transform-origin: left; }
+  .timeline li { flex-direction: column; gap: 12px; }
+}
+@keyframes tl-grow-x { from { transform: scaleX(0); } }

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { AlertCircle, ArrowLeft, Check, CheckCircle2, Clock3, FileText, Inbox, Info, RotateCcw, ShieldCheck, UserRoundCheck, X } from 'lucide-react';
 import './registration.css';
+import { LOCALE } from '@/lib/format';
 
 export type RegistrationStatus = 'pending' | 'approved' | 'rejected';
 
@@ -62,7 +63,7 @@ function formatDate(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? '-'
-    : new Intl.DateTimeFormat('ar', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+    : new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 }
 
 function StatusChip({ status }: { status: RegistrationStatus }) {
@@ -153,7 +154,7 @@ export function RegistrationRequestPage({ email, values, onChange, onSubmit, reg
             <div className="reg-field"><label htmlFor="reg-full-name">الاسم الكامل <span aria-hidden="true">*</span></label><input className="reg-input" id="reg-full-name" name="fullName" type="text" autoComplete="name" required minLength={2} maxLength={120} value={values.fullName} onChange={event => onChange('fullName', event.target.value)} placeholder="الاسم كما ترغب أن يظهر لدى المكتب" disabled={submitting} data-testid="input-registration-full-name" /></div>
             <div className="reg-field"><label htmlFor="reg-phone">رقم التواصل <span aria-hidden="true">*</span></label><input className="reg-input" id="reg-phone" name="contactPhone" type="tel" autoComplete="tel" inputMode="tel" required minLength={9} maxLength={24} dir="ltr" style={{ textAlign: 'right' }} value={values.contactPhone} onChange={event => onChange('contactPhone', event.target.value)} placeholder="رقم الهاتف للتواصل" disabled={submitting} data-testid="input-registration-phone" /></div>
             <div className="reg-field reg-field-wide"><label htmlFor="reg-email">البريد الإلكتروني</label><input className="reg-input" id="reg-email" name="email" type="email" autoComplete="email" dir="ltr" style={{ textAlign: 'right' }} value={email} readOnly aria-describedby="reg-email-help" data-testid="input-registration-email" /><p className="reg-help" id="reg-email-help">يُعرض من حسابك المسجّل ولا يمكن تعديله في الطلب.</p></div>
-            <div className="reg-field reg-field-wide"><label htmlFor="reg-note">ملاحظة للمكتب <span className="reg-help" style={{ color: '#71827a', fontWeight: 400 }}>(اختياري)</span></label><textarea className="reg-input" id="reg-note" name="note" maxLength={1000} value={values.note} onChange={event => onChange('note', event.target.value)} placeholder="أي تفاصيل تساعد المكتب على فهم طلبك..." disabled={submitting} data-testid="input-registration-note" /></div>
+            <div className="reg-field reg-field-wide"><label htmlFor="reg-note">ملاحظة للمكتب <span className="reg-help" style={{ color: 'var(--color-subtle)', fontWeight: 400 }}>(اختياري)</span></label><textarea className="reg-input" id="reg-note" name="note" maxLength={1000} value={values.note} onChange={event => onChange('note', event.target.value)} placeholder="أي تفاصيل تساعد المكتب على فهم طلبك..." disabled={submitting} data-testid="input-registration-note" /></div>
           </div>
           <div className="reg-form-footer"><p>بعد الإرسال، يمكنك متابعة حالة طلبك من هذه الصفحة.</p><button className="reg-btn" type="submit" disabled={submitting || !email} data-testid="button-submit-registration">{submitting ? 'جارٍ إرسال الطلب…' : rejected ? 'إعادة تقديم الطلب' : 'إرسال طلب التسجيل'}{!submitting && <ArrowLeft size={17} aria-hidden="true" />}</button></div>
         </form>

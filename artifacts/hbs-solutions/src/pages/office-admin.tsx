@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { getListOfficeAuditLogQueryKey, getListOfficeStaffQueryKey, useAddOfficeStaff, useListOfficeAuditLog, useListOfficeStaff, useRemoveOfficeStaff, type AuditLogEntry, type OfficeStaffMember } from '@workspace/api-client-react';
 import { EmptyBlock, ErrorBlock, LoadingBlock, PageHeading, PortalLayout, dateText, statusNames } from '@/components/portal-ui';
+import { LOCALE } from '@/lib/format';
 
 function serverMessage(error: unknown, fallback: string): string {
   const data = (error as { data?: unknown } | null)?.data;
@@ -64,11 +65,11 @@ export function OfficeStaff() {
         </div>
       </label>
       <p className="muted mt-3 text-xs leading-6">يجب أن يكون الموظف قد أنشأ حسابًا في البوابة وأكّد هذا البريد. تبقى صلاحيته ما دام البريد مؤكدًا في حسابه.</p>
-      {notice && <div role={notice.kind === 'error' ? 'alert' : 'status'} className={`mt-4 rounded-lg px-4 py-3 text-sm ${notice.kind === 'error' ? 'bg-[#f9e6df] text-[#a83f2e]' : 'bg-[#e9f4eb] text-[#2f6b48]'}`}>{notice.text}</div>}
+      {notice && <div role={notice.kind === 'error' ? 'alert' : 'status'} className={`mt-4 rounded-lg px-4 py-3 text-sm ${notice.kind === 'error' ? 'bg-danger-soft text-danger' : 'bg-sage text-ok'}`}>{notice.text}</div>}
     </form>
     {staff.isLoading ? <LoadingBlock/> : staff.isError ? <ErrorBlock retry={() => staff.refetch()}/> : !staff.data?.length ? <EmptyBlock title="لا يوجد أعضاء بعد" text="سيظهر حساب المالك هنا بعد أول دخول له."/> :
-      <div className="surface overflow-hidden">{staff.data.map(member => <div key={member.userId} className="flex flex-wrap items-center justify-between gap-4 border-b border-[#e9e5da] px-5 py-4 last:border-0 sm:px-6">
-        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="truncate font-bold" dir="ltr">{member.email ?? 'بريد المالك غير مؤكد'}</span><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${member.role === 'owner' ? 'bg-[#174b50] text-[#f8f2e8]' : 'bg-[#e4eee7] text-[#34644e]'}`}>{member.role === 'owner' ? 'المالك' : 'موظف'}</span></div><div className="muted mt-1 text-xs">منذ {dateText(member.createdAt)}</div></div>
+      <div className="surface overflow-hidden">{staff.data.map(member => <div key={member.userId} className="flex flex-wrap items-center justify-between gap-4 border-b border-line px-5 py-4 last:border-0 sm:px-6">
+        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="truncate font-bold" dir="ltr">{member.email ?? 'بريد المالك غير مؤكد'}</span><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${member.role === 'owner' ? 'bg-teal text-on-dark' : 'bg-info-soft text-ok'}`}>{member.role === 'owner' ? 'المالك' : 'موظف'}</span></div><div className="muted mt-1 text-xs">منذ {dateText(member.createdAt)}</div></div>
         {member.role === 'staff' ? <button type="button" onClick={() => revoke(member)} disabled={removingId === member.userId} className="btn btn-outline !min-h-10 !px-4 text-sm"><Trash2 size={15}/>{removingId === member.userId ? 'جارٍ الإزالة…' : 'إزالة الصلاحية'}</button> : <span className="muted flex items-center gap-1.5 text-xs"><ShieldCheck size={15}/>مرتبط ببريد المكتب المعتمد</span>}
       </div>)}</div>}
   </PortalLayout>;
@@ -101,11 +102,11 @@ function auditSummary(entry: AuditLogEntry): string {
 
 export function OfficeAuditLog() {
   const log = useListOfficeAuditLog({ query: { queryKey: getListOfficeAuditLogQueryKey(), refetchInterval: 60_000 } });
-  const timeText = (value: string) => new Intl.DateTimeFormat('ar', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+  const timeText = (value: string) => new Intl.DateTimeFormat(LOCALE, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
   return <PortalLayout staff><PageHeading eyebrow="إدارة المكتب" title="سجل التدقيق" subtitle="آخر 200 إجراء نفّذه فريق المكتب، الأحدث أولًا."/>
     {log.isLoading ? <LoadingBlock/> : log.isError ? <ErrorBlock retry={() => log.refetch()}/> : !log.data?.length ? <EmptyBlock title="لا توجد إجراءات بعد" text="ستظهر هنا تحديثات الطلبات والردود ومراجعات التسجيل وتغييرات الفريق."/> :
-      <div className="surface overflow-hidden">{log.data.map(entry => <div key={entry.id} className="grid gap-1 border-b border-[#e9e5da] px-5 py-4 last:border-0 sm:grid-cols-[150px_minmax(0,1fr)_auto] sm:items-center sm:gap-4 sm:px-6">
-        <span className="text-xs font-bold text-[#a45b3b]">{actionNames[entry.action]}</span>
+      <div className="surface overflow-hidden">{log.data.map(entry => <div key={entry.id} className="grid gap-1 border-b border-line px-5 py-4 last:border-0 sm:grid-cols-[150px_minmax(0,1fr)_auto] sm:items-center sm:gap-4 sm:px-6">
+        <span className="text-xs font-bold text-copper">{actionNames[entry.action]}</span>
         <span className="min-w-0 text-sm">{auditSummary(entry)}<span className="muted block truncate text-xs" dir="ltr">{entry.actorEmail ?? entry.actorId}</span></span>
         <span className="muted text-xs">{timeText(entry.createdAt)}</span>
       </div>)}</div>}

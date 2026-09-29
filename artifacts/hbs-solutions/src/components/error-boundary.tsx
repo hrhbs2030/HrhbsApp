@@ -37,9 +37,9 @@ function toError(value: unknown): Error {
 
 function DefaultFallback({ resetError }: ErrorFallbackProps) {
   return (
-    <div dir="rtl" role="alert" className="flex min-h-screen w-full items-center justify-center bg-[#f6f4ed] p-6">
+    <div dir="rtl" role="alert" className="flex min-h-screen w-full items-center justify-center bg-paper p-6">
       <div className="surface w-full max-w-lg p-8 text-center">
-        <h1 className="display text-2xl font-semibold text-[#173e42]">تعذّر عرض هذه الصفحة</h1>
+        <h1 className="display text-2xl font-semibold text-ink">تعذّر عرض هذه الصفحة</h1>
         <p className="muted mt-3 text-sm leading-7">حدث خطأ أثناء عرض المحتوى. جرّب مرة أخرى، ولن يؤدي ذلك إلى إعادة إرسال أي نموذج.</p>
         <button
           type="button"
