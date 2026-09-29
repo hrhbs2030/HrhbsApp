@@ -16,6 +16,18 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -28,6 +40,20 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
       - run: pnpm run test
+      - name: Check migrations match the schema
+        run: |
+          pnpm --filter @workspace/db run generate
+          if [ -n "$(git status --porcelain -- lib/db/migrations)" ]; then
+            echo "::error::lib/db schema changed without a migration. Run: pnpm --filter @workspace/db run generate"
+            git status --porcelain -- lib/db/migrations
+            exit 1
+          fi
+        env:
+          DATABASE_URL: postgres://unused@127.0.0.1:1/unused
+      - name: Apply migrations to an empty database
+        run: pnpm --filter @workspace/db run migrate
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
       - name: Build website
         run: pnpm --filter @workspace/hbs-solutions run build
         env:

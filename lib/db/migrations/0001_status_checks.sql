@@ -1,0 +1,3 @@
+ALTER TABLE "hbs_service_requests" ADD CONSTRAINT "hbs_service_requests_category_check" CHECK ("hbs_service_requests"."category" in ('passports', 'labor', 'business', 'other'));--> statement-breakpoint
+ALTER TABLE "hbs_service_requests" ADD CONSTRAINT "hbs_service_requests_status_check" CHECK ("hbs_service_requests"."status" in ('received', 'reviewing', 'waiting_on_customer', 'completed'));--> statement-breakpoint
+ALTER TABLE "hbs_inquiries" ADD CONSTRAINT "hbs_inquiries_status_check" CHECK ("hbs_inquiries"."status" in ('open', 'answered'));
