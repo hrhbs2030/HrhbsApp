@@ -1,0 +1,30 @@
+/* Jeddah scene motion. Transform/opacity only; paused with the rest of the scene. */
+.jd-blink { animation: jd-blink 2.4s linear infinite; }
+@keyframes jd-blink { 0%, 52%, 100% { opacity: .12; } 60%, 78% { opacity: 1; } }
+
+/* Sun glitter on the sea: slow drift and flicker, three bands out of phase. */
+.jd-glint { animation: jd-glint 3.4s ease-in-out infinite alternate; }
+.jd-glint--b { animation-duration: 2.6s; animation-delay: -1.3s; }
+.jd-glint--c { animation-duration: 4.2s; animation-delay: -2.1s; }
+@keyframes jd-glint { from { opacity: .45; transform: translateX(-5px); } to { opacity: 1; transform: translateX(5px); } }
+
+/* Fountain spray drifting down-wind and fading; the mist cloud at its foot breathes. */
+.jd-spray { animation: jd-spray 6s linear infinite; }
+@keyframes jd-spray { 0% { opacity: 0; transform: translate(0, 0); } 18% { opacity: .9; } 100% { opacity: 0; transform: translate(-18px, 52px); } }
+.jd-mist { transform-box: fill-box; transform-origin: 50% 50%; animation: jd-mist 7s ease-in-out infinite alternate; }
+@keyframes jd-mist { from { opacity: .5; transform: translateX(-6px) scale(.95); } to { opacity: 1; transform: translateX(8px) scale(1.06); } }
+
+/* A dhow crossing the sun's path; it bobs on the swell. */
+.jd-dhow { animation: jd-dhow 110s linear infinite; }
+@keyframes jd-dhow { 0% { transform: translateX(0); opacity: 0; } 6%, 94% { opacity: 1; } 100% { transform: translateX(440px); opacity: 0; } }
+.jd-bob { animation: jd-bob 3.6s ease-in-out infinite alternate; }
+@keyframes jd-bob { from { transform: translateY(-.8px) rotate(-1deg); } to { transform: translateY(.8px) rotate(1deg); } }
+
+/* Corniche traffic: patterns repeat every 800 units, so the loop is seamless. */
+.jd-cars-e { animation: jd-cars-e 30s linear infinite; }
+.jd-cars-w { animation: jd-cars-w 38s linear infinite; }
+@keyframes jd-cars-e { to { transform: translateX(800px); } }
+@keyframes jd-cars-w { to { transform: translateX(-800px); } }
+
+.jd-ray { animation: jd-ray 9s ease-in-out infinite alternate; }
+@keyframes jd-ray { from { opacity: .3; } to { opacity: 1; } }
