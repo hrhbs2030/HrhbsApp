@@ -180,7 +180,7 @@ export function TrustPage() {
   const facts = [
     ...trustFacts.map((fact, i) => ({ ...fact, Icon: icons[i] ?? ShieldCheck })),
     { title: 'حسابات يراجعها المكتب', text: 'يُنشأ الحساب بالبريد الإلكتروني بعد تأكيده، ولا تُتاح الخدمات إلا بعد موافقة المكتب على طلب التسجيل.', Icon: UserRoundCheck },
-    { title: 'المساعد الآلي لا يرى طلباتك', text: 'يجيب عن أسئلة استخدام البوابة فقط. للسؤال عن طلبك، أرسل استفسارًا يطّلع عليه المكتب.', Icon: MessageSquareText },
+    { title: '«أم مشعل» لا ترى طلباتك', text: 'المساعدة الآلية تجيب عن أسئلة استخدام البوابة فقط ولا تنفّذ معاملات. للسؤال عن طلبك، أرسل استفسارًا يطّلع عليه المكتب.', Icon: MessageSquareText },
   ];
   return (
     <PublicPage intro={<PageIntro kicker="الخصوصية والأمان" title="كيف نتعامل مع طلباتك" />}>

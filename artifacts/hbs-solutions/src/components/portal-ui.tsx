@@ -10,7 +10,7 @@ import { cityInfo, cityOrder } from './city-scene';
 import { SceneWindow, useSceneWindows } from './scene-window';
 import './portal-ui.css';
 
-export const categoryNames: Record<string, string> = { passports: 'الجوازات', labor: 'العمل', business: 'الأعمال', other: 'خدمات أخرى' };
+export const categoryNames: Record<string, string> = { passports: 'الجوازات والإقامة', labor: 'الموارد البشرية والعمل', business: 'تأسيس الشركات والتراخيص', other: 'دعم الأعمال' };
 export const statusNames: Record<string, string> = { received: 'تم الاستلام', reviewing: 'قيد المراجعة', waiting_on_customer: 'بانتظار العميل', completed: 'مكتملة', open: 'مفتوح', answered: 'تم الرد' };
 export const statusOptions: ServiceRequestStatus[] = ['received', 'reviewing', 'waiting_on_customer', 'completed'];
 export const dateText = (value: string | null | undefined) => formatDate(value);

@@ -70,3 +70,10 @@
 5. **بيانات التواصل العامة** (هاتف، عنوان، ساعات العمل): غير موجودة في المستودع؛ لم أكتب أي بيانات افتراضية.
 6. **الإنجليزية (LTR):** الألوان والحركة تستخدم خصائص منطقية (`inset-inline`، `padding-inline`)، والأشرطة تعكس اتجاهها تلقائيًا تحت `[dir="ltr"]`، و`LOCALE` في مكان واحد. الخطوة التالية: ملف نصوص لكل لغة.
 7. بعد تسجيل الدخول من صفحة خدمة، يعيد Clerk المستخدم إلى لوحة التحكم لا إلى النموذج المعبأ.
+
+## Landing v3 (brief: dashboard preview + «أم مشعل»)
+
+- Kept Vite + React (no Next.js migration) and the city scenes; the hero keeps its interactive request preview. Motion stays CSS (no GSAP / Three.js), with reduced-motion fallbacks.
+- New sections: `#dashboard` (client dashboard preview, demo data labelled «بيانات توضيحية»; documents upload and invoices are marked as not available) and `#assistant` («أم مشعل», pre-written example answers, clear split between AI guidance and office execution).
+- The portal assistant is renamed «أم مشعل»; its server prompt now uses that name and states it never executes government transactions.
+- Category display names now follow the four service areas: الجوازات والإقامة، الموارد البشرية والعمل، تأسيس الشركات والتراخيص، دعم الأعمال (API enum unchanged).

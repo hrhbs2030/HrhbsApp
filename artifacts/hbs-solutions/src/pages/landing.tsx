@@ -4,6 +4,7 @@ import { ArrowLeft, BookUser, BriefcaseBusiness, Building2, FileText, Search, Sh
 import { SiteFooter, SiteHeader } from '@/components/site-chrome';
 import { IntroSequence, useIntroState } from '@/components/intro';
 import { RequestObject, StageRail, stageLabels } from '@/components/request-object';
+import { AssistantShowcase, DashboardPreview } from '@/components/landing-previews';
 import { categories, services, type ServiceCategory } from '@/content/services';
 import { faqs, journey, trustFacts } from '@/content/site';
 import { useActiveChapter, useReducedMotion, useRevealOnScroll } from '@/lib/motion';
@@ -12,6 +13,12 @@ import './landing.css';
 const ICON = 1.75;
 const categoryIcons: Record<ServiceCategory, typeof BookUser> = { passports: BookUser, labor: BriefcaseBusiness, business: Building2, other: Shapes };
 const trustIcons = [ShieldCheck, History, Hash];
+const dashboardPoints = [
+  { title: 'حالة كل طلب', text: 'أربع حالات واضحة تتحدّث كلما عمل المكتب على طلبك.' },
+  { title: 'تنبيه عند الحاجة إليك', text: 'إن احتاج المكتب معلومة، يظهر التنبيه أول ما تفتح حسابك.' },
+  { title: 'رسائل مرتبطة بالطلب', text: 'استفسارك وردّ المكتب محفوظان مع الطلب نفسه.' },
+  { title: 'سجل دائم', text: 'الطلبات المكتملة تبقى بتفاصيلها للرجوع إليها.' },
+];
 const servicesLabel = (n: number) => (n === 1 ? 'خدمة واحدة' : n === 2 ? 'خدمتان' : n <= 10 ? `${n} خدمات` : `${n} خدمة`);
 
 // Headline words animate one by one. Whole words only: animating single
@@ -155,6 +162,28 @@ export default function Landing() {
               </ol>
             </div>
           </div>
+        </section>
+
+        <section id="dashboard" className="lp-dashboard" aria-labelledby="dashboard-title">
+          <div className="site-wrap">
+            <div className="lp-section-head reveal">
+              <h2 id="dashboard-title" className="lp-heading">حسابك: كل طلباتك في مكان واحد</h2>
+            </div>
+            <div className="reveal"><DashboardPreview /></div>
+            <ul className="dp-points">
+              {dashboardPoints.map((point, index) => (
+                <li key={point.title} className="reveal" style={{ transitionDelay: `${index * 70}ms` }}>
+                  <strong>{point.title}</strong>
+                  <span>{point.text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <section id="assistant" className="lp-assistant" aria-labelledby="assistant-title">
+          <div className="lp-journey-glow" aria-hidden="true" />
+          <div className="site-wrap reveal"><AssistantShowcase /></div>
         </section>
 
         <section className="lp-trust" aria-labelledby="trust-title">

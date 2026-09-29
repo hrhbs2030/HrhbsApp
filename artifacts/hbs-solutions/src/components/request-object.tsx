@@ -26,7 +26,7 @@ export function RequestObject({
   stage,
   reference = 'HBS-2026-00041',
   title = 'تجديد إقامة',
-  category = 'الجوازات',
+  category = 'الجوازات والإقامة',
   date = '14 سبتمبر 2026',
   tilt = false,
   size = 'hero',
