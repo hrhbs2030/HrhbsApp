@@ -2,10 +2,10 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useParams, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, CircleAlert, CircleCheck, CircleHelp, Link2, Plus, Send } from 'lucide-react';
-import { getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, getListInquiriesQueryKey, getGetServiceRequestQueryKey, useGetPortalSummary, useListServiceRequests, useGetServiceRequest, useListInquiries, useCreateInquiry, type Inquiry } from '@workspace/api-client-react';
+import { getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, getListInquiriesQueryKey, getGetServiceRequestQueryKey, getGetServiceRequestHistoryQueryKey, useGetServiceRequestHistory, useGetPortalSummary, useListServiceRequests, useGetServiceRequest, useListInquiries, useCreateInquiry, type Inquiry } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock, RequestRow, Status, StatusTrack, dateText, categoryNames, statusNames } from '@/components/portal-ui';
 import { CustomerAssistant } from '@/components/customer-assistant';
-import { LOCALE } from '@/lib/format';
+import { LOCALE, formatDateTime } from '@/lib/format';
 import { PrintButton } from '@/components/brand/print';
 
 const count = (value: number) => new Intl.NumberFormat(LOCALE).format(value);
@@ -107,6 +107,7 @@ export function RequestDetail() {
         <section aria-label="مراحل الطلب" className="px-5 py-6 sm:px-8">
           <StatusTrack status={q.data.status} createdAt={q.data.createdAt} updatedAt={q.data.updatedAt}/>
           {q.data.status==='waiting_on_customer'&&<div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warn-line bg-warn-soft px-4 py-3 text-sm text-warn"><span className="flex items-start gap-2 leading-7"><CircleAlert className="mt-1 shrink-0" size={16}/>استفسر من المكتب عمّا يلزم لإكمال الطلب.</span><Link href={`/inquiries?request=${q.data.id}`} className="inline-flex min-h-11 items-center gap-1 text-xs font-bold text-warn underline sm:min-h-0">أرسل استفسارًا<ArrowLeft size={14}/></Link></div>}
+          <StatusHistory id={q.data.id} updatedAt={q.data.updatedAt}/>
         </section>
         <dl className="m-0 grid gap-x-8 gap-y-5 border-t border-line bg-paper px-5 py-6 sm:grid-cols-3 sm:px-8">
           <Info label="مجال الخدمة" value={categoryNames[q.data.category]}/><Info label="رقم التواصل" value={q.data.contactPhone} ltr/><Info label="آخر تحديث" value={dateText(q.data.updatedAt)}/>
@@ -116,6 +117,20 @@ export function RequestDetail() {
     </>}
   </div></PortalLayout>;
 }
+// Every status change with its date and time, oldest first. Refetched when the
+// request's updatedAt changes, so it follows the page's own polling.
+function StatusHistory({ id, updatedAt }: { id: number; updatedAt: string }) {
+  const history = useGetServiceRequestHistory(id, { query: { queryKey: [...getGetServiceRequestHistoryQueryKey(id), updatedAt] } });
+  if (!history.data || history.data.length < 2) return null;
+  return <div className="req-history">
+    <h2 className="req-history-title">سجل الحالة</h2>
+    <ol>{[...history.data].reverse().map((event, index) => <li key={`${event.status}-${event.at}`} data-latest={index === 0 || undefined}>
+      <span className={`pill pill-${event.status}`}>{statusNames[event.status]}</span>
+      <time dateTime={event.at}>{formatDateTime(event.at)}</time>
+    </li>)}</ol>
+  </div>;
+}
+
 function Info({label,value,ltr=false}:{label:string;value:string;ltr?:boolean}) { return <div className="min-w-0"><dt className="mb-1 text-xs font-bold text-subtle">{label}</dt><dd className="m-0 font-semibold" dir={ltr?'ltr':undefined} style={ltr?{textAlign:'right'}:undefined}>{value}</dd></div>; }
 
 export function Inquiries() {

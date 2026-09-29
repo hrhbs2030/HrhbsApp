@@ -235,6 +235,20 @@ export const GetServiceRequestResponse = zod.object({
 
 
 /**
+ * @summary Status changes of a request owned by the signed-in customer, oldest first
+ */
+export const GetServiceRequestHistoryParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetServiceRequestHistoryResponseItem = zod.object({
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']),
+  "at": zod.coerce.date()
+})
+export const GetServiceRequestHistoryResponse = zod.array(GetServiceRequestHistoryResponseItem)
+
+
+/**
  * @summary List the signed-in customer's inquiries
  */
 export const ListInquiriesResponseItem = zod.object({

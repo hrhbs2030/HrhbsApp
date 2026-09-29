@@ -5,11 +5,18 @@ export const LOCALE = 'ar-u-ca-gregory-nu-latn';
 
 const dateFormat = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' });
 const numberFormat = new Intl.NumberFormat(LOCALE);
+const dateTimeFormat = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return '-';
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? '-' : dateFormat.format(date);
+}
+
+export function formatDateTime(value: string | Date | null | undefined): string {
+  if (!value) return '-';
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? '-' : dateTimeFormat.format(date);
 }
 
 export function formatNumber(value: number): string {
