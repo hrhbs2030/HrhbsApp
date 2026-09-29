@@ -1,0 +1,731 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: openai
+    description: OpenAI integration
+  - name: anthropic
+    description: Customer-facing Anthropic assistant
+  - name: portal
+    description: Customer portal and office inbox
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /openai/extract-transaction:
+    post:
+      operationId: extractTransaction
+      tags: [openai]
+      summary: Extract transaction details from text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtractTransactionRequest"
+      responses:
+        "200":
+          description: Extracted data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtractedTransaction"
+        "400":
+          description: Invalid request
+        "403":
+          description: Origin is not allowed
+        "413":
+          description: Request body is too large
+        "429":
+          description: Too many requests
+        "502":
+          description: AI response could not be validated or the service failed
+  /anthropic/answer-inquiry:
+    post:
+      operationId: answerCustomerInquiry
+      tags: [anthropic]
+      summary: Answer a signed-in customer's general service question
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerAIQuestion"
+      responses:
+        "200":
+          description: Advisory answer from the assistant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerAIAnswer"
+        "400":
+          description: Invalid question
+        "401":
+          description: Authentication required
+        "429":
+          description: Rate limit reached
+        "502":
+          description: Assistant temporarily unavailable
+  /portal/me:
+    get:
+      operationId: getPortalMe
+      tags: [portal]
+      summary: Get the signed-in user's portal role and registration status
+      responses:
+        "200":
+          description: Current role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalUser"
+        "401":
+          description: Authentication required
+  /portal/registration:
+    get:
+      operationId: getPortalRegistration
+      tags: [portal]
+      summary: Get the signed-in user's customer registration request
+      responses:
+        "200":
+          description: Current registration request, or null when none exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalRegistrationResult"
+        "401":
+          description: Authentication required
+    post:
+      operationId: submitPortalRegistration
+      tags: [portal]
+      summary: Submit or resubmit a customer registration request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrationRequestInput"
+      responses:
+        "201":
+          description: Registration request submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalRegistration"
+        "400":
+          description: Invalid registration details or email is not verified
+        "401":
+          description: Authentication required
+        "409":
+          description: A pending request exists or the account is already approved
+  /portal/summary:
+    get:
+      operationId: getPortalSummary
+      tags: [portal]
+      summary: Customer dashboard with recent activity
+      responses:
+        "200":
+          description: Customer summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalSummary"
+        "401":
+          description: Authentication required
+        "403":
+          description: Customer registration approval required
+  /service-requests:
+    get:
+      operationId: listServiceRequests
+      tags: [portal]
+      summary: List the signed-in customer's service requests
+      responses:
+        "200":
+          description: Customer requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServiceRequest"
+    post:
+      operationId: createServiceRequest
+      tags: [portal]
+      summary: Submit a service request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceRequestInput"
+      responses:
+        "201":
+          description: Request received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequest"
+        "400":
+          description: Invalid request
+        "401":
+          description: Authentication required
+        "403":
+          description: Customer registration approval required
+  /service-requests/{id}:
+    get:
+      operationId: getServiceRequest
+      tags: [portal]
+      summary: Get a request owned by the signed-in customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Service request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequest"
+        "404":
+          description: Not found
+        "401":
+          description: Authentication required
+        "403":
+          description: Customer registration approval required
+  /inquiries:
+    get:
+      operationId: listInquiries
+      tags: [portal]
+      summary: List the signed-in customer's inquiries
+      responses:
+        "200":
+          description: Inquiries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Inquiry"
+    post:
+      operationId: createInquiry
+      tags: [portal]
+      summary: Send an inquiry to the office
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InquiryInput"
+      responses:
+        "201":
+          description: Inquiry received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Inquiry"
+        "400":
+          description: Invalid inquiry
+        "401":
+          description: Authentication required
+        "403":
+          description: Customer registration approval required
+  /office/summary:
+    get:
+      operationId: getOfficeSummary
+      tags: [portal]
+      summary: Staff-only intake overview
+      responses:
+        "200":
+          description: Office summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeSummary"
+        "403":
+          description: Office access required
+  /office/service-requests:
+    get:
+      operationId: listOfficeServiceRequests
+      tags: [portal]
+      summary: Staff-only list of customer requests
+      responses:
+        "200":
+          description: All customer requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OfficeServiceRequest"
+  /office/registrations:
+    get:
+      operationId: listOfficeRegistrations
+      tags: [portal]
+      summary: Staff-only list of customer registration requests
+      responses:
+        "200":
+          description: Registration requests with verified applicant email only
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OfficeRegistration"
+        "401":
+          description: Authentication required
+        "403":
+          description: Office access required
+  /office/registrations/{id}:
+    patch:
+      operationId: reviewOfficeRegistration
+      tags: [portal]
+      summary: Staff-only approval or rejection of a pending registration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrationReview"
+      responses:
+        "200":
+          description: Reviewed registration request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeRegistration"
+        "400":
+          description: Invalid review
+        "401":
+          description: Authentication required
+        "403":
+          description: Office access required
+        "404":
+          description: Registration request not found
+        "409":
+          description: Registration request is no longer pending
+  /office/service-requests/{id}:
+    patch:
+      operationId: updateOfficeServiceRequest
+      tags: [portal]
+      summary: Staff-only update of request progress
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceRequestUpdate"
+      responses:
+        "200":
+          description: Updated request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeServiceRequest"
+  /office/inquiries:
+    get:
+      operationId: listOfficeInquiries
+      tags: [portal]
+      summary: Staff-only customer inquiries
+      responses:
+        "200":
+          description: All inquiries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OfficeInquiry"
+  /office/inquiries/{id}:
+    patch:
+      operationId: answerOfficeInquiry
+      tags: [portal]
+      summary: Staff-only answer to an inquiry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InquiryAnswer"
+      responses:
+        "200":
+          description: Answered inquiry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeInquiry"
+  /office/legacy/preview:
+    post:
+      operationId: previewLegacyBackup
+      tags: [portal]
+      summary: Validate and preview a plain v1 mobile backup (office only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LegacyBackupInput"
+      responses:
+        "200":
+          description: Validated backup metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegacyBackupSummary"
+  /office/legacy/import:
+    post:
+      operationId: importLegacyBackup
+      tags: [portal]
+      summary: Import a reviewed plain v1 mobile backup (office only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LegacyImportInput"
+      responses:
+        "201":
+          description: Stored import
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegacyImportSummary"
+  /office/legacy/imports:
+    get:
+      operationId: listLegacyImports
+      tags: [portal]
+      summary: List imported mobile backups (office only)
+      responses:
+        "200":
+          description: Imported backups and stored record identifiers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LegacyImportSummary"
+components:
+  schemas:
+    LegacyBackupInput:
+      type: object
+      required: [contents]
+      properties:
+        contents: { type: string, minLength: 1, maxLength: 5000000 }
+    LegacyImportInput:
+      type: object
+      required: [contents, digest, confirmed]
+      properties:
+        contents: { type: string, minLength: 1, maxLength: 5000000 }
+        digest: { type: string, minLength: 64, maxLength: 64 }
+        confirmed: { type: boolean }
+    LegacyCounts:
+      type: object
+      required: [transactions, clients, tasks, notes]
+      properties:
+        transactions: { type: integer }
+        clients: { type: integer }
+        tasks: { type: integer }
+        notes: { type: integer }
+    LegacyIds:
+      type: object
+      required: [transactions, clients, tasks, notes]
+      properties:
+        transactions: { type: array, items: { type: string } }
+        clients: { type: array, items: { type: string } }
+        tasks: { type: array, items: { type: string } }
+        notes: { type: array, items: { type: string } }
+    LegacyBackupSummary:
+      type: object
+      required: [exportedAt, digest, counts, ids]
+      properties:
+        exportedAt: { type: string, format: date-time }
+        digest: { type: string }
+        counts: { $ref: "#/components/schemas/LegacyCounts" }
+        ids: { $ref: "#/components/schemas/LegacyIds" }
+    LegacyImportSummary:
+      allOf:
+        - $ref: "#/components/schemas/LegacyBackupSummary"
+        - type: object
+          required: [id, importedAt]
+          properties:
+            id: { type: integer }
+            importedAt: { type: string, format: date-time }
+    CustomerAIQuestion:
+      type: object
+      required: [question]
+      properties:
+        question: { type: string, minLength: 5, maxLength: 1000 }
+    CustomerAIAnswer:
+      type: object
+      required: [answer]
+      properties:
+        answer: { type: string }
+    PortalUser:
+      type: object
+      required: [role, registrationStatus]
+      properties:
+        role:
+          type: string
+          enum: [customer, staff]
+        registrationStatus:
+          type: ["string", "null"]
+          enum: [pending, approved, rejected, null]
+    RegistrationRequestInput:
+      type: object
+      additionalProperties: false
+      required: [fullName, contactPhone]
+      properties:
+        fullName: { type: string, minLength: 2, maxLength: 120 }
+        contactPhone: { type: string, minLength: 9, maxLength: 24 }
+        note: { type: string, maxLength: 1000 }
+    PortalRegistration:
+      type: object
+      required: [id, fullName, contactPhone, note, status, reason, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        fullName: { type: string }
+        contactPhone: { type: string }
+        note: { type: ["string", "null"] }
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        reason: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    PortalRegistrationResult:
+      oneOf:
+        - $ref: "#/components/schemas/PortalRegistration"
+        - type: "null"
+    OfficeRegistration:
+      allOf:
+        - $ref: "#/components/schemas/PortalRegistration"
+        - type: object
+          required: [email, reviewerId]
+          properties:
+            email: { type: ["string", "null"], format: email }
+            reviewerId: { type: ["string", "null"] }
+    RegistrationReview:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [approved, rejected]
+        reason: { type: ["string", "null"], maxLength: 1000 }
+    ServiceRequest:
+      type: object
+      required: [id, reference, category, service, description, contactPhone, status, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        reference: { type: string }
+        category:
+          type: string
+          enum: [passports, labor, business, other]
+        service: { type: string }
+        description: { type: string }
+        contactPhone: { type: string }
+        status:
+          type: string
+          enum: [received, reviewing, waiting_on_customer, completed]
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    OfficeServiceRequest:
+      type: object
+      required: [id, reference, category, service, description, contactPhone, status, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        reference: { type: string }
+        category:
+          type: string
+          enum: [passports, labor, business, other]
+        service: { type: string }
+        description: { type: string }
+        contactPhone: { type: string }
+        status:
+          type: string
+          enum: [received, reviewing, waiting_on_customer, completed]
+        officeNote: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ServiceRequestInput:
+      type: object
+      required: [category, service, description, contactPhone]
+      properties:
+        category:
+          type: string
+          enum: [passports, labor, business, other]
+        service: { type: string, minLength: 2, maxLength: 120 }
+        description: { type: string, minLength: 10, maxLength: 5000 }
+        contactPhone: { type: string, minLength: 9, maxLength: 24 }
+    ServiceRequestUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [received, reviewing, waiting_on_customer, completed]
+        officeNote: { type: ["string", "null"], maxLength: 2000 }
+    Inquiry:
+      type: object
+      required: [id, subject, message, status, createdAt, linkedServiceRequestReference]
+      properties:
+        id: { type: integer }
+        subject: { type: string }
+        message: { type: string }
+        linkedServiceRequestReference: { type: ["string", "null"] }
+        status:
+          type: string
+          enum: [open, answered]
+        answer: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        answeredAt: { type: ["string", "null"], format: date-time }
+    OfficeInquiry:
+      allOf:
+        - $ref: "#/components/schemas/Inquiry"
+        - type: object
+          required: [linkedServiceRequest]
+          properties:
+            linkedServiceRequest:
+              oneOf:
+                - $ref: "#/components/schemas/LinkedServiceRequestContext"
+                - type: "null"
+    LinkedServiceRequestContext:
+      type: object
+      required: [reference, category, service, description, status]
+      properties:
+        reference: { type: string }
+        category:
+          type: string
+          enum: [passports, labor, business, other]
+        service: { type: string }
+        description: { type: string }
+        status:
+          type: string
+          enum: [received, reviewing, waiting_on_customer, completed]
+    InquiryInput:
+      type: object
+      required: [subject, message]
+      properties:
+        subject: { type: string, minLength: 3, maxLength: 160 }
+        message: { type: string, minLength: 10, maxLength: 5000 }
+        linkedServiceRequestId: { type: ["integer", "null"], minimum: 1 }
+    InquiryAnswer:
+      type: object
+      required: [answer]
+      properties:
+        answer: { type: string, minLength: 2, maxLength: 5000 }
+    PortalSummary:
+      type: object
+      required: [totalRequests, activeRequests, completedRequests, openInquiries, recentRequests, recentInquiries]
+      properties:
+        totalRequests: { type: integer }
+        activeRequests: { type: integer }
+        completedRequests: { type: integer }
+        openInquiries: { type: integer }
+        recentRequests:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceRequest"
+        recentInquiries:
+          type: array
+          items:
+            $ref: "#/components/schemas/Inquiry"
+    OfficeSummary:
+      type: object
+      required: [totalRequests, newRequests, activeRequests, openInquiries]
+      properties:
+        totalRequests: { type: integer }
+        newRequests: { type: integer }
+        activeRequests: { type: integer }
+        openInquiries: { type: integer }
+    ExtractTransactionRequest:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    ExtractedTransaction:
+      type: object
+      additionalProperties: false
+      required:
+        - clientName
+        - service
+        - serviceFee
+        - governmentFee
+        - period
+        - duration
+        - receiptDate
+        - notes
+      properties:
+        clientName:
+          type: [string, "null"]
+          maxLength: 120
+        service:
+          type: [string, "null"]
+          maxLength: 200
+        serviceFee:
+          type: [number, "null"]
+          minimum: 0
+        governmentFee:
+          type: [number, "null"]
+          minimum: 0
+        period:
+          type: [string, "null"]
+          maxLength: 100
+        duration:
+          type: [string, "null"]
+          maxLength: 100
+        receiptDate:
+          type: [string, "null"]
+          maxLength: 80
+        notes:
+          type: [string, "null"]
+          maxLength: 1000
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status

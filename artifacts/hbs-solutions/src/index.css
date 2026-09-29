@@ -1,0 +1,99 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Readex+Pro:wght@400;500;600;700&display=swap');
+@layer theme, base, clerk, components, utilities;
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@plugin "@tailwindcss/typography";
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-card-border: hsl(var(--card-border));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --font-sans: var(--app-font-sans);
+  --font-mono: var(--app-font-mono);
+}
+:root, .dark {
+  --background: 40 31% 96%;
+  --foreground: 183 37% 18%;
+  --border: 36 21% 84%;
+  --input: 36 21% 84%;
+  --ring: 183 53% 27%;
+  --card: 42 36% 99%;
+  --card-foreground: 183 37% 18%;
+  --card-border: 36 21% 84%;
+  --popover: 42 36% 99%;
+  --popover-foreground: 183 37% 18%;
+  --primary: 183 51% 23%;
+  --primary-foreground: 40 40% 97%;
+  --secondary: 38 29% 89%;
+  --secondary-foreground: 183 37% 18%;
+  --muted: 38 26% 91%;
+  --muted-foreground: 183 13% 41%;
+  --accent: 18 73% 54%;
+  --accent-foreground: 40 40% 98%;
+  --destructive: 4 63% 44%;
+  --destructive-foreground: 40 40% 98%;
+  --sidebar: 183 43% 18%;
+  --sidebar-foreground: 39 31% 88%;
+  --sidebar-border: 183 24% 29%;
+  --app-font-sans: 'IBM Plex Sans Arabic', sans-serif;
+  --app-font-display: 'Readex Pro', sans-serif;
+  --app-font-mono: 'IBM Plex Sans Arabic', monospace;
+  --radius: .85rem;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; background: hsl(var(--background)); color: hsl(var(--foreground)); font-family: var(--app-font-sans); -webkit-font-smoothing: antialiased; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .6; }
+::selection { background: #dfb79b; color: #193f42; }
+:focus-visible { outline: 3px solid #d2794d; outline-offset: 3px; }
+.display { font-family: var(--app-font-display); letter-spacing: -.045em; }
+.shell { width: min(100% - 48px, 1240px); margin-inline: auto; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .65rem; min-height: 48px; padding: .72rem 1.35rem; border-radius: .65rem; border: 1px solid transparent; font-weight: 700; text-decoration: none; transition: transform .2s ease, opacity .2s ease, background-color .2s ease; }
+.btn:hover:not(:disabled) { transform: translateY(-2px); }
+.btn-primary { color: #f9f5ec; background: #174b50; }
+.btn-primary:hover { background: #216067; }
+.btn-light { color: #174b50; background: #f4efe3; }
+.btn-outline { color: #174b50; background: transparent; border-color: #b5c2bb; }
+.btn-accent { color: #fff9f2; background: #c9663e; }
+.eyebrow { color: #b45f3d; font-size: .76rem; font-weight: 700; letter-spacing: .03em; }
+.surface { background: #fcfaf4; border: 1px solid #e3dfd3; border-radius: 16px; box-shadow: 0 10px 30px rgba(35,67,63,.035); }
+.muted { color: #61736e; }
+.form-field { display: flex; flex-direction: column; gap: .5rem; color: #21464a; font-weight: 700; font-size: .9rem; }
+.form-control { width: 100%; min-height: 49px; padding: .7rem .95rem; border: 1px solid #c9d0c7; border-radius: 9px; background: #fffcf6; color: #193f42; outline: none; transition: border-color .18s ease, box-shadow .18s ease; font-weight: 400; }
+.form-control:focus { border-color: #257078; box-shadow: 0 0 0 3px rgba(37,112,120,.12); }
+.form-control::placeholder { color: #87938b; }
+textarea.form-control { resize: vertical; min-height: 145px; }
+.pill { display: inline-flex; align-items: center; gap: .4rem; width: fit-content; border-radius: 100px; padding: .3rem .7rem; font-size: .73rem; font-weight: 700; white-space: nowrap; }
+.pill-received, .pill-open { background: #f9e8d9; color: #a4552f; }
+.pill-reviewing { background: #e2ece8; color: #286063; }
+.pill-waiting_on_customer { background: #f8eecb; color: #846517; }
+.pill-completed, .pill-answered { background: #dfeddf; color: #3d7047; }
+.skeleton { background: linear-gradient(100deg,#e9e6dd 20%,#f5f2e9 45%,#e9e6dd 70%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
+@keyframes shimmer { to { background-position-x: -200%; } }
+.rise { animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.cl-formFieldInput::placeholder { color: #85918c !important; opacity: 1; }
+@media (max-width: 767px) { .shell { width: min(100% - 32px, 1240px); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
