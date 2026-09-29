@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, type ReactNode } from 'react';
 import { ClerkProvider, SignIn, SignUp, useAuth, useClerk } from '@clerk/react';
 import { arSA } from '@clerk/localizations';
 import { publishableKeyFromHost } from '@clerk/react/internal';
@@ -7,11 +7,23 @@ import { Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wo
 import { useGetPortalMe, getGetPortalMeQueryKey } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import Landing from '@/pages/landing';
-import { Dashboard, Requests, NewRequest, RequestDetail, Inquiries } from '@/pages/customer';
-import { OfficeOverview, OfficeRequests, OfficeInquiries } from '@/pages/office';
-import { CustomerRegistration, OfficeRegistrations } from '@/pages/registration-connected';
 import { ErrorBlock, LoadingBlock } from '@/components/portal-ui';
-import Legacy from '@/pages/legacy';
+
+// Portal pages load on demand, so landing-page visitors download only the landing page.
+const customerPages = () => import('@/pages/customer');
+const officePages = () => import('@/pages/office');
+const registrationPages = () => import('@/pages/registration-connected');
+const Dashboard = lazy(() => customerPages().then(m => ({ default: m.Dashboard })));
+const Requests = lazy(() => customerPages().then(m => ({ default: m.Requests })));
+const NewRequest = lazy(() => customerPages().then(m => ({ default: m.NewRequest })));
+const RequestDetail = lazy(() => customerPages().then(m => ({ default: m.RequestDetail })));
+const Inquiries = lazy(() => customerPages().then(m => ({ default: m.Inquiries })));
+const OfficeOverview = lazy(() => officePages().then(m => ({ default: m.OfficeOverview })));
+const OfficeRequests = lazy(() => officePages().then(m => ({ default: m.OfficeRequests })));
+const OfficeInquiries = lazy(() => officePages().then(m => ({ default: m.OfficeInquiries })));
+const CustomerRegistration = lazy(() => registrationPages().then(m => ({ default: m.CustomerRegistration })));
+const OfficeRegistrations = lazy(() => registrationPages().then(m => ({ default: m.OfficeRegistrations })));
+const Legacy = lazy(() => import('@/pages/legacy'));
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -98,7 +110,7 @@ function Routes() {
       ? 'HBS حلول الغد: أرسل طلب خدمة أو استفسارًا وتابع حالته من حسابك عبر بوابة العملاء.'
       : `${title} في بوابة HBS حلول الغد للعملاء المسجلين.`);
   },[location]);
-  return <ErrorBoundary resetKey={location}><Switch>
+  return <ErrorBoundary resetKey={location}><Suspense fallback={<div dir="rtl" className="mx-auto max-w-2xl p-10"><LoadingBlock/></div>}><Switch>
     <Route path="/" component={HomeRoute}/>
     <Route path="/sign-in/*?">{()=><AuthPage kind="sign-in"/>}</Route>
     <Route path="/sign-up/*?">{()=><AuthPage kind="sign-up"/>}</Route>
@@ -114,7 +126,7 @@ function Routes() {
     <Route path="/office/legacy"><RoleGate staff><Legacy/></RoleGate></Route>
     <Route path="/office"><RoleGate staff><OfficeOverview/></RoleGate></Route>
     <Route component={Missing}/>
-  </Switch></ErrorBoundary>;
+  </Switch></Suspense></ErrorBoundary>;
 }
 function ClerkWithRoutes() {
   const [,setLocation]=useLocation();

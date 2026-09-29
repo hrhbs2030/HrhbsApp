@@ -40,6 +40,36 @@ const backupSchema = z.object({
 export type LegacyKind = "clients" | "transactions" | "tasks" | "notes";
 export const legacyKinds: LegacyKind[] = ["clients", "transactions", "tasks", "notes"];
 
+export type LegacyGroup = { ids: Record<LegacyKind, string[]>; counts: Record<LegacyKind, number> };
+
+export function emptyLegacyGroup(): LegacyGroup {
+  return {
+    ids: { clients: [], transactions: [], tasks: [], notes: [] },
+    counts: { clients: 0, transactions: 0, tasks: 0, notes: 0 },
+  };
+}
+
+// Groups saved archive rows by import in one pass, with sorted IDs per kind.
+// Rows of an unknown kind are ignored.
+export function groupLegacyIds(
+  rows: { importId: number; kind: string; legacyId: string }[],
+): Map<number, LegacyGroup> {
+  const groups = new Map<number, LegacyGroup>();
+  for (const row of rows) {
+    if (!legacyKinds.includes(row.kind as LegacyKind)) continue;
+    let group = groups.get(row.importId);
+    if (!group) groups.set(row.importId, group = emptyLegacyGroup());
+    group.ids[row.kind as LegacyKind].push(row.legacyId);
+  }
+  for (const group of groups.values()) {
+    for (const kind of legacyKinds) {
+      group.ids[kind].sort();
+      group.counts[kind] = group.ids[kind].length;
+    }
+  }
+  return groups;
+}
+
 export function inspectLegacyBackup(contents: string) {
   let raw: unknown;
   try { raw = JSON.parse(contents); }
