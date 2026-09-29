@@ -1,0 +1,40 @@
+.nr { max-width: 780px; }
+.nr-steps { list-style: none; margin: 0 0 12px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.nr-steps li { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--color-subtle); }
+.nr-step-num { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--color-line-strong); background: var(--color-surface); font-size: 13px; font-weight: 700; transition: background-color var(--duration-enter) ease, border-color var(--duration-enter) ease, color var(--duration-enter) ease; }
+.nr-steps li[data-state="current"] { color: var(--color-ink); }
+.nr-steps li[data-state="current"] .nr-step-num { border-color: var(--color-copper); color: var(--color-copper); }
+.nr-steps li[data-state="done"] { color: var(--color-ink); }
+.nr-steps li[data-state="done"] .nr-step-num { background: var(--color-teal); border-color: var(--color-teal); color: var(--color-on-dark); }
+.nr-progress { height: 4px; border-radius: 4px; background: var(--color-sage-2); overflow: hidden; margin-bottom: 20px; }
+.nr-progress > span { display: block; height: 100%; background: var(--color-teal); transform-origin: right; transition: transform var(--duration-reveal) var(--ease-out-soft); }
+[dir="ltr"] .nr-progress > span { transform-origin: left; }
+.nr-form { padding: clamp(20px, 4vw, 36px); overflow: hidden; }
+.nr-title { margin: 0 0 20px; font-size: 22px; font-weight: 600; outline: none; }
+.nr-cats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.nr-cat { position: relative; display: grid; grid-template-columns: auto 1fr; column-gap: 12px; row-gap: 4px; align-items: center; padding: 16px; border-radius: 14px; border: 1.5px solid var(--color-line); background: var(--color-field); cursor: pointer; transition: border-color var(--duration-hover) ease, background-color var(--duration-hover) ease, transform var(--duration-press) ease; }
+.nr-cat:hover { border-color: var(--color-line-strong); }
+.nr-cat:active { transform: scale(.99); }
+.nr-cat input { position: absolute; opacity: 0; pointer-events: none; }
+.nr-cat svg { color: var(--color-teal-bright); grid-row: span 2; }
+.nr-cat strong { font-size: 16px; }
+.nr-cat span { grid-column: 2; font-size: 13px; line-height: 1.7; color: var(--color-quiet); }
+.nr-cat[data-checked="true"] { border-color: var(--color-teal); background: var(--color-sage); box-shadow: inset 0 0 0 1px var(--color-teal); }
+.nr-cat:has(input:focus-visible) { outline: 3px solid var(--color-copper); outline-offset: 2px; }
+.nr-guide { margin-bottom: 20px; padding: 14px 18px; border-radius: 12px; background: var(--color-sunk); font-size: 14px; line-height: 1.8; }
+.nr-guide ul { margin: 6px 0 0; padding-inline-start: 20px; color: var(--color-quiet); }
+.nr-review { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.nr-review > div { position: relative; padding: 14px 16px; padding-inline-end: 48px; border-radius: 12px; background: var(--color-sunk); min-width: 0; }
+.nr-review-wide { grid-column: 1 / -1; }
+.nr-review dt { font-size: 12.5px; font-weight: 700; color: var(--color-subtle); }
+.nr-review dd { margin: 4px 0 0; font-weight: 600; line-height: 1.8; overflow-wrap: anywhere; }
+.nr-review button { position: absolute; inset-inline-end: 8px; top: 8px; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 10px; background: transparent; color: var(--color-teal-bright); }
+.nr-review button:hover { background: var(--color-sage); }
+.nr-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--color-line); }
+.nr-spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgb(246 239 227 / .35); border-top-color: var(--color-on-dark); animation: nr-spin .8s linear infinite; }
+@keyframes nr-spin { to { transform: rotate(360deg); } }
+@media (max-width: 560px) {
+  .nr-cats, .nr-review { grid-template-columns: minmax(0, 1fr); }
+  .nr-steps li { font-size: 12.5px; gap: 6px; }
+  .nr-actions .btn { flex: 1; }
+}
