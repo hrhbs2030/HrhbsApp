@@ -34,7 +34,7 @@ paths:
     post:
       operationId: extractTransaction
       tags: [openai]
-      summary: Extract transaction details from text
+      summary: Extract transaction details from text (office staff only)
       requestBody:
         required: true
         content:
@@ -50,8 +50,10 @@ paths:
                 $ref: "#/components/schemas/ExtractedTransaction"
         "400":
           description: Invalid request
+        "401":
+          description: Sign-in required
         "403":
-          description: Origin is not allowed
+          description: Origin is not allowed or office access required
         "413":
           description: Request body is too large
         "429":
