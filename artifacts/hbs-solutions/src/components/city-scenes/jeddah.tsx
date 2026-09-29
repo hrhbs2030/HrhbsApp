@@ -1,6 +1,7 @@
 import { memo, type ReactNode } from 'react';
 import { Layer, blocks, rng, type Block } from './kit';
 import './jeddah.css';
+import { Residents, jeddahCrowd } from './people';
 
 /* ---------------- Jeddah: Red Sea sunset, Jeddah Tower, King Fahd Fountain, Al-Balad ----------------
    Painted like a matte: the sun sets into a humid haze over the sea behind the (still unfinished)
@@ -364,6 +365,7 @@ export const JeddahScene = memo(function JeddahScene() {
       <path d="M1400 700V470h4v-12h-2l6-8 6 8h-2v12h4V700ZM1404 440h8v-10l-4-14-4 14Z" fill="#1a1411" />
       <path d="M1400 470h16M1402 458h12" stroke="#f0ae84" strokeOpacity=".4" />
       {balad}
+      <Residents id="jd-pp" crowd={jeddahCrowd} />
     </Layer>
   </>;
 });

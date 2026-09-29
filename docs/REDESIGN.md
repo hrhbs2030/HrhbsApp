@@ -77,3 +77,9 @@
 - New sections: `#dashboard` (client dashboard preview, demo data labelled «بيانات توضيحية»; documents upload and invoices are marked as not available) and `#assistant` («أم مشعل», pre-written example answers, clear split between AI guidance and office execution).
 - The portal assistant is renamed «أم مشعل»; its server prompt now uses that name and states it never executes government transactions.
 - Category display names now follow the four service areas: الجوازات والإقامة، الموارد البشرية والعمل، تأسيس الشركات والتراخيص، دعم الأعمال (API enum unchanged).
+
+## City residents (سكان المدن)
+
+- `components/city-scenes/people.tsx` draws small residents in each city's foreground layer, in regional dress: Najdi thobe, red shemagh and agal, and a bisht (Riyadh); Hijazi sideri vest with ghabana turban, and white ghutra (Jeddah); striped izar with flower wreath or straw hat, and the tall straw hat المظلة for women (Jazan); the abaya in all three.
+- Pairs talk about their transactions in speech bubbles timed to the 12 s city cycle (restarted each time a city comes on screen). Passers-by cross slowly. All motion is transform/opacity and pauses with the scene.
+- Bubbles are hidden in the portal strip and on phones; reduced-motion users see the residents without bubbles. Edit the casts and lines at the bottom of `people.tsx`.
