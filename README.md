@@ -11,7 +11,7 @@
 - lib/integrations-*: موصلات الذكاء الاصطناعي المستخدمة في الخادم.
 
 ## الإعداد
-استخدم Node.js 24 وpnpm. شغّل pnpm install، ثم pnpm --filter @workspace/api-spec run codegen عند تغيير تعريف API، وبعدها pnpm --filter @workspace/hbs-solutions run typecheck وpnpm --filter @workspace/api-server run typecheck.
+استخدم Node.js 24 وpnpm. شغّل pnpm install، ثم pnpm --filter @workspace/api-spec run codegen عند تغيير تعريف API، وبعدها pnpm run typecheck وpnpm test. يشغّل GitHub Actions الفحوص نفسها مع بناء الواجهة والخادم على كل طلب سحب.
 
 اضبط متغيرات التشغيل اللازمة من ملف .env.example في بيئة الاستضافة الآمنة، دون رفع قيمها إلى Git. يحتاج الموقع مساري /api و/api/__clerk إلى خادم API؛ إعداد توجيه المسارات في Replit يتم خارج هذا المستودع. يحتاج بناء الواجهة إلى PORT وBASE_PATH (مثال: PORT=5173 BASE_PATH=/ pnpm --filter @workspace/hbs-solutions run build). شغّل خادم API مع PORT منفصل. طبّق تغييرات مخطط قاعدة البيانات أولًا في بيئة تطوير بعد مراجعتها، ولا تنقل أو تستبدل قاعدة إنتاج بمجرد استيراد المصدر.
 
