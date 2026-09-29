@@ -7,7 +7,9 @@
  */
 import type { Inquiry } from './inquiry';
 import type { LinkedServiceRequestContext } from './linkedServiceRequestContext';
+import type { OfficeCustomer } from './officeCustomer';
 
 export type OfficeInquiry = Inquiry & ({
   linkedServiceRequest: LinkedServiceRequestContext | null;
+  customer: OfficeCustomer | null;
 });

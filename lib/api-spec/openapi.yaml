@@ -269,16 +269,26 @@ paths:
     get:
       operationId: listOfficeServiceRequests
       tags: [portal]
-      summary: Staff-only list of customer requests
+      summary: Staff-only list of customer requests, filtered and paged
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [received, reviewing, waiting_on_customer, completed] } }
+        - { name: category, in: query, required: false, schema: { type: string, enum: [passports, labor, business, other] } }
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 120 } }
+        - { name: sort, in: query, required: false, schema: { type: string, enum: [newest, oldest_update], default: newest } }
+        - { name: page, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 } }
       responses:
         "200":
-          description: All customer requests
+          description: One page of matching customer requests
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/OfficeServiceRequest"
+                $ref: "#/components/schemas/OfficeServiceRequestPage"
+        "400":
+          description: Invalid filter
+        "401":
+          description: Authentication required
+        "403":
+          description: Office access required
   /office/registrations:
     get:
       operationId: listOfficeRegistrations
@@ -359,16 +369,24 @@ paths:
     get:
       operationId: listOfficeInquiries
       tags: [portal]
-      summary: Staff-only customer inquiries
+      summary: Staff-only customer inquiries, filtered and paged
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [open, answered] } }
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 120 } }
+        - { name: page, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 } }
       responses:
         "200":
-          description: All inquiries
+          description: One page of matching inquiries
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/OfficeInquiry"
+                $ref: "#/components/schemas/OfficeInquiryPage"
+        "400":
+          description: Invalid filter
+        "401":
+          description: Authentication required
+        "403":
+          description: Office access required
   /office/inquiries/{id}:
     patch:
       operationId: answerOfficeInquiry
@@ -694,7 +712,7 @@ components:
         updatedAt: { type: string, format: date-time }
     OfficeServiceRequest:
       type: object
-      required: [id, reference, category, service, description, contactPhone, status, createdAt, updatedAt]
+      required: [id, reference, category, service, description, contactPhone, status, customer, createdAt, updatedAt]
       properties:
         id: { type: integer }
         reference: { type: string }
@@ -708,6 +726,10 @@ components:
           type: string
           enum: [received, reviewing, waiting_on_customer, completed]
         officeNote: { type: ["string", "null"] }
+        customer:
+          oneOf:
+            - $ref: "#/components/schemas/OfficeCustomer"
+            - type: "null"
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     ServiceRequestInput:
@@ -746,12 +768,45 @@ components:
       allOf:
         - $ref: "#/components/schemas/Inquiry"
         - type: object
-          required: [linkedServiceRequest]
+          required: [linkedServiceRequest, customer]
           properties:
             linkedServiceRequest:
               oneOf:
                 - $ref: "#/components/schemas/LinkedServiceRequestContext"
                 - type: "null"
+            customer:
+              oneOf:
+                - $ref: "#/components/schemas/OfficeCustomer"
+                - type: "null"
+    OfficeCustomer:
+      type: object
+      description: The customer's registration details, when they registered through the portal.
+      required: [fullName, email]
+      properties:
+        fullName: { type: string }
+        email: { type: string }
+    OfficeServiceRequestPage:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OfficeServiceRequest"
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+    OfficeInquiryPage:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OfficeInquiry"
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
     LinkedServiceRequestContext:
       type: object
       required: [reference, category, service, description, status]
@@ -795,11 +850,14 @@ components:
             $ref: "#/components/schemas/Inquiry"
     OfficeSummary:
       type: object
-      required: [totalRequests, newRequests, activeRequests, openInquiries]
+      required: [totalRequests, newRequests, activeRequests, staleRequests, openInquiries]
       properties:
         totalRequests: { type: integer }
         newRequests: { type: integer }
         activeRequests: { type: integer }
+        staleRequests:
+          type: integer
+          description: Requests not completed and not updated for 3 days or more
         openInquiries: { type: integer }
     ExtractTransactionRequest:
       type: object

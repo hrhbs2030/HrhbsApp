@@ -17,7 +17,7 @@ process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY ??= "test";
 process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL ??= "http://127.0.0.1:1";
 
 const { clerkClient } = await import("@clerk/express");
-const { db, pool, hbsServiceRequests } = await import("@workspace/db");
+const { db, pool, hbsInquiries, hbsRegistrationRequests, hbsServiceRequests } = await import("@workspace/db");
 const { sql } = await import("drizzle-orm");
 const { default: apiRouter } = await import("../src/routes");
 
@@ -62,7 +62,7 @@ let server: ReturnType<typeof app.listen> | undefined;
 
 before(async () => {
   if (skip) return;
-  await db.execute(sql`truncate hbs_audit_log, hbs_office_staff, hbs_inquiries, hbs_service_requests restart identity cascade`);
+  await db.execute(sql`truncate hbs_audit_log, hbs_office_staff, hbs_inquiries, hbs_service_requests, hbs_registration_requests restart identity cascade`);
   server = app.listen(0);
   await once(server, "listening");
   const address = server.address();
@@ -151,4 +151,63 @@ test("owner manages staff, staff are limited, and actions are audited", { skip }
     ["service_request.update", null, String(request.id), { fromStatus: "received", toStatus: "reviewing", noteChanged: true }],
     ["staff.add", "office@example.test", "user_staff", { email: "staff@example.test" }],
   ]);
+});
+
+test("office lists filter, search, page and show the customer", { skip }, async () => {
+  await db.execute(sql`truncate hbs_inquiries, hbs_service_requests, hbs_registration_requests restart identity cascade`);
+  await db.insert(hbsRegistrationRequests).values({
+    userId: "user_customer", email: "customer@example.test", fullName: "سارة العتيبي",
+    contactPhone: "0501112233", status: "approved",
+  });
+  const old = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+  const rows = Array.from({ length: 30 }, (_, index) => ({
+    userId: index < 28 ? "user_customer" : "user_legacy",
+    category: index % 2 ? "labor" : "passports",
+    service: index === 3 ? "تجديد إقامة 50%" : `خدمة ${index + 1}`,
+    description: "وصف الطلب",
+    contactPhone: "0500000000",
+    status: index === 0 ? "completed" : "received",
+    ...(index < 2 ? { createdAt: old, updatedAt: old } : {}),
+  }));
+  const inserted = await db.insert(hbsServiceRequests).values(rows).returning({ id: hbsServiceRequests.id });
+  await db.insert(hbsInquiries).values([
+    { userId: "user_customer", subject: "موعد التسليم", message: "متى يجهز الطلب؟" },
+    { userId: "user_legacy", subject: "سؤال آخر", message: "رسالة", status: "answered", answer: "رد" },
+  ]);
+
+  const first = await call("user_owner", "GET", "/office/service-requests");
+  assert.equal(first.status, 200);
+  assert.equal(first.body.total, 30);
+  assert.equal(first.body.pageSize, 25);
+  assert.equal(first.body.items.length, 25);
+  assert.equal(first.body.items[0].id, inserted[29].id, "newest first");
+  assert.equal(first.body.items[0].customer, null, "customer without a registration");
+  assert.deepEqual(first.body.items[2].customer, { fullName: "سارة العتيبي", email: "customer@example.test" });
+  assert.equal((await call("user_owner", "GET", "/office/service-requests?page=2")).body.items.length, 5);
+
+  const labor = await call("user_owner", "GET", "/office/service-requests?category=labor&status=received");
+  assert.equal(labor.body.total, 15);
+  assert.ok(labor.body.items.every((item: { category: string; status: string }) => item.category === "labor" && item.status === "received"));
+
+  // Search by customer name, by reference, and with wildcard characters taken literally.
+  assert.equal((await call("user_owner", "GET", `/office/service-requests?q=${encodeURIComponent("سارة")}`)).body.total, 28);
+  const byReference = await call("user_owner", "GET", `/office/service-requests?q=${encodeURIComponent(`HBS-2026-${String(inserted[5].id).padStart(5, "0")}`)}`);
+  assert.deepEqual(byReference.body.items.map((item: { id: number }) => item.id), [inserted[5].id]);
+  assert.equal((await call("user_owner", "GET", `/office/service-requests?q=${encodeURIComponent("50%")}`)).body.total, 1);
+  assert.equal((await call("user_owner", "GET", "/office/service-requests?q=%25")).body.total, 1);
+
+  const oldest = await call("user_owner", "GET", "/office/service-requests?sort=oldest_update&status=received");
+  assert.equal(oldest.body.items[0].id, inserted[1].id, "stalled request first");
+
+  assert.equal((await call("user_owner", "GET", "/office/service-requests?status=unknown")).status, 400);
+  assert.equal((await call("user_owner", "GET", "/office/service-requests?page=0")).status, 400);
+
+  const summary = await call("user_owner", "GET", "/office/summary");
+  assert.equal(summary.body.staleRequests, 1, "completed requests are never stalled");
+
+  const inquiries = await call("user_owner", "GET", "/office/inquiries?status=open");
+  assert.equal(inquiries.body.total, 1);
+  assert.deepEqual(inquiries.body.items[0].customer, { fullName: "سارة العتيبي", email: "customer@example.test" });
+  assert.equal((await call("user_owner", "GET", `/office/inquiries?q=${encodeURIComponent("التسليم")}`)).body.total, 1);
+  assert.equal((await call("user_owner", "GET", "/office/inquiries")).body.total, 2);
 });

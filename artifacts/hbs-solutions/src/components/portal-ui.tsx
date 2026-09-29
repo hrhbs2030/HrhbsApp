@@ -48,3 +48,45 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
     <div className="min-w-0 flex-1"><header className="sticky top-0 z-30 flex h-[72px] items-center justify-between border-b border-[#e6e3d8] bg-[#f6f4ed]/95 px-5 backdrop-blur sm:px-9 lg:px-12"><div className="flex items-center gap-3"><button className="rounded-lg border border-[#d9dfd6] p-2 lg:hidden" onClick={() => setMenuOpen(true)} aria-label="فتح القائمة"><Menu size={21}/></button><span className="hidden text-xs font-bold text-[#8b9890] sm:inline">{staff ? 'إدارة المعاملات' : 'بوابة العملاء'}</span></div><span className="text-xs text-[#70827a]">HBS / حلول الغد</span></header><main className="mx-auto max-w-[1130px] px-5 pb-20 pt-9 sm:px-9 sm:pt-12 lg:px-12">{children}</main></div>
   </div>;
 }
+
+// Matches STALE_AFTER_DAYS on the server (office summary count).
+export const STALE_AFTER_DAYS = 3;
+export function daysSince(value: string): number { return Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000); }
+export function isStale(request: { status: ServiceRequestStatus; updatedAt: string }): boolean {
+  return request.status !== 'completed' && daysSince(request.updatedAt) >= STALE_AFTER_DAYS;
+}
+export function StaleBadge({ updatedAt }: { updatedAt: string }) {
+  const days = daysSince(updatedAt);
+  return <span className="inline-flex items-center rounded-md bg-[#f8eecb] px-2 py-0.5 text-[11px] font-bold text-[#7a5d12]">بلا تحديث منذ {new Intl.NumberFormat('ar').format(days)} {days <= 10 && days >= 3 ? 'أيام' : 'يومًا'}</span>;
+}
+
+// The four request stages in order, with the current one highlighted.
+export function StatusTrack({ status }: { status: ServiceRequestStatus }) {
+  const current = statusOptions.indexOf(status);
+  return <ol className="grid gap-3 sm:grid-cols-4 sm:gap-2" aria-label="مراحل الطلب">
+    {statusOptions.map((step, index) => {
+      const state = index < current ? 'done' : index === current ? 'current' : 'next';
+      return <li key={step} aria-current={state === 'current' ? 'step' : undefined} className="flex items-center gap-3 sm:flex-col sm:items-start sm:gap-2">
+        <span className={`h-1.5 w-8 shrink-0 rounded-full sm:w-full ${state === 'next' ? 'bg-[#dfe4dc]' : state === 'current' ? 'bg-[#c4714c]' : 'bg-[#174b50]'}`} aria-hidden="true"/>
+        <span className={`text-xs ${state === 'current' ? 'font-bold text-[#173e42]' : state === 'done' ? 'text-[#4f6a66]' : 'text-[#8a9892]'}`}>{statusNames[step]}</span>
+      </li>;
+    })}
+  </ol>;
+}
+
+export function Pager({ page, pageSize, total, onPage }: { page: number; pageSize: number; total: number; onPage: (page: number) => void }) {
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  if (pages <= 1) return null;
+  const number = (value: number) => new Intl.NumberFormat('ar').format(value);
+  return <nav className="mt-4 flex items-center justify-between gap-3 text-xs" aria-label="التنقل بين الصفحات">
+    <button type="button" className="btn btn-outline !min-h-10 !px-4" disabled={page <= 1} onClick={() => onPage(page - 1)}>السابقة</button>
+    <span className="muted">صفحة {number(page)} من {number(pages)}، {number(total)} نتيجة</span>
+    <button type="button" className="btn btn-outline !min-h-10 !px-4" disabled={page >= pages} onClick={() => onPage(page + 1)}>التالية</button>
+  </nav>;
+}
+
+export function useDebouncedValue<T>(value: T, delay = 300): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => { const timer = setTimeout(() => setDebounced(value), delay); return () => clearTimeout(timer); }, [value, delay]);
+  return debounced;
+}
