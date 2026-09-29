@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/reac
 import { Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
 import { useGetPortalMe, getGetPortalMeQueryKey } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { color, font } from '@/design/tokens';
+import { serviceBySlug } from '@/content/services';
 import Landing from '@/pages/landing';
 import { ErrorBlock, LoadingBlock } from '@/components/portal-ui';
 
@@ -24,6 +26,11 @@ const OfficeInquiries = lazy(() => officePages().then(m => ({ default: m.OfficeI
 const CustomerRegistration = lazy(() => registrationPages().then(m => ({ default: m.CustomerRegistration })));
 const OfficeRegistrations = lazy(() => registrationPages().then(m => ({ default: m.OfficeRegistrations })));
 const Legacy = lazy(() => import('@/pages/legacy'));
+const publicPages = () => import('@/pages/public');
+const ServicesDirectory = lazy(() => publicPages().then(m => ({ default: m.ServicesDirectory })));
+const ServiceDetail = lazy(() => publicPages().then(m => ({ default: m.ServiceDetail })));
+const TrustPage = lazy(() => publicPages().then(m => ({ default: m.TrustPage })));
+const HelpPage = lazy(() => publicPages().then(m => ({ default: m.HelpPage })));
 const officeAdminPages = () => import('@/pages/office-admin');
 const OfficeStaff = lazy(() => officeAdminPages().then(m => ({ default: m.OfficeStaff })));
 const OfficeAuditLog = lazy(() => officeAdminPages().then(m => ({ default: m.OfficeAuditLog })));
@@ -41,28 +48,28 @@ function stripBase(path: string): string {
 const appearance = {
   theme: 'simple' as const,
   options: { logoPlacement: 'inside' as const, logoLinkUrl: basePath || '/', logoImageUrl: `${window.location.origin}${basePath}/logo.svg` },
-  variables: { colorPrimary: '#174b50', colorForeground: '#173e42', colorMutedForeground: '#647872', colorDanger: '#aa4a3b', colorBackground: '#fcfaf4', colorInput: '#fffcf6', colorInputForeground: '#173e42', colorNeutral: '#c9d0c7', fontFamily: "'IBM Plex Sans Arabic', sans-serif", borderRadius: '10px' },
+  variables: { colorPrimary: color.teal, colorForeground: color.ink, colorMutedForeground: color.quiet, colorDanger: color.danger, colorBackground: color.surface, colorInput: color.field, colorInputForeground: color.ink, colorNeutral: color.lineStrong, fontFamily: font.body, borderRadius: '10px' },
   elements: {
     rootBox: { width: '100%', display: 'flex', justifyContent: 'center' },
-    cardBox: { width: '100%', maxWidth: '440px', borderRadius: '18px', background: '#fcfaf4', border: '1px solid #e1e1d5', boxShadow: '0 20px 70px rgba(23,75,80,.09)', overflow: 'hidden' },
+    cardBox: { width: '100%', maxWidth: '440px', borderRadius: '18px', background: color.surface, border: `1px solid ${color.line}`, boxShadow: '0 20px 70px rgba(23,75,80,.09)', overflow: 'hidden' },
     card: { boxShadow: 'none', background: 'transparent', border: 'none' },
     footer: { boxShadow: 'none', background: 'transparent' },
-    headerTitle: { color: '#173e42', fontFamily: "'Readex Pro', sans-serif", fontSize: '24px' },
-    headerSubtitle: { color: '#647872' },
-    socialButtonsBlockButtonText: { color: '#173e42' },
-    formFieldLabel: { color: '#173e42' },
-    footerActionLink: { color: '#b85f3f' },
-    footerActionText: { color: '#647872' },
-    dividerText: { color: '#647872' },
-    identityPreviewEditButton: { color: '#174b50' },
-    formFieldSuccessText: { color: '#387551' },
-    alertText: { color: '#a54032' },
-    formButtonPrimary: { backgroundColor: '#174b50', color: '#fcfaf4' },
-    formFieldInput: { backgroundColor: '#fffcf6', color: '#173e42', borderColor: '#c9d0c7' },
-    socialButtonsBlockButton: { backgroundColor: '#fcfaf4', borderColor: '#c9d0c7' },
+    headerTitle: { color: color.ink, fontFamily: font.display, fontSize: '24px' },
+    headerSubtitle: { color: color.quiet },
+    socialButtonsBlockButtonText: { color: color.ink },
+    formFieldLabel: { color: color.ink },
+    footerActionLink: { color: color.copper },
+    footerActionText: { color: color.quiet },
+    dividerText: { color: color.quiet },
+    identityPreviewEditButton: { color: color.teal },
+    formFieldSuccessText: { color: color.ok },
+    alertText: { color: color.danger },
+    formButtonPrimary: { backgroundColor: color.teal, color: color.onDark },
+    formFieldInput: { backgroundColor: color.field, color: color.ink, borderColor: color.lineStrong },
+    socialButtonsBlockButton: { backgroundColor: color.surface, borderColor: color.lineStrong },
     socialButtons: { display: 'none' },
     dividerRow: { display: 'none' },
-    otpCodeFieldInput: { backgroundColor: '#fffcf6', color: '#173e42' },
+    otpCodeFieldInput: { backgroundColor: color.field, color: color.ink },
   },
 };
 
@@ -100,22 +107,34 @@ function HomeRoute() {
 function AuthPage({kind}:{kind:'sign-in'|'sign-up'}) {
   const { isSignedIn } = useAuth();
   if (isSignedIn) return <RoleGate><Redirect to="/dashboard"/></RoleGate>;
-  return <div dir="rtl" className="flex min-h-[100dvh] flex-col items-center justify-center gap-7 bg-[#f6f4ed] px-4 py-10"><a href={basePath || '/'} className="display text-xl font-semibold text-[#174b50] no-underline">HBS / حلول الغد</a>{kind==='sign-up' && <p className="max-w-sm text-center text-sm leading-7 text-[#62766e]">أنشئ حسابًا بالبريد الإلكتروني وتحقق منه، ثم قدّم طلب تسجيل يراجعه المكتب قبل إتاحة خدمات البوابة.</p>}<div dir="rtl" className="w-full max-w-[440px]">{kind==='sign-in' ? <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /> : <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />}</div><p className="text-center text-xs text-[#7d8b82]">تتوفر خدمات العملاء بعد موافقة المكتب على طلب التسجيل.</p></div>;
+  return <div dir="rtl" className="flex min-h-[100dvh] flex-col items-center justify-center gap-7 bg-paper px-4 py-10"><a href={basePath || '/'} className="display text-xl font-semibold text-teal no-underline">HBS / حلول الغد</a>{kind==='sign-up' && <p className="max-w-sm text-center text-sm leading-7 text-subtle">أنشئ حسابًا بالبريد الإلكتروني وتحقق منه، ثم قدّم طلب تسجيل يراجعه المكتب قبل إتاحة خدمات البوابة.</p>}<div dir="rtl" className="w-full max-w-[440px]">{kind==='sign-in' ? <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /> : <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />}</div><p className="text-center text-xs text-subtle">تتوفر خدمات العملاء بعد موافقة المكتب على طلب التسجيل.</p></div>;
 }
-function Missing() { return <div dir="rtl" className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#f6f4ed] p-6 text-center"><div className="display text-7xl font-semibold text-[#c4714c]">404</div><h1 className="display mt-5 text-2xl">الصفحة غير موجودة</h1><p className="mt-3 text-sm text-[#70847b]">قد يكون الرابط غير صحيح أو تغيّر مكان الصفحة.</p><a href={basePath || '/'} className="btn btn-primary mt-7">العودة للرئيسية</a></div>; }
-const routeTitles: Record<string,string> = {'/':'الرئيسية','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم','/office/staff':'فريق المكتب','/office/audit':'سجل التدقيق'};
+function Missing() { return <div dir="rtl" className="flex min-h-[100dvh] flex-col items-center justify-center bg-paper p-6 text-center"><div className="display text-7xl font-semibold text-copper">404</div><h1 className="display mt-5 text-2xl">الصفحة غير موجودة</h1><p className="mt-3 text-sm text-subtle">قد يكون الرابط غير صحيح أو تغيّر مكان الصفحة.</p><a href={basePath || '/'} className="btn btn-primary mt-7">العودة للرئيسية</a></div>; }
+const routeTitles: Record<string,string> = {'/':'الرئيسية','/services':'دليل الخدمات','/trust':'الخصوصية والأمان','/help':'المساعدة','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم','/office/staff':'فريق المكتب','/office/audit':'سجل التدقيق'};
 function Routes() {
   const [location]=useLocation();
   useEffect(()=>{
-    const title = routeTitles[location] || (location.startsWith('/requests/')?'تفاصيل الطلب':location.startsWith('/sign-in')?'تسجيل الدخول':location.startsWith('/sign-up')?'إنشاء حساب':'الصفحة');
+    const title = routeTitles[location] || (location.startsWith('/services/')?(serviceBySlug[location.slice(10)]?.name ?? 'الخدمة'):location.startsWith('/requests/')?'تفاصيل الطلب':location.startsWith('/sign-in')?'تسجيل الدخول':location.startsWith('/sign-up')?'إنشاء حساب':'الصفحة');
     document.title=`${title} | HBS حلول الغد`;
-    document.querySelector('meta[name="robots"]')?.setAttribute('content', location === '/' ? 'index, follow' : 'noindex, nofollow');
+    const isPublic = location === '/' || location === '/services' || location.startsWith('/services/') || location === '/trust' || location === '/help';
+    document.querySelector('meta[name="robots"]')?.setAttribute('content', isPublic ? 'index, follow' : 'noindex, nofollow');
     document.querySelector('meta[name="description"]')?.setAttribute('content', location === '/'
       ? 'HBS حلول الغد: أرسل طلب خدمة أو استفسارًا وتابع حالته من حسابك عبر بوابة العملاء.'
-      : `${title} في بوابة HBS حلول الغد للعملاء المسجلين.`);
+      : location.startsWith('/services') ? 'دليل خدمات حلول الغد: الجوازات والعمل والأعمال وخدمات أخرى، وما يفيد أن تكتبه في طلبك.'
+      : `${title} في بوابة HBS حلول الغد.`);
+    // Canonical URL without query strings, for public pages only.
+    let canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (isPublic) {
+      if (!canonical) { canonical = document.createElement('link'); canonical.rel = 'canonical'; document.head.appendChild(canonical); }
+      canonical.href = `${window.location.origin}${basePath}${location === '/' ? '/' : location}`;
+    } else canonical?.remove();
   },[location]);
   return <ErrorBoundary resetKey={location}><Suspense fallback={<div dir="rtl" className="mx-auto max-w-2xl p-10"><LoadingBlock/></div>}><Switch>
     <Route path="/" component={HomeRoute}/>
+    <Route path="/services" component={ServicesDirectory}/>
+    <Route path="/services/:slug" component={ServiceDetail}/>
+    <Route path="/trust" component={TrustPage}/>
+    <Route path="/help" component={HelpPage}/>
     <Route path="/sign-in/*?">{()=><AuthPage kind="sign-in"/>}</Route>
     <Route path="/sign-up/*?">{()=><AuthPage kind="sign-up"/>}</Route>
     <Route path="/registration"><RoleGate registration><CustomerRegistration/></RoleGate></Route>

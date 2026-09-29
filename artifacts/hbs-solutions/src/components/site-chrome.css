@@ -1,0 +1,45 @@
+.site { min-height: 100dvh; background: var(--color-paper); color: var(--color-ink); display: flex; flex-direction: column; }
+.site > main { flex: 1; outline: none; }
+.site-wrap { width: min(100% - 48px, 1280px); margin-inline: auto; }
+.site-skip { position: absolute; inset-inline-start: 16px; top: -60px; z-index: 100; padding: 10px 16px; border-radius: 10px; background: var(--color-surface); color: var(--color-ink); font-weight: 700; text-decoration: none; transition: top var(--duration-hover) ease; }
+.site-skip:focus { top: 12px; }
+
+.site-header { position: sticky; top: 0; z-index: 40; border-bottom: 1px solid var(--color-line); background: rgb(246 244 237 / .86); backdrop-filter: saturate(1.4) blur(14px); }
+.site-header--dark { position: absolute; inset-inline: 0; top: 0; border-bottom-color: rgb(255 255 255 / .08); background: transparent; backdrop-filter: none; color: var(--color-on-dark); }
+.site-header-inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 80px; }
+.site-header a { text-decoration: none; }
+:where(.site-header a:not(.btn)) { color: inherit; }
+.site-nav { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 999px; border: 1px solid var(--color-line); background: rgb(252 250 244 / .7); }
+.site-header--dark .site-nav { border-color: rgb(255 255 255 / .1); background: rgb(255 255 255 / .04); }
+.site-nav a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 999px; font-size: 14px; font-weight: 600; color: var(--color-quiet); transition: color var(--duration-hover) ease, background-color var(--duration-hover) ease; }
+.site-header--dark .site-nav a { color: var(--color-on-dark-2); }
+.site-nav a:hover, .site-nav a[aria-current="page"] { color: var(--color-ink); background: var(--color-sage); }
+.site-header--dark .site-nav a:hover { color: var(--color-on-dark); background: rgb(255 255 255 / .08); }
+.site-actions { display: flex; align-items: center; gap: 18px; }
+.site-text-link { font-size: 14px; font-weight: 700; }
+.site-text-link:hover { text-decoration: underline; text-underline-offset: 6px; }
+.site-menu-toggle { display: none; width: 46px; height: 46px; place-items: center; border-radius: 12px; border: 1px solid var(--color-line); background: var(--color-surface); color: var(--color-ink); }
+.site-header--dark .site-menu-toggle { border-color: rgb(255 255 255 / .16); background: rgb(255 255 255 / .05); color: var(--color-on-dark); }
+.site-mobile-nav { display: grid; gap: 4px; padding: 8px 0 20px; }
+.site-header--dark .site-mobile-nav { background: var(--color-night); border-radius: 0 0 18px 18px; padding-inline: 12px; }
+.site-mobile-nav > a:not(.btn) { display: flex; align-items: center; min-height: 48px; padding: 0 12px; border-radius: 10px; font-weight: 600; }
+.site-mobile-nav > a:not(.btn):hover { background: var(--color-sage); }
+.site-header--dark .site-mobile-nav > a:not(.btn):hover { background: rgb(255 255 255 / .06); }
+.site-mobile-nav .btn { margin-top: 8px; }
+@media (max-width: 960px) {
+  .site-nav, .site-actions { display: none; }
+  .site-menu-toggle { display: grid; }
+}
+@media (max-width: 767px) { .site-wrap { width: min(100% - 32px, 1280px); } .site-header-inner { min-height: 68px; } }
+
+.site-footer { background: var(--color-night); color: var(--color-on-dark-2); padding: 64px 0 28px; }
+:where(.site-footer a) { color: var(--color-on-dark-2); text-decoration: none; }
+:where(.site-footer a):hover { color: var(--color-on-dark); }
+.site-footer-inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; }
+.site-footer-brand { max-width: 360px; }
+.site-footer-brand p { margin: 18px 0 0; font-size: 14px; line-height: 1.9; }
+.site-footer-links { display: flex; gap: 64px; }
+.site-footer-links > div { display: flex; flex-direction: column; gap: 12px; font-size: 14px; }
+.site-footer-links strong { color: var(--color-on-dark); font-size: 14px; margin-bottom: 4px; }
+.site-footer-bottom { margin-top: 48px; padding-top: 22px; border-top: 1px solid rgb(255 255 255 / .08); font-size: 13px; }
+@media (max-width: 640px) { .site-footer-links { gap: 40px; } }
