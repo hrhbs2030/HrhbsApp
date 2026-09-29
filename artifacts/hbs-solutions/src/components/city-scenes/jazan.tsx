@@ -1,6 +1,7 @@
 import { memo, type ReactNode } from 'react';
 import { Layer, blocks, rng } from './kit';
 import './jazan.css';
+import { Residents, jazanCrowd } from './people';
 
 /* ---------------- Jazan by moonlight: Fayfa ranges with coffee terraces and hill villages,
    the floodlit Dosariyah fort over the city and the Red Sea bay, Tihama huts and palms ---------------- */
@@ -408,6 +409,7 @@ export const JazanScene = memo(function JazanScene() {
       <Hut x={1500} g={692} s={1.04} seed={24} />
       <Banana x={1230} g={700} s={.9} seed={31} />
       <g>{fireflies()}</g>
+      <Residents id="jz-pp" crowd={jazanCrowd} />
     </Layer>
   </>;
 });

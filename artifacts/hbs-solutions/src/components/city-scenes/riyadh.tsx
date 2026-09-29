@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 import { Layer, blocks, rng, ridge } from './kit';
 import './riyadh.css';
+import { Residents, riyadhCrowd } from './people';
 
 /* ---------------- Riyadh at dusk: a matte painting in four depths ----------------
    1 sky (afterglow, stratus, crescent moon, airliner) · 2 far city in desert haze + KAFD
@@ -320,6 +321,7 @@ export const RiyadhScene = memo(function RiyadhScene() {
       </g>
       <Palm x={200} s={1.05} lean={10} /><Palm x={1110} s={1.2} lean={-9} />
       <rect x="-20" y="664" width="1660" height="36" fill="url(#ry-foot)" />
+      <Residents id="ry-pp" crowd={riyadhCrowd} />
     </Layer>
   </>;
 });
