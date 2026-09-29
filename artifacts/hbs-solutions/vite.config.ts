@@ -1,7 +1,8 @@
 import path from 'path';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vite';
+import { readFileSync } from 'fs';
+import { defineConfig, type Plugin } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 
@@ -27,12 +28,31 @@ if (!basePath) {
   );
 }
 
+// Writes sitemap.xml at build time: the public pages plus one entry per
+// service slug found in src/content/services.ts, so it follows the catalogue.
+function sitemap(siteUrl: string): Plugin {
+  return {
+    name: 'hbs-sitemap',
+    apply: 'build',
+    generateBundle() {
+      const source = readFileSync(path.resolve(import.meta.dirname, 'src/content/services.ts'), 'utf8');
+      const slugs = [...new Set([...source.matchAll(/slug:\s*'([a-z0-9-]+)'/g)].map((m) => m[1]))];
+      const categorySlugs = new Set(['passports', 'labor', 'business', 'other']);
+      const paths = ['/', '/services', '/trust', '/help', '/privacy', '/terms', ...slugs.filter((s) => !categorySlugs.has(s)).map((s) => `/services/${s}`)];
+      const base = siteUrl.replace(/\/$/, '');
+      const body = paths.map((p) => `  <url><loc>${base}${p}</loc></url>`).join('\n');
+      this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n` });
+    },
+  };
+}
+
 export default defineConfig({
   base: basePath,
   plugins: [
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    sitemap(process.env.SITE_URL ?? 'https://hrhbs.com'),
     ...(process.env.NODE_ENV !== 'production' &&
     process.env.REPL_ID !== undefined
       ? [

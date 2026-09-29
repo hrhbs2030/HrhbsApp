@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams, useSearch } from 'wouter';
 import { ArrowLeft, BookUser, BriefcaseBusiness, Building2, CircleHelp, FileText, Hash, History, Info, KeyRound, MessageSquareText, Search, ShieldCheck, Shapes, UserRoundCheck } from 'lucide-react';
 import { PublicPage } from '@/components/site-chrome';
+import { ContactCard } from '@/components/contact-card';
 import { categories, categoryById, searchServices, serviceBySlug, services, type ServiceCategory } from '@/content/services';
 import { faqs, trustFacts } from '@/content/site';
 import './public.css';
@@ -225,6 +226,7 @@ export function HelpPage() {
               <Link href="/sign-up" className="btn btn-outline">طلب التسجيل</Link>
             </div>
           </section>
+          <ContactCard />
         </aside>
       </div>
     </PublicPage>

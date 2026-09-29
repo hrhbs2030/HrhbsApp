@@ -33,6 +33,9 @@ const ServicesDirectory = lazy(() => publicPages().then(m => ({ default: m.Servi
 const ServiceDetail = lazy(() => publicPages().then(m => ({ default: m.ServiceDetail })));
 const TrustPage = lazy(() => publicPages().then(m => ({ default: m.TrustPage })));
 const HelpPage = lazy(() => publicPages().then(m => ({ default: m.HelpPage })));
+const legalPages = () => import('@/pages/legal');
+const PrivacyPage = lazy(() => legalPages().then(m => ({ default: m.PrivacyPage })));
+const TermsPage = lazy(() => legalPages().then(m => ({ default: m.TermsPage })));
 const officeAdminPages = () => import('@/pages/office-admin');
 const OfficeStaff = lazy(() => officeAdminPages().then(m => ({ default: m.OfficeStaff })));
 const OfficeAuditLog = lazy(() => officeAdminPages().then(m => ({ default: m.OfficeAuditLog })));
@@ -112,8 +115,8 @@ function AuthPage({kind}:{kind:'sign-in'|'sign-up'}) {
   return <div dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center gap-7 px-4 py-10"><SceneWindow edge="top"/><a href={basePath || '/'} className="display rounded-full bg-night/60 px-5 py-2 text-xl font-semibold text-on-dark no-underline backdrop-blur">HBS / حلول الغد</a>{kind==='sign-up' && <p className="max-w-sm rounded-2xl bg-night/70 px-5 py-3 text-center text-sm leading-7 text-on-dark-2 backdrop-blur">أنشئ حسابًا بالبريد الإلكتروني وتحقق منه، ثم قدّم طلب تسجيل يراجعه المكتب قبل إتاحة خدمات البوابة.</p>}<div dir="rtl" className="w-full max-w-[440px]">{kind==='sign-in' ? <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /> : <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />}</div><p className="rounded-full bg-night/70 px-4 py-2 text-center text-xs text-on-dark-2 backdrop-blur">تتوفر خدمات العملاء بعد موافقة المكتب على طلب التسجيل.</p></div>;
 }
 function Missing() { return <main dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center p-6 text-center text-on-dark"><SceneWindow edge="top"/><div className="relative rounded-[22px] bg-night/70 px-8 py-10 backdrop-blur"><div className="display text-7xl font-semibold text-copper-light">404</div><h1 className="display mt-5 text-2xl">الصفحة غير موجودة</h1><p className="mt-3 text-sm text-on-dark-2">قد يكون الرابط غير صحيح أو تغيّر مكان الصفحة.</p><a href={basePath || '/'} className="btn btn-light mt-7">العودة للرئيسية</a></div></main>; }
-const routeTitles: Record<string,string> = {'/':'الرئيسية','/services':'دليل الخدمات','/trust':'الخصوصية والأمان','/help':'المساعدة','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم','/office/staff':'فريق المكتب','/office/audit':'سجل التدقيق'};
-const isPublicPath = (location: string) => location === '/' || location === '/services' || location.startsWith('/services/') || location === '/trust' || location === '/help';
+const routeTitles: Record<string,string> = {'/':'الرئيسية','/services':'دليل الخدمات','/trust':'الخصوصية والأمان','/help':'المساعدة','/privacy':'سياسة الخصوصية','/terms':'شروط الاستخدام','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم','/office/staff':'فريق المكتب','/office/audit':'سجل التدقيق'};
+const isPublicPath = (location: string) => location === '/' || location === '/services' || location.startsWith('/services/') || location === '/trust' || location === '/help' || location === '/privacy' || location === '/terms';
 const isPortalPath = (location: string) => ['/registration', '/dashboard', '/requests', '/inquiries', '/office'].some((p) => location === p || location.startsWith(p + '/'));
 function Routes() {
   const [location]=useLocation();
@@ -147,6 +150,8 @@ function Routes() {
     <Route path="/services/:slug" component={ServiceDetail}/>
     <Route path="/trust" component={TrustPage}/>
     <Route path="/help" component={HelpPage}/>
+    <Route path="/privacy" component={PrivacyPage}/>
+    <Route path="/terms" component={TermsPage}/>
     <Route path="/sign-in/*?">{()=><AuthPage kind="sign-in"/>}</Route>
     <Route path="/sign-up/*?">{()=><AuthPage kind="sign-up"/>}</Route>
     <Route path="/registration"><RoleGate registration><CustomerRegistration/></RoleGate></Route>
