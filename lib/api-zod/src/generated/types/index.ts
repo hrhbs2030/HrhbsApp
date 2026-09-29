@@ -61,5 +61,7 @@ export * from './serviceRequestCategory';
 export * from './serviceRequestInput';
 export * from './serviceRequestInputCategory';
 export * from './serviceRequestStatus';
+export * from './serviceRequestStatusEvent';
+export * from './serviceRequestStatusEventStatus';
 export * from './serviceRequestUpdate';
 export * from './serviceRequestUpdateStatus';

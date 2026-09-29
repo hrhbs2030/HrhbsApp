@@ -214,6 +214,32 @@ paths:
           description: Authentication required
         "403":
           description: Customer registration approval required
+  /service-requests/{id}/history:
+    get:
+      operationId: getServiceRequestHistory
+      tags: [portal]
+      summary: Status changes of a request owned by the signed-in customer, oldest first
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Status history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServiceRequestStatusEvent"
+        "404":
+          description: Not found
+        "401":
+          description: Authentication required
+        "403":
+          description: Customer registration approval required
   /inquiries:
     get:
       operationId: listInquiries
@@ -710,6 +736,14 @@ components:
           enum: [received, reviewing, waiting_on_customer, completed]
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    ServiceRequestStatusEvent:
+      type: object
+      required: [status, at]
+      properties:
+        status:
+          type: string
+          enum: [received, reviewing, waiting_on_customer, completed]
+        at: { type: string, format: date-time }
     OfficeServiceRequest:
       type: object
       required: [id, reference, category, service, description, contactPhone, status, customer, createdAt, updatedAt]

@@ -248,6 +248,21 @@ export interface ServiceRequest {
   updatedAt: string;
 }
 
+export type ServiceRequestStatusEventStatus = typeof ServiceRequestStatusEventStatus[keyof typeof ServiceRequestStatusEventStatus];
+
+
+export const ServiceRequestStatusEventStatus = {
+  received: 'received',
+  reviewing: 'reviewing',
+  waiting_on_customer: 'waiting_on_customer',
+  completed: 'completed',
+} as const;
+
+export interface ServiceRequestStatusEvent {
+  status: ServiceRequestStatusEventStatus;
+  at: string;
+}
+
 export type OfficeServiceRequestCategory = typeof OfficeServiceRequestCategory[keyof typeof OfficeServiceRequestCategory];
 
 

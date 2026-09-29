@@ -51,6 +51,7 @@ import type {
   RegistrationReview,
   ServiceRequest,
   ServiceRequestInput,
+  ServiceRequestStatusEvent,
   ServiceRequestUpdate
 } from './api.schemas';
 
@@ -884,6 +885,83 @@ export function useGetServiceRequest<TData = Awaited<ReturnType<typeof getServic
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetServiceRequestQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetServiceRequestHistoryUrl = (id: number,) => {
+
+
+
+
+  return `/api/service-requests/${id}/history`
+}
+
+/**
+ * @summary Status changes of a request owned by the signed-in customer, oldest first
+ */
+export const getServiceRequestHistory = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ServiceRequestStatusEvent[]> => {
+
+  return customFetch<ServiceRequestStatusEvent[]>(getGetServiceRequestHistoryUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetServiceRequestHistoryQueryKey = (id: number,) => {
+    return [
+    `/api/service-requests/${id}/history`
+    ] as const;
+    }
+
+
+export const getGetServiceRequestHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getServiceRequestHistory>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getServiceRequestHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetServiceRequestHistoryQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getServiceRequestHistory>>> = ({ signal }) => getServiceRequestHistory(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getServiceRequestHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetServiceRequestHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getServiceRequestHistory>>>
+export type GetServiceRequestHistoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Status changes of a request owned by the signed-in customer, oldest first
+ */
+
+export function useGetServiceRequestHistory<TData = Awaited<ReturnType<typeof getServiceRequestHistory>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getServiceRequestHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetServiceRequestHistoryQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

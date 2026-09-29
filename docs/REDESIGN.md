@@ -92,3 +92,12 @@
 - Header switches to the menu button below 1180px (it wrapped before); residents' speech bubbles hidden below 1180px and behind the footer.
 - Footer links are 44px tap targets; heading order fixed on the inquiries list and empty/error blocks.
 - Not in code (deployment side): gzip/brotli compression and security headers, and the Clerk application name.
+
+## Notifications and status history (phase 2)
+
+- `GET /service-requests/{id}/history` returns the request's status changes (status and time only), rebuilt from `created_at` and the office audit log's `service_request.update` entries. No new table or migration. The request page shows it as «سجل الحالة».
+- Email notifications (`artifacts/api-server/src/lib/notify.ts`, SMTP via nodemailer), sent after the change is saved; failures are logged and never fail the request. Off until the SMTP secrets are set.
+  - Customer: status change, first answer to an inquiry, registration approved or rejected.
+  - Office inbox: new request, new registration, new inquiry.
+  - Messages carry the reference, service and status only; details stay behind sign-in.
+- Secrets: `SMTP_HOST`, `SMTP_PORT` (465, or 587 for STARTTLS), `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `HBS_NOTIFY_EMAIL` (defaults to `HBS_OFFICE_EMAIL`), `PUBLIC_SITE_URL`.

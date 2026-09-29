@@ -3,6 +3,7 @@ import { and, asc, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
 import { Router, type IRouter, type RequestHandler } from "express";
 import {
   db,
+  hbsAuditLog,
   hbsInquiries,
   hbsLegacyImports,
   hbsLegacyRecords,
@@ -24,6 +25,8 @@ import {
   GetPortalMeResponse,
   GetPortalRegistrationResponse,
   GetPortalSummaryResponse,
+  GetServiceRequestHistoryParams,
+  GetServiceRequestHistoryResponse,
   GetServiceRequestParams,
   GetServiceRequestResponse,
   ListInquiriesResponse,
@@ -48,6 +51,16 @@ import {
   SubmitPortalRegistrationResponse,
 } from "@workspace/api-zod";
 import { recordAudit } from "../lib/audit";
+import {
+  inquiryAnsweredMail,
+  notify,
+  officeNewInquiryMail,
+  officeNewRegistrationMail,
+  officeNewRequestMail,
+  registrationDecisionMail,
+  statusChangedMail,
+} from "../lib/notify";
+import { statusHistory } from "../lib/request-history";
 import { emptyLegacyGroup, groupLegacyIds, inspectLegacyBackup, legacyKinds } from "../lib/legacy-backup";
 import {
   OFFICE_PAGE_SIZE,
@@ -122,6 +135,18 @@ function publicRequest(record: HbsServiceRequest) {
 
 function officeRequest(record: HbsServiceRequest, customer: OfficeCustomer) {
   return { ...publicRequest(record), officeNote: record.officeNote, customer };
+}
+
+// The address the customer registered with, for notifications.
+// Runs after the response is sent, so a lookup failure only skips the email.
+async function customerEmail(userId: string): Promise<string | null> {
+  try {
+    const [registration] = await db.select({ email: hbsRegistrationRequests.email })
+      .from(hbsRegistrationRequests).where(eq(hbsRegistrationRequests.userId, userId)).limit(1);
+    return registration?.email ?? null;
+  } catch {
+    return null;
+  }
 }
 
 async function customerOf(userId: string): Promise<OfficeCustomer> {
@@ -266,6 +291,7 @@ router.post("/portal/registration", requirePortalAuth, async (req, res): Promise
     return;
   }
   res.status(201).json(SubmitPortalRegistrationResponse.parse(portalRegistration(record)));
+  notify(officeNewRegistrationMail(record.fullName));
 });
 
 router.get("/portal/summary", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
@@ -324,7 +350,9 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
     description: parsed.data.description.trim(),
     contactPhone: parsed.data.contactPhone.trim(),
   }).returning();
-  res.status(201).json(CreateServiceRequestResponse.parse(publicRequest(record)));
+  const created = publicRequest(record);
+  res.status(201).json(CreateServiceRequestResponse.parse(created));
+  notify(officeNewRequestMail({ id: record.id, reference: created.reference, service: record.service, category: record.category }));
 });
 
 router.get("/service-requests/:id", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
@@ -343,6 +371,35 @@ router.get("/service-requests/:id", requirePortalAuth, requireApprovedCustomer, 
     return;
   }
   res.json(GetServiceRequestResponse.parse(publicRequest(record)));
+});
+
+router.get("/service-requests/:id/history", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
+  const params = GetServiceRequestHistoryParams.safeParse(req.params);
+  if (!params.success || params.data.id < 1) {
+    res.status(400).json({ error: "Invalid request ID" });
+    return;
+  }
+  const [record] = await db.select({ id: hbsServiceRequests.id, createdAt: hbsServiceRequests.createdAt })
+    .from(hbsServiceRequests)
+    .where(and(
+      eq(hbsServiceRequests.id, params.data.id),
+      eq(hbsServiceRequests.userId, getAuth(req).userId!),
+    )).limit(1);
+  if (!record) {
+    res.status(404).json({ error: "Request not found" });
+    return;
+  }
+  // Only the status and its time reach the customer; who made the change
+  // and internal notes stay in the office audit log.
+  const updates = await db.select({ createdAt: hbsAuditLog.createdAt, details: hbsAuditLog.details })
+    .from(hbsAuditLog)
+    .where(and(
+      eq(hbsAuditLog.targetType, "service_request"),
+      eq(hbsAuditLog.targetId, String(record.id)),
+      eq(hbsAuditLog.action, "service_request.update"),
+    ))
+    .orderBy(asc(hbsAuditLog.createdAt));
+  res.json(GetServiceRequestHistoryResponse.parse(statusHistory(record.createdAt, updates)));
 });
 
 router.get("/inquiries", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
@@ -383,6 +440,7 @@ router.post("/inquiries", requirePortalAuth, requireApprovedCustomer, async (req
     linkedServiceRequestId: parsed.data.linkedServiceRequestId ?? null,
   }).returning();
   res.status(201).json(CreateInquiryResponse.parse(inquiry(record, linkedRequest)));
+  notify(officeNewInquiryMail(record.subject, linkedRequest ? publicRequest(linkedRequest).reference : null));
 });
 
 router.get("/office/registrations", requireOfficeStaff, async (_req, res): Promise<void> => {
@@ -446,6 +504,7 @@ router.patch("/office/registrations/:id", requireOfficeStaff, async (req, res): 
   }
   res.json(ReviewOfficeRegistrationResponse.parse(
     officeRegistration(record, await verifiedRegistrationEmail(record))));
+  notify(registrationDecisionMail(record.email, record.status === "approved"));
 });
 
 router.get("/office/summary", requireOfficeStaff, async (_req, res): Promise<void> => {
@@ -526,10 +585,12 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
     res.status(400).json({ error: "Invalid request update" });
     return;
   }
+  let previousStatus: string | null = null;
   const record = await db.transaction(async tx => {
     const [previous] = await tx.select({ status: hbsServiceRequests.status, officeNote: hbsServiceRequests.officeNote })
       .from(hbsServiceRequests).where(eq(hbsServiceRequests.id, params.data.id)).for("update");
     if (!previous) return undefined;
+    previousStatus = previous.status;
     const [updated] = await tx.update(hbsServiceRequests).set({
       status: parsed.data.status,
       ...(parsed.data.officeNote !== undefined ? { officeNote: parsed.data.officeNote } : {}),
@@ -550,7 +611,12 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
     res.status(404).json({ error: "Request not found" });
     return;
   }
-  res.json(UpdateOfficeServiceRequestResponse.parse(officeRequest(record, await customerOf(record.userId))));
+  const customer = await customerOf(record.userId);
+  res.json(UpdateOfficeServiceRequestResponse.parse(officeRequest(record, customer)));
+  if (previousStatus !== record.status) {
+    notify(statusChangedMail(await customerEmail(record.userId),
+      { id: record.id, reference: publicRequest(record).reference, service: record.service }, record.status));
+  }
 });
 
 router.get("/office/inquiries", requireOfficeStaff, async (req, res): Promise<void> => {
@@ -607,10 +673,12 @@ router.patch("/office/inquiries/:id", requireOfficeStaff, async (req, res): Prom
     res.status(400).json({ error: "Invalid inquiry answer" });
     return;
   }
+  let firstAnswer = false;
   const record = await db.transaction(async tx => {
     const [previous] = await tx.select({ status: hbsInquiries.status })
       .from(hbsInquiries).where(eq(hbsInquiries.id, params.data.id)).for("update");
     if (!previous) return undefined;
+    firstAnswer = previous.status !== "answered";
     const [updated] = await tx.update(hbsInquiries).set({
       answer: parsed.data.answer.trim(),
       status: "answered",
@@ -632,6 +700,7 @@ router.patch("/office/inquiries/:id", requireOfficeStaff, async (req, res): Prom
       .where(eq(hbsServiceRequests.id, record.linkedServiceRequestId)).limit(1);
   }
   res.json(AnswerOfficeInquiryResponse.parse(officeInquiry(record, linkedRequest, await customerOf(record.userId))));
+  if (firstAnswer) notify(inquiryAnsweredMail(await customerEmail(record.userId), record.subject));
 });
 
 router.post("/office/legacy/preview", requireOfficeOwner, async (req, res): Promise<void> => {

@@ -30,6 +30,7 @@ const accounts = new Map<string, Account>([
   ["user_owner", account("user_owner", "office@example.test")],
   ["user_staff", account("user_staff", "staff@example.test")],
   ["user_customer", account("user_customer", "customer@example.test")],
+  ["user_other", account("user_other", "other@example.test")],
 ]);
 
 const users = clerkClient.users as unknown as Record<string, unknown>;
@@ -210,4 +211,31 @@ test("office lists filter, search, page and show the customer", { skip }, async 
   assert.deepEqual(inquiries.body.items[0].customer, { fullName: "سارة العتيبي", email: "customer@example.test" });
   assert.equal((await call("user_owner", "GET", `/office/inquiries?q=${encodeURIComponent("التسليم")}`)).body.total, 1);
   assert.equal((await call("user_owner", "GET", "/office/inquiries")).body.total, 2);
+});
+
+test("a customer sees their own request's status history, not other customers'", { skip }, async () => {
+  await db.execute(sql`truncate hbs_audit_log, hbs_inquiries, hbs_service_requests, hbs_registration_requests restart identity cascade`);
+  assert.equal((await call("user_owner", "GET", "/portal/me")).status, 200);
+  await db.insert(hbsRegistrationRequests).values([
+    { userId: "user_customer", email: "customer@example.test", fullName: "سارة", contactPhone: "0501112233", status: "approved" },
+    { userId: "user_other", email: "other@example.test", fullName: "خالد", contactPhone: "0504445566", status: "approved" },
+  ]);
+  const [request] = await db.insert(hbsServiceRequests).values({
+    userId: "user_customer", category: "passports", service: "تجديد إقامة", description: "تجديد إقامة عامل", contactPhone: "0501112233",
+  }).returning();
+
+  for (const body of [{ status: "reviewing" }, { status: "reviewing", officeNote: "ملاحظة داخلية" }, { status: "completed" }]) {
+    assert.equal((await call("user_owner", "PATCH", `/office/service-requests/${request.id}`, body)).status, 200);
+  }
+
+  const history = await call("user_customer", "GET", `/service-requests/${request.id}/history`);
+  assert.equal(history.status, 200);
+  assert.deepEqual(history.body.map((event: { status: string }) => event.status), ["received", "reviewing", "completed"]);
+  const times = history.body.map((event: { at: string }) => Date.parse(event.at));
+  assert.deepEqual([...times].sort((a, b) => a - b), times);
+  // Only status and time: no actor, no note.
+  assert.deepEqual(Object.keys(history.body[1]).sort(), ["at", "status"]);
+
+  assert.equal((await call("user_other", "GET", `/service-requests/${request.id}/history`)).status, 404);
+  assert.equal((await call("user_customer", "GET", "/service-requests/999999/history")).status, 404);
 });
