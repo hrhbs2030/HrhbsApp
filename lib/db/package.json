@@ -8,8 +8,12 @@
     "./schema": "./src/schema/index.ts"
   },
   "scripts": {
+    "generate": "drizzle-kit generate --config ./drizzle.config.ts",
+    "migrate": "drizzle-kit migrate --config ./drizzle.config.ts",
+    "baseline": "node ./scripts/baseline.mjs",
+    "adopt": "node ./scripts/adopt-schema.mjs",
     "push": "drizzle-kit push --config ./drizzle.config.ts",
-    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
+    "expected-schema": "node ./scripts/expected-schema.mjs"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
