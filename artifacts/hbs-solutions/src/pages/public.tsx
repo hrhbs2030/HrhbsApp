@@ -137,7 +137,7 @@ export function ServiceDetail() {
               <ul className="pub-checklist">
                 {service.whatToWrite.map((item) => <li key={item}>{item}</li>)}
               </ul>
-              <p className="pub-note"><Info size={16} strokeWidth={ICON} aria-hidden="true" />إرشادات لوصف حالتك، وليست قائمة مستندات رسمية. لا يدعم النموذج رفع الملفات حاليًا.</p>
+              <p className="pub-note"><Info size={16} strokeWidth={ICON} aria-hidden="true" />إرشادات لوصف حالتك، وليست قائمة مستندات رسمية. يمكنك إرفاق ما لديك من مستندات (PDF أو صور) مع الطلب، ويحدد المكتب ما يلزم بعد المراجعة.</p>
             </section>
 
             <section className="surface pub-block" aria-labelledby="flow-title">

@@ -249,6 +249,71 @@ export const GetServiceRequestHistoryResponse = zod.array(GetServiceRequestHisto
 
 
 /**
+ * @summary Documents attached to the request, newest first (removed files are listed with deletedAt)
+ */
+export const ListServiceRequestFilesParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const ListServiceRequestFilesResponseItem = zod.object({
+  "id": zod.number().int(),
+  "fileName": zod.string(),
+  "contentType": zod.enum(['application/pdf', 'image/jpeg', 'image/png']),
+  "sizeBytes": zod.number().int(),
+  "uploaderRole": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date(),
+  "deletedAt": zod.coerce.date().nullable(),
+  "deletedReason": zod.union([zod.literal('uploader'),zod.literal('office'),zod.literal('retention'),zod.literal(null)]).nullable()
+})
+export const ListServiceRequestFilesResponse = zod.array(ListServiceRequestFilesResponseItem)
+
+
+/**
+ * @summary Attach one PDF, JPEG or PNG file (at most 10 MB, 10 files per request). The body is the raw file.
+ */
+export const UploadServiceRequestFileParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const UploadServiceRequestFileHeader = zod.object({
+  "X-File-Name": zod.string().describe('The original file name, URI-encoded')
+})
+
+export const UploadServiceRequestFileResponse = zod.object({
+  "id": zod.number().int(),
+  "fileName": zod.string(),
+  "contentType": zod.enum(['application/pdf', 'image/jpeg', 'image/png']),
+  "sizeBytes": zod.number().int(),
+  "uploaderRole": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date(),
+  "deletedAt": zod.coerce.date().nullable(),
+  "deletedReason": zod.union([zod.literal('uploader'),zod.literal('office'),zod.literal('retention'),zod.literal(null)]).nullable()
+})
+
+
+/**
+ * @summary Remove a file from the request
+ */
+export const DeleteServiceRequestFileParams = zod.object({
+  "id": zod.coerce.number().int(),
+  "fileId": zod.coerce.number().int()
+})
+
+export const DeleteServiceRequestFileResponse = zod.void()
+
+
+/**
+ * @summary Download a file (sent as an attachment)
+ */
+export const DownloadServiceRequestFileParams = zod.object({
+  "id": zod.coerce.number().int(),
+  "fileId": zod.coerce.number().int()
+})
+
+export const DownloadServiceRequestFileResponse = zod.unknown()
+
+
+/**
  * @summary List the signed-in customer's inquiries
  */
 export const ListInquiriesResponseItem = zod.object({
@@ -429,6 +494,71 @@ export const UpdateOfficeServiceRequestResponse = zod.object({
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
+
+
+/**
+ * @summary Documents attached to the request, newest first (removed files are listed with deletedAt)
+ */
+export const ListOfficeServiceRequestFilesParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const ListOfficeServiceRequestFilesResponseItem = zod.object({
+  "id": zod.number().int(),
+  "fileName": zod.string(),
+  "contentType": zod.enum(['application/pdf', 'image/jpeg', 'image/png']),
+  "sizeBytes": zod.number().int(),
+  "uploaderRole": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date(),
+  "deletedAt": zod.coerce.date().nullable(),
+  "deletedReason": zod.union([zod.literal('uploader'),zod.literal('office'),zod.literal('retention'),zod.literal(null)]).nullable()
+})
+export const ListOfficeServiceRequestFilesResponse = zod.array(ListOfficeServiceRequestFilesResponseItem)
+
+
+/**
+ * @summary Attach one PDF, JPEG or PNG file (at most 10 MB, 10 files per request). The body is the raw file.
+ */
+export const UploadOfficeServiceRequestFileParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const UploadOfficeServiceRequestFileHeader = zod.object({
+  "X-File-Name": zod.string().describe('The original file name, URI-encoded')
+})
+
+export const UploadOfficeServiceRequestFileResponse = zod.object({
+  "id": zod.number().int(),
+  "fileName": zod.string(),
+  "contentType": zod.enum(['application/pdf', 'image/jpeg', 'image/png']),
+  "sizeBytes": zod.number().int(),
+  "uploaderRole": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date(),
+  "deletedAt": zod.coerce.date().nullable(),
+  "deletedReason": zod.union([zod.literal('uploader'),zod.literal('office'),zod.literal('retention'),zod.literal(null)]).nullable()
+})
+
+
+/**
+ * @summary Remove a file from the request
+ */
+export const DeleteOfficeServiceRequestFileParams = zod.object({
+  "id": zod.coerce.number().int(),
+  "fileId": zod.coerce.number().int()
+})
+
+export const DeleteOfficeServiceRequestFileResponse = zod.void()
+
+
+/**
+ * @summary Download a file (sent as an attachment)
+ */
+export const DownloadOfficeServiceRequestFileParams = zod.object({
+  "id": zod.coerce.number().int(),
+  "fileId": zod.coerce.number().int()
+})
+
+export const DownloadOfficeServiceRequestFileResponse = zod.unknown()
 
 
 /**
@@ -660,7 +790,7 @@ export const ListOfficeAuditLogResponseItem = zod.object({
   "id": zod.number().int(),
   "actorId": zod.string(),
   "actorEmail": zod.string().nullable(),
-  "action": zod.enum(['service_request.update', 'inquiry.answer', 'registration.review', 'legacy.import', 'staff.add', 'staff.remove']),
+  "action": zod.enum(['service_request.update', 'inquiry.answer', 'registration.review', 'legacy.import', 'staff.add', 'staff.remove', 'request_file.upload', 'request_file.download', 'request_file.delete', 'request_file.purge']),
   "targetType": zod.string(),
   "targetId": zod.string(),
   "details": zod.record(zod.string(), zod.unknown()),

@@ -110,7 +110,7 @@ export function DashboardPreview() {
                 <li data-done="true"><Check size={12} strokeWidth={3} aria-hidden="true" />صورة الجواز</li>
                 <li><span aria-hidden="true" />تاريخ انتهاء الإقامة</li>
               </ul>
-              <p className="dp-soon">رفع الملفات غير متاح حاليًا؛ يطلب المكتب ما يلزم عبر الرسائل.</p>
+              <p className="dp-soon">ترفعها من صفحة الطلب، ويصل تنبيه إلى المكتب.</p>
             </section>
 
             <section className="dp-card dp-mini" aria-label="الفواتير (مثال)">

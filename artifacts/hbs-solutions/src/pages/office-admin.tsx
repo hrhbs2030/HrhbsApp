@@ -89,6 +89,10 @@ const actionNames: Record<AuditLogEntry['action'], string> = {
   'legacy.import': 'استيراد أرشيف',
   'staff.add': 'إضافة موظف',
   'staff.remove': 'إزالة موظف',
+  'request_file.upload': 'إرفاق مستند',
+  'request_file.download': 'تنزيل مستند',
+  'request_file.delete': 'حذف مستند',
+  'request_file.purge': 'حذف تلقائي',
 };
 
 function auditSummary(entry: AuditLogEntry): string {
@@ -104,6 +108,13 @@ function auditSummary(entry: AuditLogEntry): string {
     case 'legacy.import': return `دفعة رقم ${entry.targetId}`;
     case 'staff.add':
     case 'staff.remove': return typeof d.email === 'string' ? d.email : entry.targetId;
+    case 'request_file.upload':
+    case 'request_file.download':
+    case 'request_file.delete':
+    case 'request_file.purge': {
+      const name = typeof d.fileName === 'string' ? `«${d.fileName}»` : 'مستند';
+      return `طلب رقم ${entry.targetId}: ${name}${entry.action === 'request_file.purge' ? ' بعد 90 يومًا من اكتمال الطلب' : ''}`;
+    }
   }
 }
 
@@ -117,7 +128,7 @@ export function OfficeAuditLog() {
         <ul className="m-0 list-none p-0">{log.data.map(entry => <li key={entry.id} className="grid gap-1.5 border-b border-line px-5 py-4 last:border-0 sm:px-6 lg:grid-cols-[140px_minmax(0,1fr)_220px_170px] lg:items-center lg:gap-4">
           <span className="flex items-center justify-between gap-3 lg:block"><span className="inline-flex w-fit rounded-md bg-copper-soft px-2 py-0.5 text-xs font-bold text-copper">{actionNames[entry.action]}</span><span className="text-xs text-subtle lg:hidden">{timeText(entry.createdAt)}</span></span>
           <span className="min-w-0 text-sm leading-7">{auditSummary(entry)}</span>
-          <span className="min-w-0 truncate text-xs text-quiet" dir="ltr" style={{ textAlign: 'right' }}>{entry.actorEmail ?? entry.actorId}</span>
+          <span className="min-w-0 truncate text-xs text-quiet" dir="ltr" style={{ textAlign: 'right' }}>{entry.actorId === 'system' ? 'النظام' : entry.actorEmail ?? entry.actorId}</span>
           <span className="hidden text-xs text-subtle lg:block">{timeText(entry.createdAt)}</span>
         </li>)}</ul>
       </div>}

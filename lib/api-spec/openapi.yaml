@@ -240,6 +240,133 @@ paths:
           description: Authentication required
         "403":
           description: Customer registration approval required
+  /service-requests/{id}/files:
+    get:
+      operationId: listServiceRequestFiles
+      tags: [portal]
+      summary: Documents attached to the request, newest first (removed files are listed with deletedAt)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Request files
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RequestFile"
+        "404":
+          description: Not found
+        "401":
+          description: Authentication required
+        "403":
+          description: Customer registration approval required
+    post:
+      operationId: uploadServiceRequestFile
+      tags: [portal]
+      summary: Attach one PDF, JPEG or PNG file (at most 10 MB, 10 files per request). The body is the raw file.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: X-File-Name
+          in: header
+          required: true
+          description: The original file name, URI-encoded
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "201":
+          description: File attached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestFile"
+        "400":
+          description: Missing or invalid file name, or empty file
+        "404":
+          description: Not found
+        "409":
+          description: The request already has the maximum number of files
+        "413":
+          description: File larger than 10 MB
+        "415":
+          description: Not a PDF, JPEG or PNG file
+        "401":
+          description: Authentication required
+        "403":
+          description: Customer registration approval required
+  /service-requests/{id}/files/{fileId}:
+    delete:
+      operationId: deleteServiceRequestFile
+      tags: [portal]
+      summary: Remove a file from the request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: File removed
+        "404":
+          description: Not found
+        "409":
+          description: The file can no longer be removed
+        "401":
+          description: Authentication required
+        "403":
+          description: Customer registration approval required
+  /service-requests/{id}/files/{fileId}/content:
+    get:
+      operationId: downloadServiceRequestFile
+      tags: [portal]
+      summary: Download a file (sent as an attachment)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: File contents
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not found or removed
+        "401":
+          description: Authentication required
+        "403":
+          description: Customer registration approval required
   /inquiries:
     get:
       operationId: listInquiries
@@ -391,6 +518,133 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OfficeServiceRequest"
+  /office/service-requests/{id}/files:
+    get:
+      operationId: listOfficeServiceRequestFiles
+      tags: [portal]
+      summary: Documents attached to the request, newest first (removed files are listed with deletedAt)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Request files
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RequestFile"
+        "404":
+          description: Not found
+        "401":
+          description: Authentication required
+        "403":
+          description: Office staff access required
+    post:
+      operationId: uploadOfficeServiceRequestFile
+      tags: [portal]
+      summary: Attach one PDF, JPEG or PNG file (at most 10 MB, 10 files per request). The body is the raw file.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: X-File-Name
+          in: header
+          required: true
+          description: The original file name, URI-encoded
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "201":
+          description: File attached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestFile"
+        "400":
+          description: Missing or invalid file name, or empty file
+        "404":
+          description: Not found
+        "409":
+          description: The request already has the maximum number of files
+        "413":
+          description: File larger than 10 MB
+        "415":
+          description: Not a PDF, JPEG or PNG file
+        "401":
+          description: Authentication required
+        "403":
+          description: Office staff access required
+  /office/service-requests/{id}/files/{fileId}:
+    delete:
+      operationId: deleteOfficeServiceRequestFile
+      tags: [portal]
+      summary: Remove a file from the request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: File removed
+        "404":
+          description: Not found
+        "409":
+          description: The file can no longer be removed
+        "401":
+          description: Authentication required
+        "403":
+          description: Office staff access required
+  /office/service-requests/{id}/files/{fileId}/content:
+    get:
+      operationId: downloadOfficeServiceRequestFile
+      tags: [portal]
+      summary: Download a file (sent as an attachment)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: File contents
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not found or removed
+        "401":
+          description: Authentication required
+        "403":
+          description: Office staff access required
   /office/inquiries:
     get:
       operationId: listOfficeInquiries
@@ -602,7 +856,7 @@ components:
         actorEmail: { type: ["string", "null"] }
         action:
           type: string
-          enum: [service_request.update, inquiry.answer, registration.review, legacy.import, staff.add, staff.remove]
+          enum: [service_request.update, inquiry.answer, registration.review, legacy.import, staff.add, staff.remove, request_file.upload, request_file.download, request_file.delete, request_file.purge]
         targetType: { type: string }
         targetId: { type: string }
         details:
@@ -736,6 +990,24 @@ components:
           enum: [received, reviewing, waiting_on_customer, completed]
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    RequestFile:
+      type: object
+      required: [id, fileName, contentType, sizeBytes, uploaderRole, createdAt, deletedAt, deletedReason]
+      properties:
+        id: { type: integer }
+        fileName: { type: string }
+        contentType:
+          type: string
+          enum: [application/pdf, image/jpeg, image/png]
+        sizeBytes: { type: integer }
+        uploaderRole:
+          type: string
+          enum: [customer, office]
+        createdAt: { type: string, format: date-time }
+        deletedAt: { type: ["string", "null"], format: date-time }
+        deletedReason:
+          type: ["string", "null"]
+          enum: [uploader, office, retention, null]
     ServiceRequestStatusEvent:
       type: object
       required: [status, at]

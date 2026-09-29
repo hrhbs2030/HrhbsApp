@@ -49,6 +49,7 @@ import type {
   PortalUser,
   RegistrationRequestInput,
   RegistrationReview,
+  RequestFile,
   ServiceRequest,
   ServiceRequestInput,
   ServiceRequestStatusEvent,
@@ -974,6 +975,330 @@ export function useGetServiceRequestHistory<TData = Awaited<ReturnType<typeof ge
 
 
 
+export const getListServiceRequestFilesUrl = (id: number,) => {
+
+
+
+
+  return `/api/service-requests/${id}/files`
+}
+
+/**
+ * @summary Documents attached to the request, newest first (removed files are listed with deletedAt)
+ */
+export const listServiceRequestFiles = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<RequestFile[]> => {
+
+  return customFetch<RequestFile[]>(getListServiceRequestFilesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListServiceRequestFilesQueryKey = (id: number,) => {
+    return [
+    `/api/service-requests/${id}/files`
+    ] as const;
+    }
+
+
+export const getListServiceRequestFilesQueryOptions = <TData = Awaited<ReturnType<typeof listServiceRequestFiles>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listServiceRequestFiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListServiceRequestFilesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listServiceRequestFiles>>> = ({ signal }) => listServiceRequestFiles(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listServiceRequestFiles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListServiceRequestFilesQueryResult = NonNullable<Awaited<ReturnType<typeof listServiceRequestFiles>>>
+export type ListServiceRequestFilesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Documents attached to the request, newest first (removed files are listed with deletedAt)
+ */
+
+export function useListServiceRequestFiles<TData = Awaited<ReturnType<typeof listServiceRequestFiles>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listServiceRequestFiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListServiceRequestFilesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUploadServiceRequestFileUrl = (id: number,) => {
+
+
+
+
+  return `/api/service-requests/${id}/files`
+}
+
+/**
+ * @summary Attach one PDF, JPEG or PNG file (at most 10 MB, 10 files per request). The body is the raw file.
+ */
+export const uploadServiceRequestFile = async (id: number,
+    uploadServiceRequestFileBody: Blob, options?: Parameters<typeof customFetch>[1]): Promise<RequestFile> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RequestFile>(getUploadServiceRequestFileUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/octet-stream', ...getHeaders(options?.headers) },
+    body: uploadServiceRequestFileBody
+  }
+);}
+
+
+
+
+
+export const getUploadServiceRequestFileMutationKey = () => ['uploadServiceRequestFile'] as const;
+
+export const getUploadServiceRequestFileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadServiceRequestFile>>, TError,UploadServiceRequestFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadServiceRequestFile>>, TError,UploadServiceRequestFileMutationVariables, TContext> => {
+
+const mutationKey = getUploadServiceRequestFileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadServiceRequestFile>>, UploadServiceRequestFileMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  uploadServiceRequestFile(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadServiceRequestFileMutationResult = NonNullable<Awaited<ReturnType<typeof uploadServiceRequestFile>>>
+    export type UploadServiceRequestFileMutationBody = BodyType<Blob>
+    export type UploadServiceRequestFileMutationError = ErrorType<void>
+    export type UploadServiceRequestFileMutationVariables = {id: number;data: BodyType<Blob>}
+
+    /**
+ * @summary Attach one PDF, JPEG or PNG file (at most 10 MB, 10 files per request). The body is the raw file.
+ */
+export const useUploadServiceRequestFile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadServiceRequestFile>>, TError,UploadServiceRequestFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof uploadServiceRequestFile>>,
+        TError,
+        UploadServiceRequestFileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUploadServiceRequestFileMutationOptions(options));
+    }
+
+export const getDeleteServiceRequestFileUrl = (id: number,
+    fileId: number,) => {
+
+
+
+
+  return `/api/service-requests/${id}/files/${fileId}`
+}
+
+/**
+ * @summary Remove a file from the request
+ */
+export const deleteServiceRequestFile = async (id: number,
+    fileId: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteServiceRequestFileUrl(id,fileId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteServiceRequestFileMutationKey = () => ['deleteServiceRequestFile'] as const;
+
+export const getDeleteServiceRequestFileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteServiceRequestFile>>, TError,DeleteServiceRequestFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteServiceRequestFile>>, TError,DeleteServiceRequestFileMutationVariables, TContext> => {
+
+const mutationKey = getDeleteServiceRequestFileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteServiceRequestFile>>, DeleteServiceRequestFileMutationVariables> = (props) => {
+          const {id,fileId} = props ?? {};
+
+          return  deleteServiceRequestFile(id,fileId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteServiceRequestFileMutationResult = NonNullable<Awaited<ReturnType<typeof deleteServiceRequestFile>>>
+
+    export type DeleteServiceRequestFileMutationError = ErrorType<void>
+    export type DeleteServiceRequestFileMutationVariables = {id: number;fileId: number}
+
+    /**
+ * @summary Remove a file from the request
+ */
+export const useDeleteServiceRequestFile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteServiceRequestFile>>, TError,DeleteServiceRequestFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteServiceRequestFile>>,
+        TError,
+        DeleteServiceRequestFileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteServiceRequestFileMutationOptions(options));
+    }
+
+export const getDownloadServiceRequestFileUrl = (id: number,
+    fileId: number,) => {
+
+
+
+
+  return `/api/service-requests/${id}/files/${fileId}/content`
+}
+
+/**
+ * @summary Download a file (sent as an attachment)
+ */
+export const downloadServiceRequestFile = async (id: number,
+    fileId: number, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadServiceRequestFileUrl(id,fileId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadServiceRequestFileQueryKey = (id: number,
+    fileId: number,) => {
+    return [
+    `/api/service-requests/${id}/files/${fileId}/content`
+    ] as const;
+    }
+
+
+export const getDownloadServiceRequestFileQueryOptions = <TData = Awaited<ReturnType<typeof downloadServiceRequestFile>>, TError = ErrorType<void>>(id: number,
+    fileId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadServiceRequestFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadServiceRequestFileQueryKey(id,fileId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadServiceRequestFile>>> = ({ signal }) => downloadServiceRequestFile(id,fileId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined && fileId !== null && fileId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadServiceRequestFile>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadServiceRequestFileQueryResult = NonNullable<Awaited<ReturnType<typeof downloadServiceRequestFile>>>
+export type DownloadServiceRequestFileQueryError = ErrorType<void>
+
+
+/**
+ * @summary Download a file (sent as an attachment)
+ */
+
+export function useDownloadServiceRequestFile<TData = Awaited<ReturnType<typeof downloadServiceRequestFile>>, TError = ErrorType<void>>(
+ id: number,
+    fileId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadServiceRequestFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadServiceRequestFileQueryOptions(id,fileId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getListInquiriesUrl = () => {
 
 
@@ -1554,6 +1879,330 @@ export const useUpdateOfficeServiceRequest = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getUpdateOfficeServiceRequestMutationOptions(options));
     }
+
+export const getListOfficeServiceRequestFilesUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/service-requests/${id}/files`
+}
+
+/**
+ * @summary Documents attached to the request, newest first (removed files are listed with deletedAt)
+ */
+export const listOfficeServiceRequestFiles = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<RequestFile[]> => {
+
+  return customFetch<RequestFile[]>(getListOfficeServiceRequestFilesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeServiceRequestFilesQueryKey = (id: number,) => {
+    return [
+    `/api/office/service-requests/${id}/files`
+    ] as const;
+    }
+
+
+export const getListOfficeServiceRequestFilesQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeServiceRequestFiles>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceRequestFiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeServiceRequestFilesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeServiceRequestFiles>>> = ({ signal }) => listOfficeServiceRequestFiles(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceRequestFiles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeServiceRequestFilesQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeServiceRequestFiles>>>
+export type ListOfficeServiceRequestFilesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Documents attached to the request, newest first (removed files are listed with deletedAt)
+ */
+
+export function useListOfficeServiceRequestFiles<TData = Awaited<ReturnType<typeof listOfficeServiceRequestFiles>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceRequestFiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeServiceRequestFilesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUploadOfficeServiceRequestFileUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/service-requests/${id}/files`
+}
+
+/**
+ * @summary Attach one PDF, JPEG or PNG file (at most 10 MB, 10 files per request). The body is the raw file.
+ */
+export const uploadOfficeServiceRequestFile = async (id: number,
+    uploadOfficeServiceRequestFileBody: Blob, options?: Parameters<typeof customFetch>[1]): Promise<RequestFile> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RequestFile>(getUploadOfficeServiceRequestFileUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/octet-stream', ...getHeaders(options?.headers) },
+    body: uploadOfficeServiceRequestFileBody
+  }
+);}
+
+
+
+
+
+export const getUploadOfficeServiceRequestFileMutationKey = () => ['uploadOfficeServiceRequestFile'] as const;
+
+export const getUploadOfficeServiceRequestFileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadOfficeServiceRequestFile>>, TError,UploadOfficeServiceRequestFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadOfficeServiceRequestFile>>, TError,UploadOfficeServiceRequestFileMutationVariables, TContext> => {
+
+const mutationKey = getUploadOfficeServiceRequestFileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadOfficeServiceRequestFile>>, UploadOfficeServiceRequestFileMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  uploadOfficeServiceRequestFile(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadOfficeServiceRequestFileMutationResult = NonNullable<Awaited<ReturnType<typeof uploadOfficeServiceRequestFile>>>
+    export type UploadOfficeServiceRequestFileMutationBody = BodyType<Blob>
+    export type UploadOfficeServiceRequestFileMutationError = ErrorType<void>
+    export type UploadOfficeServiceRequestFileMutationVariables = {id: number;data: BodyType<Blob>}
+
+    /**
+ * @summary Attach one PDF, JPEG or PNG file (at most 10 MB, 10 files per request). The body is the raw file.
+ */
+export const useUploadOfficeServiceRequestFile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadOfficeServiceRequestFile>>, TError,UploadOfficeServiceRequestFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof uploadOfficeServiceRequestFile>>,
+        TError,
+        UploadOfficeServiceRequestFileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUploadOfficeServiceRequestFileMutationOptions(options));
+    }
+
+export const getDeleteOfficeServiceRequestFileUrl = (id: number,
+    fileId: number,) => {
+
+
+
+
+  return `/api/office/service-requests/${id}/files/${fileId}`
+}
+
+/**
+ * @summary Remove a file from the request
+ */
+export const deleteOfficeServiceRequestFile = async (id: number,
+    fileId: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteOfficeServiceRequestFileUrl(id,fileId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteOfficeServiceRequestFileMutationKey = () => ['deleteOfficeServiceRequestFile'] as const;
+
+export const getDeleteOfficeServiceRequestFileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeServiceRequestFile>>, TError,DeleteOfficeServiceRequestFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeServiceRequestFile>>, TError,DeleteOfficeServiceRequestFileMutationVariables, TContext> => {
+
+const mutationKey = getDeleteOfficeServiceRequestFileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteOfficeServiceRequestFile>>, DeleteOfficeServiceRequestFileMutationVariables> = (props) => {
+          const {id,fileId} = props ?? {};
+
+          return  deleteOfficeServiceRequestFile(id,fileId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteOfficeServiceRequestFileMutationResult = NonNullable<Awaited<ReturnType<typeof deleteOfficeServiceRequestFile>>>
+
+    export type DeleteOfficeServiceRequestFileMutationError = ErrorType<void>
+    export type DeleteOfficeServiceRequestFileMutationVariables = {id: number;fileId: number}
+
+    /**
+ * @summary Remove a file from the request
+ */
+export const useDeleteOfficeServiceRequestFile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeServiceRequestFile>>, TError,DeleteOfficeServiceRequestFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteOfficeServiceRequestFile>>,
+        TError,
+        DeleteOfficeServiceRequestFileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteOfficeServiceRequestFileMutationOptions(options));
+    }
+
+export const getDownloadOfficeServiceRequestFileUrl = (id: number,
+    fileId: number,) => {
+
+
+
+
+  return `/api/office/service-requests/${id}/files/${fileId}/content`
+}
+
+/**
+ * @summary Download a file (sent as an attachment)
+ */
+export const downloadOfficeServiceRequestFile = async (id: number,
+    fileId: number, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadOfficeServiceRequestFileUrl(id,fileId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadOfficeServiceRequestFileQueryKey = (id: number,
+    fileId: number,) => {
+    return [
+    `/api/office/service-requests/${id}/files/${fileId}/content`
+    ] as const;
+    }
+
+
+export const getDownloadOfficeServiceRequestFileQueryOptions = <TData = Awaited<ReturnType<typeof downloadOfficeServiceRequestFile>>, TError = ErrorType<void>>(id: number,
+    fileId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadOfficeServiceRequestFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadOfficeServiceRequestFileQueryKey(id,fileId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadOfficeServiceRequestFile>>> = ({ signal }) => downloadOfficeServiceRequestFile(id,fileId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined && fileId !== null && fileId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadOfficeServiceRequestFile>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadOfficeServiceRequestFileQueryResult = NonNullable<Awaited<ReturnType<typeof downloadOfficeServiceRequestFile>>>
+export type DownloadOfficeServiceRequestFileQueryError = ErrorType<void>
+
+
+/**
+ * @summary Download a file (sent as an attachment)
+ */
+
+export function useDownloadOfficeServiceRequestFile<TData = Awaited<ReturnType<typeof downloadOfficeServiceRequestFile>>, TError = ErrorType<void>>(
+ id: number,
+    fileId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadOfficeServiceRequestFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadOfficeServiceRequestFileQueryOptions(id,fileId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListOfficeInquiriesUrl = (params?: ListOfficeInquiriesParams,) => {
   const normalizedParams = new URLSearchParams();

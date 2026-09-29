@@ -3,6 +3,7 @@ import healthRouter from "./health";
 import openaiRouter from "./openai";
 import portalRouter from "./portal";
 import officeAdminRouter from "./office-admin";
+import filesRouter from "./files";
 import { requireOfficeStaff } from "../lib/office-access";
 import anthropicRouter from "./anthropic";
 
@@ -13,6 +14,7 @@ router.use(healthRouter);
 router.use("/openai", requireOfficeStaff, openaiRouter);
 router.use("/anthropic", anthropicRouter);
 router.use(portalRouter);
+router.use(filesRouter);
 router.use(officeAdminRouter);
 
 export default router;

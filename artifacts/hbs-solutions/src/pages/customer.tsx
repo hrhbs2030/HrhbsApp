@@ -7,6 +7,7 @@ import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock, Reques
 import { CustomerAssistant } from '@/components/customer-assistant';
 import { LOCALE, formatDateTime } from '@/lib/format';
 import { PrintButton } from '@/components/brand/print';
+import { RequestFiles } from '@/components/request-files';
 
 const count = (value: number) => new Intl.NumberFormat(LOCALE).format(value);
 
@@ -98,10 +99,11 @@ function BackLink({ href, children }: { href: string; children: ReactNode }) {
 }
 
 export function RequestDetail() {
-  const {id} = useParams<{id:string}>(); const parsed = Number(id); const justSent = new URLSearchParams(useSearch()).get('sent') === '1'; const q = useGetServiceRequest(parsed,{query:{enabled:Number.isInteger(parsed)&&parsed>0,queryKey:getGetServiceRequestQueryKey(parsed),refetchInterval:30000}});
+  const {id} = useParams<{id:string}>(); const parsed = Number(id); const search = new URLSearchParams(useSearch()); const justSent = search.get('sent') === '1'; const failedUploads = Number(search.get('failed')) || 0; const q = useGetServiceRequest(parsed,{query:{enabled:Number.isInteger(parsed)&&parsed>0,queryKey:getGetServiceRequestQueryKey(parsed),refetchInterval:30000}});
   return <PortalLayout><div className="max-w-[860px]"><BackLink href="/requests">طلباتي</BackLink>
     {!Number.isInteger(parsed)||parsed<=0 ? <EmptyBlock title="الطلب غير متاح" text="تحقق من رابط الطلب وحاول مرة أخرى."/> : q.isLoading ? <LoadingBlock/> : q.error?.status === 404 ? <EmptyBlock title="الطلب غير متاح" text="هذا الطلب غير موجود في حسابك."/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : q.data && <>
       {justSent && <div role="status" className="rise mb-6 flex items-start gap-3 rounded-2xl border border-sage-2 bg-ok-soft p-4 text-ok sm:p-5"><CircleCheck className="mt-0.5 shrink-0" size={22}/><div><strong className="block text-ink">تم إرسال طلبك إلى المكتب</strong><span className="text-sm leading-7">الرقم المرجعي <span dir="ltr" className="nums font-bold">{q.data.reference}</span>. تابع حالته من هذه الصفحة.</span></div></div>}
+      {failedUploads > 0 && <div role="alert" className="mb-6 rounded-2xl border border-warn-line bg-warn-soft p-4 text-sm leading-7 text-warn">تعذّر رفع {failedUploads === 1 ? 'ملف واحد' : `${count(failedUploads)} ملفات`} مع الطلب. أرفقه من قسم «المستندات» أدناه.</div>}
       <PageHeading eyebrow={`طلب رقم ${q.data.reference}`} title={q.data.service} action={<div className="flex flex-wrap gap-2"><PrintButton /><Link href={`/inquiries?request=${q.data.id}`} className="btn btn-outline"><CircleHelp size={17}/>استفسر عن الطلب</Link></div>}/>
       <div className="surface overflow-hidden">
         <section aria-label="مراحل الطلب" className="px-5 py-6 sm:px-8">
@@ -113,6 +115,7 @@ export function RequestDetail() {
           <Info label="مجال الخدمة" value={categoryNames[q.data.category]}/><Info label="رقم التواصل" value={q.data.contactPhone} ltr/><Info label="آخر تحديث" value={dateText(q.data.updatedAt)}/>
         </dl>
         <div className="border-t border-line px-5 py-6 sm:px-8"><h2 className="mb-2 text-xs font-bold text-subtle">تفاصيل الطلب</h2><p className="whitespace-pre-wrap text-sm leading-8">{q.data.description}</p></div>
+        <div className="border-t border-line px-5 py-6 sm:px-8"><RequestFiles scope="customer" requestId={q.data.id} canUpload={q.data.status !== 'completed'}/></div>
       </div>
     </>}
   </div></PortalLayout>;

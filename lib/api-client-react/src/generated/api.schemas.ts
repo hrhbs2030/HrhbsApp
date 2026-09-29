@@ -38,6 +38,10 @@ export const AuditLogEntryAction = {
   legacyimport: 'legacy.import',
   staffadd: 'staff.add',
   staffremove: 'staff.remove',
+  request_fileupload: 'request_file.upload',
+  request_filedownload: 'request_file.download',
+  request_filedelete: 'request_file.delete',
+  request_filepurge: 'request_file.purge',
 } as const;
 
 export type AuditLogEntryDetails = { [key: string]: unknown };
@@ -246,6 +250,48 @@ export interface ServiceRequest {
   status: ServiceRequestStatus;
   createdAt: string;
   updatedAt: string;
+}
+
+export type RequestFileContentType = typeof RequestFileContentType[keyof typeof RequestFileContentType];
+
+
+export const RequestFileContentType = {
+  'application/pdf': 'application/pdf',
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+} as const;
+
+export type RequestFileUploaderRole = typeof RequestFileUploaderRole[keyof typeof RequestFileUploaderRole];
+
+
+export const RequestFileUploaderRole = {
+  customer: 'customer',
+  office: 'office',
+} as const;
+
+/**
+ * @nullable
+ */
+export type RequestFileDeletedReason = typeof RequestFileDeletedReason[keyof typeof RequestFileDeletedReason] | null;
+
+
+export const RequestFileDeletedReason = {
+  uploader: 'uploader',
+  office: 'office',
+  retention: 'retention',
+} as const;
+
+export interface RequestFile {
+  id: number;
+  fileName: string;
+  contentType: RequestFileContentType;
+  sizeBytes: number;
+  uploaderRole: RequestFileUploaderRole;
+  createdAt: string;
+  /** @nullable */
+  deletedAt: string | null;
+  /** @nullable */
+  deletedReason: RequestFileDeletedReason;
 }
 
 export type ServiceRequestStatusEventStatus = typeof ServiceRequestStatusEventStatus[keyof typeof ServiceRequestStatusEventStatus];

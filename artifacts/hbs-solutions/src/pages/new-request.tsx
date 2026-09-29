@@ -1,10 +1,11 @@
-import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, Check, Pencil, Send, Shapes } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, Check, Paperclip, Pencil, Send, Shapes, X } from 'lucide-react';
 import { getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, useCreateServiceRequest, type ServiceRequestInputCategory } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading } from '@/components/portal-ui';
 import { categories, categoryById, serviceBySlug, services, type ServiceCategory } from '@/content/services';
+import { ACCEPT_ATTR, MAX_FILES, RETENTION_NOTE, checkFile, sizeText, uploadFile } from '@/components/request-files';
 import './new-request.css';
 
 // Three steps over the existing API contract (category, service,
@@ -48,6 +49,10 @@ export function NewRequest() {
   const [description, setDescription] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [errors, setErrors] = useState<Errors>({});
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileProblems, setFileProblems] = useState<string[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const values = { service, description, contactPhone };
@@ -74,12 +79,31 @@ export function NewRequest() {
     if (step < 2) go(step + 1);
     else void submit();
   }
+  function pickFiles(event: ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    const problems: string[] = [];
+    const valid = picked.filter((file) => { const p = checkFile(file); if (p) problems.push(p); return !p; });
+    const room = MAX_FILES - files.length;
+    if (valid.length > room) problems.push(`يمكن إرفاق ${MAX_FILES} ملفات كحد أقصى.`);
+    setFiles([...files, ...valid.slice(0, Math.max(room, 0))]);
+    setFileProblems(problems);
+  }
   async function submit() {
     try {
       const result = await mutation.mutateAsync({ data: { category, service: service.trim(), description: description.trim(), contactPhone: contactPhone.trim() } });
+      // The request exists now; attach the files to it one by one. A failed
+      // upload does not undo the request: the customer can retry on its page.
+      let failed = 0;
+      if (files.length) {
+        setUploadingFiles(true);
+        for (const file of files) {
+          try { await uploadFile('customer', result.id, file); } catch { failed += 1; }
+        }
+      }
       await Promise.all([qc.invalidateQueries({ queryKey: getListServiceRequestsQueryKey() }), qc.invalidateQueries({ queryKey: getGetPortalSummaryQueryKey() })]);
-      navigate(`/requests/${result.id}?sent=1`);
-    } catch { /* error shown below */ }
+      navigate(`/requests/${result.id}?sent=1${failed ? `&failed=${failed}` : ''}`);
+    } catch { /* error shown below */ } finally { setUploadingFiles(false); }
   }
 
   return (
@@ -145,6 +169,19 @@ export function NewRequest() {
                   <input id="field-contactPhone" dir="ltr" className="form-control text-right" type="tel" inputMode="tel" autoComplete="tel" placeholder="05XXXXXXXX" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} maxLength={LIMITS.phone[1]} aria-invalid={!!errors.contactPhone} aria-describedby={errors.contactPhone ? 'err-contactPhone' : undefined} />
                   {errors.contactPhone && <span id="err-contactPhone" className="field-error" role="alert">{errors.contactPhone}</span>}
                 </label>
+                <div className="nr-files">
+                  <div className="nr-files-head">
+                    <span className="nr-files-label">المستندات <small>(اختياري)</small></span>
+                    {files.length < MAX_FILES && <button type="button" className="btn btn-outline btn-sm" onClick={() => fileInput.current?.click()}><Paperclip size={15} aria-hidden="true" />إرفاق ملفات</button>}
+                    <input ref={fileInput} type="file" accept={ACCEPT_ATTR} multiple hidden onChange={pickFiles} aria-label="اختر مستندات لإرفاقها" />
+                  </div>
+                  {files.length > 0 && <ul className="nr-files-list">{files.map((file, index) => <li key={`${index}-${file.name}`}>
+                    <span className="nr-file-name">{file.name}</span><small>{sizeText(file.size)}</small>
+                    <button type="button" onClick={() => setFiles(files.filter((_, i) => i !== index))} aria-label={`إزالة ${file.name}`}><X size={15} /></button>
+                  </li>)}</ul>}
+                  {fileProblems.length > 0 && <div role="alert" className="nr-files-errors">{fileProblems.map((p) => <p key={p}>{p}</p>)}</div>}
+                  <small className="muted block text-xs leading-6">{RETENTION_NOTE}</small>
+                </div>
               </div>
             )}
 
@@ -156,8 +193,9 @@ export function NewRequest() {
                   <div><dt>الخدمة</dt><dd>{service.trim()}</dd><button type="button" onClick={() => go(0)} aria-label="تعديل اسم الخدمة"><Pencil size={15} /></button></div>
                   <div className="nr-review-wide"><dt>التفاصيل</dt><dd className="whitespace-pre-wrap">{description.trim()}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل التفاصيل"><Pencil size={15} /></button></div>
                   <div><dt>رقم التواصل</dt><dd dir="ltr" className="text-right">{contactPhone.trim()}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل رقم التواصل"><Pencil size={15} /></button></div>
+                  <div className="nr-review-wide"><dt>المستندات</dt><dd>{files.length ? files.map((f) => f.name).join('، ') : 'لا توجد'}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل المستندات"><Pencil size={15} /></button></div>
                 </dl>
-                <p className="muted mt-5 text-sm leading-7">إرفاق المستندات غير متاح؛ سيطلب المكتب ما يلزم بعد مراجعة الطلب.</p>
+                <p className="muted mt-5 text-sm leading-7">سيراجع المكتب طلبك، وإن احتاج مستندًا إضافيًا تجده في حالة «بانتظار العميل» وترفعه من صفحة الطلب.</p>
                 {mutation.isError && <div role="alert" className="mt-5 rounded-lg bg-danger-soft p-4 text-sm text-danger">تعذّر إرسال الطلب. تحقق من اتصالك وحاول مرة أخرى؛ لن يُرسل الطلب مرتين.</div>}
               </div>
             )}
@@ -165,8 +203,8 @@ export function NewRequest() {
 
           <div className="nr-actions">
             {step > 0 ? <button type="button" className="btn btn-outline" onClick={() => go(step - 1)} disabled={mutation.isPending}><ArrowRight size={16} />السابق</button> : <span />}
-            <button type="submit" className="btn btn-primary" disabled={mutation.isPending} aria-live="polite">
-              {step < 2 ? <>التالي<ArrowLeft size={16} /></> : mutation.isPending ? <><span className="nr-spinner" aria-hidden="true" />جارٍ الإرسال…</> : <>إرسال الطلب<Send size={16} /></>}
+            <button type="submit" className="btn btn-primary" disabled={mutation.isPending || uploadingFiles} aria-live="polite">
+              {step < 2 ? <>التالي<ArrowLeft size={16} /></> : uploadingFiles ? <><span className="nr-spinner" aria-hidden="true" />جارٍ رفع المستندات…</> : mutation.isPending ? <><span className="nr-spinner" aria-hidden="true" />جارٍ الإرسال…</> : <>إرسال الطلب<Send size={16} /></>}
             </button>
           </div>
         </form>

@@ -101,3 +101,12 @@
   - Office inbox: new request, new registration, new inquiry.
   - Messages carry the reference, service and status only; details stay behind sign-in.
 - Secrets: `SMTP_HOST`, `SMTP_PORT` (465, or 587 for STARTTLS), `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `HBS_NOTIFY_EMAIL` (defaults to `HBS_OFFICE_EMAIL`), `PUBLIC_SITE_URL`.
+
+## Request documents (phase 3)
+
+- Table `hbs_request_files` (migration `0003_request_files.sql`): one row per document, the bytes in private Replit App Storage under `requests/<id>/<uuid>`. Removing a file deletes the object and keeps the row with `deleted_at` / `deleted_reason` (uploader, office, retention).
+- Routes (`artifacts/api-server/src/routes/files.ts`): list, upload (raw body, `X-File-Name`), download (attachment, no-store, nosniff, sandbox CSP) and delete, for the customer (own requests) and the office (all). Type is read from the file's first bytes (PDF, JPEG, PNG only); 10 MB per file, 10 active files per request; customers cannot add or remove files once a request is completed.
+- Office uploads, downloads and removals are in the audit log; files of requests completed more than 90 days ago are purged by the server every six hours (audited as «النظام»).
+- Emails: the office inbox when a customer attaches a file; the customer when the office attaches one.
+- UI: «المستندات» on the customer request page and in the office request panel (`components/request-files.tsx`), and optional attachments on the new-request form.
+- Storage settings: `HBS_FILE_STORE` (`replit` on Replit, `local` for development, `memory` for tests), `HBS_STORAGE_BUCKET_ID` for a non-default bucket. App Storage must be enabled for the Repl.

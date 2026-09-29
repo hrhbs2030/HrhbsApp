@@ -53,9 +53,10 @@ globalThis.require = __testCreateRequire(import.meta.url);`,
     .map((file) => path.join(outDir, file));
   // node --test runs each file in its own process, so a test that sets
   // environment variables before importing the app cannot affect another.
+  // One file at a time: the database tests share (and empty) the same tables.
   const result = spawnSync(
     process.execPath,
-    ["--enable-source-maps", "--test", ...outputs],
+    ["--enable-source-maps", "--test", "--test-concurrency=1", ...outputs],
     { stdio: "inherit" },
   );
   process.exitCode = result.status ?? 1;

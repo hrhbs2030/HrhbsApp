@@ -61,6 +61,7 @@ import {
   statusChangedMail,
 } from "../lib/notify";
 import { statusHistory } from "../lib/request-history";
+import { customerEmail } from "../lib/customers";
 import { emptyLegacyGroup, groupLegacyIds, inspectLegacyBackup, legacyKinds } from "../lib/legacy-backup";
 import {
   OFFICE_PAGE_SIZE,
@@ -138,17 +139,6 @@ function officeRequest(record: HbsServiceRequest, customer: OfficeCustomer) {
 }
 
 // The address the customer registered with, for notifications.
-// Runs after the response is sent, so a lookup failure only skips the email.
-async function customerEmail(userId: string): Promise<string | null> {
-  try {
-    const [registration] = await db.select({ email: hbsRegistrationRequests.email })
-      .from(hbsRegistrationRequests).where(eq(hbsRegistrationRequests.userId, userId)).limit(1);
-    return registration?.email ?? null;
-  } catch {
-    return null;
-  }
-}
-
 async function customerOf(userId: string): Promise<OfficeCustomer> {
   const [registration] = await db.select({
     fullName: hbsRegistrationRequests.fullName, email: hbsRegistrationRequests.email,

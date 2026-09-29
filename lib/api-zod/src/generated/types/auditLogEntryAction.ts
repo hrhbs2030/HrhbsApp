@@ -16,4 +16,8 @@ export const AuditLogEntryAction = {
   legacyimport: 'legacy.import',
   staffadd: 'staff.add',
   staffremove: 'staff.remove',
+  request_fileupload: 'request_file.upload',
+  request_filedownload: 'request_file.download',
+  request_filedelete: 'request_file.delete',
+  request_filepurge: 'request_file.purge',
 } as const;

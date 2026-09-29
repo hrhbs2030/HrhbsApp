@@ -44,3 +44,17 @@
 .nr-suggest button[aria-pressed="true"] { border-color: var(--color-teal); background: var(--color-teal); color: var(--color-on-dark); }
 .nr-suggest button:focus-visible { outline: 3px solid var(--color-copper); outline-offset: 2px; }
 @media (max-width: 560px) { .nr-suggest button { min-height: 44px; } }
+
+/* Optional attachments on the details step. */
+.nr-files { display: grid; gap: 10px; margin-top: 24px; padding: 16px; border-radius: 14px; border: 1px dashed var(--color-line-strong); background: var(--color-paper); }
+.nr-files-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.nr-files-label { font-size: 14px; font-weight: 700; color: var(--color-ink); }
+.nr-files-label small { font-weight: 500; color: var(--color-subtle); }
+.nr-files-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.nr-files-list li { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 6px 4px 12px; border-radius: 10px; background: var(--color-surface); border: 1px solid var(--color-line); font-size: 14px; }
+.nr-file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nr-files-list small { color: var(--color-subtle); font-size: 12px; flex: none; }
+.nr-files-list button { display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 8px; background: transparent; color: var(--color-quiet); cursor: pointer; }
+.nr-files-list button:hover { background: var(--color-danger-soft); color: var(--color-danger); }
+.nr-files-errors { padding: 8px 12px; border-radius: 10px; background: var(--color-danger-soft); color: var(--color-danger); font-size: 13px; line-height: 1.8; }
+.nr-files-errors p { margin: 0; }
