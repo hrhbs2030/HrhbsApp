@@ -6,6 +6,7 @@ import { getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, getListInq
 import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock, RequestRow, Status, StatusTrack, dateText, categoryNames, statusNames } from '@/components/portal-ui';
 import { CustomerAssistant } from '@/components/customer-assistant';
 import { LOCALE } from '@/lib/format';
+import { PrintButton } from '@/components/brand/print';
 
 const count = (value: number) => new Intl.NumberFormat(LOCALE).format(value);
 
@@ -101,7 +102,7 @@ export function RequestDetail() {
   return <PortalLayout><div className="max-w-[860px]"><BackLink href="/requests">طلباتي</BackLink>
     {!Number.isInteger(parsed)||parsed<=0 ? <EmptyBlock title="الطلب غير متاح" text="تحقق من رابط الطلب وحاول مرة أخرى."/> : q.isLoading ? <LoadingBlock/> : q.error?.status === 404 ? <EmptyBlock title="الطلب غير متاح" text="هذا الطلب غير موجود في حسابك."/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : q.data && <>
       {justSent && <div role="status" className="rise mb-6 flex items-start gap-3 rounded-2xl border border-sage-2 bg-ok-soft p-4 text-ok sm:p-5"><CircleCheck className="mt-0.5 shrink-0" size={22}/><div><strong className="block text-ink">تم إرسال طلبك إلى المكتب</strong><span className="text-sm leading-7">الرقم المرجعي <span dir="ltr" className="nums font-bold">{q.data.reference}</span>. تابع حالته من هذه الصفحة.</span></div></div>}
-      <PageHeading eyebrow={`طلب رقم ${q.data.reference}`} title={q.data.service} action={<Link href={`/inquiries?request=${q.data.id}`} className="btn btn-outline"><CircleHelp size={17}/>استفسر عن الطلب</Link>}/>
+      <PageHeading eyebrow={`طلب رقم ${q.data.reference}`} title={q.data.service} action={<div className="flex flex-wrap gap-2"><PrintButton /><Link href={`/inquiries?request=${q.data.id}`} className="btn btn-outline"><CircleHelp size={17}/>استفسر عن الطلب</Link></div>}/>
       <div className="surface overflow-hidden">
         <section aria-label="مراحل الطلب" className="px-5 py-6 sm:px-8">
           <StatusTrack status={q.data.status} createdAt={q.data.createdAt} updatedAt={q.data.updatedAt}/>

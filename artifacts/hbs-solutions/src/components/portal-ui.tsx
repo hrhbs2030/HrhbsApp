@@ -4,6 +4,8 @@ import { useClerk, useUser } from '@clerk/react';
 import { Archive, ArrowLeft, ArrowUpLeft, Check, CircleHelp, ClipboardList, History, Home, Inbox, LogOut, Menu, Plus, UserRoundCheck, UsersRound, X } from 'lucide-react';
 import { getGetPortalMeQueryKey, useGetPortalMe, type Inquiry, type ServiceRequest, type ServiceRequestStatus } from '@workspace/api-client-react';
 import { daysLabel, formatDate, formatNumber } from '@/lib/format';
+import { Logo, LogoMark } from '@/components/brand/logo';
+import { PrintFrame } from '@/components/brand/print';
 import { cityInfo, cityOrder } from './city-scene';
 import { SceneWindow, useSceneWindows } from './scene-window';
 import './portal-ui.css';
@@ -14,9 +16,8 @@ export const statusOptions: ServiceRequestStatus[] = ['received', 'reviewing', '
 export const dateText = (value: string | null | undefined) => formatDate(value);
 
 export function Brand({ light = false }: { light?: boolean }) {
-  return <Link href="/" className={`inline-flex items-center gap-3 no-underline ${light ? 'text-on-dark' : 'text-teal'}`} aria-label="HBS حلول الغد - الرئيسية">
-    <span className={`grid h-11 w-11 place-items-center rounded-[11px] font-bold text-[12px] tracking-[-.06em] ${light ? 'bg-copper-light text-teal' : 'bg-teal text-on-dark'}`}>HBS</span>
-    <span className="flex flex-col leading-[1.15]"><strong className="display text-[18px]">حلول الغد</strong><small className={`mt-1 text-[11.5px] font-semibold ${light ? 'text-on-dark-2' : 'text-quiet'}`}>خدمات المكتب الإلكترونية</small></span>
+  return <Link href="/" className="inline-flex no-underline" aria-label="HBS حلول الغد - الرئيسية">
+    <Logo tone={light ? 'light' : 'dark'} size={42} tagline />
   </Link>;
 }
 export function Status({ value }: { value: string }) { return <span className={`pill pill-${value}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{statusNames[value] ?? value}</span>; }
@@ -62,11 +63,11 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
         <Link href="/help" className="portal-topbar-help hidden lg:inline-flex"><CircleHelp size={17} strokeWidth={1.8} aria-hidden="true"/>المساعدة</Link>
       </header>
       <div className="portal-band" aria-hidden="true" />
-      <main className="portal-sheet flex-1"><div className="mx-auto max-w-[1130px] px-5 pb-20 pt-9 sm:px-9 sm:pt-12 lg:px-12">{children}</div></main>
+      <main className="portal-sheet flex-1"><div className="mx-auto max-w-[1130px] px-5 pb-20 pt-9 sm:px-9 sm:pt-12 lg:px-12"><PrintFrame />{children}</div></main>
       <footer className="portal-foot">
         <SceneWindow edge="bottom" />
         <div className="portal-foot-line">
-          <span className="portal-foot-mark" aria-hidden="true">HBS</span>
+          <LogoMark size={28} className="portal-foot-mark" />
           <small>© {new Date().getFullYear()} HBS حلول الغد</small>
           <span className="portal-foot-city" aria-hidden="true">{place.name} · {place.region}</span>
           <Link href="/help" className="portal-foot-help">المساعدة</Link>

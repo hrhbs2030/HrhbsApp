@@ -4,6 +4,7 @@ import { ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { getListOfficeAuditLogQueryKey, getListOfficeStaffQueryKey, useAddOfficeStaff, useListOfficeAuditLog, useListOfficeStaff, useRemoveOfficeStaff, type AuditLogEntry, type OfficeStaffMember } from '@workspace/api-client-react';
 import { EmptyBlock, ErrorBlock, LoadingBlock, PageHeading, PortalLayout, dateText, statusNames } from '@/components/portal-ui';
 import { LOCALE } from '@/lib/format';
+import { PrintButton } from '@/components/brand/print';
 
 function serverMessage(error: unknown, fallback: string): string {
   const data = (error as { data?: unknown } | null)?.data;
@@ -109,7 +110,7 @@ function auditSummary(entry: AuditLogEntry): string {
 export function OfficeAuditLog() {
   const log = useListOfficeAuditLog({ query: { queryKey: getListOfficeAuditLogQueryKey(), refetchInterval: 60_000 } });
   const timeText = (value: string) => new Intl.DateTimeFormat(LOCALE, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-  return <PortalLayout staff><PageHeading eyebrow="" title="سجل التدقيق" subtitle="آخر 200 إجراء لفريق المكتب، الأحدث أولًا."/>
+  return <PortalLayout staff><PageHeading eyebrow="" title="سجل التدقيق" subtitle="آخر 200 إجراء لفريق المكتب، الأحدث أولًا." action={<PrintButton />}/>
     {log.isLoading ? <LoadingBlock/> : log.isError ? <ErrorBlock retry={() => log.refetch()}/> : !log.data?.length ? <EmptyBlock title="لا توجد إجراءات بعد" text="تظهر هنا تحديثات الطلبات والردود ومراجعات التسجيل وتغييرات الفريق."/> :
       <div className="surface overflow-hidden">
         <div className="hidden border-b border-line bg-sunk px-6 py-3 text-xs font-bold text-subtle lg:grid lg:grid-cols-[140px_minmax(0,1fr)_220px_170px] lg:gap-4" aria-hidden="true"><span>الإجراء</span><span>التفاصيل</span><span>المنفّذ</span><span>الوقت</span></div>
