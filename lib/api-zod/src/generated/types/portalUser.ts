@@ -5,11 +5,14 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PortalUserOfficeRole } from './portalUserOfficeRole';
 import type { PortalUserRegistrationStatus } from './portalUserRegistrationStatus';
 import type { PortalUserRole } from './portalUserRole';
 
 export interface PortalUser {
   role: PortalUserRole;
+  /** @nullable */
+  officeRole: PortalUserOfficeRole;
   /** @nullable */
   registrationStatus: PortalUserRegistrationStatus;
 }

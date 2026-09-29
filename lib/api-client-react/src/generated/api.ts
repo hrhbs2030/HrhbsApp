@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AuditLogEntry,
   CustomerAIAnswer,
   CustomerAIQuestion,
   ExtractTransactionRequest,
@@ -35,6 +36,8 @@ import type {
   OfficeInquiry,
   OfficeRegistration,
   OfficeServiceRequest,
+  OfficeStaffInput,
+  OfficeStaffMember,
   OfficeSummary,
   PortalRegistration,
   PortalRegistrationResult,
@@ -1870,6 +1873,322 @@ export function useListLegacyImports<TData = Awaited<ReturnType<typeof listLegac
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListLegacyImportsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListOfficeStaffUrl = () => {
+
+
+
+
+  return `/api/office/staff`
+}
+
+/**
+ * @summary List office staff (owner only)
+ */
+export const listOfficeStaff = async ( options?: Parameters<typeof customFetch>[1]): Promise<OfficeStaffMember[]> => {
+
+  return customFetch<OfficeStaffMember[]>(getListOfficeStaffUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeStaffQueryKey = () => {
+    return [
+    `/api/office/staff`
+    ] as const;
+    }
+
+
+export const getListOfficeStaffQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeStaff>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeStaffQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeStaff>>> = ({ signal }) => listOfficeStaff({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeStaff>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeStaffQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeStaff>>>
+export type ListOfficeStaffQueryError = ErrorType<void>
+
+
+/**
+ * @summary List office staff (owner only)
+ */
+
+export function useListOfficeStaff<TData = Awaited<ReturnType<typeof listOfficeStaff>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeStaffQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAddOfficeStaffUrl = () => {
+
+
+
+
+  return `/api/office/staff`
+}
+
+/**
+ * @summary Give office access to an existing account by its verified email (owner only)
+ */
+export const addOfficeStaff = async (officeStaffInput: OfficeStaffInput, options?: Parameters<typeof customFetch>[1]): Promise<OfficeStaffMember> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OfficeStaffMember>(getAddOfficeStaffUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(officeStaffInput)
+  }
+);}
+
+
+
+
+
+export const getAddOfficeStaffMutationKey = () => ['addOfficeStaff'] as const;
+
+export const getAddOfficeStaffMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addOfficeStaff>>, TError,AddOfficeStaffMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addOfficeStaff>>, TError,AddOfficeStaffMutationVariables, TContext> => {
+
+const mutationKey = getAddOfficeStaffMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addOfficeStaff>>, AddOfficeStaffMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  addOfficeStaff(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddOfficeStaffMutationResult = NonNullable<Awaited<ReturnType<typeof addOfficeStaff>>>
+    export type AddOfficeStaffMutationBody = BodyType<OfficeStaffInput>
+    export type AddOfficeStaffMutationError = ErrorType<void>
+    export type AddOfficeStaffMutationVariables = {data: BodyType<OfficeStaffInput>}
+
+    /**
+ * @summary Give office access to an existing account by its verified email (owner only)
+ */
+export const useAddOfficeStaff = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addOfficeStaff>>, TError,AddOfficeStaffMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addOfficeStaff>>,
+        TError,
+        AddOfficeStaffMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAddOfficeStaffMutationOptions(options));
+    }
+
+export const getRemoveOfficeStaffUrl = (userId: string,) => {
+
+
+
+
+  return `/api/office/staff/${userId}`
+}
+
+/**
+ * @summary Remove a staff member's office access (owner only)
+ */
+export const removeOfficeStaff = async (userId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRemoveOfficeStaffUrl(userId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemoveOfficeStaffMutationKey = () => ['removeOfficeStaff'] as const;
+
+export const getRemoveOfficeStaffMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeOfficeStaff>>, TError,RemoveOfficeStaffMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeOfficeStaff>>, TError,RemoveOfficeStaffMutationVariables, TContext> => {
+
+const mutationKey = getRemoveOfficeStaffMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeOfficeStaff>>, RemoveOfficeStaffMutationVariables> = (props) => {
+          const {userId} = props ?? {};
+
+          return  removeOfficeStaff(userId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveOfficeStaffMutationResult = NonNullable<Awaited<ReturnType<typeof removeOfficeStaff>>>
+
+    export type RemoveOfficeStaffMutationError = ErrorType<void>
+    export type RemoveOfficeStaffMutationVariables = {userId: string}
+
+    /**
+ * @summary Remove a staff member's office access (owner only)
+ */
+export const useRemoveOfficeStaff = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeOfficeStaff>>, TError,RemoveOfficeStaffMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeOfficeStaff>>,
+        TError,
+        RemoveOfficeStaffMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRemoveOfficeStaffMutationOptions(options));
+    }
+
+export const getListOfficeAuditLogUrl = () => {
+
+
+
+
+  return `/api/office/audit-log`
+}
+
+/**
+ * @summary Latest office actions, newest first (owner only)
+ */
+export const listOfficeAuditLog = async ( options?: Parameters<typeof customFetch>[1]): Promise<AuditLogEntry[]> => {
+
+  return customFetch<AuditLogEntry[]>(getListOfficeAuditLogUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeAuditLogQueryKey = () => {
+    return [
+    `/api/office/audit-log`
+    ] as const;
+    }
+
+
+export const getListOfficeAuditLogQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeAuditLog>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeAuditLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeAuditLogQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeAuditLog>>> = ({ signal }) => listOfficeAuditLog({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeAuditLog>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeAuditLogQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeAuditLog>>>
+export type ListOfficeAuditLogQueryError = ErrorType<void>
+
+
+/**
+ * @summary Latest office actions, newest first (owner only)
+ */
+
+export function useListOfficeAuditLog<TData = Awaited<ReturnType<typeof listOfficeAuditLog>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeAuditLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeAuditLogQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

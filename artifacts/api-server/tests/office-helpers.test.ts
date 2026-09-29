@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { emptyLegacyGroup, groupLegacyIds } from "../src/lib/legacy-backup";
 
-// portal.ts imports the database client, which only needs a URL to be set.
+// office-access imports the database client, which only needs a URL to be set.
 process.env.DATABASE_URL ??= "postgres://test:test@127.0.0.1:1/test";
-const { verifiedEmailOf } = await import("../src/routes/portal");
+const { officeRoleFor, verifiedEmailOf } = await import("../src/lib/office-access");
 
 test("groups legacy archive IDs per import with sorted IDs and counts", () => {
   const grouped = groupLegacyIds([
@@ -49,4 +49,24 @@ test("returns only a verified registration email, ignoring case", () => {
   assert.equal(verifiedEmailOf(user, "none@example.test"), null);
   assert.equal(verifiedEmailOf(user, "missing@example.test"), null);
   assert.equal(verifiedEmailOf(undefined, "owner@example.test"), null);
+});
+
+test("derives the office role from verified emails only", () => {
+  const account = (...entries: [string, string | null][]) => ({
+    emailAddresses: entries.map(([emailAddress, status]) => ({
+      emailAddress,
+      verification: status ? { status } : null,
+    })),
+  });
+  const owner = "office@example.test";
+
+  assert.equal(officeRoleFor(account(["Office@Example.test", "verified"]), owner, null), "owner");
+  assert.equal(officeRoleFor(account(["office@example.test", "verified"]), owner, "staff@example.test"), "owner");
+  assert.equal(officeRoleFor(account(["staff@example.test", "verified"]), owner, "staff@example.test"), "staff");
+  // An owner row grants nothing once the approved email is gone.
+  assert.equal(officeRoleFor(account(["staff@example.test", "verified"]), owner, null), null);
+  // A staff row needs its own email to stay verified.
+  assert.equal(officeRoleFor(account(["staff@example.test", "unverified"]), owner, "staff@example.test"), null);
+  assert.equal(officeRoleFor(account(["other@example.test", "verified"]), owner, "staff@example.test"), null);
+  assert.equal(officeRoleFor(account(["office@example.test", "unverified"]), owner, null), null);
 });

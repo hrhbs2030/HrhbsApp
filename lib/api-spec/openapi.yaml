@@ -443,8 +443,128 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/LegacyImportSummary"
+  /office/staff:
+    get:
+      operationId: listOfficeStaff
+      tags: [portal]
+      summary: List office staff (owner only)
+      responses:
+        "200":
+          description: Office staff accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OfficeStaffMember"
+        "401":
+          description: Authentication required
+        "403":
+          description: Office owner access required
+    post:
+      operationId: addOfficeStaff
+      tags: [portal]
+      summary: Give office access to an existing account by its verified email (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfficeStaffInput"
+      responses:
+        "201":
+          description: Added staff member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeStaffMember"
+        "400":
+          description: Invalid email
+        "401":
+          description: Authentication required
+        "403":
+          description: Office owner access required
+        "404":
+          description: No account has this email verified
+        "409":
+          description: The account already has office access
+  /office/staff/{userId}:
+    delete:
+      operationId: removeOfficeStaff
+      tags: [portal]
+      summary: Remove a staff member's office access (owner only)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      responses:
+        "204":
+          description: Access removed
+        "400":
+          description: The owner account cannot be removed
+        "401":
+          description: Authentication required
+        "403":
+          description: Office owner access required
+        "404":
+          description: Staff member not found
+  /office/audit-log:
+    get:
+      operationId: listOfficeAuditLog
+      tags: [portal]
+      summary: Latest office actions, newest first (owner only)
+      responses:
+        "200":
+          description: Up to 200 most recent audit entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLogEntry"
+        "401":
+          description: Authentication required
+        "403":
+          description: Office owner access required
 components:
   schemas:
+    OfficeStaffInput:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+    OfficeStaffMember:
+      type: object
+      required: [userId, email, role, addedBy, createdAt]
+      properties:
+        userId: { type: string }
+        email: { type: ["string", "null"] }
+        role:
+          type: string
+          enum: [owner, staff]
+        addedBy: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    AuditLogEntry:
+      type: object
+      required: [id, actorId, actorEmail, action, targetType, targetId, details, createdAt]
+      properties:
+        id: { type: integer }
+        actorId: { type: string }
+        actorEmail: { type: ["string", "null"] }
+        action:
+          type: string
+          enum: [service_request.update, inquiry.answer, registration.review, legacy.import, staff.add, staff.remove]
+        targetType: { type: string }
+        targetId: { type: string }
+        details:
+          type: object
+          additionalProperties: true
+        createdAt: { type: string, format: date-time }
     LegacyBackupInput:
       type: object
       required: [contents]
@@ -501,11 +621,14 @@ components:
         answer: { type: string }
     PortalUser:
       type: object
-      required: [role, registrationStatus]
+      required: [role, officeRole, registrationStatus]
       properties:
         role:
           type: string
           enum: [customer, staff]
+        officeRole:
+          type: ["string", "null"]
+          enum: [owner, staff, null]
         registrationStatus:
           type: ["string", "null"]
           enum: [pending, approved, rejected, null]

@@ -5,6 +5,55 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface OfficeStaffInput {
+  /** @maxLength 254 */
+  email: string;
+}
+
+export type OfficeStaffMemberRole = typeof OfficeStaffMemberRole[keyof typeof OfficeStaffMemberRole];
+
+
+export const OfficeStaffMemberRole = {
+  owner: 'owner',
+  staff: 'staff',
+} as const;
+
+export interface OfficeStaffMember {
+  userId: string;
+  /** @nullable */
+  email: string | null;
+  role: OfficeStaffMemberRole;
+  /** @nullable */
+  addedBy: string | null;
+  createdAt: string;
+}
+
+export type AuditLogEntryAction = typeof AuditLogEntryAction[keyof typeof AuditLogEntryAction];
+
+
+export const AuditLogEntryAction = {
+  service_requestupdate: 'service_request.update',
+  inquiryanswer: 'inquiry.answer',
+  registrationreview: 'registration.review',
+  legacyimport: 'legacy.import',
+  staffadd: 'staff.add',
+  staffremove: 'staff.remove',
+} as const;
+
+export type AuditLogEntryDetails = { [key: string]: unknown };
+
+export interface AuditLogEntry {
+  id: number;
+  actorId: string;
+  /** @nullable */
+  actorEmail: string | null;
+  action: AuditLogEntryAction;
+  targetType: string;
+  targetId: string;
+  details: AuditLogEntryDetails;
+  createdAt: string;
+}
+
 export interface LegacyBackupInput {
   /**
      * @minLength 1
@@ -76,6 +125,17 @@ export const PortalUserRole = {
 /**
  * @nullable
  */
+export type PortalUserOfficeRole = typeof PortalUserOfficeRole[keyof typeof PortalUserOfficeRole] | null;
+
+
+export const PortalUserOfficeRole = {
+  owner: 'owner',
+  staff: 'staff',
+} as const;
+
+/**
+ * @nullable
+ */
 export type PortalUserRegistrationStatus = typeof PortalUserRegistrationStatus[keyof typeof PortalUserRegistrationStatus] | null;
 
 
@@ -87,6 +147,8 @@ export const PortalUserRegistrationStatus = {
 
 export interface PortalUser {
   role: PortalUserRole;
+  /** @nullable */
+  officeRole: PortalUserOfficeRole;
   /** @nullable */
   registrationStatus: PortalUserRegistrationStatus;
 }
