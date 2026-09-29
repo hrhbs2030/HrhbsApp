@@ -1,0 +1,231 @@
+{
+  "tables": {
+    "conversations": {
+      "created_at": "timestamp with time zone not null",
+      "id": "integer not null",
+      "title": "text not null"
+    },
+    "hbs_approved_information": {
+      "draft_content": "text not null",
+      "draft_title": "text not null",
+      "id": "integer not null",
+      "published_at": "timestamp with time zone",
+      "published_content": "text",
+      "published_reviewed_at": "timestamp with time zone",
+      "published_title": "text",
+      "reviewed_at": "timestamp with time zone",
+      "updated_at": "timestamp with time zone not null"
+    },
+    "hbs_approved_information_history": {
+      "action": "text not null",
+      "changed_at": "timestamp with time zone not null",
+      "content": "text not null",
+      "id": "integer not null",
+      "information_id": "integer not null",
+      "published_at": "timestamp with time zone not null",
+      "reviewed_at": "timestamp with time zone not null",
+      "title": "text not null"
+    },
+    "hbs_audit_log": {
+      "action": "text not null",
+      "actor_id": "text not null",
+      "created_at": "timestamp with time zone not null",
+      "details": "jsonb not null",
+      "id": "integer not null",
+      "target_id": "text not null",
+      "target_type": "text not null"
+    },
+    "hbs_inquiries": {
+      "answer": "text",
+      "answered_at": "timestamp with time zone",
+      "created_at": "timestamp with time zone not null",
+      "id": "integer not null",
+      "linked_service_request_id": "integer",
+      "message": "text not null",
+      "status": "text not null",
+      "subject": "text not null",
+      "user_id": "text not null"
+    },
+    "hbs_legacy_imports": {
+      "digest": "text not null",
+      "exported_at": "text not null",
+      "id": "integer not null",
+      "imported_at": "timestamp with time zone not null",
+      "imported_by": "text not null"
+    },
+    "hbs_legacy_records": {
+      "data": "jsonb not null",
+      "id": "integer not null",
+      "import_id": "integer not null",
+      "kind": "text not null",
+      "legacy_id": "text not null"
+    },
+    "hbs_office_staff": {
+      "added_by": "text",
+      "created_at": "timestamp with time zone not null",
+      "email": "text",
+      "user_id": "text not null"
+    },
+    "hbs_registration_requests": {
+      "contact_phone": "text not null",
+      "created_at": "timestamp with time zone not null",
+      "email": "text not null",
+      "full_name": "text not null",
+      "id": "integer not null",
+      "note": "text",
+      "reason": "text",
+      "reviewer_id": "text",
+      "status": "text not null",
+      "updated_at": "timestamp with time zone not null",
+      "user_id": "text not null"
+    },
+    "hbs_request_attachments": {
+      "content_type": "text not null",
+      "created_at": "timestamp with time zone not null",
+      "expires_at": "timestamp with time zone not null",
+      "id": "integer not null",
+      "name": "text not null",
+      "object_path": "text not null",
+      "request_id": "integer",
+      "size": "integer not null",
+      "user_id": "text not null"
+    },
+    "hbs_service_requests": {
+      "category": "text not null",
+      "client_request_id": "text",
+      "contact_phone": "text not null",
+      "created_at": "timestamp with time zone not null",
+      "customer_message": "text",
+      "description": "text not null",
+      "id": "integer not null",
+      "office_note": "text",
+      "service": "text not null",
+      "status": "text not null",
+      "updated_at": "timestamp with time zone not null",
+      "user_id": "text not null"
+    },
+    "messages": {
+      "content": "text not null",
+      "conversation_id": "integer not null",
+      "created_at": "timestamp with time zone not null",
+      "id": "integer not null",
+      "role": "text not null"
+    }
+  },
+  "checks": {
+    "hbs_inquiries_status_check": {
+      "table": "hbs_inquiries",
+      "definition": "CHECK ((status = ANY (ARRAY['open'::text, 'answered'::text])))"
+    },
+    "hbs_registration_requests_status_check": {
+      "table": "hbs_registration_requests",
+      "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))"
+    },
+    "hbs_service_requests_category_check": {
+      "table": "hbs_service_requests",
+      "definition": "CHECK ((category = ANY (ARRAY['passports'::text, 'labor'::text, 'business'::text, 'other'::text])))"
+    },
+    "hbs_service_requests_status_check": {
+      "table": "hbs_service_requests",
+      "definition": "CHECK ((status = ANY (ARRAY['received'::text, 'reviewing'::text, 'waiting_on_customer'::text, 'completed'::text])))"
+    }
+  },
+  "indexes": {
+    "conversations_pkey": {
+      "table": "conversations",
+      "definition": "CREATE UNIQUE INDEX conversations_pkey ON public.conversations USING btree (id)"
+    },
+    "hbs_approved_information_history_pkey": {
+      "table": "hbs_approved_information_history",
+      "definition": "CREATE UNIQUE INDEX hbs_approved_information_history_pkey ON public.hbs_approved_information_history USING btree (id)"
+    },
+    "hbs_approved_information_pkey": {
+      "table": "hbs_approved_information",
+      "definition": "CREATE UNIQUE INDEX hbs_approved_information_pkey ON public.hbs_approved_information USING btree (id)"
+    },
+    "hbs_audit_log_created_idx": {
+      "table": "hbs_audit_log",
+      "definition": "CREATE INDEX hbs_audit_log_created_idx ON public.hbs_audit_log USING btree (created_at)"
+    },
+    "hbs_audit_log_pkey": {
+      "table": "hbs_audit_log",
+      "definition": "CREATE UNIQUE INDEX hbs_audit_log_pkey ON public.hbs_audit_log USING btree (id)"
+    },
+    "hbs_inquiries_pkey": {
+      "table": "hbs_inquiries",
+      "definition": "CREATE UNIQUE INDEX hbs_inquiries_pkey ON public.hbs_inquiries USING btree (id)"
+    },
+    "hbs_inquiries_user_idx": {
+      "table": "hbs_inquiries",
+      "definition": "CREATE INDEX hbs_inquiries_user_idx ON public.hbs_inquiries USING btree (user_id)"
+    },
+    "hbs_legacy_imports_date_idx": {
+      "table": "hbs_legacy_imports",
+      "definition": "CREATE INDEX hbs_legacy_imports_date_idx ON public.hbs_legacy_imports USING btree (imported_at)"
+    },
+    "hbs_legacy_imports_digest_unique": {
+      "table": "hbs_legacy_imports",
+      "definition": "CREATE UNIQUE INDEX hbs_legacy_imports_digest_unique ON public.hbs_legacy_imports USING btree (digest)"
+    },
+    "hbs_legacy_imports_pkey": {
+      "table": "hbs_legacy_imports",
+      "definition": "CREATE UNIQUE INDEX hbs_legacy_imports_pkey ON public.hbs_legacy_imports USING btree (id)"
+    },
+    "hbs_legacy_records_pkey": {
+      "table": "hbs_legacy_records",
+      "definition": "CREATE UNIQUE INDEX hbs_legacy_records_pkey ON public.hbs_legacy_records USING btree (id)"
+    },
+    "hbs_legacy_records_source_idx": {
+      "table": "hbs_legacy_records",
+      "definition": "CREATE UNIQUE INDEX hbs_legacy_records_source_idx ON public.hbs_legacy_records USING btree (import_id, kind, legacy_id)"
+    },
+    "hbs_office_staff_email_unique": {
+      "table": "hbs_office_staff",
+      "definition": "CREATE UNIQUE INDEX hbs_office_staff_email_unique ON public.hbs_office_staff USING btree (email)"
+    },
+    "hbs_office_staff_pkey": {
+      "table": "hbs_office_staff",
+      "definition": "CREATE UNIQUE INDEX hbs_office_staff_pkey ON public.hbs_office_staff USING btree (user_id)"
+    },
+    "hbs_registration_requests_pkey": {
+      "table": "hbs_registration_requests",
+      "definition": "CREATE UNIQUE INDEX hbs_registration_requests_pkey ON public.hbs_registration_requests USING btree (id)"
+    },
+    "hbs_registration_requests_user_id_unique": {
+      "table": "hbs_registration_requests",
+      "definition": "CREATE UNIQUE INDEX hbs_registration_requests_user_id_unique ON public.hbs_registration_requests USING btree (user_id)"
+    },
+    "hbs_request_attachments_path_unique": {
+      "table": "hbs_request_attachments",
+      "definition": "CREATE UNIQUE INDEX hbs_request_attachments_path_unique ON public.hbs_request_attachments USING btree (object_path)"
+    },
+    "hbs_request_attachments_pkey": {
+      "table": "hbs_request_attachments",
+      "definition": "CREATE UNIQUE INDEX hbs_request_attachments_pkey ON public.hbs_request_attachments USING btree (id)"
+    },
+    "hbs_request_attachments_request_idx": {
+      "table": "hbs_request_attachments",
+      "definition": "CREATE INDEX hbs_request_attachments_request_idx ON public.hbs_request_attachments USING btree (request_id)"
+    },
+    "hbs_request_attachments_user_idx": {
+      "table": "hbs_request_attachments",
+      "definition": "CREATE INDEX hbs_request_attachments_user_idx ON public.hbs_request_attachments USING btree (user_id)"
+    },
+    "hbs_service_requests_pkey": {
+      "table": "hbs_service_requests",
+      "definition": "CREATE UNIQUE INDEX hbs_service_requests_pkey ON public.hbs_service_requests USING btree (id)"
+    },
+    "hbs_service_requests_user_client_request_idx": {
+      "table": "hbs_service_requests",
+      "definition": "CREATE UNIQUE INDEX hbs_service_requests_user_client_request_idx ON public.hbs_service_requests USING btree (user_id, client_request_id)"
+    },
+    "hbs_service_requests_user_idx": {
+      "table": "hbs_service_requests",
+      "definition": "CREATE INDEX hbs_service_requests_user_idx ON public.hbs_service_requests USING btree (user_id)"
+    },
+    "messages_pkey": {
+      "table": "messages",
+      "definition": "CREATE UNIQUE INDEX messages_pkey ON public.messages USING btree (id)"
+    }
+  }
+}

@@ -14,6 +14,7 @@ import {
   Status, dateText, categoryNames, isStale, statusOptions, statusNames, useDebouncedValue,
 } from '@/components/portal-ui';
 import { LOCALE } from '@/lib/format';
+import { RequestFiles } from '@/components/request-files';
 
 const pageSize = 20;
 type RequestSort = 'newest' | 'oldest_update';
@@ -170,6 +171,7 @@ function RequestEditor({ request }: { request: OfficeServiceRequest }) {
       {isStale(request) && <StaleBadge updatedAt={request.updatedAt}/>}
       <div className="grid grid-cols-2 gap-3 text-xs"><div><span className="muted block">المجال</span><strong>{categoryNames[request.category]}</strong></div><div><span className="muted block">تاريخ الإرسال</span><strong>{dateText(request.createdAt)}</strong></div><div className="col-span-2"><span className="muted block">رقم التواصل</span><strong dir="ltr" className="inline-block">{request.contactPhone}</strong></div></div>
       <div className="border-t border-line pt-4"><div className="mb-2 text-xs font-bold text-subtle">تفاصيل العميل</div><p className="max-h-44 overflow-y-auto whitespace-pre-wrap text-sm leading-7">{request.description}</p></div>
+      <div className="border-t border-line pt-4"><RequestFiles key={request.id} scope="office" requestId={request.id} attachments={request.attachments} canUpload onChanged={() => qc.invalidateQueries({ queryKey: getListOfficeServiceRequestsQueryKey() })}/></div>
       <form onSubmit={submit} className="space-y-4 border-t border-line pt-5">
         <label className="form-field">تحديث الحالة<select className="form-control" value={status} onChange={e => setStatus(e.target.value as ServiceRequestUpdateStatus)}>{statusOptions.map(s => <option value={s} key={s}>{statusNames[s]}</option>)}</select></label>
         {status === 'waiting_on_customer' && <label className="form-field">ما يحتاجه المكتب من العميل<textarea className="form-control !min-h-24" value={customerMessage} onChange={e => setCustomerMessage(e.target.value)} maxLength={2000} minLength={2} required placeholder="وضّح للعميل ما يلزم لإكمال الطلب..."/><small className="muted font-normal">تظهر هذه الرسالة للعميل في طلبه.</small></label>}

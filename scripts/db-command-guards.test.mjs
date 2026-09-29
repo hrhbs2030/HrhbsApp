@@ -17,6 +17,7 @@ const dbCommands = [
   'test:service-requests',
   'test:attachment-cleanup',
   'test:attachment-access',
+  'test:attachment-lifecycle',
   'test:attachment-storage',
   'test:assistant-citations',
   'test:approved-information-history',

@@ -334,7 +334,9 @@ export const GetPortalSummaryResponse = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
   "contentType": zod.string(),
-  "size": zod.number().int()
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
 }))
 })),
   "recentInquiries": zod.array(zod.object({
@@ -369,7 +371,9 @@ export const ListServiceRequestsResponseItem = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
   "contentType": zod.string(),
-  "size": zod.number().int()
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
 }))
 })
 export const ListServiceRequestsResponse = zod.array(ListServiceRequestsResponseItem)
@@ -417,7 +421,9 @@ export const CreateServiceRequestResponse = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
   "contentType": zod.string(),
-  "size": zod.number().int()
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
 }))
 })
 
@@ -444,6 +450,55 @@ export const RequestServiceAttachmentUploadResponse = zod.object({
 
 
 /**
+ * @summary Attach uploaded files (reserved with the upload-url endpoint) to an existing request
+ */
+export const AttachServiceRequestFilesParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+
+export const attachServiceRequestFilesBodyAttachmentIdsMax = 10;
+
+
+
+export const AttachServiceRequestFilesBody = zod.object({
+  "attachmentIds": zod.array(zod.number().int().min(1)).min(1).max(attachServiceRequestFilesBodyAttachmentIdsMax)
+})
+
+export const AttachServiceRequestFilesResponse = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "category": zod.enum(['passports', 'labor', 'business', 'other']),
+  "service": zod.string(),
+  "description": zod.string(),
+  "contactPhone": zod.string(),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']),
+  "customerMessage": zod.string().nullable(),
+  "clientRequestId": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Remove an attachment from a request
+ */
+export const DeleteServiceRequestFileParams = zod.object({
+  "attachmentId": zod.coerce.number().int()
+})
+
+export const DeleteServiceRequestFileResponse = zod.void()
+
+
+/**
  * @summary Download a submitted attachment owned by the customer
  */
 export const DownloadServiceAttachmentParams = zod.object({
@@ -451,6 +506,80 @@ export const DownloadServiceAttachmentParams = zod.object({
 })
 
 export const DownloadServiceAttachmentResponse = zod.unknown()
+
+
+/**
+ * @summary Reserve a private upload for office staff
+ */
+export const requestOfficeServiceAttachmentUploadBodyNameMax = 160;
+
+export const requestOfficeServiceAttachmentUploadBodySizeMax = 10485760;
+
+
+
+export const RequestOfficeServiceAttachmentUploadBody = zod.object({
+  "name": zod.string().min(1).max(requestOfficeServiceAttachmentUploadBodyNameMax),
+  "size": zod.number().int().min(1).max(requestOfficeServiceAttachmentUploadBodySizeMax),
+  "contentType": zod.enum(['application/pdf', 'image/jpeg', 'image/png'])
+})
+
+export const RequestOfficeServiceAttachmentUploadResponse = zod.object({
+  "attachmentId": zod.number().int(),
+  "uploadURL": zod.string()
+})
+
+
+/**
+ * @summary Attach uploaded files (reserved with the upload-url endpoint) to an existing request
+ */
+export const AttachOfficeServiceRequestFilesParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+
+export const attachOfficeServiceRequestFilesBodyAttachmentIdsMax = 10;
+
+
+
+export const AttachOfficeServiceRequestFilesBody = zod.object({
+  "attachmentIds": zod.array(zod.number().int().min(1)).min(1).max(attachOfficeServiceRequestFilesBodyAttachmentIdsMax)
+})
+
+export const AttachOfficeServiceRequestFilesResponse = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "category": zod.enum(['passports', 'labor', 'business', 'other']),
+  "service": zod.string(),
+  "description": zod.string(),
+  "contactPhone": zod.string(),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']),
+  "officeNote": zod.string().nullish(),
+  "customerMessage": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+})),
+  "customer": zod.union([zod.object({
+  "fullName": zod.string(),
+  "email": zod.string().email()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Remove an attachment from a request
+ */
+export const DeleteOfficeServiceRequestFileParams = zod.object({
+  "attachmentId": zod.coerce.number().int()
+})
+
+export const DeleteOfficeServiceRequestFileResponse = zod.void()
 
 
 /**
@@ -486,7 +615,9 @@ export const GetServiceRequestResponse = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
   "contentType": zod.string(),
-  "size": zod.number().int()
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
 }))
 })
 
@@ -607,7 +738,9 @@ export const ListOfficeServiceRequestsResponse = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
   "contentType": zod.string(),
-  "size": zod.number().int()
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
 })),
   "customer": zod.union([zod.object({
   "fullName": zod.string(),
@@ -706,7 +839,9 @@ export const UpdateOfficeServiceRequestResponse = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
   "contentType": zod.string(),
-  "size": zod.number().int()
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
 })),
   "customer": zod.union([zod.object({
   "fullName": zod.string(),
@@ -953,7 +1088,7 @@ export const ListOfficeAuditLogResponseItem = zod.object({
   "id": zod.number().int(),
   "actorId": zod.string(),
   "actorEmail": zod.string().email().nullable(),
-  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer']),
+  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge']),
   "targetType": zod.string(),
   "targetId": zod.string(),
   "details": zod.record(zod.string(), zod.unknown()),

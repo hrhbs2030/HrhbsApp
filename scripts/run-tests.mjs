@@ -28,6 +28,7 @@ const databaseChecks = [
   [api, 'test:service-requests'],
   [api, 'test:attachment-cleanup'],
   [api, 'test:attachment-access'],
+  [api, 'test:attachment-lifecycle'],
   [api, 'test:assistant-citations'],
   [api, 'test:approved-information-history'],
   [api, 'test:office-staff-management'],

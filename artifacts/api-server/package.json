@@ -14,6 +14,7 @@
     "test:service-requests": "node ../../scripts/run-db-test.mjs tests/service-request-regressions.test.ts",
     "test:attachment-cleanup": "node ../../scripts/run-db-test.mjs tests/expired-request-attachments.test.ts",
     "test:attachment-access": "HBS_OFFICE_EMAIL=attachment-access-office@example.invalid node ../../scripts/run-db-test.mjs tests/request-attachment-access.test.ts",
+    "test:attachment-lifecycle": "HBS_OFFICE_EMAIL=attachment-lifecycle-office@example.invalid node ../../scripts/run-db-test.mjs tests/request-attachment-lifecycle.test.ts",
     "test:attachment-storage": "HBS_OFFICE_EMAIL=attachment-storage-office@example.invalid node ../../scripts/run-db-test.mjs tests/request-attachment-storage.test.ts",
     "test:assistant-retrieval": "tsx --test tests/assistant-retrieval.test.ts",
     "test:notifications": "tsx --test tests/notifications.test.ts",

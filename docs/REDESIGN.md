@@ -101,3 +101,15 @@
   - Office inbox: new request, new registration, new inquiry.
   - Messages carry the reference, service and status only; details stay behind sign-in.
 - Secrets: `SMTP_HOST`, `SMTP_PORT` (465, or 587 for STARTTLS), `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `HBS_NOTIFY_EMAIL` (defaults to `HBS_OFFICE_EMAIL`), `PUBLIC_SITE_URL`.
+
+## Request documents on the existing attachment system (replaces PR #15)
+
+- Replit's `hbs_request_attachments` (signed-URL upload → checked copy to `/objects/submitted/`) stays the only document store. PR #15's separate `hbs_request_files` design was dropped.
+- Added: attaching files to an open request later (`POST /service-requests/{id}/attachments`), office uploads (`/office/service-requests/attachments/upload-url` + attach), removal (customers: their own files while open; office: any, audited), 10 files per request, `uploadedBy`/`createdAt` on each attachment, audited office downloads, 90-day purge after completion in the existing sweep, and emails to the other side.
+- UI: «المستندات» on the customer request page and the office request panel (`components/request-files.tsx`), optional files on the new-request form (uploaded before submitting, with a per-form `clientRequestId`).
+
+## Database migrations (restored)
+
+- Replit applied schema changes with `drizzle-kit push` and removed the migration scripts; `0003_replit_attachments_and_information.sql` now records those changes, and the status/category CHECK constraints are kept.
+- Production is brought back under migrations with `pnpm --filter @workspace/db run adopt` (read-only report) and `-- --apply` (re-adds missing CHECK constraints after checking rows, records migrations as applied). `expected-schema.json` is regenerated with `run expected-schema` and checked in CI.
+- Never use `push` against production; use `generate` + `migrate`.

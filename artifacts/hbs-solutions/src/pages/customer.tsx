@@ -7,6 +7,7 @@ import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock, Reques
 import { CustomerAssistant } from '@/components/customer-assistant';
 import { PrintButton } from '@/components/brand/print';
 import { LOCALE, formatDateTime } from '@/lib/format';
+import { RequestFiles } from '@/components/request-files';
 
 const count = (value: number) => new Intl.NumberFormat(LOCALE).format(value);
 
@@ -108,6 +109,7 @@ export function RequestDetail() {
           <Info label="مجال الخدمة" value={categoryNames[q.data.category]}/><Info label="رقم التواصل" value={q.data.contactPhone} ltr/><Info label="آخر تحديث" value={dateText(q.data.updatedAt)}/>
         </dl>
         <div className="border-t border-line px-5 py-6 sm:px-8"><h2 className="mb-2 text-xs font-bold text-subtle">تفاصيل الطلب</h2><p className="whitespace-pre-wrap text-sm leading-8">{q.data.description}</p></div>
+        <div className="border-t border-line px-5 py-6 sm:px-8"><RequestFiles scope="customer" requestId={q.data.id} attachments={q.data.attachments} canUpload={q.data.status !== 'completed'} onChanged={() => q.refetch()}/></div>
       </div>
     </>}
   </div></PortalLayout>;

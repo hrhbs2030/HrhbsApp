@@ -1,4 +1,5 @@
-import { index, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { check, index, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -18,6 +19,8 @@ export const hbsServiceRequests = pgTable("hbs_service_requests", {
 }, (table) => [
   index("hbs_service_requests_user_idx").on(table.userId),
   uniqueIndex("hbs_service_requests_user_client_request_idx").on(table.userId, table.clientRequestId),
+  check("hbs_service_requests_category_check", sql`${table.category} in ('passports', 'labor', 'business', 'other')`),
+  check("hbs_service_requests_status_check", sql`${table.status} in ('received', 'reviewing', 'waiting_on_customer', 'completed')`),
 ]);
 
 export const insertHbsServiceRequestSchema = createInsertSchema(hbsServiceRequests).omit({
