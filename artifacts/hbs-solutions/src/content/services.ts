@@ -28,10 +28,10 @@ export type CategoryInfo = {
 };
 
 export const categories: CategoryInfo[] = [
-  { id: 'passports', slug: 'passports', name: 'الجوازات', description: 'معاملات الإقامة والتأشيرات والتنقل للعاملين والمقيمين.' },
-  { id: 'labor', slug: 'labor', name: 'العمل', description: 'معاملات العمالة ورخص العمل ونقل الخدمات والأجور.' },
-  { id: 'business', slug: 'business', name: 'الأعمال', description: 'السجلات التجارية وتأسيس المنشآت وتعديل بياناتها والتسجيل الضريبي.' },
-  { id: 'other', slug: 'other', name: 'خدمات أخرى', description: 'استشارات ومعاملات لا تندرج تحت المجالات السابقة.' },
+  { id: 'passports', slug: 'passports', name: 'الجوازات والإقامة', description: 'المعاملات الحكومية للمقيمين: الإقامة والتأشيرات والخروج والعودة.' },
+  { id: 'labor', slug: 'labor', name: 'الموارد البشرية والعمل', description: 'رخص العمل ونقل الخدمات والأجور وشؤون الموظفين.' },
+  { id: 'business', slug: 'business', name: 'تأسيس الشركات والتراخيص', description: 'السجل التجاري وتأسيس المنشآت وتعديل بياناتها والتسجيل الضريبي.' },
+  { id: 'other', slug: 'other', name: 'دعم الأعمال', description: 'استشارات ومعاملات أخرى تحتاجها منشأتك ولا تندرج تحت ما سبق.' },
 ];
 
 export const categoryById = Object.fromEntries(categories.map((c) => [c.id, c])) as Record<ServiceCategory, CategoryInfo>;

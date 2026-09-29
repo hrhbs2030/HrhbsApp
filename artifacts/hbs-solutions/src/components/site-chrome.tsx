@@ -11,6 +11,7 @@ const ICON = 1.75;
 export const siteNavigation = [
   { href: '/services', label: 'الخدمات' },
   { href: '/#how', label: 'كيف تعمل البوابة' },
+  { href: '/#assistant', label: 'أم مشعل' },
   { href: '/trust', label: 'الخصوصية والأمان' },
   { href: '/help', label: 'المساعدة' },
 ];
@@ -99,6 +100,8 @@ export function SiteFooter() {
                 <li><Link href="/sign-up">طلب التسجيل</Link></li>
                 <li><Link href="/sign-in">تسجيل الدخول</Link></li>
                 <li><a href="/#how" onClick={(e) => navigateHash(e, '/#how')}>كيف تعمل البوابة</a></li>
+                <li><a href="/#dashboard" onClick={(e) => navigateHash(e, '/#dashboard')}>لوحة العميل</a></li>
+                <li><a href="/#assistant" onClick={(e) => navigateHash(e, '/#assistant')}>المساعدة الآلية «أم مشعل»</a></li>
               </ul>
             </div>
             <div>
