@@ -46,7 +46,7 @@ import {
   SubmitPortalRegistrationBody,
   SubmitPortalRegistrationResponse,
 } from "@workspace/api-zod";
-import { inspectLegacyBackup, legacyKinds, type LegacyKind } from "../lib/legacy-backup";
+import { emptyLegacyGroup, groupLegacyIds, inspectLegacyBackup, legacyKinds } from "../lib/legacy-backup";
 
 const router: IRouter = Router();
 
@@ -88,6 +88,29 @@ export const requireApprovedCustomer: RequestHandler = async (req, res, next) =>
   next();
 };
 
+// Clerk results are reused for a minute per user: staff are re-verified at
+// most once a minute, and a customer's frequent /portal/me polling does not
+// look up the office email each time. The staff row is still checked on every
+// request, so deleting it revokes access immediately.
+const OFFICE_ACCESS_TTL_MS = 60_000;
+const officeAccessVerifiedUntil = new Map<string, number>();
+const officeBootstrapDeniedUntil = new Map<string, number>();
+
+function remember(cache: Map<string, number>, userId: string): void {
+  const now = Date.now();
+  if (cache.size >= 10_000) {
+    for (const [id, until] of cache) {
+      if (until <= now) cache.delete(id);
+    }
+    if (cache.size >= 10_000) cache.clear();
+  }
+  cache.set(userId, now + OFFICE_ACCESS_TTL_MS);
+}
+
+function isFresh(cache: Map<string, number>, userId: string): boolean {
+  return (cache.get(userId) ?? 0) > Date.now();
+}
+
 async function hasOfficeAccess(req: Request, bootstrap = false): Promise<boolean> {
   const approvedEmail = process.env.HBS_OFFICE_EMAIL?.trim().toLowerCase();
   const userId = getAuth(req).userId;
@@ -96,6 +119,8 @@ async function hasOfficeAccess(req: Request, bootstrap = false): Promise<boolean
   const [member] = await db.select({ userId: hbsOfficeStaff.userId })
     .from(hbsOfficeStaff).where(eq(hbsOfficeStaff.userId, userId)).limit(1);
   if (!member && !bootstrap) return false;
+  if (member && isFresh(officeAccessVerifiedUntil, userId)) return true;
+  if (!member && isFresh(officeBootstrapDeniedUntil, userId)) return false;
 
   // A normal customer's /portal/me may provision only the verified owner of
   // the approved address. Do not request arbitrary customer IDs from Clerk.
@@ -103,20 +128,29 @@ async function hasOfficeAccess(req: Request, bootstrap = false): Promise<boolean
     ? await clerkClient.users.getUser(userId)
     : (await clerkClient.users.getUserList({ emailAddress: [approvedEmail], limit: 10 }))
         .data.find((candidate) => candidate.id === userId);
-  if (!user) return false;
+  if (!user) {
+    if (!member) remember(officeBootstrapDeniedUntil, userId);
+    return false;
+  }
 
-  // Re-check on every staff request: an old role row alone cannot retain
+  // Re-checked at least once a minute: an old role row alone cannot retain
   // access after the approved email is removed from a Clerk account.
   const verifiedOwner = user.emailAddresses.some(
     (entry) =>
       entry.emailAddress.toLowerCase() === approvedEmail &&
       entry.verification?.status === "verified",
   );
-  if (!verifiedOwner) return false;
+  if (!verifiedOwner) {
+    officeAccessVerifiedUntil.delete(userId);
+    if (!member) remember(officeBootstrapDeniedUntil, userId);
+    return false;
+  }
 
   if (!member) {
     await db.insert(hbsOfficeStaff).values({ userId }).onConflictDoNothing();
   }
+  officeBootstrapDeniedUntil.delete(userId);
+  remember(officeAccessVerifiedUntil, userId);
   return true;
 }
 
@@ -194,18 +228,40 @@ function portalRegistration(record: HbsRegistrationRequest) {
   };
 }
 
-async function verifiedRegistrationEmail(record: HbsRegistrationRequest): Promise<string | null> {
-  const user = await clerkClient.users.getUser(record.userId);
-  return user.emailAddresses.find(
-    (entry) => entry.emailAddress.toLowerCase() === record.email.toLowerCase() &&
+type ClerkEmailOwner = {
+  emailAddresses: { emailAddress: string; verification: { status: string } | null }[];
+};
+
+export function verifiedEmailOf(user: ClerkEmailOwner | undefined, email: string): string | null {
+  return user?.emailAddresses.find(
+    (entry) => entry.emailAddress.toLowerCase() === email.toLowerCase() &&
       entry.verification?.status === "verified",
   )?.emailAddress ?? null;
 }
 
-async function officeRegistration(record: HbsRegistrationRequest) {
+async function verifiedRegistrationEmail(record: HbsRegistrationRequest): Promise<string | null> {
+  return verifiedEmailOf(await clerkClient.users.getUser(record.userId), record.email);
+}
+
+const CLERK_USER_BATCH = 100;
+
+// One Clerk call per 100 applicants instead of one per registration. A deleted
+// Clerk account simply shows no verified email.
+async function clerkUsersById(userIds: string[]): Promise<Map<string, ClerkEmailOwner>> {
+  const unique = [...new Set(userIds)];
+  const users = new Map<string, ClerkEmailOwner>();
+  for (let start = 0; start < unique.length; start += CLERK_USER_BATCH) {
+    const batch = unique.slice(start, start + CLERK_USER_BATCH);
+    const { data } = await clerkClient.users.getUserList({ userId: batch, limit: batch.length });
+    for (const user of data) users.set(user.id, user);
+  }
+  return users;
+}
+
+function officeRegistration(record: HbsRegistrationRequest, email: string | null) {
   return {
     ...portalRegistration(record),
-    email: await verifiedRegistrationEmail(record),
+    email,
     reviewerId: record.reviewerId,
   };
 }
@@ -407,8 +463,9 @@ router.post("/inquiries", requirePortalAuth, requireApprovedCustomer, async (req
 router.get("/office/registrations", requireOfficeStaff, async (_req, res): Promise<void> => {
   const records = await db.select().from(hbsRegistrationRequests)
     .orderBy(desc(hbsRegistrationRequests.createdAt), desc(hbsRegistrationRequests.id));
-  const response = await Promise.all(records.map(officeRegistration));
-  res.json(ListOfficeRegistrationsResponse.parse(response));
+  const users = await clerkUsersById(records.map((record) => record.userId));
+  res.json(ListOfficeRegistrationsResponse.parse(records.map((record) =>
+    officeRegistration(record, verifiedEmailOf(users.get(record.userId), record.email)))));
 });
 
 router.patch("/office/registrations/:id", requireOfficeStaff, async (req, res): Promise<void> => {
@@ -451,7 +508,8 @@ router.patch("/office/registrations/:id", requireOfficeStaff, async (req, res): 
     res.status(409).json({ error: "Registration request is no longer pending" });
     return;
   }
-  res.json(ReviewOfficeRegistrationResponse.parse(await officeRegistration(record)));
+  res.json(ReviewOfficeRegistrationResponse.parse(
+    officeRegistration(record, await verifiedRegistrationEmail(record))));
 });
 
 router.get("/office/summary", requireOfficeStaff, async (_req, res): Promise<void> => {
@@ -567,14 +625,9 @@ router.post("/office/legacy/import", requireOfficeStaff, async (req, res): Promi
   });
   if (!imported) { res.status(409).json({ error: "هذه النسخة مستوردة مسبقًا. تحقق من سجل الاستيراد." }); return; }
   const savedRows = await db.select({
-    kind: hbsLegacyRecords.kind, legacyId: hbsLegacyRecords.legacyId,
+    importId: hbsLegacyRecords.importId, kind: hbsLegacyRecords.kind, legacyId: hbsLegacyRecords.legacyId,
   }).from(hbsLegacyRecords).where(eq(hbsLegacyRecords.importId, imported.id));
-  const savedIds: Record<LegacyKind, string[]> = { clients: [], transactions: [], tasks: [], notes: [] };
-  for (const row of savedRows) {
-    if (legacyKinds.includes(row.kind as LegacyKind)) savedIds[row.kind as LegacyKind].push(row.legacyId);
-  }
-  for (const kind of legacyKinds) savedIds[kind].sort();
-  const savedCounts = Object.fromEntries(legacyKinds.map(kind => [kind, savedIds[kind].length]));
+  const { ids: savedIds, counts: savedCounts } = groupLegacyIds(savedRows).get(imported.id) ?? emptyLegacyGroup();
   res.status(201).json(ImportLegacyBackupResponse.parse({
     id: imported.id, importedAt: imported.importedAt,
     exportedAt: imported.exportedAt, digest: imported.digest, counts: savedCounts, ids: savedIds,
@@ -586,14 +639,9 @@ router.get("/office/legacy/imports", requireOfficeStaff, async (_req, res): Prom
   const records = await db.select({
     importId: hbsLegacyRecords.importId, kind: hbsLegacyRecords.kind, legacyId: hbsLegacyRecords.legacyId,
   }).from(hbsLegacyRecords);
+  const grouped = groupLegacyIds(records);
   res.json(ListLegacyImportsResponse.parse(batches.map(batch => {
-    const ids: Record<LegacyKind, string[]> = { clients: [], transactions: [], tasks: [], notes: [] };
-    for (const row of records) {
-      if (row.importId === batch.id && legacyKinds.includes(row.kind as LegacyKind))
-        ids[row.kind as LegacyKind].push(row.legacyId);
-    }
-    for (const kind of legacyKinds) ids[kind].sort();
-    const counts = Object.fromEntries(legacyKinds.map(kind => [kind, ids[kind].length]));
+    const { ids, counts } = grouped.get(batch.id) ?? emptyLegacyGroup();
     return { id: batch.id, importedAt: batch.importedAt, exportedAt: batch.exportedAt, digest: batch.digest, ids, counts };
   })));
 });
