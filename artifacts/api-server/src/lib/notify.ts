@@ -178,3 +178,26 @@ export function officeNewInquiryMail(subject: string, reference: string | null):
     action: { label: "افتح استفسارات العملاء", path: "/office/inquiries" },
   };
 }
+
+export function officeNewFileMail(request: RequestInfo, fileNames: string): Mail | null {
+  const to = officeInbox();
+  if (!to) return null;
+  return {
+    to,
+    subject: `مستند جديد على الطلب ${request.reference}`,
+    heading: "أرفق العميل مستندًا",
+    lines: [`الطلب: ${request.reference} · ${request.service}`, `الملفات: ${fileNames}`],
+    action: { label: "افتح طلبات العملاء", path: "/office/requests" },
+  };
+}
+
+export function customerNewFileMail(to: string | null, request: RequestInfo): Mail | null {
+  if (!to) return null;
+  return {
+    to,
+    subject: `مستند جديد على طلبك ${request.reference}`,
+    heading: "أرفق المكتب مستندًا على طلبك",
+    lines: [`أضاف المكتب مستندًا إلى طلبك «${request.service}». تجده في صفحة الطلب.`],
+    action: { label: "افتح الطلب", path: `/requests/${request.id}` },
+  };
+}

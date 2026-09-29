@@ -14,4 +14,8 @@ export const AuditLogEntryAction = {
   staffremove: 'staff.remove',
   service_requestupdate: 'service_request.update',
   inquiryanswer: 'inquiry.answer',
+  attachmentupload: 'attachment.upload',
+  attachmentdownload: 'attachment.download',
+  attachmentdelete: 'attachment.delete',
+  attachmentpurge: 'attachment.purge',
 } as const;

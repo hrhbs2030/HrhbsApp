@@ -366,6 +366,52 @@ paths:
                 $ref: "#/components/schemas/AttachmentUploadReservation"
         "400":
           description: Invalid file
+  /service-requests/{id}/attachments:
+    post:
+      operationId: attachServiceRequestFiles
+      tags: [portal]
+      summary: Attach uploaded files (reserved with the upload-url endpoint) to an existing request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttachAttachmentsInput"
+      responses:
+        "200":
+          description: The request with its attachments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequest"
+        "400":
+          description: Invalid, expired or incomplete upload
+        "404":
+          description: Not found
+        "409":
+          description: The request is completed or already has 10 attachments
+  /service-requests/attachments/{attachmentId}:
+    delete:
+      operationId: deleteServiceRequestFile
+      tags: [portal]
+      summary: Remove an attachment from a request
+      parameters:
+        - name: attachmentId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Removed
+        "404":
+          description: Not found
+        "409":
+          description: The attachment can no longer be removed
   /service-requests/attachments/{attachmentId}/download:
     get:
       operationId: downloadServiceAttachment
@@ -384,6 +430,72 @@ paths:
               schema: { type: string, format: binary }
         "404":
           description: Not found or not owned
+  /office/service-requests/attachments/upload-url:
+    post:
+      operationId: requestOfficeServiceAttachmentUpload
+      tags: [portal]
+      summary: Reserve a private upload for office staff
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttachmentUploadInput"
+      responses:
+        "200":
+          description: Temporary direct upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttachmentUploadReservation"
+        "400":
+          description: Invalid file
+  /office/service-requests/{id}/attachments:
+    post:
+      operationId: attachOfficeServiceRequestFiles
+      tags: [portal]
+      summary: Attach uploaded files (reserved with the upload-url endpoint) to an existing request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttachAttachmentsInput"
+      responses:
+        "200":
+          description: The request with its attachments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeServiceRequest"
+        "400":
+          description: Invalid, expired or incomplete upload
+        "404":
+          description: Not found
+        "409":
+          description: The request already has 10 attachments
+  /office/service-requests/attachments/{attachmentId}:
+    delete:
+      operationId: deleteOfficeServiceRequestFile
+      tags: [portal]
+      summary: Remove an attachment from a request
+      parameters:
+        - name: attachmentId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Removed
+        "404":
+          description: Not found
+        "409":
+          description: The attachment can no longer be removed
   /office/service-requests/attachments/{attachmentId}/download:
     get:
       operationId: downloadOfficeServiceAttachment
@@ -821,7 +933,7 @@ components:
         actorEmail: { type: ["string", "null"], format: email }
         action:
           type: string
-          enum: [staff.add, staff.remove, service_request.update, inquiry.answer]
+          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge]
         targetType: { type: string }
         targetId: { type: string }
         details:
@@ -1071,12 +1183,26 @@ components:
         pageSize: { type: integer, minimum: 1 }
     ServiceAttachment:
       type: object
-      required: [id, name, contentType, size]
+      required: [id, name, contentType, size, uploadedBy, createdAt]
       properties:
         id: { type: integer }
         name: { type: string }
         contentType: { type: string }
         size: { type: integer }
+        uploadedBy:
+          type: string
+          enum: [customer, office]
+        createdAt: { type: string, format: date-time }
+    AttachAttachmentsInput:
+      type: object
+      additionalProperties: false
+      required: [attachmentIds]
+      properties:
+        attachmentIds:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items: { type: integer, minimum: 1 }
     AttachmentUploadInput:
       type: object
       additionalProperties: false

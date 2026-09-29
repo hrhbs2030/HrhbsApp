@@ -36,6 +36,10 @@ export const AuditLogEntryAction = {
   staffremove: 'staff.remove',
   service_requestupdate: 'service_request.update',
   inquiryanswer: 'inquiry.answer',
+  attachmentupload: 'attachment.upload',
+  attachmentdownload: 'attachment.download',
+  attachmentdelete: 'attachment.delete',
+  attachmentpurge: 'attachment.purge',
 } as const;
 
 export type AuditLogEntryDetails = { [key: string]: unknown };
@@ -310,11 +314,21 @@ export const ServiceRequestStatus = {
   completed: 'completed',
 } as const;
 
+export type ServiceAttachmentUploadedBy = typeof ServiceAttachmentUploadedBy[keyof typeof ServiceAttachmentUploadedBy];
+
+
+export const ServiceAttachmentUploadedBy = {
+  customer: 'customer',
+  office: 'office',
+} as const;
+
 export interface ServiceAttachment {
   id: number;
   name: string;
   contentType: string;
   size: number;
+  uploadedBy: ServiceAttachmentUploadedBy;
+  createdAt: string;
 }
 
 export interface ServiceRequest {
@@ -400,6 +414,15 @@ export interface OfficeServiceRequestPage {
   page: number;
   /** @minimum 1 */
   pageSize: number;
+}
+
+export interface AttachAttachmentsInput {
+  /**
+     * @minItems 1
+     * @maxItems 10
+     * @items.minimum 1
+     */
+  attachmentIds: number[];
 }
 
 export type AttachmentUploadInputContentType = typeof AttachmentUploadInputContentType[keyof typeof AttachmentUploadInputContentType];

@@ -1,5 +1,6 @@
 import { and, asc, eq, gt, isNull, lt } from "drizzle-orm";
-import { db, hbsRequestAttachments } from "@workspace/db";
+import { db, hbsRequestAttachments, hbsServiceRequests } from "@workspace/db";
+import { recordAudit } from "./audit";
 import { logger } from "./logger";
 import { ObjectNotFoundError, ObjectStorageService } from "./objectStorage";
 
@@ -71,6 +72,53 @@ export async function cleanupExpiredRequestAttachments(
   return removed;
 }
 
+// Submitted documents are kept for 90 days after their request is completed,
+// then removed (privacy policy). Reopening a request moves updated_at, which
+// restarts the period.
+export const COMPLETED_RETENTION_DAYS = 90;
+const submittedPath = /^\/objects\/submitted\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function deleteSubmittedObject(path: string) {
+  try {
+    const file = await storage.getObjectEntityFile(path);
+    await file.delete({ ignoreNotFound: true });
+  } catch (error) {
+    if (!(error instanceof ObjectNotFoundError)) throw error;
+  }
+}
+
+export async function purgeCompletedRequestAttachments(
+  deleteObject: (path: string) => Promise<void> = deleteSubmittedObject,
+  now = new Date(),
+) {
+  const cutoff = new Date(now.getTime() - COMPLETED_RETENTION_DAYS * 86_400_000);
+  const rows = await db.select({ attachment: hbsRequestAttachments }).from(hbsRequestAttachments)
+    .innerJoin(hbsServiceRequests, eq(hbsRequestAttachments.requestId, hbsServiceRequests.id))
+    .where(and(eq(hbsServiceRequests.status, "completed"), lt(hbsServiceRequests.updatedAt, cutoff)))
+    .orderBy(asc(hbsRequestAttachments.id)).limit(200);
+  let removed = 0;
+  for (const { attachment } of rows) {
+    if (!submittedPath.test(attachment.objectPath)) {
+      logger.warn({ attachmentId: attachment.id }, "Skipping unexpected submitted attachment path");
+      continue;
+    }
+    try {
+      await deleteObject(attachment.objectPath);
+      await db.transaction(async (tx) => {
+        await tx.delete(hbsRequestAttachments).where(eq(hbsRequestAttachments.id, attachment.id));
+        await recordAudit(tx, {
+          actorId: "system", action: "attachment.purge", targetType: "service_request",
+          targetId: attachment.requestId!, details: { attachmentId: attachment.id, name: attachment.name },
+        });
+      });
+      removed++;
+    } catch (err) {
+      logger.warn({ err, attachmentId: attachment.id }, "Could not purge a completed request's attachment");
+    }
+  }
+  return removed;
+}
+
 export function startExpiredRequestAttachmentCleanup() {
   // Schedule only after the server starts; one run at a time and no timer
   // holding the process open on shutdown.
@@ -79,6 +127,8 @@ export function startExpiredRequestAttachmentCleanup() {
       try {
         const removed = await cleanupExpiredRequestAttachments();
         if (removed) logger.info({ removed }, "Removed expired temporary attachments");
+        const purged = await purgeCompletedRequestAttachments();
+        if (purged) logger.info({ purged }, "Removed documents of requests completed over 90 days ago");
       } catch (err) {
         logger.error({ err }, "Expired attachment cleanup failed");
       } finally {

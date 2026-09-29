@@ -25,6 +25,7 @@ import type {
   ApprovedInformationInput,
   ApprovedInformationMutation,
   ApprovedInformationUpdate,
+  AttachAttachmentsInput,
   AttachmentUploadInput,
   AttachmentUploadReservation,
   AuditLogEntry,
@@ -1513,6 +1514,169 @@ export const useRequestServiceAttachmentUpload = <TError = ErrorType<void>,
       return useMutation(getRequestServiceAttachmentUploadMutationOptions(options));
     }
 
+export const getAttachServiceRequestFilesUrl = (id: number,) => {
+
+
+
+
+  return `/api/service-requests/${id}/attachments`
+}
+
+/**
+ * @summary Attach uploaded files (reserved with the upload-url endpoint) to an existing request
+ */
+export const attachServiceRequestFiles = async (id: number,
+    attachAttachmentsInput: AttachAttachmentsInput, options?: Parameters<typeof customFetch>[1]): Promise<ServiceRequest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ServiceRequest>(getAttachServiceRequestFilesUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(attachAttachmentsInput)
+  }
+);}
+
+
+
+
+
+export const getAttachServiceRequestFilesMutationKey = () => ['attachServiceRequestFiles'] as const;
+
+export const getAttachServiceRequestFilesMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attachServiceRequestFiles>>, TError,AttachServiceRequestFilesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof attachServiceRequestFiles>>, TError,AttachServiceRequestFilesMutationVariables, TContext> => {
+
+const mutationKey = getAttachServiceRequestFilesMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof attachServiceRequestFiles>>, AttachServiceRequestFilesMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  attachServiceRequestFiles(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AttachServiceRequestFilesMutationResult = NonNullable<Awaited<ReturnType<typeof attachServiceRequestFiles>>>
+    export type AttachServiceRequestFilesMutationBody = BodyType<AttachAttachmentsInput>
+    export type AttachServiceRequestFilesMutationError = ErrorType<void>
+    export type AttachServiceRequestFilesMutationVariables = {id: number;data: BodyType<AttachAttachmentsInput>}
+
+    /**
+ * @summary Attach uploaded files (reserved with the upload-url endpoint) to an existing request
+ */
+export const useAttachServiceRequestFiles = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attachServiceRequestFiles>>, TError,AttachServiceRequestFilesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof attachServiceRequestFiles>>,
+        TError,
+        AttachServiceRequestFilesMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAttachServiceRequestFilesMutationOptions(options));
+    }
+
+export const getDeleteServiceRequestFileUrl = (attachmentId: number,) => {
+
+
+
+
+  return `/api/service-requests/attachments/${attachmentId}`
+}
+
+/**
+ * @summary Remove an attachment from a request
+ */
+export const deleteServiceRequestFile = async (attachmentId: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteServiceRequestFileUrl(attachmentId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteServiceRequestFileMutationKey = () => ['deleteServiceRequestFile'] as const;
+
+export const getDeleteServiceRequestFileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteServiceRequestFile>>, TError,DeleteServiceRequestFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteServiceRequestFile>>, TError,DeleteServiceRequestFileMutationVariables, TContext> => {
+
+const mutationKey = getDeleteServiceRequestFileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteServiceRequestFile>>, DeleteServiceRequestFileMutationVariables> = (props) => {
+          const {attachmentId} = props ?? {};
+
+          return  deleteServiceRequestFile(attachmentId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteServiceRequestFileMutationResult = NonNullable<Awaited<ReturnType<typeof deleteServiceRequestFile>>>
+
+    export type DeleteServiceRequestFileMutationError = ErrorType<void>
+    export type DeleteServiceRequestFileMutationVariables = {attachmentId: number}
+
+    /**
+ * @summary Remove an attachment from a request
+ */
+export const useDeleteServiceRequestFile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteServiceRequestFile>>, TError,DeleteServiceRequestFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteServiceRequestFile>>,
+        TError,
+        DeleteServiceRequestFileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteServiceRequestFileMutationOptions(options));
+    }
+
 export const getDownloadServiceAttachmentUrl = (attachmentId: number,) => {
 
 
@@ -1589,6 +1753,257 @@ export function useDownloadServiceAttachment<TData = Awaited<ReturnType<typeof d
 
 
 
+
+export const getRequestOfficeServiceAttachmentUploadUrl = () => {
+
+
+
+
+  return `/api/office/service-requests/attachments/upload-url`
+}
+
+/**
+ * @summary Reserve a private upload for office staff
+ */
+export const requestOfficeServiceAttachmentUpload = async (attachmentUploadInput: AttachmentUploadInput, options?: Parameters<typeof customFetch>[1]): Promise<AttachmentUploadReservation> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AttachmentUploadReservation>(getRequestOfficeServiceAttachmentUploadUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(attachmentUploadInput)
+  }
+);}
+
+
+
+
+
+export const getRequestOfficeServiceAttachmentUploadMutationKey = () => ['requestOfficeServiceAttachmentUpload'] as const;
+
+export const getRequestOfficeServiceAttachmentUploadMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestOfficeServiceAttachmentUpload>>, TError,RequestOfficeServiceAttachmentUploadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestOfficeServiceAttachmentUpload>>, TError,RequestOfficeServiceAttachmentUploadMutationVariables, TContext> => {
+
+const mutationKey = getRequestOfficeServiceAttachmentUploadMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestOfficeServiceAttachmentUpload>>, RequestOfficeServiceAttachmentUploadMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestOfficeServiceAttachmentUpload(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestOfficeServiceAttachmentUploadMutationResult = NonNullable<Awaited<ReturnType<typeof requestOfficeServiceAttachmentUpload>>>
+    export type RequestOfficeServiceAttachmentUploadMutationBody = BodyType<AttachmentUploadInput>
+    export type RequestOfficeServiceAttachmentUploadMutationError = ErrorType<void>
+    export type RequestOfficeServiceAttachmentUploadMutationVariables = {data: BodyType<AttachmentUploadInput>}
+
+    /**
+ * @summary Reserve a private upload for office staff
+ */
+export const useRequestOfficeServiceAttachmentUpload = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestOfficeServiceAttachmentUpload>>, TError,RequestOfficeServiceAttachmentUploadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestOfficeServiceAttachmentUpload>>,
+        TError,
+        RequestOfficeServiceAttachmentUploadMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRequestOfficeServiceAttachmentUploadMutationOptions(options));
+    }
+
+export const getAttachOfficeServiceRequestFilesUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/service-requests/${id}/attachments`
+}
+
+/**
+ * @summary Attach uploaded files (reserved with the upload-url endpoint) to an existing request
+ */
+export const attachOfficeServiceRequestFiles = async (id: number,
+    attachAttachmentsInput: AttachAttachmentsInput, options?: Parameters<typeof customFetch>[1]): Promise<OfficeServiceRequest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OfficeServiceRequest>(getAttachOfficeServiceRequestFilesUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(attachAttachmentsInput)
+  }
+);}
+
+
+
+
+
+export const getAttachOfficeServiceRequestFilesMutationKey = () => ['attachOfficeServiceRequestFiles'] as const;
+
+export const getAttachOfficeServiceRequestFilesMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attachOfficeServiceRequestFiles>>, TError,AttachOfficeServiceRequestFilesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof attachOfficeServiceRequestFiles>>, TError,AttachOfficeServiceRequestFilesMutationVariables, TContext> => {
+
+const mutationKey = getAttachOfficeServiceRequestFilesMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof attachOfficeServiceRequestFiles>>, AttachOfficeServiceRequestFilesMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  attachOfficeServiceRequestFiles(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AttachOfficeServiceRequestFilesMutationResult = NonNullable<Awaited<ReturnType<typeof attachOfficeServiceRequestFiles>>>
+    export type AttachOfficeServiceRequestFilesMutationBody = BodyType<AttachAttachmentsInput>
+    export type AttachOfficeServiceRequestFilesMutationError = ErrorType<void>
+    export type AttachOfficeServiceRequestFilesMutationVariables = {id: number;data: BodyType<AttachAttachmentsInput>}
+
+    /**
+ * @summary Attach uploaded files (reserved with the upload-url endpoint) to an existing request
+ */
+export const useAttachOfficeServiceRequestFiles = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attachOfficeServiceRequestFiles>>, TError,AttachOfficeServiceRequestFilesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof attachOfficeServiceRequestFiles>>,
+        TError,
+        AttachOfficeServiceRequestFilesMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAttachOfficeServiceRequestFilesMutationOptions(options));
+    }
+
+export const getDeleteOfficeServiceRequestFileUrl = (attachmentId: number,) => {
+
+
+
+
+  return `/api/office/service-requests/attachments/${attachmentId}`
+}
+
+/**
+ * @summary Remove an attachment from a request
+ */
+export const deleteOfficeServiceRequestFile = async (attachmentId: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteOfficeServiceRequestFileUrl(attachmentId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteOfficeServiceRequestFileMutationKey = () => ['deleteOfficeServiceRequestFile'] as const;
+
+export const getDeleteOfficeServiceRequestFileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeServiceRequestFile>>, TError,DeleteOfficeServiceRequestFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeServiceRequestFile>>, TError,DeleteOfficeServiceRequestFileMutationVariables, TContext> => {
+
+const mutationKey = getDeleteOfficeServiceRequestFileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteOfficeServiceRequestFile>>, DeleteOfficeServiceRequestFileMutationVariables> = (props) => {
+          const {attachmentId} = props ?? {};
+
+          return  deleteOfficeServiceRequestFile(attachmentId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteOfficeServiceRequestFileMutationResult = NonNullable<Awaited<ReturnType<typeof deleteOfficeServiceRequestFile>>>
+
+    export type DeleteOfficeServiceRequestFileMutationError = ErrorType<void>
+    export type DeleteOfficeServiceRequestFileMutationVariables = {attachmentId: number}
+
+    /**
+ * @summary Remove an attachment from a request
+ */
+export const useDeleteOfficeServiceRequestFile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeServiceRequestFile>>, TError,DeleteOfficeServiceRequestFileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteOfficeServiceRequestFile>>,
+        TError,
+        DeleteOfficeServiceRequestFileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteOfficeServiceRequestFileMutationOptions(options));
+    }
 
 export const getDownloadOfficeServiceAttachmentUrl = (attachmentId: number,) => {
 

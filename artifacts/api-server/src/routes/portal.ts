@@ -26,6 +26,16 @@ import {
   CreateServiceRequestResponse,
   RequestServiceAttachmentUploadBody,
   RequestServiceAttachmentUploadResponse,
+  RequestOfficeServiceAttachmentUploadBody,
+  RequestOfficeServiceAttachmentUploadResponse,
+  AttachServiceRequestFilesBody,
+  AttachServiceRequestFilesParams,
+  AttachServiceRequestFilesResponse,
+  AttachOfficeServiceRequestFilesBody,
+  AttachOfficeServiceRequestFilesParams,
+  AttachOfficeServiceRequestFilesResponse,
+  DeleteServiceRequestFileParams,
+  DeleteOfficeServiceRequestFileParams,
   GetOfficeSummaryResponse,
   GetPortalMeResponse,
   GetPortalRegistrationResponse,
@@ -57,8 +67,10 @@ import {
 } from "@workspace/api-zod";
 import { recordAudit } from "../lib/audit";
 import {
+  customerNewFileMail,
   inquiryAnsweredMail,
   notify,
+  officeNewFileMail,
   officeNewInquiryMail,
   officeNewRegistrationMail,
   officeNewRequestMail,
@@ -79,21 +91,81 @@ const storage = new ObjectStorageService();
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
 const allowedAttachmentTypes = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
-function attachmentInfo(row: HbsRequestAttachment) {
-  return { id: row.id, name: row.name, size: row.size, contentType: row.contentType };
+export const MAX_ATTACHMENTS_PER_REQUEST = 10;
+
+// Who added a file is read from the row: the request's owner, or office staff.
+function attachmentInfo(row: HbsRequestAttachment, ownerId: string) {
+  return {
+    id: row.id, name: row.name, size: row.size, contentType: row.contentType,
+    uploadedBy: row.userId === ownerId ? "customer" as const : "office" as const,
+    createdAt: row.createdAt,
+  };
 }
 
 async function attachmentsFor(requestIds: number[]) {
   const rows = requestIds.length
-    ? await db.select().from(hbsRequestAttachments)
+    ? await db.select({ attachment: hbsRequestAttachments, ownerId: hbsServiceRequests.userId })
+      .from(hbsRequestAttachments)
+      .innerJoin(hbsServiceRequests, eq(hbsRequestAttachments.requestId, hbsServiceRequests.id))
       .where(and(inArray(hbsRequestAttachments.requestId, requestIds), isNotNull(hbsRequestAttachments.requestId)))
+      .orderBy(asc(hbsRequestAttachments.createdAt), asc(hbsRequestAttachments.id))
     : [];
   const grouped = new Map<number, ReturnType<typeof attachmentInfo>[]>();
-  for (const row of rows) {
-    if (row.requestId === null) continue;
-    grouped.set(row.requestId, [...(grouped.get(row.requestId) ?? []), attachmentInfo(row)]);
+  for (const { attachment, ownerId } of rows) {
+    if (attachment.requestId === null) continue;
+    grouped.set(attachment.requestId, [...(grouped.get(attachment.requestId) ?? []), attachmentInfo(attachment, ownerId)]);
   }
   return grouped;
+}
+
+class UploadError extends Error {}
+
+// Checks a user's reserved uploads and copies each to a new private key, so a
+// still-valid signed PUT can never overwrite a submitted file. On failure the
+// copies made so far are removed and UploadError is thrown.
+async function finalizeUploads(userId: string, ids: number[]) {
+  const pending = ids.length ? await db.select().from(hbsRequestAttachments).where(and(
+    inArray(hbsRequestAttachments.id, ids), eq(hbsRequestAttachments.userId, userId),
+    sql`${hbsRequestAttachments.requestId} is null`, sql`${hbsRequestAttachments.expiresAt} > now()`,
+  )) : [];
+  if (pending.length !== ids.length) throw new UploadError("Invalid or expired attachment. Upload again.");
+  const finalized: { row: HbsRequestAttachment; path: string }[] = [];
+  try {
+    for (const row of pending) {
+      const source = await validObject(row.objectPath, row);
+      const path = `/objects/submitted/${randomUUID()}`;
+      const dir = storage.getPrivateObjectDir().replace(/\/$/, "");
+      const [, ...prefix] = dir.replace(/^\//, "").split("/");
+      const destination = source.bucket.file(`${prefix.join("/")}/submitted/${path.split("/").at(-1)}`);
+      await source.copy(destination);
+      finalized.push({ row, path });
+      await validObject(path, row);
+    }
+  } catch (error) {
+    await Promise.allSettled(finalized.map(async ({ path }) => (await storage.getObjectEntityFile(path)).delete()));
+    throw new UploadError(error instanceof Error ? error.message : "File upload incomplete or invalid.");
+  }
+  return { pending, finalized };
+}
+
+// Moves finalized uploads onto a request inside a transaction, after locking
+// the reservations so the same upload cannot be attached twice.
+async function lockAndAttach(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  userId: string, ids: number[], requestId: number,
+  finalized: { row: HbsRequestAttachment; path: string }[],
+) {
+  if (ids.length) {
+    const locked = await tx.select().from(hbsRequestAttachments).where(and(
+      inArray(hbsRequestAttachments.id, ids), eq(hbsRequestAttachments.userId, userId),
+      sql`${hbsRequestAttachments.requestId} is null`, sql`${hbsRequestAttachments.expiresAt} > now()`,
+    )).for("update");
+    if (locked.length !== ids.length) throw new Error("Attachments already submitted or expired");
+  }
+  for (const { row, path } of finalized) {
+    await tx.update(hbsRequestAttachments).set({ requestId, objectPath: path })
+      .where(eq(hbsRequestAttachments.id, row.id));
+  }
 }
 
 async function validObject(path: string, expected: HbsRequestAttachment) {
@@ -451,52 +523,28 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
     return;
   }
   const ids = parsed.data.attachmentIds ?? [];
-  const pending = ids.length ? await db.select().from(hbsRequestAttachments).where(and(
-    inArray(hbsRequestAttachments.id, ids), eq(hbsRequestAttachments.userId, userId),
-    sql`${hbsRequestAttachments.requestId} is null`, sql`${hbsRequestAttachments.expiresAt} > now()`,
-  )) : [];
-  if (pending.length !== ids.length) {
-    res.status(400).json({ error: "Invalid or expired attachment. Upload again." });
+  if (ids.length > MAX_ATTACHMENTS_PER_REQUEST) {
+    res.status(400).json({ error: `Attach at most ${MAX_ATTACHMENTS_PER_REQUEST} files.` });
     return;
   }
-  const finalized: { row: HbsRequestAttachment; path: string }[] = [];
+  let pending: HbsRequestAttachment[];
+  let finalized: { row: HbsRequestAttachment; path: string }[];
   try {
-    // Copy to a different private key: the temporary signed PUT must never be able to overwrite a submitted file.
-    for (const row of pending) {
-      const source = await validObject(row.objectPath, row);
-      const path = `/objects/submitted/${randomUUID()}`;
-      const dir = storage.getPrivateObjectDir().replace(/\/$/, "");
-      const [, ...prefix] = dir.replace(/^\//, "").split("/");
-      const destination = source.bucket.file(`${prefix.join("/")}/submitted/${path.split("/").at(-1)}`);
-      await source.copy(destination);
-      finalized.push({ row, path });
-      await validObject(path, row);
-    }
+    ({ pending, finalized } = await finalizeUploads(userId, ids));
   } catch (error) {
     req.log.warn({ err: error }, "Attachment verification failed");
-    await Promise.allSettled(finalized.map(async ({ path }) => (await storage.getObjectEntityFile(path)).delete()));
     res.status(400).json({ error: "File upload incomplete or invalid. Check each file and retry." });
     return;
   }
   let record: HbsServiceRequest;
   try {
     record = await db.transaction(async (tx) => {
-      if (ids.length) {
-        const locked = await tx.select().from(hbsRequestAttachments).where(and(
-          inArray(hbsRequestAttachments.id, ids), eq(hbsRequestAttachments.userId, userId),
-          sql`${hbsRequestAttachments.requestId} is null`, sql`${hbsRequestAttachments.expiresAt} > now()`,
-        )).for("update");
-        if (locked.length !== ids.length) throw new Error("Attachments already submitted or expired");
-      }
       const [created] = await tx.insert(hbsServiceRequests).values({
         userId, category: parsed.data.category, service: parsed.data.service.trim(),
         description: parsed.data.description.trim(), contactPhone: parsed.data.contactPhone.trim(),
         clientRequestId: requestId ?? null,
       }).returning();
-      for (const { row, path } of finalized) {
-        await tx.update(hbsRequestAttachments).set({ requestId: created.id, objectPath: path })
-          .where(eq(hbsRequestAttachments.id, row.id));
-      }
+      await lockAndAttach(tx, userId, ids, created.id, finalized);
       return created;
     });
   } catch (error) {
@@ -516,7 +564,8 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
     return;
   }
   // A response failure after commit must not delete the submitted copies.
-  res.status(201).json(CreateServiceRequestResponse.parse(publicRequest(record, pending.map(attachmentInfo))));
+  res.status(201).json(CreateServiceRequestResponse.parse(publicRequest(record,
+    pending.map(row => attachmentInfo(row, userId)))));
   notify(officeNewRequestMail({
     id: record.id,
     reference: `HBS-${record.createdAt.getUTCFullYear()}-${String(record.id).padStart(5, "0")}`,
@@ -559,6 +608,13 @@ async function sendAttachment(req: Request, res: import("express").Response, sta
   if (!row) { res.status(404).json({ error: "Attachment not found" }); return; }
   try {
     const file = await storage.getObjectEntityFile(row.attachment.objectPath);
+    if (staff) {
+      // Who opened which client document is kept in the audit log.
+      await db.transaction(tx => recordAudit(tx, {
+        actorId: getAuth(req).userId!, action: "attachment.download", targetType: "service_request",
+        targetId: row.request.id, details: { attachmentId: row.attachment.id, name: row.attachment.name },
+      }));
+    }
     res.setHeader("Content-Type", row.attachment.contentType);
     res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(row.attachment.name)}`);
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -578,6 +634,152 @@ router.get("/service-requests/attachments/:attachmentId/download",
   requirePortalAuth, requireApprovedCustomer, (req, res) => { void sendAttachment(req, res, false); });
 router.get("/office/service-requests/attachments/:attachmentId/download",
   requireOfficeStaff, (req, res) => { void sendAttachment(req, res, true); });
+
+// Reserving an upload is the same for customers and office staff: a private,
+// short-lived signed URL tied to the caller. Attaching it to a request is a
+// separate step (below) so the file can be checked first.
+async function reserveUpload(req: Request, res: import("express").Response, parsed: { name: string; size: number; contentType: string } | null) {
+  if (!parsed || !allowedAttachmentTypes.has(parsed.contentType) || parsed.size < 1 || parsed.size > MAX_ATTACHMENT_SIZE ||
+      !parsed.name.trim() || /[/\\\x00-\x1f\x7f]/.test(parsed.name)) {
+    res.status(400).json({ error: "Invalid attachment. Use PDF, JPEG or PNG up to 10 MB." });
+    return null;
+  }
+  const userId = getAuth(req).userId!;
+  const [{ count }] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(hbsRequestAttachments)
+    .where(and(eq(hbsRequestAttachments.userId, userId), sql`${hbsRequestAttachments.requestId} is null`,
+      sql`${hbsRequestAttachments.expiresAt} > now()`));
+  if (count >= 12) {
+    res.status(429).json({ error: "Too many pending uploads. Try again later." });
+    return null;
+  }
+  const uploadURL = await storage.getObjectEntityUploadURL();
+  const objectPath = storage.normalizeObjectEntityPath(uploadURL);
+  const [row] = await db.insert(hbsRequestAttachments).values({
+    userId, objectPath, name: parsed.name.trim(),
+    contentType: parsed.contentType, size: parsed.size,
+    expiresAt: new Date(Date.now() + 15 * 60_000),
+  }).returning();
+  return { attachmentId: row.id, uploadURL };
+}
+
+router.post("/office/service-requests/attachments/upload-url", requireOfficeStaff, async (req, res): Promise<void> => {
+  const parsed = RequestOfficeServiceAttachmentUploadBody.safeParse(req.body);
+  const reservation = await reserveUpload(req, res, parsed.success ? parsed.data : null);
+  if (reservation) res.json(RequestOfficeServiceAttachmentUploadResponse.parse(reservation));
+});
+
+// Adds uploaded files to an existing request. Customers: their own request,
+// until it is completed. Office staff: any request (for example to send the
+// customer a finished document).
+async function attachToRequest(req: Request, res: import("express").Response, office: boolean) {
+  const params = (office ? AttachOfficeServiceRequestFilesParams : AttachServiceRequestFilesParams).safeParse(req.params);
+  const body = (office ? AttachOfficeServiceRequestFilesBody : AttachServiceRequestFilesBody).safeParse(req.body);
+  if (!params.success || params.data.id < 1 || !body.success || new Set(body.data.attachmentIds).size !== body.data.attachmentIds.length) {
+    res.status(400).json({ error: "Invalid request" });
+    return;
+  }
+  const userId = getAuth(req).userId!;
+  const ids = body.data.attachmentIds;
+  const [request] = await db.select().from(hbsServiceRequests).where(office
+    ? eq(hbsServiceRequests.id, params.data.id)
+    : and(eq(hbsServiceRequests.id, params.data.id), eq(hbsServiceRequests.userId, userId))).limit(1);
+  if (!request) { res.status(404).json({ error: "Request not found" }); return; }
+  if (!office && request.status === "completed") {
+    res.status(409).json({ error: "The request is completed" });
+    return;
+  }
+  const [{ count: existing }] = await db.select({ count: sql<number>`count(*)::int` }).from(hbsRequestAttachments)
+    .where(eq(hbsRequestAttachments.requestId, request.id));
+  if (existing + ids.length > MAX_ATTACHMENTS_PER_REQUEST) {
+    res.status(409).json({ error: `A request can hold ${MAX_ATTACHMENTS_PER_REQUEST} files` });
+    return;
+  }
+  let finalized: { row: HbsRequestAttachment; path: string }[];
+  try {
+    ({ finalized } = await finalizeUploads(userId, ids));
+  } catch (error) {
+    req.log.warn({ err: error }, "Attachment verification failed");
+    res.status(400).json({ error: "File upload incomplete or invalid. Check each file and retry." });
+    return;
+  }
+  try {
+    await db.transaction(async (tx) => {
+      await lockAndAttach(tx, userId, ids, request.id, finalized);
+      if (office) {
+        for (const { row } of finalized) {
+          await recordAudit(tx, {
+            actorId: userId, action: "attachment.upload", targetType: "service_request",
+            targetId: request.id, details: { attachmentId: row.id, name: row.name },
+          });
+        }
+      }
+    });
+  } catch (error) {
+    req.log.warn({ err: error }, "Could not attach files");
+    await Promise.allSettled(finalized.map(async ({ path }) => (await storage.getObjectEntityFile(path)).delete()));
+    res.status(409).json({ error: "These uploads were already attached or have expired. Upload again." });
+    return;
+  }
+  const attachments = (await attachmentsFor([request.id])).get(request.id) ?? [];
+  if (office) res.json(AttachOfficeServiceRequestFilesResponse.parse(officeRequest(request, attachments, await customerOf(request.userId))));
+  else res.json(AttachServiceRequestFilesResponse.parse(publicRequest(request, attachments)));
+  // Temporary upload objects are no longer needed once copied.
+  const moved = finalized.map(({ row }) => row.objectPath);
+  void Promise.allSettled(moved.map(async path => (await storage.getObjectEntityFile(path)).delete()));
+  const info = { id: request.id, reference: publicRequest(request).reference, service: request.service };
+  const names = finalized.map(({ row }) => row.name).join("، ");
+  if (office) notify(customerNewFileMail(await customerEmail(request.userId), info));
+  else notify(officeNewFileMail(info, names));
+}
+
+router.post("/service-requests/:id/attachments", requirePortalAuth, requireApprovedCustomer,
+  (req, res) => { void attachToRequest(req, res, false); });
+router.post("/office/service-requests/:id/attachments", requireOfficeStaff,
+  (req, res) => { void attachToRequest(req, res, true); });
+
+// Customers may remove files they added while the request is open; office
+// staff may remove any file (audited). The stored object is deleted too.
+async function removeAttachment(req: Request, res: import("express").Response, office: boolean) {
+  const params = (office ? DeleteOfficeServiceRequestFileParams : DeleteServiceRequestFileParams).safeParse(req.params);
+  if (!params.success || params.data.attachmentId < 1) { res.status(404).json({ error: "Attachment not found" }); return; }
+  const userId = getAuth(req).userId!;
+  const [row] = await db.select({ attachment: hbsRequestAttachments, request: hbsServiceRequests })
+    .from(hbsRequestAttachments)
+    .innerJoin(hbsServiceRequests, eq(hbsRequestAttachments.requestId, hbsServiceRequests.id))
+    .where(and(eq(hbsRequestAttachments.id, params.data.attachmentId),
+      ...(office ? [] : [eq(hbsServiceRequests.userId, userId)]))).limit(1);
+  if (!row) { res.status(404).json({ error: "Attachment not found" }); return; }
+  if (!office && (row.attachment.userId !== userId || row.request.status === "completed")) {
+    res.status(409).json({ error: "This file can no longer be removed" });
+    return;
+  }
+  try {
+    const file = await storage.getObjectEntityFile(row.attachment.objectPath);
+    await file.delete({ ignoreNotFound: true });
+  } catch (error) {
+    if (!(error instanceof ObjectNotFoundError)) {
+      req.log.error({ err: error }, "Could not delete attachment object");
+      res.status(503).json({ error: "Could not remove the file. Try again." });
+      return;
+    }
+  }
+  await db.transaction(async (tx) => {
+    await tx.delete(hbsRequestAttachments).where(eq(hbsRequestAttachments.id, row.attachment.id));
+    if (office) {
+      await recordAudit(tx, {
+        actorId: userId, action: "attachment.delete", targetType: "service_request",
+        targetId: row.request.id, details: { attachmentId: row.attachment.id, name: row.attachment.name },
+      });
+    }
+  });
+  res.status(204).end();
+}
+
+router.delete("/service-requests/attachments/:attachmentId", requirePortalAuth, requireApprovedCustomer,
+  (req, res) => { void removeAttachment(req, res, false); });
+router.delete("/office/service-requests/attachments/:attachmentId", requireOfficeStaff,
+  (req, res) => { void removeAttachment(req, res, true); });
 
 router.get("/service-requests/:id/history", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
   const params = GetServiceRequestHistoryParams.safeParse(req.params);

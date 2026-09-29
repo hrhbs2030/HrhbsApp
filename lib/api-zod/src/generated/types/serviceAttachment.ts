@@ -5,10 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ServiceAttachmentUploadedBy } from './serviceAttachmentUploadedBy';
 
 export interface ServiceAttachment {
   id: number;
   name: string;
   contentType: string;
   size: number;
+  uploadedBy: ServiceAttachmentUploadedBy;
+  createdAt: Date;
 }
