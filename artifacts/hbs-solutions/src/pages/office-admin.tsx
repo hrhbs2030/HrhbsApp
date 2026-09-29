@@ -92,7 +92,7 @@ function auditSummary(entry: AuditLogEntry): string {
       return `طلب رقم ${entry.targetId}: ${statusPart}${d.noteChanged ? '، مع تعديل ملاحظة المكتب' : ''}`;
     }
     case 'inquiry.answer': return `استفسار رقم ${entry.targetId}${d.edited ? ' (تعديل رد سابق)' : ''}`;
-    case 'registration.review': return `طلب تسجيل رقم ${entry.targetId}: ${d.status === 'approved' ? 'موافقة' : 'رفض'}${typeof d.reason === 'string' ? ` — ${d.reason}` : ''}`;
+    case 'registration.review': return `طلب تسجيل رقم ${entry.targetId}: ${d.status === 'approved' ? 'موافقة' : 'رفض'}${typeof d.reason === 'string' ? `، السبب: ${d.reason}` : ''}`;
     case 'legacy.import': return `دفعة رقم ${entry.targetId}`;
     case 'staff.add':
     case 'staff.remove': return typeof d.email === 'string' ? d.email : entry.targetId;

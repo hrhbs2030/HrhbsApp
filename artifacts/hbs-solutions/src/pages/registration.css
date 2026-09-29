@@ -15,7 +15,7 @@
 .registration-page :is(button, input, textarea, select):focus-visible { outline: 3px solid #c8754d; outline-offset: 3px; }
 .registration-page .reg-eyebrow { display: inline-flex; align-items: center; gap: 9px; color: #b45f3d; font-size: 12px; font-weight: 700; letter-spacing: .015em; }
 .registration-page .reg-eyebrow::before { content: ""; display: inline-block; width: 19px; height: 2px; background: #c8754d; }
-.registration-page h1, .registration-page h2, .registration-page h3 { font-family: var(--app-font-display, 'Readex Pro', sans-serif); letter-spacing: -.035em; }
+.registration-page h1, .registration-page h2, .registration-page h3 { font-family: var(--app-font-display, 'Readex Pro', sans-serif); letter-spacing: 0; }
 .registration-page .reg-header { margin-bottom: 27px; }
 .registration-page .reg-header h1 { font-size: clamp(29px, 3vw, 39px); font-weight: 600; line-height: 1.5; margin: 4px 0 5px; }
 .registration-page .reg-header p { color: var(--reg-muted); margin: 0; font-size: 14px; line-height: 1.9; }

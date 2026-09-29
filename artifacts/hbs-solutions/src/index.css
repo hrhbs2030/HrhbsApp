@@ -68,7 +68,8 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .6; }
 ::selection { background: #dfb79b; color: #193f42; }
 :focus-visible { outline: 3px solid #d2794d; outline-offset: 3px; }
-.display { font-family: var(--app-font-display); letter-spacing: -.045em; }
+/* Arabic display type: no tracking, so cursive joins stay intact. */
+.display { font-family: var(--app-font-display); letter-spacing: 0; }
 .shell { width: min(100% - 48px, 1240px); margin-inline: auto; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: .65rem; min-height: 48px; padding: .72rem 1.35rem; border-radius: .65rem; border: 1px solid transparent; font-weight: 700; text-decoration: none; transition: transform .2s ease, opacity .2s ease, background-color .2s ease; }
 .btn:hover:not(:disabled) { transform: translateY(-2px); }

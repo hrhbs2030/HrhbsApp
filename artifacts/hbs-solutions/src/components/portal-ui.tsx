@@ -7,7 +7,7 @@ import { getGetPortalMeQueryKey, useGetPortalMe, type Inquiry, type ServiceReque
 export const categoryNames: Record<string, string> = { passports: 'الجوازات', labor: 'العمل', business: 'الأعمال', other: 'خدمات أخرى' };
 export const statusNames: Record<string, string> = { received: 'تم الاستلام', reviewing: 'قيد المراجعة', waiting_on_customer: 'بانتظار العميل', completed: 'مكتملة', open: 'مفتوح', answered: 'تم الرد' };
 export const statusOptions: ServiceRequestStatus[] = ['received', 'reviewing', 'waiting_on_customer', 'completed'];
-export const dateText = (value: string | null | undefined) => value ? new Intl.DateTimeFormat('ar', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value)) : '—';
+export const dateText = (value: string | null | undefined) => value ? new Intl.DateTimeFormat('ar', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value)) : '-';
 
 export function Brand({ light = false }: { light?: boolean }) {
   return <Link href="/" className={`inline-flex items-center gap-3 no-underline ${light ? 'text-[#f7f0e4]' : 'text-[#174b50]'}`} aria-label="HBS حلول الغد - الرئيسية">

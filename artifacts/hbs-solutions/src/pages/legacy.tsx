@@ -45,7 +45,7 @@ function Ids({ summary, prefix }: { summary: LegacyBackupSummary; prefix: string
     {groups.map(({ key, label }) => <div key={key} className="min-w-0 border-b border-[#ece9df] pb-3">
       <div className="mb-1 text-xs font-bold text-[#456763]">{label} <span className="font-normal text-[#80918a]">({summary.ids[key].length})</span></div>
       <div dir="ltr" className="max-h-24 overflow-auto break-all rounded-md bg-[#f3f1e9] px-2.5 py-2 text-left font-mono text-[11px] leading-5 text-[#3d5754]" data-testid={`ids-${prefix}-${key}`}>
-        {summary.ids[key].length ? summary.ids[key].join(' · ') : '—'}
+        {summary.ids[key].length ? summary.ids[key].join(' · ') : '-'}
       </div>
     </div>)}
   </div>;
