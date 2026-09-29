@@ -8,6 +8,7 @@ import { useGetPortalMe, getGetPortalMeQueryKey } from '@workspace/api-client-re
 import { ErrorBoundary } from '@/components/error-boundary';
 import { color, font } from '@/design/tokens';
 import { serviceBySlug } from '@/content/services';
+import { CityScene } from '@/components/city-scene';
 import Landing from '@/pages/landing';
 import { ErrorBlock, LoadingBlock } from '@/components/portal-ui';
 
@@ -111,12 +112,16 @@ function AuthPage({kind}:{kind:'sign-in'|'sign-up'}) {
 }
 function Missing() { return <div dir="rtl" className="flex min-h-[100dvh] flex-col items-center justify-center bg-paper p-6 text-center"><div className="display text-7xl font-semibold text-copper">404</div><h1 className="display mt-5 text-2xl">الصفحة غير موجودة</h1><p className="mt-3 text-sm text-subtle">قد يكون الرابط غير صحيح أو تغيّر مكان الصفحة.</p><a href={basePath || '/'} className="btn btn-primary mt-7">العودة للرئيسية</a></div>; }
 const routeTitles: Record<string,string> = {'/':'الرئيسية','/services':'دليل الخدمات','/trust':'الخصوصية والأمان','/help':'المساعدة','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم','/office/staff':'فريق المكتب','/office/audit':'سجل التدقيق'};
+const isPublicPath = (location: string) => location === '/' || location === '/services' || location.startsWith('/services/') || location === '/trust' || location === '/help';
 function Routes() {
   const [location]=useLocation();
+  const { isSignedIn } = useAuth();
+  // The city backdrop lives outside <Switch>, so it keeps playing across public pages.
+  const showScene = isPublicPath(location) && !(location === '/' && isSignedIn);
   useEffect(()=>{
     const title = routeTitles[location] || (location.startsWith('/services/')?(serviceBySlug[location.slice(10)]?.name ?? 'الخدمة'):location.startsWith('/requests/')?'تفاصيل الطلب':location.startsWith('/sign-in')?'تسجيل الدخول':location.startsWith('/sign-up')?'إنشاء حساب':'الصفحة');
     document.title=`${title} | HBS حلول الغد`;
-    const isPublic = location === '/' || location === '/services' || location.startsWith('/services/') || location === '/trust' || location === '/help';
+    const isPublic = isPublicPath(location);
     document.querySelector('meta[name="robots"]')?.setAttribute('content', isPublic ? 'index, follow' : 'noindex, nofollow');
     document.querySelector('meta[name="description"]')?.setAttribute('content', location === '/'
       ? 'HBS حلول الغد: أرسل طلب خدمة أو استفسارًا وتابع حالته من حسابك عبر بوابة العملاء.'
@@ -129,7 +134,7 @@ function Routes() {
       canonical.href = `${window.location.origin}${basePath}${location === '/' ? '/' : location}`;
     } else canonical?.remove();
   },[location]);
-  return <ErrorBoundary resetKey={location}><Suspense fallback={<div dir="rtl" className="mx-auto max-w-2xl p-10"><LoadingBlock/></div>}><Switch>
+  return <>{showScene && <CityScene routeKey={location} compact={location !== '/'} />}<ErrorBoundary resetKey={location}><Suspense fallback={<div dir="rtl" className="mx-auto max-w-2xl p-10"><LoadingBlock/></div>}><Switch>
     <Route path="/" component={HomeRoute}/>
     <Route path="/services" component={ServicesDirectory}/>
     <Route path="/services/:slug" component={ServiceDetail}/>
@@ -151,7 +156,7 @@ function Routes() {
     <Route path="/office/audit"><RoleGate staff owner><OfficeAuditLog/></RoleGate></Route>
     <Route path="/office"><RoleGate staff><OfficeOverview/></RoleGate></Route>
     <Route component={Missing}/>
-  </Switch></Suspense></ErrorBoundary>;
+  </Switch></Suspense></ErrorBoundary></>;
 }
 function ClerkWithRoutes() {
   const [,setLocation]=useLocation();

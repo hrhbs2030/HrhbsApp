@@ -10,9 +10,9 @@
 .lp-btn-lg { min-height: 54px; padding-inline: 1.6rem; font-size: 1rem; }
 
 /* ---------- Hero ---------- */
-.lp-hero { position: relative; isolation: isolate; overflow: hidden; background: var(--color-night); color: var(--color-on-dark); padding: 150px 0 110px; }
-.lp-hero-glow { position: absolute; z-index: -1; width: 900px; height: 900px; inset-inline-end: -260px; top: -300px; border-radius: 50%; background: radial-gradient(circle, rgb(229 162 123 / .16), transparent 62%); }
-.lp-hero-lines { position: absolute; z-index: -1; inset: 0; opacity: .5; background-image: linear-gradient(rgb(255 255 255 / .03) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / .03) 1px, transparent 1px); background-size: 72px 72px; mask-image: radial-gradient(70% 70% at 30% 40%, #000, transparent 75%); }
+.lp-hero { position: relative; isolation: isolate; min-height: 100svh; display: flex; align-items: center; color: var(--color-on-dark); padding: 130px 0 120px; }
+.lp-hero > .site-wrap { width: min(100% - 48px, 1280px); }
+.lp-body { position: relative; background: var(--color-paper); }
 .lp-hero-grid { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); align-items: center; gap: clamp(40px, 6vw, 96px); }
 .lp-eyebrow { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 26px; padding: 8px 16px; border-radius: 999px; border: 1px solid rgb(229 162 123 / .28); background: rgb(229 162 123 / .06); color: var(--color-copper-light); font-size: 14px; font-weight: 700; }
 .lp-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--color-copper-light); box-shadow: 0 0 0 5px rgb(229 162 123 / .16); }
@@ -97,6 +97,8 @@
 
 /* ---------- FAQ ---------- */
 .lp-faq { padding: clamp(60px, 8vw, 110px) 0; }
+.lp-body > .lp-final:last-child { margin-bottom: 0; }
+.lp-body::after { content: ""; display: block; height: clamp(60px, 8vw, 110px); }
 .lp-faq-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: clamp(32px, 6vw, 96px); align-items: start; }
 .lp-faq-grid .lp-arrow-link { margin-top: 18px; }
 .lp-faq-list { display: grid; gap: 10px; }
@@ -109,7 +111,7 @@
 .lp-faq-item p { margin: 0; padding: 0 22px 22px; color: var(--color-quiet); line-height: 1.95; }
 
 /* ---------- Final CTA ---------- */
-.lp-final { position: relative; overflow: hidden; isolation: isolate; margin-bottom: clamp(60px, 8vw, 110px); padding: clamp(56px, 8vw, 100px) clamp(24px, 5vw, 64px); border-radius: 28px; background: var(--color-teal); color: var(--color-on-dark); text-align: center; }
+.lp-final { position: relative; overflow: hidden; isolation: isolate; margin-bottom: 0; padding: clamp(56px, 8vw, 100px) clamp(24px, 5vw, 64px); border-radius: 28px; background: var(--color-teal); color: var(--color-on-dark); text-align: center; }
 .lp-final-orbit { position: absolute; z-index: -1; width: 760px; height: 760px; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; border: 1px solid rgb(255 255 255 / .08); box-shadow: 0 0 0 110px rgb(255 255 255 / .02), 0 0 0 220px rgb(255 255 255 / .015); }
 .lp-final h2 { margin: 0; font-family: var(--font-display); font-size: clamp(34px, 5vw, 64px); font-weight: 600; }
 .lp-final p { max-width: 520px; margin: 18px auto 0; color: var(--color-on-dark-2); font-size: 18px; line-height: 1.9; }
