@@ -24,6 +24,9 @@ const OfficeInquiries = lazy(() => officePages().then(m => ({ default: m.OfficeI
 const CustomerRegistration = lazy(() => registrationPages().then(m => ({ default: m.CustomerRegistration })));
 const OfficeRegistrations = lazy(() => registrationPages().then(m => ({ default: m.OfficeRegistrations })));
 const Legacy = lazy(() => import('@/pages/legacy'));
+const officeAdminPages = () => import('@/pages/office-admin');
+const OfficeStaff = lazy(() => officeAdminPages().then(m => ({ default: m.OfficeStaff })));
+const OfficeAuditLog = lazy(() => officeAdminPages().then(m => ({ default: m.OfficeAuditLog })));
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -75,7 +78,7 @@ function CacheResetOnAuthChange() {
   }, [addListener,qc]);
   return null;
 }
-function RoleGate({ children, staff = false, registration = false }: { children: ReactNode; staff?: boolean; registration?: boolean }) {
+function RoleGate({ children, staff = false, owner = false, registration = false }: { children: ReactNode; staff?: boolean; owner?: boolean; registration?: boolean }) {
   const { isLoaded, isSignedIn } = useAuth();
   const me = useGetPortalMe({ query: { enabled: !!isLoaded && !!isSignedIn, queryKey: getGetPortalMeQueryKey(), refetchInterval: 20_000 } });
   if (!isLoaded) return <div dir="rtl" className="mx-auto max-w-2xl p-10"><LoadingBlock/></div>;
@@ -84,6 +87,7 @@ function RoleGate({ children, staff = false, registration = false }: { children:
   if (me.isError) return <div dir="rtl" className="mx-auto max-w-2xl p-10"><ErrorBlock retry={()=>me.refetch()}/></div>;
   if (staff && me.data?.role !== 'staff') return <Redirect to="/dashboard"/>;
   if (!staff && me.data?.role === 'staff') return <Redirect to="/office"/>;
+  if (owner && me.data?.officeRole !== 'owner') return <Redirect to="/office"/>;
   if (!staff && me.data?.registrationStatus !== 'approved' && !registration) return <Redirect to="/registration"/>;
   if (registration && me.data?.registrationStatus === 'approved') return <Redirect to="/dashboard"/>;
   return <>{children}</>;
@@ -99,7 +103,7 @@ function AuthPage({kind}:{kind:'sign-in'|'sign-up'}) {
   return <div dir="rtl" className="flex min-h-[100dvh] flex-col items-center justify-center gap-7 bg-[#f6f4ed] px-4 py-10"><a href={basePath || '/'} className="display text-xl font-semibold text-[#174b50] no-underline">HBS / حلول الغد</a>{kind==='sign-up' && <p className="max-w-sm text-center text-sm leading-7 text-[#62766e]">أنشئ حسابًا بالبريد الإلكتروني وتحقق منه، ثم قدّم طلب تسجيل يراجعه المكتب قبل إتاحة خدمات البوابة.</p>}<div dir="rtl" className="w-full max-w-[440px]">{kind==='sign-in' ? <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /> : <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />}</div><p className="text-center text-xs text-[#7d8b82]">تتوفر خدمات العملاء بعد موافقة المكتب على طلب التسجيل.</p></div>;
 }
 function Missing() { return <div dir="rtl" className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#f6f4ed] p-6 text-center"><div className="display text-7xl font-semibold text-[#c4714c]">404</div><h1 className="display mt-5 text-2xl">الصفحة غير موجودة</h1><p className="mt-3 text-sm text-[#70847b]">قد يكون الرابط غير صحيح أو تغيّر مكان الصفحة.</p><a href={basePath || '/'} className="btn btn-primary mt-7">العودة للرئيسية</a></div>; }
-const routeTitles: Record<string,string> = {'/':'الرئيسية','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم'};
+const routeTitles: Record<string,string> = {'/':'الرئيسية','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم','/office/staff':'فريق المكتب','/office/audit':'سجل التدقيق'};
 function Routes() {
   const [location]=useLocation();
   useEffect(()=>{
@@ -123,7 +127,9 @@ function Routes() {
     <Route path="/office/requests"><RoleGate staff><OfficeRequests/></RoleGate></Route>
     <Route path="/office/registrations"><RoleGate staff><OfficeRegistrations/></RoleGate></Route>
     <Route path="/office/inquiries"><RoleGate staff><OfficeInquiries/></RoleGate></Route>
-    <Route path="/office/legacy"><RoleGate staff><Legacy/></RoleGate></Route>
+    <Route path="/office/legacy"><RoleGate staff owner><Legacy/></RoleGate></Route>
+    <Route path="/office/staff"><RoleGate staff owner><OfficeStaff/></RoleGate></Route>
+    <Route path="/office/audit"><RoleGate staff owner><OfficeAuditLog/></RoleGate></Route>
     <Route path="/office"><RoleGate staff><OfficeOverview/></RoleGate></Route>
     <Route component={Missing}/>
   </Switch></Suspense></ErrorBoundary>;

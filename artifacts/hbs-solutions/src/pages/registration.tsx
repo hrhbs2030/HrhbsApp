@@ -61,7 +61,7 @@ const statusLabels: Record<RegistrationStatus, string> = {
 function formatDate(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
-    ? '—'
+    ? '-'
     : new Intl.DateTimeFormat('ar', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 }
 

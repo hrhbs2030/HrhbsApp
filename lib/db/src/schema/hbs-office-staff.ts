@@ -1,13 +1,18 @@
-import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 // Office access is assigned explicitly to an existing Clerk user ID.
-// Registration alone never grants staff access.
+// Registration alone never grants staff access. The owner is whoever holds
+// the verified HBS_OFFICE_EMAIL address; other staff are added by the owner
+// and keep access only while their account still has `email` verified.
+// Rows created before staff management have no email and are owner rows.
 export const hbsOfficeStaff = pgTable("hbs_office_staff", {
   userId: text("user_id").primaryKey(),
+  email: text("email"),
+  addedBy: text("added_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [uniqueIndex("hbs_office_staff_email_unique").on(table.email)]);
 
 export const insertHbsOfficeStaffSchema = createInsertSchema(hbsOfficeStaff).omit({
   createdAt: true,

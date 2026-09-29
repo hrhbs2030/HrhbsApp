@@ -1,13 +1,12 @@
 import { clerkClient, getAuth } from "@clerk/express";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { Router, type IRouter, type Request, type RequestHandler } from "express";
+import { Router, type IRouter, type RequestHandler } from "express";
 import {
   db,
   hbsInquiries,
   hbsLegacyImports,
   hbsLegacyRecords,
   hbsRegistrationRequests,
-  hbsOfficeStaff,
   hbsServiceRequests,
   type HbsInquiry,
   type HbsRegistrationRequest,
@@ -46,7 +45,15 @@ import {
   SubmitPortalRegistrationBody,
   SubmitPortalRegistrationResponse,
 } from "@workspace/api-zod";
+import { recordAudit } from "../lib/audit";
 import { emptyLegacyGroup, groupLegacyIds, inspectLegacyBackup, legacyKinds } from "../lib/legacy-backup";
+import {
+  clerkUsersById,
+  getOfficeRole,
+  requireOfficeOwner,
+  requireOfficeStaff,
+  verifiedEmailOf,
+} from "../lib/office-access";
 
 const router: IRouter = Router();
 
@@ -83,84 +90,6 @@ export const requireApprovedCustomer: RequestHandler = async (req, res, next) =>
   }
   if (!(await hasCustomerApproval(userId))) {
     res.status(403).json({ error: "Customer registration approval required" });
-    return;
-  }
-  next();
-};
-
-// Clerk results are reused for a minute per user: staff are re-verified at
-// most once a minute, and a customer's frequent /portal/me polling does not
-// look up the office email each time. The staff row is still checked on every
-// request, so deleting it revokes access immediately.
-const OFFICE_ACCESS_TTL_MS = 60_000;
-const officeAccessVerifiedUntil = new Map<string, number>();
-const officeBootstrapDeniedUntil = new Map<string, number>();
-
-function remember(cache: Map<string, number>, userId: string): void {
-  const now = Date.now();
-  if (cache.size >= 10_000) {
-    for (const [id, until] of cache) {
-      if (until <= now) cache.delete(id);
-    }
-    if (cache.size >= 10_000) cache.clear();
-  }
-  cache.set(userId, now + OFFICE_ACCESS_TTL_MS);
-}
-
-function isFresh(cache: Map<string, number>, userId: string): boolean {
-  return (cache.get(userId) ?? 0) > Date.now();
-}
-
-async function hasOfficeAccess(req: Request, bootstrap = false): Promise<boolean> {
-  const approvedEmail = process.env.HBS_OFFICE_EMAIL?.trim().toLowerCase();
-  const userId = getAuth(req).userId;
-  if (!approvedEmail || !userId) return false;
-
-  const [member] = await db.select({ userId: hbsOfficeStaff.userId })
-    .from(hbsOfficeStaff).where(eq(hbsOfficeStaff.userId, userId)).limit(1);
-  if (!member && !bootstrap) return false;
-  if (member && isFresh(officeAccessVerifiedUntil, userId)) return true;
-  if (!member && isFresh(officeBootstrapDeniedUntil, userId)) return false;
-
-  // A normal customer's /portal/me may provision only the verified owner of
-  // the approved address. Do not request arbitrary customer IDs from Clerk.
-  const user = member
-    ? await clerkClient.users.getUser(userId)
-    : (await clerkClient.users.getUserList({ emailAddress: [approvedEmail], limit: 10 }))
-        .data.find((candidate) => candidate.id === userId);
-  if (!user) {
-    if (!member) remember(officeBootstrapDeniedUntil, userId);
-    return false;
-  }
-
-  // Re-checked at least once a minute: an old role row alone cannot retain
-  // access after the approved email is removed from a Clerk account.
-  const verifiedOwner = user.emailAddresses.some(
-    (entry) =>
-      entry.emailAddress.toLowerCase() === approvedEmail &&
-      entry.verification?.status === "verified",
-  );
-  if (!verifiedOwner) {
-    officeAccessVerifiedUntil.delete(userId);
-    if (!member) remember(officeBootstrapDeniedUntil, userId);
-    return false;
-  }
-
-  if (!member) {
-    await db.insert(hbsOfficeStaff).values({ userId }).onConflictDoNothing();
-  }
-  officeBootstrapDeniedUntil.delete(userId);
-  remember(officeAccessVerifiedUntil, userId);
-  return true;
-}
-
-export const requireOfficeStaff: RequestHandler = async (req, res, next) => {
-  if (!getAuth(req).userId) {
-    res.status(401).json({ error: "Sign in to continue" });
-    return;
-  }
-  if (!(await hasOfficeAccess(req))) {
-    res.status(403).json({ error: "Office access required" });
     return;
   }
   next();
@@ -228,34 +157,8 @@ function portalRegistration(record: HbsRegistrationRequest) {
   };
 }
 
-type ClerkEmailOwner = {
-  emailAddresses: { emailAddress: string; verification: { status: string } | null }[];
-};
-
-export function verifiedEmailOf(user: ClerkEmailOwner | undefined, email: string): string | null {
-  return user?.emailAddresses.find(
-    (entry) => entry.emailAddress.toLowerCase() === email.toLowerCase() &&
-      entry.verification?.status === "verified",
-  )?.emailAddress ?? null;
-}
-
 async function verifiedRegistrationEmail(record: HbsRegistrationRequest): Promise<string | null> {
   return verifiedEmailOf(await clerkClient.users.getUser(record.userId), record.email);
-}
-
-const CLERK_USER_BATCH = 100;
-
-// One Clerk call per 100 applicants instead of one per registration. A deleted
-// Clerk account simply shows no verified email.
-async function clerkUsersById(userIds: string[]): Promise<Map<string, ClerkEmailOwner>> {
-  const unique = [...new Set(userIds)];
-  const users = new Map<string, ClerkEmailOwner>();
-  for (let start = 0; start < unique.length; start += CLERK_USER_BATCH) {
-    const batch = unique.slice(start, start + CLERK_USER_BATCH);
-    const { data } = await clerkClient.users.getUserList({ userId: batch, limit: batch.length });
-    for (const user of data) users.set(user.id, user);
-  }
-  return users;
 }
 
 function officeRegistration(record: HbsRegistrationRequest, email: string | null) {
@@ -267,7 +170,7 @@ function officeRegistration(record: HbsRegistrationRequest, email: string | null
 }
 
 router.get("/portal/me", requirePortalAuth, async (req, res): Promise<void> => {
-  const staff = await hasOfficeAccess(req, true);
+  const officeRole = await getOfficeRole(req, true);
   const userId = getAuth(req).userId!;
   const [registration] = await db.select({ status: hbsRegistrationRequests.status })
     .from(hbsRegistrationRequests)
@@ -276,7 +179,11 @@ router.get("/portal/me", requirePortalAuth, async (req, res): Promise<void> => {
   const status = registration?.status === "approved" || await hasLegacyCustomerData(userId)
     ? "approved"
     : registration?.status ?? null;
-  res.json(GetPortalMeResponse.parse({ role: staff ? "staff" : "customer", registrationStatus: status }));
+  res.json(GetPortalMeResponse.parse({
+    role: officeRole ? "staff" : "customer",
+    officeRole,
+    registrationStatus: status,
+  }));
 });
 
 router.get("/portal/registration", requirePortalAuth, async (req, res): Promise<void> => {
@@ -488,15 +395,26 @@ router.patch("/office/registrations/:id", requireOfficeStaff, async (req, res): 
     }
   }
 
-  const [record] = await db.update(hbsRegistrationRequests).set({
-    status: parsed.data.status,
-    reason: parsed.data.reason?.trim() || null,
-    reviewerId: getAuth(req).userId!,
-    updatedAt: new Date(),
-  }).where(and(
-    eq(hbsRegistrationRequests.id, params.data.id),
-    eq(hbsRegistrationRequests.status, "pending"),
-  )).returning();
+  const actorId = getAuth(req).userId!;
+  const reason = parsed.data.reason?.trim() || null;
+  const record = await db.transaction(async tx => {
+    const [updated] = await tx.update(hbsRegistrationRequests).set({
+      status: parsed.data.status,
+      reason,
+      reviewerId: actorId,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(hbsRegistrationRequests.id, params.data.id),
+      eq(hbsRegistrationRequests.status, "pending"),
+    )).returning();
+    if (updated) {
+      await recordAudit(tx, {
+        actorId, action: "registration.review", targetType: "registration", targetId: updated.id,
+        details: { status: updated.status, ...(reason ? { reason } : {}) },
+      });
+    }
+    return updated;
+  });
   if (!record) {
     const [existing] = await db.select({ id: hbsRegistrationRequests.id, status: hbsRegistrationRequests.status })
       .from(hbsRegistrationRequests)
@@ -544,11 +462,26 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
     res.status(400).json({ error: "Invalid request update" });
     return;
   }
-  const [record] = await db.update(hbsServiceRequests).set({
-    status: parsed.data.status,
-    ...(parsed.data.officeNote !== undefined ? { officeNote: parsed.data.officeNote } : {}),
-    updatedAt: new Date(),
-  }).where(eq(hbsServiceRequests.id, params.data.id)).returning();
+  const record = await db.transaction(async tx => {
+    const [previous] = await tx.select({ status: hbsServiceRequests.status, officeNote: hbsServiceRequests.officeNote })
+      .from(hbsServiceRequests).where(eq(hbsServiceRequests.id, params.data.id)).for("update");
+    if (!previous) return undefined;
+    const [updated] = await tx.update(hbsServiceRequests).set({
+      status: parsed.data.status,
+      ...(parsed.data.officeNote !== undefined ? { officeNote: parsed.data.officeNote } : {}),
+      updatedAt: new Date(),
+    }).where(eq(hbsServiceRequests.id, params.data.id)).returning();
+    await recordAudit(tx, {
+      actorId: getAuth(req).userId!, action: "service_request.update",
+      targetType: "service_request", targetId: updated.id,
+      details: {
+        fromStatus: previous.status,
+        toStatus: updated.status,
+        noteChanged: (previous.officeNote ?? null) !== (updated.officeNote ?? null),
+      },
+    });
+    return updated;
+  });
   if (!record) {
     res.status(404).json({ error: "Request not found" });
     return;
@@ -571,11 +504,21 @@ router.patch("/office/inquiries/:id", requireOfficeStaff, async (req, res): Prom
     res.status(400).json({ error: "Invalid inquiry answer" });
     return;
   }
-  const [record] = await db.update(hbsInquiries).set({
-    answer: parsed.data.answer.trim(),
-    status: "answered",
-    answeredAt: new Date(),
-  }).where(eq(hbsInquiries.id, params.data.id)).returning();
+  const record = await db.transaction(async tx => {
+    const [previous] = await tx.select({ status: hbsInquiries.status })
+      .from(hbsInquiries).where(eq(hbsInquiries.id, params.data.id)).for("update");
+    if (!previous) return undefined;
+    const [updated] = await tx.update(hbsInquiries).set({
+      answer: parsed.data.answer.trim(),
+      status: "answered",
+      answeredAt: new Date(),
+    }).where(eq(hbsInquiries.id, params.data.id)).returning();
+    await recordAudit(tx, {
+      actorId: getAuth(req).userId!, action: "inquiry.answer", targetType: "inquiry", targetId: updated.id,
+      details: { edited: previous.status === "answered" },
+    });
+    return updated;
+  });
   if (!record) {
     res.status(404).json({ error: "Inquiry not found" });
     return;
@@ -588,7 +531,7 @@ router.patch("/office/inquiries/:id", requireOfficeStaff, async (req, res): Prom
   res.json(AnswerOfficeInquiryResponse.parse(officeInquiry(record, linkedRequest)));
 });
 
-router.post("/office/legacy/preview", requireOfficeStaff, async (req, res): Promise<void> => {
+router.post("/office/legacy/preview", requireOfficeOwner, async (req, res): Promise<void> => {
   const body = PreviewLegacyBackupBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "حجم النسخة أو صيغة الطلب غير صالحة." }); return; }
   try {
@@ -599,7 +542,7 @@ router.post("/office/legacy/preview", requireOfficeStaff, async (req, res): Prom
   }
 });
 
-router.post("/office/legacy/import", requireOfficeStaff, async (req, res): Promise<void> => {
+router.post("/office/legacy/import", requireOfficeOwner, async (req, res): Promise<void> => {
   const body = ImportLegacyBackupBody.safeParse(req.body);
   if (!body.success || body.data.confirmed !== true) {
     res.status(400).json({ error: "يجب مراجعة النسخة والموافقة صراحةً قبل الاستيراد." }); return;
@@ -621,6 +564,10 @@ router.post("/office/legacy/import", requireOfficeStaff, async (req, res): Promi
       }));
       if (rows.length) await tx.insert(hbsLegacyRecords).values(rows);
     }
+    await recordAudit(tx, {
+      actorId: batch.importedBy, action: "legacy.import", targetType: "legacy_import", targetId: batch.id,
+      details: { digest: batch.digest, counts: preview.counts },
+    });
     return batch;
   });
   if (!imported) { res.status(409).json({ error: "هذه النسخة مستوردة مسبقًا. تحقق من سجل الاستيراد." }); return; }
@@ -634,7 +581,7 @@ router.post("/office/legacy/import", requireOfficeStaff, async (req, res): Promi
   }));
 });
 
-router.get("/office/legacy/imports", requireOfficeStaff, async (_req, res): Promise<void> => {
+router.get("/office/legacy/imports", requireOfficeOwner, async (_req, res): Promise<void> => {
   const batches = await db.select().from(hbsLegacyImports).orderBy(desc(hbsLegacyImports.importedAt));
   const records = await db.select({
     importId: hbsLegacyRecords.importId, kind: hbsLegacyRecords.kind, legacyId: hbsLegacyRecords.legacyId,

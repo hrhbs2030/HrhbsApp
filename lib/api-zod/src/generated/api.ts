@@ -80,6 +80,7 @@ export const AnswerCustomerInquiryResponse = zod.object({
  */
 export const GetPortalMeResponse = zod.object({
   "role": zod.enum(['customer', 'staff']),
+  "officeRole": zod.union([zod.literal('owner'),zod.literal('staff'),zod.literal(null)]).nullable(),
   "registrationStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullable()
 })
 
@@ -537,5 +538,68 @@ export const ListLegacyImportsResponseItem = zod.object({
   "importedAt": zod.coerce.date()
 }))
 export const ListLegacyImportsResponse = zod.array(ListLegacyImportsResponseItem)
+
+
+/**
+ * @summary List office staff (owner only)
+ */
+export const ListOfficeStaffResponseItem = zod.object({
+  "userId": zod.string(),
+  "email": zod.string().nullable(),
+  "role": zod.enum(['owner', 'staff']),
+  "addedBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+})
+export const ListOfficeStaffResponse = zod.array(ListOfficeStaffResponseItem)
+
+
+/**
+ * @summary Give office access to an existing account by its verified email (owner only)
+ */
+export const addOfficeStaffBodyEmailMax = 254;
+
+
+
+export const AddOfficeStaffBody = zod.object({
+  "email": zod.string().email().max(addOfficeStaffBodyEmailMax)
+})
+
+export const AddOfficeStaffResponse = zod.object({
+  "userId": zod.string(),
+  "email": zod.string().nullable(),
+  "role": zod.enum(['owner', 'staff']),
+  "addedBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Remove a staff member's office access (owner only)
+ */
+export const removeOfficeStaffPathUserIdMax = 200;
+
+
+
+export const RemoveOfficeStaffParams = zod.object({
+  "userId": zod.coerce.string().min(1).max(removeOfficeStaffPathUserIdMax)
+})
+
+export const RemoveOfficeStaffResponse = zod.void()
+
+
+/**
+ * @summary Latest office actions, newest first (owner only)
+ */
+export const ListOfficeAuditLogResponseItem = zod.object({
+  "id": zod.number().int(),
+  "actorId": zod.string(),
+  "actorEmail": zod.string().nullable(),
+  "action": zod.enum(['service_request.update', 'inquiry.answer', 'registration.review', 'legacy.import', 'staff.add', 'staff.remove']),
+  "targetType": zod.string(),
+  "targetId": zod.string(),
+  "details": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.coerce.date()
+})
+export const ListOfficeAuditLogResponse = zod.array(ListOfficeAuditLogResponseItem)
 
 

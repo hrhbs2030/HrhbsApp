@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './auditLogEntry';
+export * from './auditLogEntryAction';
+export * from './auditLogEntryDetails';
 export * from './customerAIAnswer';
 export * from './customerAIQuestion';
 export * from './extractedTransaction';
@@ -29,12 +32,16 @@ export * from './officeRegistration';
 export * from './officeServiceRequest';
 export * from './officeServiceRequestCategory';
 export * from './officeServiceRequestStatus';
+export * from './officeStaffInput';
+export * from './officeStaffMember';
+export * from './officeStaffMemberRole';
 export * from './officeSummary';
 export * from './portalRegistration';
 export * from './portalRegistrationResult';
 export * from './portalRegistrationStatus';
 export * from './portalSummary';
 export * from './portalUser';
+export * from './portalUserOfficeRole';
 export * from './portalUserRegistrationStatus';
 export * from './portalUserRole';
 export * from './registrationRequestInput';

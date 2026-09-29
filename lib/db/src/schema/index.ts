@@ -24,3 +24,4 @@ export * from "./hbs-inquiries";
 export * from "./hbs-office-staff";
 export * from "./hbs-registration-requests";
 export * from "./hbs-legacy";
+export * from "./hbs-audit-log";

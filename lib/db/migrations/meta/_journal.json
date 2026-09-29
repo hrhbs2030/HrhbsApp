@@ -15,6 +15,13 @@
       "when": 1790649500455,
       "tag": "0001_status_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790649814579,
+      "tag": "0002_office_roles_and_audit",
+      "breakpoints": true
     }
   ]
 }
