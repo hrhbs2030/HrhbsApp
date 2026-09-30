@@ -5,9 +5,10 @@ import { SiteFooter, SiteHeader } from '@/components/site-chrome';
 import { IntroSequence, useIntroState } from '@/components/intro';
 import { RequestObject, StageRail, stageLabels } from '@/components/request-object';
 import { AssistantShowcase, DashboardPreview } from '@/components/landing-previews';
+import { HowFilm } from '@/components/how-film';
 import { categories, services, type ServiceCategory } from '@/content/services';
 import { faqs, journey, trustFacts } from '@/content/site';
-import { useActiveChapter, useReducedMotion, useRevealOnScroll } from '@/lib/motion';
+import { useReducedMotion, useRevealOnScroll } from '@/lib/motion';
 import './landing.css';
 
 const ICON = 1.75;
@@ -65,8 +66,6 @@ export default function Landing() {
   const reduced = useReducedMotion();
   const rootRef = useRevealOnScroll<HTMLDivElement>();
   const hero = useHeroStage(!intro.playing, reduced);
-  const chapters = useActiveChapter(journey.length);
-  const chapterStage = journey[chapters.active]?.stage ?? 0;
   let wordIndex = 0;
 
   // Landing is lazy-loaded: the browser's initial hash scroll can happen
@@ -156,25 +155,18 @@ export default function Landing() {
             <div className="lp-journey-head reveal">
               <h2 id="journey-title" className="lp-heading lp-heading--dark">كيف تعمل البوابة</h2>
             </div>
-            <div className="lp-journey-grid">
-              <div className="lp-journey-visual" aria-hidden="true">
-                <div className="lp-journey-sticky">
-                  <RequestObject stage={chapterStage} size="compact" />
-                  <p className="lp-journey-status">الحالة الآن: <strong>{stageLabels[chapterStage]}</strong></p>
-                </div>
-              </div>
-              <ol className="lp-chapters">
-                {journey.map((chapter, index) => (
-                  <li key={chapter.title} ref={chapters.register(index)} className="lp-chapter" data-active={chapters.active === index ? 'true' : undefined}>
-                    <span className="lp-chapter-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-                    <div>
-                      <h3>{chapter.title}</h3>
-                      <p>{chapter.text}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
+            <div className="lp-film reveal"><HowFilm /></div>
+            <ol className="lp-chapters">
+              {journey.map((chapter, index) => (
+                <li key={chapter.title} className="lp-chapter">
+                  <span className="lp-chapter-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                  <div>
+                    <h3>{chapter.title}</h3>
+                    <p>{chapter.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
         </section>
 

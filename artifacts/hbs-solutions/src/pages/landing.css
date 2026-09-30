@@ -83,17 +83,12 @@
 .lp-journey { position: relative; isolation: isolate; overflow: clip; margin-top: var(--lp-space); background: var(--color-night); color: var(--color-on-dark); padding: var(--lp-space) 0; }
 .lp-journey-glow { position: absolute; z-index: -1; width: 800px; height: 800px; inset-inline-start: -300px; bottom: -300px; border-radius: 50%; background: radial-gradient(circle, rgb(143 208 198 / .08), transparent 62%); }
 .lp-journey-head { margin-bottom: 48px; }
-.lp-journey-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: clamp(40px, 7vw, 110px); align-items: start; }
-.lp-journey-visual { position: relative; height: 100%; }
-.lp-journey-sticky { position: sticky; top: 20vh; display: grid; justify-items: center; gap: 20px; }
-.lp-journey-status { margin: 0; color: var(--color-on-dark-2); font-size: 15px; }
-.lp-journey-status strong { color: var(--color-copper-light); }
-.lp-chapters { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.lp-chapter { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; padding: 30px 28px; border-radius: var(--radius-panel); border: 1px solid transparent; opacity: .45; transition: opacity var(--duration-reveal) var(--ease-out-soft), background-color var(--duration-reveal) ease, border-color var(--duration-reveal) ease; }
-.lp-chapter[data-active="true"] { opacity: 1; background: rgb(255 255 255 / .035); border-color: rgb(255 255 255 / .08); }
+.lp-film { margin-bottom: 44px; }
+.lp-chapters { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.lp-chapter { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; padding: 24px 22px; border-radius: var(--radius-panel); border: 1px solid rgb(255 255 255 / .08); background: rgb(255 255 255 / .03); transition: opacity var(--duration-reveal) var(--ease-out-soft), background-color var(--duration-reveal) ease, border-color var(--duration-reveal) ease; }
 .lp-chapter-index { font-family: var(--font-display); font-size: 20px; font-weight: 600; line-height: 1.6; color: var(--color-copper-light); font-variant-numeric: tabular-nums; }
-.lp-chapter h3 { margin: 0; font-family: var(--font-display); font-size: clamp(21px, 2vw, 26px); font-weight: 600; line-height: 1.4; }
-.lp-chapter p { max-width: 34em; margin: 10px 0 0; color: var(--color-on-dark-2); font-size: 16px; line-height: 1.85; }
+.lp-chapter h3 { margin: 0; font-family: var(--font-display); font-size: clamp(19px, 1.6vw, 22px); font-weight: 600; line-height: 1.4; }
+.lp-chapter p { max-width: 34em; margin: 8px 0 0; color: var(--color-on-dark-2); font-size: 15px; line-height: 1.85; }
 
 /* ---------- Trust ---------- */
 .lp-trust-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-radius: var(--radius-panel); background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-card); }
@@ -132,10 +127,10 @@
   .lp-hero { padding: 112px 0 72px; }
   .lp-hero-grid { grid-template-columns: minmax(0, 1fr); }
   .lp-hero-visual { margin-top: 8px; }
-  .lp-journey-grid, .lp-faq-grid { grid-template-columns: minmax(0, 1fr); }
+  .lp-faq-grid { grid-template-columns: minmax(0, 1fr); }
+  .lp-chapters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lp-faq-grid { gap: 24px; }
   .lp-faq-head { display: flex; justify-content: space-between; align-items: flex-end; }
-  .lp-journey-visual { display: none; }
   .lp-journey-head { margin-bottom: 28px; }
   .lp-trust-grid { grid-template-columns: minmax(0, 1fr); }
   .lp-trust-card + .lp-trust-card { border-inline-start: 0; border-top: 1px solid var(--color-line); }
@@ -153,8 +148,9 @@
   .lp-category strong { font-size: 20px; }
   .lp-category-text { display: none; }
   .lp-category-foot { font-size: 13px; padding-top: 4px; }
-  .lp-chapter { grid-template-columns: 40px minmax(0, 1fr); gap: 8px; padding: 18px 4px; opacity: 1; border: 0; background: none; }
-  .lp-chapter[data-active="true"] { background: none; border-color: transparent; }
+  .lp-film { margin-bottom: 28px; }
+  .lp-chapters { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .lp-chapter { grid-template-columns: 40px minmax(0, 1fr); gap: 8px; padding: 16px 4px; border: 0; border-bottom: 1px solid rgb(255 255 255 / .08); border-radius: 0; background: none; }
   .lp-chapter-index { font-size: 17px; }
   .lp-chapter p { font-size: 15px; }
   .lp-trust-card { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 14px; padding: 20px; }
@@ -168,5 +164,4 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .reveal-ready .reveal { opacity: 1; transform: none; }
-  .lp-chapter { opacity: 1; }
 }
