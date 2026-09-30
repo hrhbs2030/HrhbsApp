@@ -28,3 +28,12 @@
 /* Conversations need room: hide them in narrow scenes and behind the footer. */
 .cs--portal .pp-lines, .cs--footer .pp-lines { display: none; }
 @media (max-width: 1180px) { .pp-lines { display: none; } }
+/* Quiet life: a slow breath in the clothes and an occasional blink. */
+.pp-breathe { transform-box: fill-box; transform-origin: 50% 100%; animation: pp-breathe 3.8s ease-in-out infinite alternate; }
+@keyframes pp-breathe { from { transform: scaleY(1); } to { transform: scaleY(1.012); } }
+.pp-blink { transform-box: fill-box; transform-origin: 50% 50%; animation: pp-blink 4.6s linear infinite; }
+@keyframes pp-blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+.cs-scene:not([data-active="true"]) :is(.pp-breathe, .pp-blink) { animation: none; }
+@media (prefers-reduced-motion: reduce) { .pp-breathe, .pp-blink { animation: none; } }
+.pp-sign { font-family: var(--font-sans); font-size: 10.5px; font-weight: 700; fill: #f6efe3; }
+.pp-sign--latin { font-family: var(--font-display, var(--font-sans)); letter-spacing: 1.6px; font-size: 10px; fill: #f0b28a; }
