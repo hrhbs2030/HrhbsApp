@@ -8,6 +8,7 @@ import { CustomerAssistant } from '@/components/customer-assistant';
 import { PrintButton } from '@/components/brand/print';
 import { LOCALE, formatDateTime } from '@/lib/format';
 import { RequestFiles } from '@/components/request-files';
+import { trackEvent } from '@/lib/analytics';
 
 const count = (value: number) => new Intl.NumberFormat(LOCALE).format(value);
 
@@ -135,7 +136,7 @@ function Info({label,value,ltr=false}:{label:string;value:string;ltr?:boolean}) 
 export function Inquiries() {
   const requestFromLink = Number(new URLSearchParams(useSearch()).get('request')) || null;
   const q=useListInquiries({query:{queryKey:getListInquiriesQueryKey(),refetchInterval:30000}}); const requests=useListServiceRequests({query:{queryKey:getListServiceRequestsQueryKey(),refetchInterval:30000}}); const qc=useQueryClient(); const mutation=useCreateInquiry(); const [subject,setSubject]=useState(''); const [message,setMessage]=useState(''); const [linkedServiceRequestId,setLinkedServiceRequestId]=useState(requestFromLink ? String(requestFromLink) : ''); const [showForm,setShowForm]=useState(Boolean(requestFromLink));
-  async function submit(e:FormEvent) { e.preventDefault(); try { await mutation.mutateAsync({data:{subject:subject.trim(),message:message.trim(),linkedServiceRequestId:linkedServiceRequestId?Number(linkedServiceRequestId):null}}); setSubject('');setMessage('');setLinkedServiceRequestId('');setShowForm(false); await Promise.all([qc.invalidateQueries({queryKey:getListInquiriesQueryKey()}),qc.invalidateQueries({queryKey:getGetPortalSummaryQueryKey()})]); } catch { /* error shown */ } }
+  async function submit(e:FormEvent) { e.preventDefault(); try { await mutation.mutateAsync({data:{subject:subject.trim(),message:message.trim(),linkedServiceRequestId:linkedServiceRequestId?Number(linkedServiceRequestId):null}}); trackEvent('inquiry_submitted', { linked_request: Boolean(linkedServiceRequestId) }); setSubject('');setMessage('');setLinkedServiceRequestId('');setShowForm(false); await Promise.all([qc.invalidateQueries({queryKey:getListInquiriesQueryKey()}),qc.invalidateQueries({queryKey:getGetPortalSummaryQueryKey()})]); } catch { /* error shown */ } }
   function openForm() { setShowForm(true); requestAnimationFrame(() => document.getElementById('inquiry-subject')?.focus()); }
   return <PortalLayout><PageHeading eyebrow="تواصل مع المكتب" title="استفساراتي" action={!showForm && <button type="button" onClick={openForm} className="btn btn-primary"><Plus size={18}/>استفسار جديد</button>}/>
     {showForm && <form onSubmit={submit} className="surface mb-8 p-5 sm:p-7" aria-labelledby="inquiry-form-title">

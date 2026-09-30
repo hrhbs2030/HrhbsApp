@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'wouter';
 import { useAnswerCustomerInquiry } from '@workspace/api-client-react';
 import { ArrowLeft, Sparkles } from 'lucide-react';
+import { trackEvent } from '@/lib/analytics';
 
 export function CustomerAssistant({ onAskOffice }: { onAskOffice: () => void }) {
   const [question, setQuestion] = useState('');
@@ -15,6 +16,7 @@ export function CustomerAssistant({ onAskOffice }: { onAskOffice: () => void }) 
     setExchange(null);
     try {
       const result = await answer.mutateAsync({ data: { question: text } });
+      trackEvent('assistant_answered', { source_count: result.sources.length });
       setExchange({ question: text, answer: result.answer, sources: result.sources });
       setQuestion('');
     } catch {

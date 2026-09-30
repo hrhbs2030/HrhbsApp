@@ -6,6 +6,7 @@ import { ContactCard } from '@/components/contact-card';
 import { ServiceDiscovery } from '@/components/service-discovery';
 import { categories, categoryById, platforms, searchServices, serviceBySlug, services, type ServiceCategory } from '@/content/services';
 import { faqs, trustFacts } from '@/content/site';
+import { trackEvent } from '@/lib/analytics';
 import './public.css';
 
 const ICON = 1.75;
@@ -178,7 +179,7 @@ export function ServiceDetail() {
             <div className="pub-cta">
               <h2 className="display">ابدأ هذا الطلب</h2>
               <p>يُفتح النموذج واسم الخدمة معبّأ. يلزم حساب معتمد من المكتب، ولا يطلب المكتب كلمات مرور المنصات أو رموز التحقق.</p>
-              <Link href={`/requests/new?service=${service.slug}`} className="btn btn-light">ابدأ الطلب <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
+              <Link href={`/requests/new?service=${service.slug}`} className="btn btn-light" onClick={() => trackEvent('service_request_intent', { source: 'service_detail', service_slug: service.slug })}>ابدأ الطلب <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
               <Link href="/sign-up" className="pub-cta-link">لا أملك حسابًا: طلب التسجيل</Link>
             </div>
             {related.length > 0 && (

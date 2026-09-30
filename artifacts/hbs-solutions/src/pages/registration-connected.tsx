@@ -11,6 +11,7 @@ import {
   useSubmitPortalRegistration,
 } from '@workspace/api-client-react';
 import { PortalLayout, ErrorBlock } from '@/components/portal-ui';
+import { trackEvent } from '@/lib/analytics';
 import {
   OfficeRegistrationsPage,
   RegistrationRequestPage,
@@ -40,6 +41,7 @@ export function CustomerRegistration() {
           ...(form.note.trim() ? { note: form.note.trim() } : {}),
         },
       });
+      trackEvent('registration_submitted');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: getGetPortalRegistrationQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getGetPortalMeQueryKey() }),

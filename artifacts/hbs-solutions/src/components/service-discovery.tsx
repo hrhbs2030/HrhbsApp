@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { ArrowLeft, ArrowRight, Check, Compass, Search, Sparkles } from 'lucide-react';
 import { categories, categoryById, platforms, searchServices, services, type ServiceCategory } from '@/content/services';
+import { trackEvent } from '@/lib/analytics';
 import './service-discovery.css';
 
 const iconSize = 18;
@@ -53,6 +54,16 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
     else setStep(0);
   };
   const goToSlide = (next: number) => setSlide((next + services.length) % services.length);
+  const showMatches = () => {
+    if (!category && !description.trim()) return;
+    trackEvent('service_discovery_completed', {
+      category: category ?? 'unsure',
+      platform_selected: Boolean(platform),
+      result_count: matches.length,
+      outcome: matches.length ? 'matches' : 'no_match',
+    });
+    setStep(3);
+  };
 
   return (
     <section className="service-discovery" aria-label="طرق استكشاف الخدمات">
@@ -137,10 +148,10 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
                 <label className="discovery-description">
                   <span className="sr-only">وصف المعاملة اختياري</span>
                   <Search size={17} aria-hidden="true" />
-                   <input value={description} onChange={(event) => setDescription(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && (category || description.trim())) setStep(3); }} placeholder="مثال: إدارة المنصات الحكومية لمنشأة" data-testid="input-guide-description" />
+                    <input value={description} onChange={(event) => setDescription(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') showMatches(); }} placeholder="مثال: إدارة المنصات الحكومية لمنشأة" data-testid="input-guide-description" />
                 </label>
                 <div className="discovery-guide-actions">
-                   <button type="button" className="btn btn-primary" disabled={!category && !description.trim()} onClick={() => setStep(3)} data-testid="button-guide-show-matches">اعرض الخدمات <ArrowLeft size={16} aria-hidden="true" /></button>
+                    <button type="button" className="btn btn-primary" disabled={!category && !description.trim()} onClick={showMatches} data-testid="button-guide-show-matches">اعرض الخدمات <ArrowLeft size={16} aria-hidden="true" /></button>
                   <button type="button" className="discovery-back" onClick={backGuide}><ArrowRight size={15} aria-hidden="true" /> رجوع</button>
                 </div>
               </div>

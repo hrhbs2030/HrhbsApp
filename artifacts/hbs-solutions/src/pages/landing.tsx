@@ -9,6 +9,7 @@ import { HowFilm } from '@/components/how-film';
 import { categories, services, type ServiceCategory } from '@/content/services';
 import { faqs, journey, trustFacts } from '@/content/site';
 import { useReducedMotion, useRevealOnScroll } from '@/lib/motion';
+import { trackEvent } from '@/lib/analytics';
 import './landing.css';
 
 const ICON = 1.75;
@@ -49,6 +50,7 @@ function ServiceSearch() {
   function submit(event: FormEvent) {
     event.preventDefault();
     const q = query.trim();
+    trackEvent('service_search_submitted', { surface: 'hero', has_query: Boolean(q) });
     navigate(q ? `/services?q=${encodeURIComponent(q)}` : '/services');
   }
   return (
@@ -109,8 +111,8 @@ export default function Landing() {
               </h1>
               <p className="lp-hero-lead lp-enter">من تأسيس الشركات وإدارة المنصات الحكومية إلى إنهاء المعاملات؛ أرسل طلبك إلى المكتب وتابع حالته من حسابك.</p>
               <div className="lp-hero-actions lp-enter">
-                <Link href="/sign-up" className="btn btn-light lp-btn-lg">طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
-                <Link href="/services" className="btn btn-ghost-dark lp-btn-lg">تصفّح الخدمات</Link>
+                <Link href="/sign-up" className="btn btn-light lp-btn-lg" onClick={() => trackEvent('marketing_cta_click', { cta: 'registration', placement: 'hero' })}>طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
+                <Link href="/services" className="btn btn-ghost-dark lp-btn-lg" onClick={() => trackEvent('marketing_cta_click', { cta: 'services', placement: 'hero' })}>تصفّح الخدمات</Link>
               </div>
               <div className="lp-enter lp-search-wrap"><ServiceSearch /></div>
             </div>

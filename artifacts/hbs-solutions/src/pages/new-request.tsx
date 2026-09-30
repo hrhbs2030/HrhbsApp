@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, Check, Paperclip, Pencil, Send, Shapes, X } from 'lucide-react';
@@ -6,6 +6,7 @@ import { getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, useCreateS
 import { PortalLayout, PageHeading } from '@/components/portal-ui';
 import { categories, categoryById, serviceBySlug, services, type ServiceCategory } from '@/content/services';
 import { ACCEPT_ATTR, MAX_FILES, RETENTION_NOTE, checkFile, sizeText, uploadError, uploadFile } from '@/components/request-files';
+import { trackEvent } from '@/lib/analytics';
 import './new-request.css';
 
 // Three steps over the existing API contract (category, service,
@@ -58,6 +59,13 @@ export function NewRequest() {
   const [clientRequestId] = useState(() => crypto.randomUUID());
   const fileInput = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const trackedStart = useRef(false);
+
+  useEffect(() => {
+    if (trackedStart.current) return;
+    trackedStart.current = true;
+    trackEvent('service_request_started', { preset_service: Boolean(preset) });
+  }, [preset]);
 
   const values = { service, description, contactPhone };
   const suggestions = useMemo(() => services.filter((s) => s.category === category), [category]);
@@ -109,6 +117,7 @@ export function NewRequest() {
     try {
       const attachmentIds = files.map((file) => uploaded.current.get(file)!).filter(Boolean);
       const result = await mutation.mutateAsync({ data: { category, service: service.trim(), description: description.trim(), contactPhone: contactPhone.trim(), clientRequestId, ...(attachmentIds.length ? { attachmentIds } : {}) } });
+      trackEvent('service_request_submitted', { category, preset_service: Boolean(preset) });
       await Promise.all([qc.invalidateQueries({ queryKey: getListServiceRequestsQueryKey() }), qc.invalidateQueries({ queryKey: getGetPortalSummaryQueryKey() })]);
       navigate(`/requests/${result.id}?sent=1`);
     } catch { /* error shown below */ }

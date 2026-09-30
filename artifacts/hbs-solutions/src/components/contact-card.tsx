@@ -1,5 +1,6 @@
 import { Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
 import { contact } from '@/content/contact';
+import { trackEvent } from '@/lib/analytics';
 import './contact-card.css';
 
 const ICON = 1.75;
@@ -8,10 +9,10 @@ const ICON = 1.75;
 export function ContactList({ tone = 'light', className = '' }: { tone?: 'light' | 'dark'; className?: string }) {
   return (
     <ul className={`contact-list contact-list--${tone} ${className}`}>
-      <li><a href={`tel:${contact.phoneIntl}`}><Phone size={17} strokeWidth={ICON} aria-hidden="true" /><span dir="ltr">{contact.phone}</span></a></li>
-      <li><a href={contact.whatsapp} target="_blank" rel="noopener noreferrer"><MessageCircle size={17} strokeWidth={ICON} aria-hidden="true" />واتساب</a></li>
-      <li><a href={`mailto:${contact.email}`}><Mail size={17} strokeWidth={ICON} aria-hidden="true" /><span dir="ltr">{contact.email}</span></a></li>
-      <li><a href={contact.mapUrl} target="_blank" rel="noopener noreferrer"><MapPin size={17} strokeWidth={ICON} aria-hidden="true" />{contact.address}</a></li>
+      <li><a href={`tel:${contact.phoneIntl}`} onClick={() => trackEvent('contact_channel_click', { channel: 'phone', placement: tone === 'dark' ? 'footer' : 'contact_card' })}><Phone size={17} strokeWidth={ICON} aria-hidden="true" /><span dir="ltr">{contact.phone}</span></a></li>
+      <li><a href={contact.whatsapp} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('contact_channel_click', { channel: 'whatsapp', placement: tone === 'dark' ? 'footer' : 'contact_card' })}><MessageCircle size={17} strokeWidth={ICON} aria-hidden="true" />واتساب</a></li>
+      <li><a href={`mailto:${contact.email}`} onClick={() => trackEvent('contact_channel_click', { channel: 'email', placement: tone === 'dark' ? 'footer' : 'contact_card' })}><Mail size={17} strokeWidth={ICON} aria-hidden="true" /><span dir="ltr">{contact.email}</span></a></li>
+      <li><a href={contact.mapUrl} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent('contact_channel_click', { channel: 'map', placement: tone === 'dark' ? 'footer' : 'contact_card' })}><MapPin size={17} strokeWidth={ICON} aria-hidden="true" />{contact.address}</a></li>
     </ul>
   );
 }
