@@ -22,6 +22,7 @@ const apiChecks = [
   [api, 'test:notifications'],
   [api, 'test:api-security'],
   [api, 'test:office-access'],
+  [api, 'test:openai-auth'],
 ];
 const databaseChecks = [
   [api, 'test:portal-isolation'],
@@ -33,6 +34,7 @@ const databaseChecks = [
   [api, 'test:approved-information-history'],
   [api, 'test:office-staff-management'],
   [api, 'test:office-revocation'],
+  [api, 'test:office-admin'],
 ];
 const storageCheck = [api, 'test:attachment-storage'];
 

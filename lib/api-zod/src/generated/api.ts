@@ -392,7 +392,7 @@ export const createServiceRequestBodyContactPhoneMin = 9;
 export const createServiceRequestBodyContactPhoneMax = 24;
 
 
-export const createServiceRequestBodyAttachmentIdsMax = 3;
+export const createServiceRequestBodyAttachmentIdsMax = 10;
 
 
 
@@ -1088,7 +1088,7 @@ export const ListOfficeAuditLogResponseItem = zod.object({
   "id": zod.number().int(),
   "actorId": zod.string(),
   "actorEmail": zod.string().email().nullable(),
-  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge']),
+  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge', 'registration.approve', 'registration.reject', 'information.review', 'information.publish', 'information.unpublish']),
   "targetType": zod.string(),
   "targetId": zod.string(),
   "details": zod.record(zod.string(), zod.unknown()),

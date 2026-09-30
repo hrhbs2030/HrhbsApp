@@ -94,7 +94,10 @@ export async function purgeCompletedRequestAttachments(
   const cutoff = new Date(now.getTime() - COMPLETED_RETENTION_DAYS * 86_400_000);
   const rows = await db.select({ attachment: hbsRequestAttachments }).from(hbsRequestAttachments)
     .innerJoin(hbsServiceRequests, eq(hbsRequestAttachments.requestId, hbsServiceRequests.id))
-    .where(and(eq(hbsServiceRequests.status, "completed"), lt(hbsServiceRequests.updatedAt, cutoff)))
+    // A file added after completion (for example a final certificate from the
+    // office) keeps its own 90 days.
+    .where(and(eq(hbsServiceRequests.status, "completed"), lt(hbsServiceRequests.updatedAt, cutoff),
+      lt(hbsRequestAttachments.createdAt, cutoff)))
     .orderBy(asc(hbsRequestAttachments.id)).limit(200);
   let removed = 0;
   for (const { attachment } of rows) {

@@ -18,4 +18,9 @@ export const AuditLogEntryAction = {
   attachmentdownload: 'attachment.download',
   attachmentdelete: 'attachment.delete',
   attachmentpurge: 'attachment.purge',
+  registrationapprove: 'registration.approve',
+  registrationreject: 'registration.reject',
+  informationreview: 'information.review',
+  informationpublish: 'information.publish',
+  informationunpublish: 'information.unpublish',
 } as const;

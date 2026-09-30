@@ -11,6 +11,8 @@ import {
 } from "@workspace/api-zod";
 import { Router, type IRouter } from "express";
 import { requireOfficeStaff } from "../lib/office-access";
+import { recordAudit } from "../lib/audit";
+import { getAuth } from "@clerk/express";
 
 const router: IRouter = Router();
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -28,6 +30,14 @@ async function preserveCurrentPublication(tx: Transaction, row: ApprovedInformat
     informationId: row.id, action: "published", title: row.publishedTitle,
     content: row.publishedContent, reviewedAt: row.publishedReviewedAt,
     publishedAt: row.publishedAt, changedAt: row.publishedAt,
+  });
+}
+
+// Who reviewed, published or withdrew what the assistant answers from.
+function audit(tx: Transaction, req: import("express").Request, action: "information.review" | "information.publish" | "information.unpublish", row: ApprovedInformation) {
+  return recordAudit(tx, {
+    actorId: getAuth(req).userId!, action, targetType: "approved_information", targetId: row.id,
+    details: { title: action === "information.unpublish" ? row.publishedTitle ?? row.draftTitle : row.draftTitle },
   });
 }
 
@@ -111,11 +121,15 @@ router.post("/office/approved-information/:id/review", requireOfficeStaff, async
   const parsed = ReviewApprovedInformationBody.safeParse(req.body);
   if (!Number.isSafeInteger(id) || id < 1 || !parsed.success) { res.status(400).json({ error: "Invalid review" }); return; }
   const updatedAt = new Date(Math.max(Date.now(), parsed.data.expectedUpdatedAt.getTime() + 1));
-  const [row] = await db.update(hbsApprovedInformation).set({ reviewedAt: updatedAt, updatedAt })
-    .where(and(
-      eq(hbsApprovedInformation.id, id),
-      sql`date_trunc('milliseconds', ${hbsApprovedInformation.updatedAt}) = ${parsed.data.expectedUpdatedAt}`,
-    )).returning();
+  const row = await db.transaction(async tx => {
+    const [reviewed] = await tx.update(hbsApprovedInformation).set({ reviewedAt: updatedAt, updatedAt })
+      .where(and(
+        eq(hbsApprovedInformation.id, id),
+        sql`date_trunc('milliseconds', ${hbsApprovedInformation.updatedAt}) = ${parsed.data.expectedUpdatedAt}`,
+      )).returning();
+    if (reviewed) await audit(tx, req, "information.review", reviewed);
+    return reviewed;
+  });
   if (!row) {
     const [existing] = await db.select({ id: hbsApprovedInformation.id })
       .from(hbsApprovedInformation).where(eq(hbsApprovedInformation.id, id)).limit(1);
@@ -146,6 +160,7 @@ router.post("/office/approved-information/:id/publish", requireOfficeStaff, asyn
       content: before.draftContent, reviewedAt: before.reviewedAt,
       publishedAt: updatedAt, changedAt: updatedAt,
     });
+    await audit(tx, req, "information.publish", row);
     return { status: 200 as const, row };
   });
   if (result.status !== 200) {
@@ -179,6 +194,7 @@ router.post("/office/approved-information/:id/unpublish", requireOfficeStaff, as
         publishedAt: before.publishedAt, changedAt: updatedAt,
       });
     }
+    await audit(tx, req, "information.unpublish", before);
     return { status: 200 as const, row };
   });
   if (result.status !== 200) {

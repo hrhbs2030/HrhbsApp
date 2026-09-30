@@ -183,10 +183,13 @@ function Routes() {
   useEffect(()=>{
     const title = routeTitles[location] || (location.startsWith('/services/')?(serviceBySlug[location.slice(10)]?.name ?? 'الخدمة'):location.startsWith('/requests/')?'تفاصيل الطلب':location.startsWith('/sign-in')?'تسجيل الدخول':location.startsWith('/sign-up')?'إنشاء حساب':'الصفحة');
     document.title=`${title} | HBS حلول الغد`;
-    const isPublic = isPublicPath(location);
+    const service = location.startsWith('/services/') ? serviceBySlug[location.slice(10)] : undefined;
+    // A service address that does not exist is a "not found" page: keep it out of search results.
+    const isPublic = isPublicPath(location) && !(location.startsWith('/services/') && !service);
     document.querySelector('meta[name="robots"]')?.setAttribute('content', isPublic ? 'index, follow' : 'noindex, nofollow');
     const description = location === '/'
       ? 'HBS حلول الغد: أرسل طلب خدمة أو استفسارًا وتابع حالته من حسابك عبر بوابة العملاء.'
+      : service ? `${service.summary} اطلبها من HBS حلول الغد وتابع حالتها من حسابك.`
       : location.startsWith('/services') ? 'دليل خدمات حلول الغد: الجوازات والعمل والأعمال وخدمات أخرى، وما يفيد أن تكتبه في طلبك.'
       : location === '/privacy' ? 'تعرّف على بيانات بوابة HBS حلول الغد، بما فيها مرفقات الطلبات، وكيفية حفظها ومشاركتها وحقوقك.'
       : location === '/terms' ? 'شروط استخدام موقع HBS حلول الغد وبوابة العملاء، والطلبات والمرفقات والمساعدة الآلية.'
