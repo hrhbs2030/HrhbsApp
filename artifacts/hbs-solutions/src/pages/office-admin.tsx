@@ -91,6 +91,11 @@ const actionNames: Record<AuditLogEntry['action'], string> = {
   'attachment.download': 'تنزيل مستند',
   'attachment.delete': 'حذف مستند',
   'attachment.purge': 'حذف تلقائي لمستند',
+  'registration.approve': 'قبول طلب تسجيل',
+  'registration.reject': 'رفض طلب تسجيل',
+  'information.review': 'مراجعة معلومة للمساعد',
+  'information.publish': 'نشر معلومة للمساعد',
+  'information.unpublish': 'سحب معلومة من المساعد',
 };
 
 function auditSummary(entry: AuditLogEntry): string {
@@ -98,14 +103,15 @@ function auditSummary(entry: AuditLogEntry): string {
     const name = typeof entry.details.name === 'string' ? `«${entry.details.name}»` : 'مستند';
     return `طلب رقم ${entry.targetId}: ${name}${entry.action === 'attachment.purge' ? ' بعد 90 يومًا من اكتمال الطلب' : ''}`;
   }
+  if (entry.action.startsWith('information.')) return typeof entry.details.title === 'string' ? `«${entry.details.title}»` : `معلومة رقم ${entry.targetId}`;
   return typeof entry.details.email === 'string' ? entry.details.email : entry.targetId;
 }
 
 export function OfficeAuditLog() {
   const log = useListOfficeAuditLog({ query: { queryKey: getListOfficeAuditLogQueryKey(), refetchInterval: 60_000 } });
   const timeText = (value: string) => new Intl.DateTimeFormat(LOCALE, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-  return <PortalLayout staff><PageHeading eyebrow="إدارة المكتب" title="سجل التدقيق" subtitle="آخر 200 تغيير في صلاحيات فريق المكتب، الأحدث أولًا." action={<PrintButton label="طباعة السجل"/>}/>
-    {log.isLoading ? <LoadingBlock/> : log.isError ? <ErrorBlock retry={() => log.refetch()}/> : !log.data?.length ? <EmptyBlock title="لا توجد إجراءات بعد" text="ستظهر هنا إضافات وإزالات أعضاء فريق المكتب."/> :
+  return <PortalLayout staff><PageHeading eyebrow="إدارة المكتب" title="سجل التدقيق" subtitle="آخر 200 إجراء في المكتب: الصلاحيات، والطلبات، والمستندات، والتسجيل، ومعلومات المساعد. الأحدث أولًا." action={<PrintButton label="طباعة السجل"/>}/>
+    {log.isLoading ? <LoadingBlock/> : log.isError ? <ErrorBlock retry={() => log.refetch()}/> : !log.data?.length ? <EmptyBlock title="لا توجد إجراءات بعد" text="ستظهر هنا إجراءات فريق المكتب فور حدوثها."/> :
       <div className="surface overflow-hidden">
         <div className="hidden border-b border-line bg-sunk px-6 py-3 text-xs font-bold text-subtle lg:grid lg:grid-cols-[140px_minmax(0,1fr)_220px_170px] lg:gap-4" aria-hidden="true"><span>الإجراء</span><span>التفاصيل</span><span>المنفّذ</span><span>الوقت</span></div>
         <ul className="m-0 list-none p-0">{log.data.map(entry => <li key={entry.id} className="grid gap-1.5 border-b border-line px-5 py-4 last:border-0 sm:px-6 lg:grid-cols-[140px_minmax(0,1fr)_220px_170px] lg:items-center lg:gap-4">

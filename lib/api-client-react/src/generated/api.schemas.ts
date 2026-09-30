@@ -40,6 +40,11 @@ export const AuditLogEntryAction = {
   attachmentdownload: 'attachment.download',
   attachmentdelete: 'attachment.delete',
   attachmentpurge: 'attachment.purge',
+  registrationapprove: 'registration.approve',
+  registrationreject: 'registration.reject',
+  informationreview: 'information.review',
+  informationpublish: 'information.publish',
+  informationunpublish: 'information.unpublish',
 } as const;
 
 export type AuditLogEntryDetails = { [key: string]: unknown };
@@ -482,7 +487,7 @@ export interface ServiceRequestInput {
   contactPhone: string;
   clientRequestId?: string;
   /**
-     * @maxItems 3
+     * @maxItems 10
      * @items.minimum 1
      */
   attachmentIds?: number[];

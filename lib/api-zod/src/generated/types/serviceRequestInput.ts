@@ -26,7 +26,7 @@ export interface ServiceRequestInput {
   contactPhone: string;
   clientRequestId?: string;
   /**
-     * @maxItems 3
+     * @maxItems 10
      * @items.minimum 1
      */
   attachmentIds?: number[];

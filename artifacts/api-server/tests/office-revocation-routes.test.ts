@@ -111,10 +111,12 @@ test("removing staff immediately blocks registration, publication, and other off
     for (const path of [
       "/office/registrations", "/office/summary", "/office/service-requests",
       "/office/inquiries", "/office/approved-information",
-      `/office/approved-information/${first.data.id}/history`, "/office/legacy/imports",
+      `/office/approved-information/${first.data.id}/history`,
     ]) {
       assert.equal((await staff(path)).status, 200, `Staff should access ${path} before removal`);
     }
+    // The old-app archive is the owner's alone.
+    assert.equal((await staff("/office/legacy/imports")).status, 403);
     const updatedRequest = await staff(`/office/service-requests/${request.id}`, "PATCH", {
       status: "reviewing", officeNote: "Staff note before removal", expectedUpdatedAt: request.updatedAt.toISOString(),
     });
@@ -132,7 +134,7 @@ test("removing staff immediately blocks registration, publication, and other off
       ...[
         "/office/registrations", "/office/summary", "/office/service-requests",
         "/office/inquiries", "/office/approved-information",
-        `/office/approved-information/${first.data.id}/history`, "/office/legacy/imports",
+        `/office/approved-information/${first.data.id}/history`,
       ].map(path => ({ path })),
       { path: `/office/registrations/${registration.id}`, method: "PATCH", body: { status: "approved" } },
       { path: `/office/approved-information/${second.data.id}/publish`, method: "POST", body: { expectedUpdatedAt: ready.data.updatedAt } },
@@ -150,8 +152,6 @@ test("removing staff immediately blocks registration, publication, and other off
         status: "completed", officeNote: "Forbidden note", expectedUpdatedAt: updatedRequest.data.updatedAt,
       } },
       { path: `/office/inquiries/${inquiry.id}`, method: "PATCH", body: { answer: "Forbidden answer" } },
-      { path: "/office/legacy/preview", method: "POST", body: { contents: "{}" } },
-      { path: "/office/legacy/import", method: "POST", body: { contents: "{}", confirmed: true, digest: "invalid" } },
     ];
     for (const { path, method, body } of blocked) {
       const response = await staff(path, method, body);

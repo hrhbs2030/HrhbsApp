@@ -125,10 +125,10 @@ test("owner manages staff, staff are limited, and actions are audited", { skip }
     userId: "user_customer", category: "labor", service: "تجديد", description: "وصف الطلب", contactPhone: "0500000000",
   }).returning();
   const updated = await call("user_staff", "PATCH", `/office/service-requests/${request.id}`, {
-    status: "reviewing", officeNote: "بانتظار المستندات",
+    status: "reviewing", officeNote: "بانتظار المستندات", expectedUpdatedAt: request.updatedAt.toISOString(),
   });
   assert.equal(updated.status, 200);
-  assert.equal((await call("user_staff", "PATCH", "/office/service-requests/999999", { status: "reviewing" })).status, 404);
+  assert.equal((await call("user_staff", "PATCH", "/office/service-requests/999999", { status: "reviewing", expectedUpdatedAt: new Date().toISOString() })).status, 404);
 
   const staffList = await call("user_owner", "GET", "/office/staff");
   assert.deepEqual(
@@ -179,12 +179,12 @@ test("office lists filter, search, page and show the customer", { skip }, async 
   const first = await call("user_owner", "GET", "/office/service-requests");
   assert.equal(first.status, 200);
   assert.equal(first.body.total, 30);
-  assert.equal(first.body.pageSize, 25);
-  assert.equal(first.body.items.length, 25);
+  assert.equal(first.body.pageSize, 20);
+  assert.equal(first.body.items.length, 20);
   assert.equal(first.body.items[0].id, inserted[29].id, "newest first");
   assert.equal(first.body.items[0].customer, null, "customer without a registration");
   assert.deepEqual(first.body.items[2].customer, { fullName: "سارة العتيبي", email: "customer@example.test" });
-  assert.equal((await call("user_owner", "GET", "/office/service-requests?page=2")).body.items.length, 5);
+  assert.equal((await call("user_owner", "GET", "/office/service-requests?page=2")).body.items.length, 10);
 
   const labor = await call("user_owner", "GET", "/office/service-requests?category=labor&status=received");
   assert.equal(labor.body.total, 15);
@@ -224,8 +224,11 @@ test("a customer sees their own request's status history, not other customers'",
     userId: "user_customer", category: "passports", service: "تجديد إقامة", description: "تجديد إقامة عامل", contactPhone: "0501112233",
   }).returning();
 
+  let expectedUpdatedAt = request.updatedAt.toISOString();
   for (const body of [{ status: "reviewing" }, { status: "reviewing", officeNote: "ملاحظة داخلية" }, { status: "completed" }]) {
-    assert.equal((await call("user_owner", "PATCH", `/office/service-requests/${request.id}`, body)).status, 200);
+    const changed = await call("user_owner", "PATCH", `/office/service-requests/${request.id}`, { ...body, expectedUpdatedAt });
+    assert.equal(changed.status, 200);
+    expectedUpdatedAt = changed.body.updatedAt;
   }
 
   const history = await call("user_customer", "GET", `/service-requests/${request.id}/history`);

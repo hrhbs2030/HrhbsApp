@@ -4,7 +4,7 @@ import { once } from "node:events";
 import { Readable } from "node:stream";
 import test, { mock } from "node:test";
 import { clerkClient } from "@clerk/express";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import express from "express";
 import pino from "pino";
 import pinoHttp from "pino-http";
@@ -154,8 +154,19 @@ test("files can be added to a request by its customer and the office, removed, l
       .where(eq(hbsServiceRequests.id, request.id));
     assert.equal((await attach(customerA, [await reserve(customerA)])).status, 409);
     assert.equal((await call(customerA, "DELETE", `/service-requests/attachments/${more[0]}`)).status, 409);
+    // The office sends a final document after completion: it keeps its own 90 days.
+    const [fresh] = await db.select({ id: hbsRequestAttachments.id }).from(hbsRequestAttachments)
+      .where(eq(hbsRequestAttachments.requestId, request.id)).orderBy(desc(hbsRequestAttachments.id)).limit(1);
+    await db.update(hbsRequestAttachments).set({ createdAt: new Date(Date.now() - 91 * 86_400_000) })
+      .where(and(eq(hbsRequestAttachments.requestId, request.id), ne(hbsRequestAttachments.id, fresh.id)));
     const deleted: string[] = [];
-    const purged = await purgeCompletedRequestAttachments(async path => { deleted.push(path); files.delete(path); });
+    const purgeNow = () => purgeCompletedRequestAttachments(async path => { deleted.push(path); files.delete(path); });
+    assert.equal(await purgeNow(), 9);
+    assert.deepEqual((await db.select({ id: hbsRequestAttachments.id }).from(hbsRequestAttachments)
+      .where(eq(hbsRequestAttachments.requestId, request.id))).map(r => r.id), [fresh.id]);
+    await db.update(hbsRequestAttachments).set({ createdAt: new Date(Date.now() - 91 * 86_400_000) })
+      .where(eq(hbsRequestAttachments.id, fresh.id));
+    const purged = 9 + await purgeNow();
     assert.equal(purged, 10);
     assert.equal(deleted.length, 10);
     assert.equal((await db.select().from(hbsRequestAttachments).where(eq(hbsRequestAttachments.requestId, request.id))).length, 0);

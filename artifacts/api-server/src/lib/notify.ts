@@ -105,13 +105,15 @@ export function notify(mail: Mail | null): void {
 
 type RequestInfo = { id: number; reference: string; service: string; category?: string };
 
-export function statusChangedMail(to: string | null, request: RequestInfo, status: string): Mail | null {
+export function statusChangedMail(to: string | null, request: RequestInfo, status: string, officeMessage?: string | null): Mail | null {
   if (!to) return null;
   const service = `«${request.service}»`;
   const byStatus: Record<string, { heading: string; line: string }> = {
     received: { heading: "طلبك في مرحلة الاستلام", line: `أعاد المكتب طلبك ${service} إلى مرحلة الاستلام.` },
     reviewing: { heading: "طلبك قيد المراجعة", line: `بدأ المكتب العمل على طلبك ${service}.` },
-    waiting_on_customer: { heading: "المكتب يحتاج ردّك", line: `يحتاج المكتب معلومة منك لإكمال طلبك ${service}. افتح الطلب واستفسر من المكتب عمّا يلزم.` },
+    waiting_on_customer: { heading: "المكتب يحتاج ردّك", line: officeMessage
+      ? `يحتاج المكتب منك لإكمال طلبك ${service}: ${officeMessage}`
+      : `يحتاج المكتب معلومة منك لإكمال طلبك ${service}. افتح الطلب واستفسر من المكتب عمّا يلزم.` },
     completed: { heading: "اكتمل طلبك", line: `اكتمل طلبك ${service}، وتجد تفاصيله في سجلك.` },
   };
   const copy = byStatus[status];

@@ -933,7 +933,7 @@ components:
         actorEmail: { type: ["string", "null"], format: email }
         action:
           type: string
-          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge]
+          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge, registration.approve, registration.reject, information.review, information.publish, information.unpublish]
         targetType: { type: string }
         targetId: { type: string }
         details:
@@ -1232,7 +1232,7 @@ components:
         clientRequestId: { type: string, format: uuid }
         attachmentIds:
           type: array
-          maxItems: 3
+          maxItems: 10
           uniqueItems: true
           items: { type: integer, minimum: 1 }
     ServiceRequestUpdate:

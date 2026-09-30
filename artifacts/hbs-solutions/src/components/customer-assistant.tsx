@@ -35,7 +35,7 @@ export function CustomerAssistant({ onAskOffice }: { onAskOffice: () => void }) 
         <label htmlFor="assistant-question" className="form-field">سؤالك
           <textarea id="assistant-question" className="form-control !min-h-24" placeholder="مثل: كيف أتابع حالة طلبي؟" value={question} onChange={event => setQuestion(event.target.value)} minLength={5} maxLength={1000} required/>
         </label>
-        <p className="text-xs leading-6 text-subtle">يُعالَج سؤالك لدى Anthropic عبر Replit AI Integrations. لا تكتب كلمات مرور أو أرقام هوية أو أي معلومات حساسة.</p>
+        <p className="text-xs leading-6 text-subtle">يُرسل نص سؤالك إلى مزوّد الذكاء الاصطناعي لإعداد الإجابة (التفاصيل في سياسة الخصوصية). لا تكتب كلمات مرور أو أرقام هوية أو أي معلومات حساسة.</p>
         <button className="btn btn-outline w-full" type="submit" disabled={answer.isPending || question.trim().length < 5}>{answer.isPending ? 'جارٍ إعداد الإجابة…' : 'اسأل أم مشعل'}<Sparkles size={16}/></button>
       </form>
       {answer.isError && <div role="alert" className="rounded-lg bg-danger-soft p-4 text-sm leading-7 text-danger">

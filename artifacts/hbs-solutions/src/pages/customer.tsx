@@ -54,7 +54,7 @@ function WaitingOnYou() {
   const waiting = q.data?.filter(r => r.status === 'waiting_on_customer') ?? [];
   if (!waiting.length) return null;
   return <section aria-labelledby="waiting-title" className="rounded-2xl border border-warn-line bg-warn-soft p-4 sm:p-5">
-    <div className="flex items-start gap-3 px-1"><CircleAlert className="mt-0.5 shrink-0 text-warn" size={20}/><div><h2 id="waiting-title" className="font-bold text-warn">{waiting.length === 1 ? 'طلب ينتظر إجراءً منك' : `${count(waiting.length)} طلبات تنتظر إجراءً منك`}</h2><p className="mt-1 text-sm leading-7 text-warn">افتح الطلب واستفسر من المكتب عمّا يلزم لإكماله.</p></div></div>
+    <div className="flex items-start gap-3 px-1"><CircleAlert className="mt-0.5 shrink-0 text-warn" size={20}/><div><h2 id="waiting-title" className="font-bold text-warn">{waiting.length === 1 ? 'طلب ينتظر إجراءً منك' : `${count(waiting.length)} طلبات تنتظر إجراءً منك`}</h2><p className="mt-1 text-sm leading-7 text-warn">{waiting.length === 1 && waiting[0].customerMessage ? <>المكتب يحتاج منك: <span className="break-words">{waiting[0].customerMessage}</span></> : 'افتح الطلب لترى ما يحتاجه المكتب لإكماله.'}</p></div></div>
     <div className="mt-4 overflow-hidden rounded-xl border border-warn-line bg-field">{waiting.map(r => <RequestRow key={r.id} request={r}/>)}</div>
   </section>;
 }
@@ -102,7 +102,9 @@ export function RequestDetail() {
       <div className="surface overflow-hidden">
         <section aria-label="مراحل الطلب" className="px-5 py-6 sm:px-8">
           <StatusTrack status={q.data.status} createdAt={q.data.createdAt} updatedAt={q.data.updatedAt}/>
-          {q.data.status==='waiting_on_customer'&&<div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warn-line bg-warn-soft px-4 py-3 text-sm text-warn"><span className="flex items-start gap-2 leading-7"><CircleAlert className="mt-1 shrink-0" size={16}/>استفسر من المكتب عمّا يلزم لإكمال الطلب.</span><Link href={`/inquiries?request=${q.data.id}`} className="inline-flex min-h-11 items-center gap-1 text-xs font-bold text-warn underline sm:min-h-0">أرسل استفسارًا<ArrowLeft size={14}/></Link></div>}
+          {q.data.status==='waiting_on_customer'&&<div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warn-line bg-warn-soft px-4 py-3 text-sm text-warn"><span className="flex min-w-0 flex-1 items-start gap-2 leading-7"><CircleAlert className="mt-1 shrink-0" size={16}/>{q.data.customerMessage
+            ? <span><strong className="block">المكتب يحتاج منك:</strong><span className="whitespace-pre-line break-words">{q.data.customerMessage}</span><span className="mt-1 block text-xs">أرفق المطلوب في «المستندات» أدناه، أو ردّ باستفسار.</span></span>
+            : 'استفسر من المكتب عمّا يلزم لإكمال الطلب.'}</span><Link href={`/inquiries?request=${q.data.id}`} className="inline-flex min-h-11 items-center gap-1 text-xs font-bold text-warn underline sm:min-h-0">أرسل استفسارًا<ArrowLeft size={14}/></Link></div>}
           <StatusHistory id={q.data.id} updatedAt={q.data.updatedAt}/>
         </section>
         <dl className="m-0 grid gap-x-8 gap-y-5 border-t border-line bg-paper px-5 py-6 sm:grid-cols-3 sm:px-8">
