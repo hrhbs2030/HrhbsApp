@@ -1,8 +1,8 @@
 .rb { display: grid; gap: 14px; }
 .rb-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--color-line); border-radius: 12px; overflow: hidden; }
-.rb-row { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--color-line); background: var(--color-field); }
+.rb-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--color-line); background: var(--color-field); }
 .rb-row:last-child { border-bottom: 0; }
-.rb-main { min-width: 0; display: grid; gap: 6px; }
+.rb-main { min-width: min(100%, 15rem); flex: 1 1 15rem; display: grid; gap: 6px; }
 .rb-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .rb-meta, .rb-amounts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--color-subtle); }
 .rb-amounts strong { color: var(--color-ink); }

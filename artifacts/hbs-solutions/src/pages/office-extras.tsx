@@ -128,8 +128,8 @@ function BarRows({ rows, label }: { rows: { key: string; label: string; value: n
   </tr>)}</tbody></table>;
 }
 
-function Tile({ label, value, note }: { label: string; value: string; note?: string }) {
-  return <div className="surface p-4 sm:p-5"><div className="text-xs font-bold text-subtle">{label}</div><div className="display nums mt-3 text-2xl font-semibold sm:text-3xl">{value}</div>{note && <div className="mt-1 text-xs text-subtle">{note}</div>}</div>;
+function Tile({ label, value, note, long = false }: { label: string; value: string; note?: string; long?: boolean }) {
+  return <div className="surface min-w-0 p-4 sm:p-5"><div className="text-xs font-bold text-subtle">{label}</div><div className={`display nums mt-3 break-words font-semibold ${long ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl'}`}>{value}</div>{note && <div className="mt-1 text-xs text-subtle">{note}</div>}</div>;
 }
 
 export function OfficeReports() {
@@ -144,8 +144,8 @@ export function OfficeReports() {
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Tile label="طلبات جديدة" value={formatNumber(r.created)}/>
         <Tile label="طلبات أُنجزت" value={formatNumber(r.completed)} note={r.averageCompletionDays != null ? `متوسط الإنجاز ${formatNumber(r.averageCompletionDays)} يوم` : undefined}/>
-        <Tile label="رضا العملاء" value={r.ratings.average != null ? `${formatNumber(r.ratings.average)} / 5` : '-'} note={`${formatNumber(r.ratings.count)} تقييم`}/>
-        <Tile label="المحصّل شامل الضريبة" value={formatMoney(r.revenue.paidTotal)} note={`منها ضريبة ${formatMoney(r.revenue.paidVat)} · ${formatNumber(r.revenue.paidCount)} فاتورة`}/>
+        <Tile label="رضا العملاء" value={r.ratings.average != null ? `${formatNumber(r.ratings.average)} من 5` : '-'} note={`${formatNumber(r.ratings.count)} تقييم`}/>
+        <Tile long label="المحصّل شامل الضريبة" value={formatMoney(r.revenue.paidTotal)} note={`منها ضريبة ${formatMoney(r.revenue.paidVat)} · ${formatNumber(r.revenue.paidCount)} فاتورة`}/>
       </div>
       {r.revenue.outstandingCount > 0 && <p className="rounded-xl border border-warn-line bg-warn-soft px-5 py-4 text-sm text-warn">فواتير غير مسددة: {formatNumber(r.revenue.outstandingCount)} بإجمالي {formatMoney(r.revenue.outstandingTotal)}</p>}
       <div className="grid gap-5 lg:grid-cols-2">
@@ -156,11 +156,11 @@ export function OfficeReports() {
       </div>
       <section className="surface overflow-x-auto p-5"><h2 className="display mb-3 text-lg font-semibold">أكثر الخدمات طلبًا</h2>
         {r.topServices.length ? <table className="w-full min-w-[480px] text-sm"><thead><tr className="text-right text-xs text-subtle"><th className="py-2 font-bold">الخدمة</th><th className="py-2 font-bold">طلبات</th><th className="py-2 font-bold">مكتملة منها</th></tr></thead>
-          <tbody>{r.topServices.map(s => <tr key={s.service} className="border-t border-line"><td className="py-2">{s.service}</td><td className="nums py-2">{formatNumber(s.created)}</td><td className="nums py-2">{formatNumber(s.completed)}</td></tr>)}</tbody></table>
+          <tbody>{r.topServices.map(s => <tr key={s.service} className="border-t border-line"><td className="py-2">{s.service}</td><td className="nums py-2 text-right">{formatNumber(s.created)}</td><td className="nums py-2 text-right">{formatNumber(s.completed)}</td></tr>)}</tbody></table>
           : <p className="muted text-sm">لا توجد طلبات في هذه المدة.</p>}</section>
       <section className="surface overflow-x-auto p-5"><h2 className="display mb-3 text-lg font-semibold">الفريق</h2>
         {r.staff.length ? <table className="w-full min-w-[480px] text-sm"><thead><tr className="text-right text-xs text-subtle"><th className="py-2 font-bold">المسؤول</th><th className="py-2 font-bold">نشطة الآن</th><th className="py-2 font-bold">أُنجزت في المدة</th><th className="py-2 font-bold">متأخرة</th></tr></thead>
-          <tbody>{r.staff.map(s => <tr key={s.userId ?? 'none'} className="border-t border-line"><td className="py-2" dir={s.email ? 'ltr' : undefined} style={{ textAlign: 'right' }}>{s.userId ? s.email ?? 'عضو سابق' : 'غير مسندة'}</td><td className="nums py-2">{formatNumber(s.active)}</td><td className="nums py-2">{formatNumber(s.completed)}</td><td className={`nums py-2 ${s.overdue ? 'font-bold text-danger' : ''}`}>{formatNumber(s.overdue)}</td></tr>)}</tbody></table>
+          <tbody>{r.staff.map(s => <tr key={s.userId ?? 'none'} className="border-t border-line"><td className="py-2" dir={s.email ? 'ltr' : undefined} style={{ textAlign: 'right' }}>{s.userId ? s.email ?? 'عضو سابق' : 'غير مسندة'}</td><td className="nums py-2 text-right">{formatNumber(s.active)}</td><td className="nums py-2 text-right">{formatNumber(s.completed)}</td><td className={`nums py-2 text-right ${s.overdue ? 'font-bold text-danger' : ''}`}>{formatNumber(s.overdue)}</td></tr>)}</tbody></table>
           : <p className="muted text-sm">لا توجد طلبات مسندة بعد.</p>}</section>
       <section className="surface p-5"><h2 className="display mb-3 text-lg font-semibold">توزيع التقييمات</h2>
         <BarRows label="توزيع التقييمات" rows={r.ratings.distribution.map(d => ({ key: d.key, label: `${'★'.repeat(Number(d.key))}`, value: d.count }))}/></section>
