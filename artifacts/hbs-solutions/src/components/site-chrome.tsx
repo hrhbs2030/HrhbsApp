@@ -1,7 +1,8 @@
 import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ArrowLeft, Menu, X } from 'lucide-react';
-import { Brand } from '@/components/portal-ui';
+import { Logo } from '@/components/brand/logo';
+import { hasSessionHint } from '@/lib/session-hint';
 import { cityInfo, cityOrder } from '@/components/city-scene';
 import { SceneWindow } from '@/components/scene-window';
 import { ContactList } from '@/components/contact-card';
@@ -9,6 +10,24 @@ import { contact } from '@/content/contact';
 import './site-chrome.css';
 
 const ICON = 1.75;
+
+// Same mark as portal-ui's Brand, declared here so the public pages do not
+// import portal-ui (and with it Clerk).
+function Brand({ light = false }: { light?: boolean }) {
+  return <Link href="/" className={`inline-flex items-center gap-3 no-underline ${light ? 'text-on-dark' : 'text-teal'}`} aria-label="HBS حلول الغد - الرئيسية">
+    <Logo tone={light ? 'light' : 'dark'} size={44} tagline/>
+  </Link>;
+}
+// Header auth links without Clerk: a session cookie hint only decides which
+// link to show; the portal itself re-checks the session when it opens.
+function AuthLinks({ tone, compact = false }: { tone: 'dark' | 'light'; compact?: boolean }) {
+  const button = `btn ${compact ? 'btn-sm ' : ''}${tone === 'dark' ? 'btn-light' : 'btn-primary'}`;
+  if (hasSessionHint()) return <Link href="/dashboard" className={button}>حسابي <ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></Link>;
+  return <>
+    <Link href="/sign-in" className={compact ? 'site-text-link' : undefined}>تسجيل الدخول</Link>
+    <Link href="/sign-up" className={button}>طلب التسجيل <ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></Link>
+  </>;
+}
 
 export const siteNavigation = [
   { href: '/services', label: 'الخدمات' },
@@ -39,10 +58,7 @@ export function SiteHeader({ tone = 'light' }: { tone?: 'dark' | 'light' }) {
             <a key={item.href} href={item.href} aria-current={location === item.href ? 'page' : undefined} onClick={(e) => navigateHash(e, item.href)}>{item.label}</a>
           ))}
         </nav>
-        <div className="site-actions">
-          <Link href="/sign-in" className="site-text-link">تسجيل الدخول</Link>
-          <Link href="/sign-up" className={`btn btn-sm ${tone === 'dark' ? 'btn-light' : 'btn-primary'}`}>طلب التسجيل <ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></Link>
-        </div>
+        <div className="site-actions"><AuthLinks tone={tone} compact /></div>
         <button type="button" className="site-menu-toggle" aria-label={open ? 'إغلاق القائمة' : 'فتح القائمة'} aria-expanded={open} aria-controls="site-mobile-nav" onClick={() => setOpen((v) => !v)}>
           {open ? <X size={21} strokeWidth={ICON} /> : <Menu size={21} strokeWidth={ICON} />}
         </button>
@@ -50,8 +66,7 @@ export function SiteHeader({ tone = 'light' }: { tone?: 'dark' | 'light' }) {
       {open && (
         <nav id="site-mobile-nav" className="site-wrap site-mobile-nav" aria-label="التنقل على الهاتف">
           {siteNavigation.map((item) => <a key={item.href} href={item.href} onClick={(e) => { setOpen(false); navigateHash(e, item.href); }}>{item.label}</a>)}
-          <Link href="/sign-in">تسجيل الدخول</Link>
-          <Link href="/sign-up" className={`btn ${tone === 'dark' ? 'btn-light' : 'btn-primary'}`}>طلب التسجيل <ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></Link>
+          <AuthLinks tone={tone} />
         </nav>
       )}
     </header>

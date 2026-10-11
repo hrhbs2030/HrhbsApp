@@ -1,6 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Readex+Pro:wght@400;500;600;700&display=swap');
+/* Fonts: index.html preloads and links the Google Fonts stylesheet, so the
+   request starts with the document instead of after this file has parsed. */
 @layer theme, base, clerk, components, utilities;
 @import 'tailwindcss';
+/* The shadcn kit under components/ui is mostly unused; scanning it adds ~70 KB
+   of utilities to every page. Only the pieces the portal imports are scanned. */
+@source not "./components/ui";
+@source "./components/ui/alert-dialog.tsx";
+@source "./components/ui/button.tsx";
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
 

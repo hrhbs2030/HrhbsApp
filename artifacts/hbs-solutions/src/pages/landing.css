@@ -21,7 +21,14 @@
 .lp-line { display: block; }
 .lp-line--accent { color: var(--color-copper-light); }
 .lp-word { display: inline-block; animation: lp-word var(--duration-scene) var(--ease-out-soft) both; }
-@keyframes lp-word { from { opacity: 0; transform: translateY(.45em); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes lp-word { from { opacity: 0; transform: translateY(.45em); } to { opacity: 1; transform: none; } }
+/* The blurred rise costs a filter repaint per word per frame; desktops keep it. */
+@media (min-width: 769px) {
+  @keyframes lp-word { from { opacity: 0; transform: translateY(.45em); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+}
+@media (prefers-reduced-data: reduce) {
+  @keyframes lp-word { from { opacity: 0; transform: translateY(.45em); } to { opacity: 1; transform: none; } }
+}
 .lp-hero-lead { max-width: 30em; margin: 24px 0 0; color: var(--color-on-dark); font-size: clamp(17px, 1.4vw, 19px); line-height: 1.9; text-shadow: 0 1px 14px rgb(8 26 28 / .7); }
 .lp-hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
 .lp-enter { animation: lp-enter var(--duration-scene) var(--ease-out-soft) .55s both; }
