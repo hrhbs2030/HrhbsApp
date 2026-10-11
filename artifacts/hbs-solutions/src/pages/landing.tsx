@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ArrowLeft, BookUser, BriefcaseBusiness, Building2, FileText, Search, ShieldCheck, Shapes, Hash, History } from 'lucide-react';
+import { ArrowLeft, BookUser, BriefcaseBusiness, Building2, FileText, Search, ShieldCheck, Shapes, Hash, History, PlayCircle } from 'lucide-react';
 import { SiteFooter, SiteHeader } from '@/components/site-chrome';
 import { IntroSequence, useIntroState } from '@/components/intro';
 import { RequestObject, StageRail, stageLabels } from '@/components/request-object';
@@ -15,10 +15,10 @@ const ICON = 1.75;
 const categoryIcons: Record<ServiceCategory, typeof BookUser> = { passports: BookUser, labor: BriefcaseBusiness, business: Building2, other: Shapes };
 const trustIcons = [ShieldCheck, History, Hash];
 const dashboardPoints = [
-  { title: 'حالة كل طلب', text: 'أربع حالات واضحة تتحدّث كلما عمل المكتب على طلبك.' },
-  { title: 'تنبيه عند الحاجة إليك', text: 'إن احتاج المكتب معلومة، يظهر التنبيه أول ما تفتح حسابك.' },
-  { title: 'رسائل مرتبطة بالطلب', text: 'استفسارك وردّ المكتب محفوظان مع الطلب نفسه.' },
-  { title: 'سجل دائم', text: 'الطلبات المكتملة تبقى بتفاصيلها للرجوع إليها.' },
+  { title: 'حالة كل طلب', text: 'ترى أين وصل كل طلب، وتتغير الحالة كلما أنجز المكتب خطوة.' },
+  { title: 'تنبيه عند الحاجة إليك', text: 'إن احتاج المكتب معلومة أو مستندًا، تجد التنبيه في حسابك ويصلك بالبريد.' },
+  { title: 'محادثة على كل طلب', text: 'سؤالك وردّ المكتب في صفحة الطلب نفسها، لا في رسائل متفرقة.' },
+  { title: 'تنبيهات الوثائق', text: 'ملف المنشأة يذكّرك قبل انتهاء الإقامات والتراخيص بـ30 يومًا و7 أيام ويوم.' },
 ];
 const servicesLabel = (n: number) => (n === 1 ? 'خدمة واحدة' : n === 2 ? 'خدمتان' : n <= 10 ? `${n} خدمات` : `${n} خدمة`);
 
@@ -55,7 +55,7 @@ function ServiceSearch() {
     <form className="lp-search" role="search" onSubmit={submit}>
       <label htmlFor="hero-search" className="sr-only">ابحث عن خدمة</label>
       <Search size={19} strokeWidth={ICON} aria-hidden="true" />
-      <input id="hero-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ابحث عن خدمة: تأسيس شركة، إدارة المنصات…" autoComplete="off" />
+      <input id="hero-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ابحث: تجديد إقامة، نقل خدمات، سجل تجاري…" autoComplete="off" />
       <button type="submit" className="btn btn-accent btn-sm">بحث</button>
     </form>
   );
@@ -107,12 +107,15 @@ export default function Landing() {
                   </span>
                 ))}
               </h1>
-              <p className="lp-hero-lead lp-enter">من تأسيس الشركات وإدارة المنصات الحكومية إلى إنهاء المعاملات؛ أرسل طلبك إلى المكتب وتابع حالته من حسابك.</p>
+              <p className="lp-hero-lead lp-enter">الجوازات والإقامة، العمل والموارد البشرية، تأسيس الشركات والتراخيص: أرسل طلبك إلى المكتب، واحصل على رقم مرجعي، وتابع كل خطوة من حسابك.</p>
               <div className="lp-hero-actions lp-enter">
-                <Link href="/sign-up" className="btn btn-light lp-btn-lg">طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
-                <Link href="/services" className="btn btn-ghost-dark lp-btn-lg">تصفّح الخدمات</Link>
+                <Link href="/sign-up" className="btn btn-light lp-btn-lg">قدّم طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
+                <Link href="/services" className="btn btn-ghost-dark lp-btn-lg">تصفّح دليل الخدمات</Link>
               </div>
               <div className="lp-enter lp-search-wrap"><ServiceSearch /></div>
+              <button type="button" className="intro-replay lp-enter" onClick={intro.replay}>
+                <PlayCircle size={18} strokeWidth={ICON} aria-hidden="true" /> شاهد جولة سريعة في النظام
+              </button>
             </div>
             <div className="lp-hero-visual lp-enter-visual">
               <RequestObject stage={hero.stage} tilt caption="مثال" />
@@ -127,7 +130,7 @@ export default function Landing() {
         <section className="lp-categories" aria-labelledby="categories-title">
           <div className="site-wrap">
             <div className="lp-section-head reveal">
-              <h2 id="categories-title" className="lp-heading">مجالات الخدمات</h2>
+              <h2 id="categories-title" className="lp-heading">بماذا يخدمك المكتب؟</h2>
               <Link href="/services" className="lp-arrow-link">كل الخدمات <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
             </div>
             <ul className="lp-category-grid">
@@ -173,7 +176,7 @@ export default function Landing() {
         <section id="dashboard" className="lp-dashboard" aria-labelledby="dashboard-title">
           <div className="site-wrap">
             <div className="lp-section-head reveal">
-              <h2 id="dashboard-title" className="lp-heading">حسابك: كل طلباتك في مكان واحد</h2>
+              <h2 id="dashboard-title" className="lp-heading">حسابك: طلباتك ووثائقك أمامك</h2>
             </div>
             <div className="reveal"><DashboardPreview /></div>
             <ul className="dp-points">
@@ -196,7 +199,7 @@ export default function Landing() {
           <div className="site-wrap">
             <div className="lp-section-head reveal">
               <h2 id="trust-title" className="lp-heading">الخصوصية والأمان</h2>
-              <Link href="/trust" className="lp-arrow-link">التفاصيل <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
+              <Link href="/trust" className="lp-arrow-link">كيف نحمي بياناتك <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
             </div>
             <ul className="lp-trust-grid">
               {trustFacts.map((fact, index) => {
@@ -233,7 +236,7 @@ export default function Landing() {
         <section className="site-wrap lp-final reveal" aria-labelledby="final-title">
           <div className="lp-final-orbit" aria-hidden="true" />
           <h2 id="final-title">ابدأ بطلب التسجيل</h2>
-          <p>بعد موافقة المكتب على تسجيلك، ترسل طلباتك وتتابعها من حسابك.</p>
+          <p>يراجع المكتب طلبك، وبعد الموافقة ترسل معاملاتك وتتابعها من حسابك برقم مرجعي لكل طلب.</p>
           <div className="lp-final-actions">
             <Link href="/sign-up" className="btn btn-light lp-btn-lg">طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
             <Link href="/sign-in" className="btn btn-ghost-dark lp-btn-lg">تسجيل الدخول</Link>
