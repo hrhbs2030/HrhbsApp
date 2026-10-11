@@ -46,6 +46,8 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 overrides:
+  # GHSA-jqcg-44mw-7w3h (client IP spoofing via express trust proxy).
+  'proxy-addr@<2.0.8': ^2.0.8
   # Replit uses linux-x64; exclude other platform binaries.
   # drizzle-kit uses an older vulnerable esbuild internally.
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0

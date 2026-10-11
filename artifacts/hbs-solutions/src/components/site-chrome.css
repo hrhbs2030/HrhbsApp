@@ -1,7 +1,10 @@
+@import './patterns/sadu.css';
 .site { position: relative; z-index: 1; min-height: 100dvh; background: transparent; color: var(--color-ink); display: flex; flex-direction: column; }
 /* Dark band over the city backdrop, then the paper page body. */
 .site-band { position: relative; min-height: var(--band-h, 520px); display: flex; align-items: flex-end; padding: 130px 0 clamp(90px, 14vh, 150px); color: var(--color-on-dark); }
 .site-body { position: relative; flex: 1; background: var(--color-paper); }
+/* The paper sheet opens with a faint Sadu border, the brand's section seam. */
+:is(.site-body, .lp-body)::before { content: ""; position: absolute; inset: 0 0 auto; height: 20px; background: var(--sadu-band-light) repeat-x center top; opacity: .28; pointer-events: none; }
 .site-footer { position: relative; z-index: 1; }
 .site > main { flex: 1; outline: none; }
 .site-wrap { width: min(100% - 48px, 1280px); margin-inline: auto; }
@@ -65,7 +68,9 @@
 .site-footer-legal a { display: inline-flex; align-items: center; min-height: 44px; font-size: 13px; color: var(--color-on-dark-2); }
 .site-footer-legal a:hover { color: var(--color-on-dark); }
 .site-nav a, .site-text-link { white-space: nowrap; }
-.site-footer-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding-top: 18px; border-top: 1px solid rgb(255 255 255 / .1); font-size: 13px; }
+.site-footer-bottom { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding-top: 30px; font-size: 13px; }
+/* A woven Sadu band takes the place of the footer rule. */
+.site-footer-bottom::before { content: ""; position: absolute; inset: 0 0 auto; height: 15px; background: var(--sadu-band-dark) repeat-x center / 42px 15px; opacity: .42; pointer-events: none; }
 .site-footer-city { display: inline-flex; align-items: baseline; gap: 8px; margin: 0; color: var(--color-on-dark-2); animation: site-city var(--duration-reveal) var(--ease-out-soft) both; }
 .site-footer-city strong { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--color-on-dark); }
 .site-footer-city-dot { align-self: center; width: 6px; height: 6px; border-radius: 50%; background: var(--color-copper-light); box-shadow: 0 0 0 4px rgb(229 162 123 / .18); }

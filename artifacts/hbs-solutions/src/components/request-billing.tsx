@@ -69,6 +69,8 @@ export function CustomerInvoices({ requestId, returnedInvoiceId }: { requestId: 
     setError(null);
     try {
       const { url } = await pay.mutateAsync({ id: invoice.id });
+      // Only ever leave the site for a secure payment page.
+      if (!/^https:\/\//i.test(url)) throw new Error('unexpected payment URL');
       window.location.assign(url);
     } catch (e) {
       const status = (e as { status?: number })?.status;

@@ -108,6 +108,17 @@ test("removing staff immediately blocks registration, publication, and other off
     });
     assert.equal(ready.status, 200);
 
+    // A registrant whose Clerk account no longer exists must not break the list.
+    const orphanId = `revocation-deleted-${randomUUID()}`;
+    await db.insert(hbsRegistrationRequests).values({
+      userId: orphanId, email: "deleted@example.invalid", fullName: "Deleted Account", contactPhone: "0000000000",
+    });
+    const listed = await staff("/office/registrations");
+    assert.equal(listed.status, 200);
+    assert.equal(listed.data.find((row: { userId?: string; email: string | null; fullName: string }) =>
+      row.fullName === "Deleted Account")?.email, null);
+    await db.delete(hbsRegistrationRequests).where(eq(hbsRegistrationRequests.userId, orphanId));
+
     for (const path of [
       "/office/registrations", "/office/summary", "/office/service-requests",
       "/office/inquiries", "/office/approved-information",

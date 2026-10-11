@@ -20,7 +20,7 @@
     "test:notifications": "tsx --test tests/notifications.test.ts",
     "test:assistant-citations": "node ../../scripts/run-db-test.mjs tests/assistant-citations.test.ts",
     "test:approved-information-history": "HBS_OFFICE_EMAIL=history-test-office@example.invalid node ../../scripts/run-db-test.mjs tests/approved-information-history.test.ts",
-    "test:api-security": "tsx --test tests/openai-security.test.ts",
+    "test:api-security": "tsx --test tests/openai-security.test.ts tests/api-hardening.test.ts",
     "test:office-access": "tsx --test tests/office-access.test.ts tests/office-helpers.test.ts",
     "test:openai-auth": "tsx --test tests/openai-auth.test.ts",
     "test:office-admin": "node ../../scripts/run-db-test.mjs tests/office-admin.test.ts",

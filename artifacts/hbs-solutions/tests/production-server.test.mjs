@@ -75,6 +75,10 @@ test('production server keeps SPA, API, assets, and compressed responses distinc
   }
   assert.equal((await fetchRaw(port, '/assets/missing.js')).status, 404);
   assert.match((await fetchRaw(port, '/robots.txt')).headers['content-type'], /^text\/plain/);
+  const home = await fetchRaw(port, '/');
+  assert.equal(home.headers['x-frame-options'], 'DENY');
+  assert.match(home.headers['content-security-policy'], /frame-ancestors 'none'/);
+  assert.match(home.headers['strict-transport-security'], /max-age=/);
 
   const compressed = await fetchRaw(port, '/', 'GET', { 'Accept-Encoding': 'br' });
   assert.equal(compressed.headers['content-encoding'], 'br');
@@ -90,6 +94,6 @@ test('production server keeps SPA, API, assets, and compressed responses distinc
     assert.equal(response.headers['x-frame-options'], 'DENY');
     assert.equal(response.headers['x-content-type-options'], 'nosniff');
     assert.equal(response.headers['referrer-policy'], 'strict-origin-when-cross-origin');
-    assert.equal(response.headers['permissions-policy'], 'camera=(), microphone=(), geolocation=()');
+    assert.equal(response.headers['permissions-policy'], 'camera=(), microphone=(), geolocation=(), payment=()');
   }
 });

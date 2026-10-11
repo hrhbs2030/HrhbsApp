@@ -107,7 +107,9 @@ import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage"
 import { officeCustomer, type OfficeCustomer } from "../lib/office-search";
 import {
   approvedOfficeEmail,
+  clerkUsersById,
   getOfficeRole,
+  verifiedEmailOf,
   requireOfficeOwner, requireOfficeStaff,
 } from "../lib/office-access";
 
@@ -216,6 +218,17 @@ async function lockAndAttach(
   for (const { row, path } of finalized) {
     await tx.update(hbsRequestAttachments).set({ requestId, objectPath: path })
       .where(eq(hbsRequestAttachments.id, row.id));
+  }
+  // The signed PUT for each temporary key stays valid for up to 15 minutes, so
+  // deleting the key now would let it be re-uploaded with nothing tracking it.
+  // Leave an already-expired reservation behind instead: it never counts
+  // toward the pending-upload cap or can be attached, and the sweeper deletes
+  // the key an hour later, after the signed URL has expired.
+  if (finalized.length) {
+    await tx.insert(hbsRequestAttachments).values(finalized.map(({ row }) => ({
+      userId: row.userId, objectPath: row.objectPath, name: row.name,
+      contentType: row.contentType, size: row.size, expiresAt: new Date(),
+    })));
   }
 }
 
@@ -368,12 +381,11 @@ function portalRegistration(record: HbsRegistrationRequest) {
   };
 }
 
+// A registrant whose account was deleted has no verified email; that must not
+// break the office's list or turn a review into a server error.
 async function verifiedRegistrationEmail(record: HbsRegistrationRequest): Promise<string | null> {
-  const user = await clerkClient.users.getUser(record.userId);
-  return user.emailAddresses.find(
-    (entry) => entry.emailAddress.toLowerCase() === record.email.toLowerCase() &&
-      entry.verification?.status === "verified",
-  )?.emailAddress ?? null;
+  const user = await clerkClient.users.getUser(record.userId).catch(() => undefined);
+  return verifiedEmailOf(user, record.email);
 }
 
 async function officeRegistration(record: HbsRegistrationRequest) {
@@ -624,10 +636,9 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
     res.status(400).json({ error: `Attach at most ${MAX_ATTACHMENTS_PER_REQUEST} files.` });
     return;
   }
-  let pending: HbsRequestAttachment[];
   let finalized: { row: HbsRequestAttachment; path: string }[];
   try {
-    ({ pending, finalized } = await finalizeUploads(userId, ids));
+    ({ finalized } = await finalizeUploads(userId, ids));
   } catch (error) {
     req.log.warn({ err: error }, "Attachment verification failed");
     res.status(400).json({ error: "File upload incomplete or invalid. Check each file and retry." });
@@ -674,8 +685,6 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
     notify(assignedMail(await staffEmail(record.assignedTo), created,
       record.dueAt ? new Intl.DateTimeFormat("ar-SA-u-ca-gregory", { dateStyle: "long", timeZone: "Asia/Riyadh" }).format(record.dueAt) : null));
   }
-  // Cleanup is best-effort after the record has been committed; pending keys cannot be downloaded.
-  void Promise.allSettled(pending.map(async row => (await storage.getObjectEntityFile(row.objectPath)).delete()));
 });
 
 router.get("/service-requests/:id", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
@@ -835,9 +844,6 @@ async function attachToRequest(req: Request, res: import("express").Response, of
   const details = (await detailsFor([current])).get(current.id);
   if (office) res.json(AttachOfficeServiceRequestFilesResponse.parse(officeRequest(current, details, await customerOf(current.userId))));
   else res.json(AttachServiceRequestFilesResponse.parse(publicRequest(current, details)));
-  // Temporary upload objects are no longer needed once copied.
-  const moved = finalized.map(({ row }) => row.objectPath);
-  void Promise.allSettled(moved.map(async path => (await storage.getObjectEntityFile(path)).delete()));
   const info = { id: request.id, reference: publicRequest(request).reference, service: request.service };
   const names = finalized.map(({ row }) => row.name).join("، ");
   if (office) void notifyCustomer(request.userId, to => customerNewFileMail(to, info));
@@ -963,7 +969,12 @@ router.post("/inquiries", requirePortalAuth, requireApprovedCustomer, async (req
 router.get("/office/registrations", requireOfficeStaff, async (_req, res): Promise<void> => {
   const records = await db.select().from(hbsRegistrationRequests)
     .orderBy(desc(hbsRegistrationRequests.createdAt), desc(hbsRegistrationRequests.id));
-  const response = await Promise.all(records.map(officeRegistration));
+  const users = await clerkUsersById(records.map((record) => record.userId));
+  const response = records.map((record) => ({
+    ...portalRegistration(record),
+    email: verifiedEmailOf(users.get(record.userId), record.email),
+    reviewerId: record.reviewerId,
+  }));
   res.json(ListOfficeRegistrationsResponse.parse(response));
 });
 

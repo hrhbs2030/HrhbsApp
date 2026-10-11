@@ -1,4 +1,9 @@
 import type { HbsCompanyEmployee, HbsCompanyLicense } from "@workspace/db";
+import {
+  createEmployeeBodyFullNameMax, createEmployeeBodyIdNumberMax, createEmployeeBodyNationalityMax,
+  createEmployeeBodyNotesMax, createEmployeeBodyOccupationMax, createEmployeeBodyPassportNumberMax,
+  createEmployeeBodyPhoneMax, createLicenseBodyNotesMax, createLicenseBodyNumberMax, createLicenseBodyTitleMax,
+} from "@workspace/api-zod";
 import { InputError, employeeValues, licenseValues } from "./company";
 
 // Planning a spreadsheet import: every row is checked and matched against
@@ -20,7 +25,38 @@ function filled<V extends object>(values: V, raw: Record<string, unknown>, alway
     always.includes(key as keyof V) || !blank(raw[key]))) as Partial<V>;
 }
 
-function check<V>(make: () => V, row: number, problems: Problem[]): V | null {
+// Imported rows skip the request schemas, so the same length limits as the
+// forms are applied here, cell by cell.
+type Limits = Record<string, { max: number; label: string }>;
+const employeeLimits: Limits = {
+  fullName: { max: createEmployeeBodyFullNameMax, label: "الاسم" },
+  nationality: { max: createEmployeeBodyNationalityMax, label: "الجنسية" },
+  occupation: { max: createEmployeeBodyOccupationMax, label: "المهنة" },
+  idNumber: { max: createEmployeeBodyIdNumberMax, label: "رقم الهوية" },
+  passportNumber: { max: createEmployeeBodyPassportNumberMax, label: "رقم الجواز" },
+  phone: { max: createEmployeeBodyPhoneMax, label: "الجوال" },
+  notes: { max: createEmployeeBodyNotesMax, label: "الملاحظات" },
+};
+const licenseLimits: Limits = {
+  title: { max: createLicenseBodyTitleMax, label: "اسم الترخيص" },
+  number: { max: createLicenseBodyNumberMax, label: "الرقم" },
+  notes: { max: createLicenseBodyNotesMax, label: "الملاحظات" },
+};
+// Dates, status and kind are short by nature; anything longer is not a value.
+const OTHER_CELL_MAX = 40;
+
+function cellsTooLong(raw: Record<string, unknown>, limits: Limits): string | null {
+  for (const [key, value] of Object.entries(raw)) {
+    const text = typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "";
+    const limit = limits[key];
+    if (text.length > (limit?.max ?? OTHER_CELL_MAX)) return `${limit?.label ?? "إحدى الخانات"} أطول من المسموح.`;
+  }
+  return null;
+}
+
+function check<V>(make: () => V, row: number, problems: Problem[], raw?: Record<string, unknown>, limits?: Limits): V | null {
+  const tooLong = raw && limits ? cellsTooLong(raw, limits) : null;
+  if (tooLong) { problems.push({ row, message: tooLong }); return null; }
   try { return make(); } catch (error) {
     problems.push({ row, message: error instanceof InputError ? error.message : "تحقق من بيانات الصف." });
     return null;
@@ -37,7 +73,7 @@ export function planEmployees(rows: Record<string, unknown>[], existing: HbsComp
   rows.forEach((raw, index) => {
     const row = index + 1;
     // Status comes from the file only when given; imports default to active.
-    const values = check(() => employeeValues({ ...raw, status: raw.status ?? "active" }), row, plan.problems);
+    const values = check(() => employeeValues({ ...raw, status: raw.status ?? "active" }), row, plan.problems, raw, employeeLimits);
     if (!values) return;
     const idNumber = "idNumber" in values ? values.idNumber : null;
     if (idNumber) {
@@ -63,7 +99,7 @@ export function planLicenses(rows: Record<string, unknown>[], existing: HbsCompa
   const seen = new Map<string, number>();
   rows.forEach((raw, index) => {
     const row = index + 1;
-    const values = check(() => licenseValues(raw), row, plan.problems);
+    const values = check(() => licenseValues(raw), row, plan.problems, raw, licenseLimits);
     if (!values) return;
     const k = key(values.kind, values.number, values.title);
     const first = seen.get(k);
