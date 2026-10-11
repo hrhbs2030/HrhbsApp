@@ -30,4 +30,16 @@ export interface ServiceRequestInput {
      * @items.minimum 1
      */
   attachmentIds?: number[];
+  /**
+     * An employee in the customer's company file
+     * @minimum 1
+     * @nullable
+     */
+  employeeId?: number | null;
+  /**
+     * A license in the customer's company file
+     * @minimum 1
+     * @nullable
+     */
+  licenseId?: number | null;
 }

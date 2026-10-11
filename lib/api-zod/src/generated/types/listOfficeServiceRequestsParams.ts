@@ -44,4 +44,8 @@ assignee?: string;
  * Only open requests past their due date
  */
 overdue?: boolean;
+/**
+ * Only open requests whose latest message is from the customer
+ */
+awaitingReply?: boolean;
 };

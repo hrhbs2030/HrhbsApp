@@ -5,6 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { RequestLastMessage } from './requestLastMessage';
+import type { RequestSubject } from './requestSubject';
 import type { ServiceAttachment } from './serviceAttachment';
 import type { ServiceRequestCategory } from './serviceRequestCategory';
 import type { ServiceRequestStatus } from './serviceRequestStatus';
@@ -34,4 +36,6 @@ export interface ServiceRequest {
   ratingComment: string | null;
   /** @nullable */
   ratedAt: Date | null;
+  subject: RequestSubject | null;
+  lastMessage: RequestLastMessage | null;
 }

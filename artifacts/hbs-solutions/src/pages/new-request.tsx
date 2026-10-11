@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'rea
 import { Link, useLocation, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, Check, Paperclip, Pencil, Send, Shapes, X } from 'lucide-react';
-import { getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, useCreateServiceRequest, type ServiceRequestInputCategory } from '@workspace/api-client-react';
+import { getGetCompanyFileQueryKey, getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, useCreateServiceRequest, useGetCompanyFile, type ServiceRequestInputCategory } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading } from '@/components/portal-ui';
 import { categories, categoryById, serviceBySlug, services, type ServiceCategory } from '@/content/services';
 import { ServiceOffer } from '@/components/service-offer';
@@ -42,12 +42,17 @@ export function NewRequest() {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
   const mutation = useCreateServiceRequest();
-  const preset = serviceBySlug[new URLSearchParams(useSearch()).get('service') ?? ''];
+  const query = new URLSearchParams(useSearch());
+  const preset = serviceBySlug[query.get('service') ?? ''];
+  const presetCategory = (['passports', 'labor', 'business', 'other'] as const).find(c => c === query.get('category'));
+  const company = useGetCompanyFile({ query: { queryKey: getGetCompanyFileQueryKey() } });
+  // "employee:12" or "license:3": what the request is about, from the company file.
+  const [subject, setSubject] = useState(() => query.get('employee') ? `employee:${query.get('employee')}` : query.get('license') ? `license:${query.get('license')}` : '');
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
-  const [category, setCategory] = useState<ServiceRequestInputCategory>(preset?.category ?? 'passports');
-  const [service, setService] = useState(preset?.name ?? '');
+  const [category, setCategory] = useState<ServiceRequestInputCategory>(preset?.category ?? presetCategory ?? 'passports');
+  const [service, setService] = useState(preset?.name ?? query.get('name')?.slice(0, 120) ?? '');
   const [description, setDescription] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [errors, setErrors] = useState<Errors>({});
@@ -65,6 +70,9 @@ export function NewRequest() {
   const suggestions = useMemo(() => services.filter((s) => s.category === category), [category]);
   const matched = services.find((s) => s.name === service.trim()) ?? preset;
   const guidance = matched?.whatToWrite;
+  const subjectOptions = [...(company.data?.employees.filter((e) => e.status === 'active') ?? []), ...(company.data?.licenses ?? [])];
+  const subjectLabel = subject.startsWith('employee:') ? company.data?.employees.find((e) => `employee:${e.id}` === subject)?.fullName
+    : subject.startsWith('license:') ? company.data?.licenses.find((l) => `license:${l.id}` === subject)?.title : undefined;
 
   function go(next: number) {
     setDirection(next > step ? 'forward' : 'back');
@@ -110,7 +118,9 @@ export function NewRequest() {
     }
     try {
       const attachmentIds = files.map((file) => uploaded.current.get(file)!).filter(Boolean);
-      const result = await mutation.mutateAsync({ data: { category, service: service.trim(), description: description.trim(), contactPhone: contactPhone.trim(), clientRequestId, ...(attachmentIds.length ? { attachmentIds } : {}) } });
+      const [subjectType, subjectId] = subject.split(':');
+      const link = subjectType === 'employee' ? { employeeId: Number(subjectId) } : subjectType === 'license' ? { licenseId: Number(subjectId) } : {};
+      const result = await mutation.mutateAsync({ data: { category, service: service.trim(), description: description.trim(), contactPhone: contactPhone.trim(), clientRequestId, ...link, ...(attachmentIds.length ? { attachmentIds } : {}) } });
       await Promise.all([qc.invalidateQueries({ queryKey: getListServiceRequestsQueryKey() }), qc.invalidateQueries({ queryKey: getGetPortalSummaryQueryKey() })]);
       navigate(`/requests/${result.id}?sent=1`);
     } catch { /* error shown below */ }
@@ -176,6 +186,14 @@ export function NewRequest() {
                   <textarea id="field-description" className="form-control" placeholder="صف المعاملة وما تحتاجه من المكتب" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={LIMITS.description[1]} aria-invalid={!!errors.description} aria-describedby={errors.description ? 'err-description' : 'hint-description'} />
                   {errors.description ? <span id="err-description" className="field-error" role="alert">{errors.description}</span> : <small id="hint-description" className="muted flex justify-between gap-3 font-normal"><span>لا تشارك كلمات مرور المنصات أو رموز التحقق.</span><span className="nums shrink-0" dir="ltr">{description.trim().length}/{LIMITS.description[1]}</span></small>}
                 </label>
+                {subjectOptions.length > 0 && <label className="form-field mt-6" htmlFor="field-subject">يخص موظفًا أو ترخيصًا؟ (اختياري)
+                  <select id="field-subject" className="form-control" value={subject} onChange={(e) => setSubject(e.target.value)}>
+                    <option value="">لا يخص موظفًا أو ترخيصًا محددًا</option>
+                    {company.data!.employees.filter((e) => e.status === 'active').length > 0 && <optgroup label="الموظفون">{company.data!.employees.filter((e) => e.status === 'active').map((e) => <option key={e.id} value={`employee:${e.id}`}>{e.fullName}{e.occupation ? ` · ${e.occupation}` : ''}</option>)}</optgroup>}
+                    {company.data!.licenses.length > 0 && <optgroup label="التراخيص">{company.data!.licenses.map((l) => <option key={l.id} value={`license:${l.id}`}>{l.title}</option>)}</optgroup>}
+                  </select>
+                  <small className="muted font-normal">يظهر الطلب في ملف الموظف أو الترخيص، ويرى المكتب بياناته مباشرة.</small>
+                </label>}
                 <label className="form-field mt-6" htmlFor="field-contactPhone">رقم للتواصل
                   <input id="field-contactPhone" dir="ltr" className="form-control text-right" type="tel" inputMode="tel" autoComplete="tel" placeholder="05XXXXXXXX" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} maxLength={LIMITS.phone[1]} aria-invalid={!!errors.contactPhone} aria-describedby={errors.contactPhone ? 'err-contactPhone' : undefined} />
                   {errors.contactPhone && <span id="err-contactPhone" className="field-error" role="alert">{errors.contactPhone}</span>}
@@ -203,6 +221,7 @@ export function NewRequest() {
                   <div><dt>المجال</dt><dd>{categoryById[category].name}</dd><button type="button" onClick={() => go(0)} aria-label="تعديل المجال"><Pencil size={15} /></button></div>
                   <div><dt>الخدمة</dt><dd>{service.trim()}</dd><button type="button" onClick={() => go(0)} aria-label="تعديل اسم الخدمة"><Pencil size={15} /></button></div>
                   <div className="nr-review-wide"><dt>التفاصيل</dt><dd className="whitespace-pre-wrap">{description.trim()}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل التفاصيل"><Pencil size={15} /></button></div>
+                  {subjectLabel && <div className="nr-review-wide"><dt>يخص</dt><dd>{subjectLabel}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل ما يخصه الطلب"><Pencil size={15} /></button></div>}
                   <div><dt>رقم التواصل</dt><dd dir="ltr" className="text-right">{contactPhone.trim()}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل رقم التواصل"><Pencil size={15} /></button></div>
                   <div className="nr-review-wide"><dt>المستندات</dt><dd>{files.length ? files.map((f) => f.name).join('، ') : 'لا توجد'}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل المستندات"><Pencil size={15} /></button></div>
                 </dl>

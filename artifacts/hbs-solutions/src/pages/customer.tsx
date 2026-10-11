@@ -2,11 +2,13 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useParams, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, CircleAlert, CircleCheck, CircleHelp, Link2, Plus, Send } from 'lucide-react';
-import { getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, getListInquiriesQueryKey, getGetServiceRequestQueryKey, getGetServiceRequestHistoryQueryKey, useGetServiceRequestHistory, useGetPortalSummary, useListServiceRequests, useGetServiceRequest, useListInquiries, useCreateInquiry, type Inquiry } from '@workspace/api-client-react';
+import { getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, getListInquiriesQueryKey, getGetServiceRequestQueryKey, getGetServiceRequestHistoryQueryKey, useGetServiceRequestHistory, useGetPortalSummary, useListServiceRequests, useGetServiceRequest, useListInquiries, useCreateInquiry, type Inquiry, type Reminder } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock, RequestRow, Status, StatusTrack, dateText, categoryNames, statusNames } from '@/components/portal-ui';
 import { CustomerAssistant } from '@/components/customer-assistant';
 import { PrintButton } from '@/components/brand/print';
-import { LOCALE, formatDateTime } from '@/lib/format';
+import { LOCALE, daysUntil, formatCalendarDate, formatDateTime, formatMoney } from '@/lib/format';
+import { ExpiryBadge, reminderKindNames } from '@/components/reminder-ui';
+import { RequestConversation, SubjectChip } from '@/components/request-conversation';
 import { RequestFiles } from '@/components/request-files';
 import { CustomerInvoices, RatingPanel } from '@/components/request-billing';
 
@@ -59,26 +61,68 @@ function WaitingOnYou() {
     <div className="mt-4 overflow-hidden rounded-xl border border-warn-line bg-field">{waiting.map(r => <RequestRow key={r.id} request={r}/>)}</div>
   </section>;
 }
+// What needs the customer now comes first: requests waiting on them, unpaid
+// invoices and documents about to expire; then the company and recent work.
 export function Dashboard() {
   const q = useGetPortalSummary({query:{queryKey:getGetPortalSummaryQueryKey(),refetchInterval:30000}});
+  const d = q.data;
   return <PortalLayout><PageHeading eyebrow="" title="نظرة عامة" action={<Link href="/requests/new" className="btn btn-primary"><Plus size={18}/>طلب خدمة جديد</Link>}/>
     <div className="space-y-8">
       <WaitingOnYou/>
-      {q.isLoading ? <LoadingBlock/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : q.data && <>
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">{([['إجمالي الطلبات',q.data.totalRequests],['قيد المتابعة',q.data.activeRequests],['مكتملة',q.data.completedRequests],['استفسارات مفتوحة',q.data.openInquiries]] as const).map(([label,value],i) =>
-          <div key={label} className={`surface p-4 sm:p-5 ${i===1?'!bg-teal !text-on-dark':''}`}><div className={`text-xs font-bold ${i===1?'text-on-dark-2':'text-subtle'}`}>{label}</div><div className="display nums mt-3 text-3xl font-semibold sm:mt-4 sm:text-4xl">{count(value)}</div></div>)}
+      {q.isLoading ? <LoadingBlock/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : d && <>
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <Tile label="طلبات قيد المتابعة" value={count(d.activeRequests)} href="/requests" accent/>
+          <Tile label="فواتير غير مسددة" value={d.unpaidInvoices ? formatMoney(d.unpaidTotal) : '0'} note={d.unpaidInvoices ? `${count(d.unpaidInvoices)} فاتورة` : 'لا يوجد ما يُسدد'} warn={d.unpaidInvoices > 0} href={d.unpaidInvoices ? '/requests?status=awaiting_payment' : undefined}/>
+          <Tile label="وثائق تنتهي قريبًا" value={count(d.expiringSoon.filter(r => daysUntil(r.expiresOn) >= 0).length)} note="خلال 60 يومًا" warn={d.expiringSoon.some(r => daysUntil(r.expiresOn) <= 30)} href="/documents"/>
+          <Tile label="طلبات مكتملة" value={count(d.completedRequests)} note={`من ${count(d.totalRequests)} طلبًا`}/>
         </div>
         <div className="grid grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-          <section className="min-w-0"><SectionTitle title="أحدث الطلبات" href={q.data.recentRequests.length ? '/requests' : undefined}/>{q.data.recentRequests.length ? <div className="surface overflow-hidden">{q.data.recentRequests.map(r => <RequestRow key={r.id} request={r}/>)}</div> : <EmptyBlock title="لا توجد طلبات بعد" text="أرسل طلبك الأول وتابع حالته من هنا." action="طلب خدمة جديد" href="/requests/new"/>}</section>
-          <section className="min-w-0"><SectionTitle title="أحدث الاستفسارات" href="/inquiries"/>{q.data.recentInquiries.length ? <div className="surface overflow-hidden">{q.data.recentInquiries.map(i => <InquiryLine key={i.id} inquiry={i}/>)}</div> : <EmptyBlock title="لا توجد استفسارات" text="لديك سؤال عن معاملة؟ أرسله إلى المكتب." action="استفسار جديد" href="/inquiries"/>}</section>
+          <div className="min-w-0 space-y-8">
+            <section className="min-w-0"><SectionTitle title="أحدث الطلبات" href={d.recentRequests.length ? '/requests' : undefined}/>{d.recentRequests.length ? <div className="surface overflow-hidden">{d.recentRequests.map(r => <RequestRow key={r.id} request={r}/>)}</div> : <EmptyBlock title="لا توجد طلبات بعد" text="أرسل طلبك الأول وتابع حالته من هنا." action="طلب خدمة جديد" href="/requests/new"/>}</section>
+            <section className="min-w-0"><SectionTitle title="أحدث الاستفسارات" href="/inquiries"/>{d.recentInquiries.length ? <div className="surface overflow-hidden">{d.recentInquiries.map(i => <InquiryLine key={i.id} inquiry={i}/>)}</div> : <EmptyBlock title="لا توجد استفسارات" text="لديك سؤال عن معاملة؟ أرسله إلى المكتب." action="استفسار جديد" href="/inquiries"/>}</section>
+          </div>
+          <div className="min-w-0 space-y-8">
+            <section className="min-w-0"><SectionTitle title="منشأتي" href="/company"/>
+              <Link href="/company" className="surface group flex items-center justify-between gap-4 p-5 text-inherit no-underline transition-colors hover:border-line-strong">
+                {d.hasCompany ? <div className="grid flex-1 grid-cols-2 gap-3">
+                  <div><div className="display nums text-3xl font-semibold">{count(d.employeesCount)}</div><div className="text-xs font-bold text-subtle">موظف على رأس العمل</div></div>
+                  <div><div className="display nums text-3xl font-semibold">{count(d.licensesCount)}</div><div className="text-xs font-bold text-subtle">ترخيص وشهادة</div></div>
+                </div> : <div><strong className="block">أكمل ملف منشأتك</strong><span className="mt-1 block text-sm leading-7 text-quiet">أضف بيانات المنشأة وموظفيها وتراخيصها لتصلك تنبيهات التجديد ويخدمك المكتب أسرع.</span></div>}
+                <ArrowLeft size={18} className="shrink-0 text-subtle transition-transform group-hover:-translate-x-1"/>
+              </Link></section>
+            <section className="min-w-0"><SectionTitle title="تنتهي قريبًا" href={d.expiringSoon.length ? '/documents' : undefined}/>
+              {d.expiringSoon.length ? <div className="surface overflow-hidden">{d.expiringSoon.map(r => <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3.5 last:border-0">
+                <div className="min-w-0"><div className="font-bold">{reminderKindNames[r.kind]} <span className="font-normal text-quiet">«{r.label}»</span></div><div className="mt-0.5 text-xs text-subtle">{formatCalendarDate(r.expiresOn)}</div></div>
+                <div className="flex items-center gap-2"><ExpiryBadge expiresOn={r.expiresOn}/>{daysUntil(r.expiresOn) <= 60 && <Link href={renewalLink(r)} className="text-xs font-bold text-copper no-underline hover:underline">طلب تجديد</Link>}</div>
+              </div>)}</div> : <div className="surface p-5 text-sm leading-7 text-quiet">لا توجد وثائق تنتهي خلال 60 يومًا. <Link href="/documents" className="font-bold text-copper">أضف تواريخ وثائقك</Link> لتصلك التنبيهات.</div>}
+            </section>
+          </div>
         </div>
       </>}
     </div>
   </PortalLayout>;
 }
+
+function Tile({ label, value, note, href, accent = false, warn = false }: { label: string; value: string; note?: string; href?: string; accent?: boolean; warn?: boolean }) {
+  const body = <><div className={`flex items-center justify-between gap-2 text-xs font-bold ${accent ? 'text-on-dark-2' : warn ? 'text-warn' : 'text-subtle'}`}>{label}{href && <ArrowLeft size={14} className="shrink-0"/>}</div>
+    <div className="display nums mt-3 truncate text-2xl font-semibold sm:mt-4 sm:text-3xl">{value}</div>{note && <div className={`mt-1 text-xs ${accent ? 'text-on-dark-2' : 'text-subtle'}`}>{note}</div>}</>;
+  const classes = `surface block min-w-0 p-4 text-inherit no-underline sm:p-5 ${accent ? '!bg-teal !text-on-dark' : warn ? '!border-warn-line !bg-warn-soft' : ''}`;
+  return href ? <Link href={href} className={`${classes} transition-colors hover:border-line-strong`}>{body}</Link> : <div className={classes}>{body}</div>;
+}
+
+// Renewal request for a reminder: the matching service, linked to its employee or license.
+function renewalLink(r: Reminder) {
+  const service: Record<string, string> = { iqama: 'iqama-renewal', passport: 'passport-info-update', work_permit: 'work-permit' };
+  const params = new URLSearchParams();
+  if (service[r.kind]) params.set('service', service[r.kind]);
+  else { params.set('category', r.kind === 'commercial_register' ? 'business' : 'other'); params.set('name', `تجديد ${reminderKindNames[r.kind]}`); }
+  if (r.source !== 'manual' && r.sourceId) params.set(r.source, String(r.sourceId));
+  return `/requests/new?${params}`;
+}
 const requestFilters = ['all', 'received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed'] as const;
 export function Requests() {
-  const q = useListServiceRequests({query:{queryKey:getListServiceRequestsQueryKey(),refetchInterval:30000}}); const [filter,setFilter] = useState('all');
+  const initial = new URLSearchParams(useSearch()).get('status') ?? 'all';
+  const q = useListServiceRequests({query:{queryKey:getListServiceRequestsQueryKey(),refetchInterval:30000}}); const [filter,setFilter] = useState((requestFilters as readonly string[]).includes(initial) ? initial : 'all');
   const filtered = q.data?.filter(r => filter === 'all' || r.status === filter) ?? [];
   const total = (key: string) => q.data?.filter(r => key === 'all' || r.status === key).length ?? 0;
   return <PortalLayout><PageHeading eyebrow="" title="طلباتي" action={<Link href="/requests/new" className="btn btn-primary"><Plus size={18}/>طلب خدمة جديد</Link>}/>
@@ -109,11 +153,13 @@ export function RequestDetail() {
           <StatusHistory id={q.data.id} updatedAt={q.data.updatedAt}/>
         </section>
         <dl className="m-0 grid gap-x-8 gap-y-5 border-t border-line bg-paper px-5 py-6 sm:grid-cols-3 sm:px-8">
+          {q.data.subject && <div className="sm:col-span-3"><SubjectChip subject={q.data.subject}/></div>}
           <Info label="مجال الخدمة" value={categoryNames[q.data.category]}/><Info label="رقم التواصل" value={q.data.contactPhone} ltr/><Info label="آخر تحديث" value={dateText(q.data.updatedAt)}/>
         </dl>
         <div className="border-t border-line px-5 py-6 sm:px-8"><h2 className="mb-2 text-xs font-bold text-subtle">تفاصيل الطلب</h2><p className="whitespace-pre-wrap text-sm leading-8">{q.data.description}</p></div>
         <div className="border-t border-line px-5 py-6 sm:px-8"><RequestFiles scope="customer" requestId={q.data.id} attachments={q.data.attachments} canUpload={q.data.status !== 'completed'} onChanged={() => q.refetch()}/></div>
         <InvoicesSlot requestId={q.data.id} returnedInvoiceId={returnedInvoiceId}/>
+        <div className="border-t border-line px-5 py-6 sm:px-8"><RequestConversation requestId={q.data.id} scope="customer" closed={q.data.status === 'completed'}/></div>
         {q.data.status === 'completed' && <div className="border-t border-line px-5 py-6 sm:px-8"><RatingPanel requestId={q.data.id} rating={q.data.rating} comment={q.data.ratingComment} onRated={() => q.refetch()}/></div>}
       </div>
     </>}

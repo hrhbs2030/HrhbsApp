@@ -39,18 +39,20 @@ export function Documents() {
   const initial = editing && editing !== 'new'
     ? { kind: editing.kind, label: editing.label, expiresOn: editing.expiresOn.slice(0, 10), note: editing.note ?? '' } : emptyDraft;
   return <PortalLayout>
-    <PageHeading eyebrow="لا تفوّت موعد تجديد" title="تنبيهات وثائقي" subtitle="أضف تاريخ انتهاء الإقامة أو الجواز أو السجل التجاري، ونذكّرك قبل الانتهاء بـ30 يومًا ثم 7 أيام ثم يوم واحد." action={!editing && <button type="button" className="btn btn-primary" onClick={() => { setError(null); setEditing('new'); }}><Plus size={18}/>إضافة وثيقة</button>}/>
+    <PageHeading eyebrow="لا تفوّت موعد تجديد" title="تنبيهات وثائقي" subtitle="نذكّرك قبل انتهاء كل وثيقة بـ30 يومًا ثم 7 أيام ثم يوم واحد. وثائق الموظفين والتراخيص تُضاف من ملف المنشأة، وهنا أي وثيقة أخرى." action={!editing && <button type="button" className="btn btn-primary" onClick={() => { setError(null); setEditing('new'); }}><Plus size={18}/>إضافة وثيقة</button>}/>
     {editing && <div className="surface mb-8 p-5 sm:p-7"><h2 className="display mb-5 text-lg font-semibold">{editing === 'new' ? 'وثيقة جديدة' : 'تعديل الوثيقة'}</h2>
       <ReminderForm initial={initial} busy={create.isPending || update.isPending} error={error} submitLabel="حفظ" onSubmit={save} onCancel={() => setEditing(null)}/></div>}
     {list.isLoading ? <LoadingBlock/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/> : !list.data?.length
       ? <EmptyBlock title="لا توجد وثائق بعد" text="أضف أول وثيقة ليصلك تنبيه بالبريد قبل انتهائها." action="إضافة وثيقة" onAction={() => setEditing('new')}/>
       : <div className="surface overflow-hidden">{list.data.map(item => <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 last:border-0 sm:px-6">
         <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><BellRing size={16} className="text-copper" aria-hidden="true"/><strong>{reminderKindNames[item.kind]}</strong><span className="text-quiet">«{item.label}»</span><ExpiryBadge expiresOn={item.expiresOn}/></div>
-          <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-subtle"><span>تنتهي في {formatCalendarDate(item.expiresOn)}</span>{item.addedBy === 'office' && <span>أضافها المكتب</span>}{item.note && <span>{item.note}</span>}</div></div>
+          <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-subtle"><span>تنتهي في {formatCalendarDate(item.expiresOn)}</span>{item.addedBy === 'office' && item.source === 'manual' && <span>أضافها المكتب</span>}{item.note && <span>{item.note}</span>}</div></div>
         <div className="flex items-center gap-1">
           {daysUntil(item.expiresOn) <= 60 && <Link href="/requests/new" className="btn btn-outline btn-sm">اطلب التجديد</Link>}
-          <button type="button" className="rf-btn" onClick={() => { setError(null); setEditing(item); }} aria-label={`تعديل ${item.label}`}><Pencil size={16}/></button>
-          <button type="button" className="rf-btn" onClick={() => drop(item)} aria-label={`حذف ${item.label}`}><Trash2 size={16}/></button>
+          {item.source === 'manual' ? <>
+            <button type="button" className="rf-btn" onClick={() => { setError(null); setEditing(item); }} aria-label={`تعديل ${item.label}`}><Pencil size={16}/></button>
+            <button type="button" className="rf-btn" onClick={() => drop(item)} aria-label={`حذف ${item.label}`}><Trash2 size={16}/></button>
+          </> : <Link href="/company" className="btn btn-outline btn-sm">من ملف المنشأة</Link>}
         </div>
       </div>)}</div>}
     {error && !editing && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}

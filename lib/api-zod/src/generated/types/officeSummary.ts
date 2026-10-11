@@ -7,6 +7,8 @@
  */
 
 export interface OfficeSummary {
+  /** Open requests whose latest message is from the customer */
+  awaitingReply: number;
   /** Open requests assigned to the signed-in member */
   myRequests: number;
   /** Open requests past their due date */

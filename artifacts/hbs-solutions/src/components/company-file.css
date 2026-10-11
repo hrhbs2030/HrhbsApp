@@ -1,0 +1,19 @@
+.cf-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--color-surface); color: var(--color-teal); }
+.cf-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--color-line); }
+.cf-head h2 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.cf-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 20px; border-bottom: 1px solid var(--color-line); background: var(--color-paper); }
+.cf-search { max-width: 280px; min-height: 40px !important; }
+.cf-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--color-line-strong); background: var(--color-surface); color: var(--color-quiet); font-size: 12px; font-weight: 700; }
+.cf-chip.is-on { background: var(--color-teal); border-color: var(--color-teal); color: var(--color-on-dark); }
+.cf-list { list-style: none; margin: 0; padding: 0; }
+.cf-row { display: flex; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--color-line); }
+.cf-row:last-child { border-bottom: 0; }
+.cf-numbers { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: 6px; font-size: 12px; color: var(--color-subtle); }
+.cf-numbers b { color: var(--color-ink); font-weight: 600; }
+.cf-docs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.cf-doc { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 10px; background: var(--color-sunk); font-size: 12px; }
+.cf-renew { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--color-copper); text-decoration: none; }
+.cf-renew:hover { text-decoration: underline; }
+.cf-tag { padding: 1px 8px; border-radius: 6px; background: var(--color-copper-soft); color: var(--color-copper); font-size: 11px; font-weight: 700; }
+@media (max-width: 640px) { .cf-search { max-width: none; width: 100%; } .cf-row { padding: 14px 16px; } }
+.cf-num { unicode-bidi: isolate; direction: ltr; font-variant-numeric: tabular-nums; white-space: nowrap; }

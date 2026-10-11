@@ -7,8 +7,16 @@
  */
 import type { ReminderAddedBy } from './reminderAddedBy';
 import type { ReminderKind } from './reminderKind';
+import type { ReminderSource } from './reminderSource';
 
 export interface Reminder {
+  /**
+     * The employee or license ID for company-file reminders
+     * @nullable
+     */
+  sourceId: number | null;
+  /** Reminders from the company file are edited there */
+  source: ReminderSource;
   id: number;
   kind: ReminderKind;
   label: string;

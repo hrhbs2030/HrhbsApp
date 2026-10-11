@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlarmClock, ArrowLeft, ClipboardList, Clock3, FileClock, MessageSquareText, Save, Search, UserRound } from 'lucide-react';
+import { AlarmClock, ArrowLeft, ClipboardList, Clock3, Contact, FileClock, MessageSquareText, MessagesSquare, Save, Search, UserRound } from 'lucide-react';
 import {
   getGetOfficeSummaryQueryKey, getListOfficeServiceRequestsQueryKey, getListOfficeInquiriesQueryKey, getListOfficeAssigneesQueryKey,
   useGetOfficeSummary, useListOfficeServiceRequests, useUpdateOfficeServiceRequest, useListOfficeAssignees,
+  useListOfficeReminders, getListOfficeRemindersQueryKey,
   useListOfficeInquiries, useAnswerOfficeInquiry,
   type InquiryStatus, type OfficeServiceRequestCategory, type OfficeServiceRequestStatus,
   type OfficeServiceRequest, type OfficeInquiry, type ServiceRequestUpdateStatus, type OfficeAssignee, type ServiceAttachment,
@@ -17,6 +18,9 @@ import { LOCALE } from '@/lib/format';
 import { RequestFiles } from '@/components/request-files';
 import { OfficeInvoices } from '@/components/request-billing';
 import { ExtractReminder } from '@/components/office-request-extras';
+import { RequestConversation, ReplyBadge, SubjectChip } from '@/components/request-conversation';
+import { ExpiryBadge, reminderKindNames } from '@/components/reminder-ui';
+import { formatCalendarDate } from '@/lib/format';
 
 const pageSize = 20;
 type RequestSort = 'newest' | 'oldest_update' | 'due_soon';
@@ -56,24 +60,50 @@ export function OfficeOverview() {
             ? <Link key={label} href={href} className={`group ${classes} transition-colors hover:border-line-strong`}>{body}</Link>
             : <div key={label} className={classes}>{body}</div>;
         })}</div>
-        <div className="grid gap-3 sm:grid-cols-3">{([
-          ['طلبات مسندة إليّ', summary.data.myRequests, '/office/requests?assignee=me', UserRound, false],
-          ['طلبات متأخرة عن موعدها', summary.data.overdueRequests, '/office/requests?overdue=true', AlarmClock, summary.data.overdueRequests > 0],
-          ['وثائق عملاء تنتهي خلال 30 يومًا', summary.data.expiringDocuments, '/office/reminders', FileClock, false],
-        ] as const).map(([label, value, href, Icon, warn]) => <Link key={label} href={href} className={`flex min-h-11 items-center justify-between gap-3 rounded-xl border px-5 py-4 text-sm no-underline ${warn ? 'border-warn-line bg-warn-soft text-warn' : 'border-line bg-surface text-inherit hover:border-line-strong'}`}>
-          <span className="flex items-center gap-2"><Icon size={17} className="shrink-0"/>{label}</span><strong className="display nums text-xl">{count(value)}</strong>
-        </Link>)}</div>
-        {staleCount > 0 && <Link href="/office/requests?sort=oldest_update" className="flex min-h-11 flex-wrap items-center justify-between gap-3 rounded-xl border border-warn-line bg-warn-soft px-5 py-4 text-sm text-warn no-underline">
-          <span className="flex items-center gap-2"><Clock3 size={17} className="shrink-0"/><span><strong className="nums">{count(staleCount)}</strong> {staleCount === 1 ? 'طلب نشط' : 'طلبات نشطة'} بلا تحديث منذ {count(STALE_AFTER_DAYS)} أيام أو أكثر</span></span>
-          <span className="flex items-center gap-1 font-bold">عرض من الأقدم تحديثًا<ArrowLeft size={15}/></span>
-        </Link>}
-        <div className="grid gap-4 pt-4 md:grid-cols-2">
+        <div className="grid gap-5 pt-2 xl:grid-cols-2">
+          <Queue title="متأخرة عن موعدها" icon={AlarmClock} count={summary.data.overdueRequests} href="/office/requests?overdue=true&sort=due_soon" params={{ overdue: true, sort: 'due_soon' }} empty="لا توجد طلبات متأخرة." warn/>
+          <Queue title="بانتظار ردّك على العميل" icon={MessagesSquare} count={summary.data.awaitingReply} href="/office/requests?awaitingReply=true" params={{ awaitingReply: true, sort: 'oldest_update' }} empty="لا توجد رسائل تنتظر الرد."/>
+          <Queue title="مسندة إليّ" icon={UserRound} count={summary.data.myRequests} href="/office/requests?assignee=me&sort=due_soon" params={{ assignee: 'me', sort: 'due_soon' }} empty="لا توجد طلبات مسندة إليك."/>
+          <ExpiringQueue count={summary.data.expiringDocuments}/>
+        </div>
+        <div className="grid gap-4 pt-4 md:grid-cols-3">
+          <Link href="/office/customers" className="group surface flex items-start justify-between gap-4 p-7 text-inherit no-underline transition-transform hover:-translate-y-1"><div><Contact className="mb-7 text-copper" size={26}/><h2 className="display text-xl font-semibold">ملفات العملاء</h2><p className="muted mt-2 text-sm leading-7">المنشأة والموظفون والتراخيص والطلبات لكل عميل في صفحة واحدة.</p></div><ArrowLeft className="shrink-0 text-subtle transition-transform group-hover:-translate-x-1"/></Link>
           <Link href="/office/requests" className="group surface flex items-start justify-between gap-4 p-7 text-inherit no-underline transition-transform hover:-translate-y-1"><div><ClipboardList className="mb-7 text-copper" size={26}/><h2 className="display text-xl font-semibold">طلبات العملاء</h2><p className="muted mt-2 text-sm leading-7">راجع المعاملات وحدّث حالتها وأضف ملاحظات المكتب الداخلية.</p></div><ArrowLeft className="shrink-0 text-subtle transition-transform group-hover:-translate-x-1"/></Link>
           <Link href="/office/inquiries" className="group surface flex items-start justify-between gap-4 p-7 text-inherit no-underline transition-transform hover:-translate-y-1"><div><MessageSquareText className="mb-7 text-copper" size={26}/><h2 className="display text-xl font-semibold">استفسارات العملاء</h2><p className="muted mt-2 text-sm leading-7">اطّلع على الأسئلة الواردة وأرسل الردود للعملاء.</p></div><ArrowLeft className="shrink-0 text-subtle transition-transform group-hover:-translate-x-1"/></Link>
         </div>
       </div>
     </>}
   </PortalLayout>;
+}
+
+type QueueParams = { overdue?: boolean; awaitingReply?: boolean; assignee?: string; sort: RequestSort };
+// A short list of today's work; the full filtered list is one click away.
+function Queue({ title, icon: Icon, count: total, href, params, empty, warn = false }: { title: string; icon: typeof AlarmClock; count: number; href: string; params: QueueParams; empty: string; warn?: boolean }) {
+  const query = { page: 1, pageSize: 5, ...params };
+  const list = useListOfficeServiceRequests(query, { query: { queryKey: getListOfficeServiceRequestsQueryKey(query), refetchInterval: 60_000 } });
+  return <section className={`surface overflow-hidden ${warn && total ? '!border-warn-line' : ''}`}>
+    <Link href={href} className={`flex items-center justify-between gap-3 border-b border-line px-5 py-4 text-inherit no-underline ${warn && total ? 'bg-warn-soft text-warn' : 'bg-paper'}`}>
+      <span className="flex items-center gap-2 font-bold"><Icon size={17}/>{title}</span><span className="flex items-center gap-2"><strong className="display nums text-xl">{count(total)}</strong><ArrowLeft size={15}/></span>
+    </Link>
+    {list.data?.items.length ? list.data.items.map(r => <Link key={r.id} href={`/office/requests?q=${encodeURIComponent(r.reference)}`} className="flex items-center justify-between gap-3 border-b border-line px-5 py-3 text-inherit no-underline last:border-0 hover:bg-paper">
+      <div className="min-w-0"><div className="truncate font-semibold">{r.service}</div><div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span dir="ltr">{r.reference}</span>{r.customer && <span>{r.customer.fullName}</span>}{r.dueAt && <span>الموعد {dateText(r.dueAt)}</span>}</div></div>
+      <Status value={r.status}/>
+    </Link>) : <p className="px-5 py-6 text-sm text-subtle">{list.isLoading ? 'جارٍ التحميل…' : empty}</p>}
+  </section>;
+}
+
+function ExpiringQueue({ count: total }: { count: number }) {
+  const params = { withinDays: 30 };
+  const list = useListOfficeReminders(params, { query: { queryKey: getListOfficeRemindersQueryKey(params), refetchInterval: 300_000 } });
+  return <section className="surface overflow-hidden">
+    <Link href="/office/reminders" className="flex items-center justify-between gap-3 border-b border-line bg-paper px-5 py-4 text-inherit no-underline">
+      <span className="flex items-center gap-2 font-bold"><FileClock size={17}/>وثائق عملاء تنتهي خلال 30 يومًا</span><span className="flex items-center gap-2"><strong className="display nums text-xl">{count(total)}</strong><ArrowLeft size={15}/></span>
+    </Link>
+    {list.data?.length ? list.data.slice(0, 5).map(r => <div key={r.id} className="flex items-center justify-between gap-3 border-b border-line px-5 py-3 last:border-0">
+      <div className="min-w-0"><div className="truncate font-semibold">{reminderKindNames[r.kind]} «{r.label}»</div><div className="mt-0.5 text-xs text-subtle">{r.customer?.fullName ?? 'عميل'} · {formatCalendarDate(r.expiresOn)}</div></div>
+      <ExpiryBadge expiresOn={r.expiresOn}/>
+    </div>) : <p className="px-5 py-6 text-sm text-subtle">{list.isLoading ? 'جارٍ التحميل…' : 'لا توجد وثائق تنتهي خلال 30 يومًا.'}</p>}
+  </section>;
 }
 
 // Below the xl breakpoint the editor sits under the list.
@@ -93,8 +123,9 @@ function ResultCount({ total }: { total: number }) {
 
 export function OfficeRequests() {
   const initial = new URLSearchParams(useSearch());
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initial.get('q') ?? '');
   const q = useDebouncedValue(search.trim());
+  const [awaitingReply, setAwaitingReply] = useState(initial.get('awaitingReply') === 'true');
   const [status, setStatus] = useState<OfficeServiceRequestStatus | ''>(() =>
     (statusOptions as string[]).includes(initial.get('status') ?? '') ? initial.get('status') as OfficeServiceRequestStatus : '');
   const [category, setCategory] = useState<OfficeServiceRequestCategory | ''>('');
@@ -104,10 +135,11 @@ export function OfficeRequests() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<number | null>(null);
   const members = useAssignees();
-  useEffect(() => setPage(1), [q, status, category, sort, assignee, overdue]);
+  useEffect(() => setPage(1), [q, status, category, sort, assignee, overdue, awaitingReply]);
   const params = {
     page, pageSize, ...(q ? { q } : {}), ...(status ? { status } : {}),
     ...(category ? { category } : {}), sort, ...(assignee ? { assignee } : {}), ...(overdue ? { overdue: true } : {}),
+    ...(awaitingReply ? { awaitingReply: true } : {}),
   };
   const list = useListOfficeServiceRequests(params, { query: {
     queryKey: getListOfficeServiceRequestsQueryKey(params), refetchInterval: 30_000,
@@ -120,7 +152,9 @@ export function OfficeRequests() {
   const rows = list.data?.items ?? [];
   const active = rows.find(r => r.id === selected);
   const editorRef = useRevealOnSelect(selected);
-  const filtered = Boolean(q || status || category || assignee || overdue);
+  const filtered = Boolean(q || status || category || assignee || overdue || awaitingReply);
+  // Opening the list from a reference link selects that request.
+  useEffect(() => { if (q && rows.length === 1 && selected === null) setSelected(rows[0].id); }, [q, rows.length]);
 
   return <PortalLayout staff>
     <PageHeading eyebrow="صندوق الوارد" title="طلبات العملاء" subtitle="ابحث بالرقم المرجعي أو الخدمة أو تفاصيل الطلب أو رقم التواصل، وحدّث الحالة بحسب تقدم كل طلب."/>
@@ -133,12 +167,13 @@ export function OfficeRequests() {
     <div className="mb-4 flex flex-wrap items-center gap-3">
       <label className="min-w-[14rem]"><span className="sr-only">المسؤول</span><select className="form-control" value={assignee} onChange={e => setAssignee(e.target.value)}><option value="">كل المسؤولين</option><option value="me">المسندة إليّ</option><option value="unassigned">غير مسندة</option>{members.data?.map(m => <option key={m.userId} value={m.userId}>{m.email ?? m.userId}</option>)}</select></label>
       <button type="button" aria-pressed={overdue} onClick={() => setOverdue(!overdue)} className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-xs font-bold transition-colors ${overdue ? 'border-warn-line bg-warn-soft text-warn' : 'border-line-strong bg-surface text-quiet hover:bg-sage'}`}><AlarmClock size={15}/>المتأخرة فقط</button>
+      <button type="button" aria-pressed={awaitingReply} onClick={() => setAwaitingReply(!awaitingReply)} className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-xs font-bold transition-colors ${awaitingReply ? 'border-teal bg-teal text-on-dark' : 'border-line-strong bg-surface text-quiet hover:bg-sage'}`}><MessagesSquare size={15}/>بانتظار ردّنا</button>
     </div>
     {list.isLoading ? <LoadingBlock/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/> : !list.data?.total && !filtered
       ? <EmptyBlock title="لا توجد طلبات واردة" text="ستظهر طلبات العملاء هنا عند إرسالها عبر البوابة."/>
        : <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
          <div className="min-w-0"><ResultCount total={list.data?.total ?? 0}/><div className={`surface overflow-hidden transition-opacity ${list.isPlaceholderData ? 'opacity-60' : ''}`}>{rows.length ? rows.map(r => <button type="button" aria-pressed={selected === r.id} key={r.id} onClick={() => setSelected(r.id)} className={`block w-full border-b border-line px-5 py-4 text-right transition-colors last:border-0 hover:bg-paper sm:px-6 ${selected === r.id ? 'bg-sage shadow-[inset_-3px_0_0_var(--color-teal)]' : ''}`}>
-          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-bold">{r.service}</div><div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span dir="ltr">{r.reference}</span><span>{categoryNames[r.category]}</span><span>{dateText(r.createdAt)}</span>{memberName(members.data, r.assignedTo) && <span className="inline-flex items-center gap-1"><UserRound size={12} aria-hidden="true"/>{memberName(members.data, r.assignedTo)}</span>}{isOverdue(r) && <span className="inline-flex items-center whitespace-nowrap rounded-md bg-danger-soft px-2 py-0.5 text-xs font-bold text-danger">متأخر عن موعده</span>}{isStale(r) && <StaleBadge updatedAt={r.updatedAt}/>}</div></div><Status value={r.status}/></div>
+          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-bold">{r.service}</div><div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span dir="ltr">{r.reference}</span><span>{categoryNames[r.category]}</span><span>{dateText(r.createdAt)}</span>{memberName(members.data, r.assignedTo) && <span className="inline-flex items-center gap-1"><UserRound size={12} aria-hidden="true"/>{memberName(members.data, r.assignedTo)}</span>}{isOverdue(r) && <span className="inline-flex items-center whitespace-nowrap rounded-md bg-danger-soft px-2 py-0.5 text-xs font-bold text-danger">متأخر عن موعده</span>}<SubjectChip subject={r.subject}/><ReplyBadge lastMessage={r.lastMessage} status={r.status} viewer="office"/>{isStale(r) && <StaleBadge updatedAt={r.updatedAt}/>}</div></div><Status value={r.status}/></div>
         </button>) : <div className="p-10 text-center text-sm text-subtle">لا توجد نتائج مطابقة.</div>}</div><Pager page={page} pageSize={pageSize} total={list.data?.total ?? 0} onPage={setPage}/></div>
          <div ref={editorRef} className="scroll-mt-24 xl:sticky xl:top-24">{active ? <RequestEditor key={active.id} request={active}/> : <div className="surface hidden min-h-64 flex-col items-center justify-center p-8 text-center text-subtle xl:flex"><ClipboardList className="mb-3" size={30} strokeWidth={1.5}/><p className="text-sm">اختر طلبًا من القائمة لعرض تفاصيله وتحديث حالته.</p></div>}</div>
       </div>}
@@ -210,10 +245,16 @@ function RequestEditor({ request }: { request: OfficeServiceRequest }) {
     <div className="border-b border-line bg-sage p-5"><div className="flex items-start justify-between gap-3"><div><span className="text-xs font-bold text-subtle" dir="ltr">{request.reference}</span><h2 className="display mt-2 text-lg font-semibold">{request.service}</h2></div><Status value={request.status}/></div></div>
     <div className="space-y-5 p-5">
       {isStale(request) && <StaleBadge updatedAt={request.updatedAt}/>}
+      {(request.customer || request.subject) && <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-paper px-3 py-2 text-xs">
+        <span>{request.customer ? <><strong>{request.customer.fullName}</strong> <span className="text-subtle" dir="ltr">{request.customer.email}</span></> : 'العميل'}</span>
+        <Link href={`/office/customers/${encodeURIComponent(request.userId)}`} className="inline-flex items-center gap-1 font-bold text-copper no-underline hover:underline"><Contact size={13}/>ملف العميل</Link>
+        {request.subject && <span className="w-full"><SubjectChip subject={request.subject}/></span>}
+      </div>}
       <div className="grid grid-cols-2 gap-3 text-xs"><div><span className="muted block">المجال</span><strong>{categoryNames[request.category]}</strong></div><div><span className="muted block">تاريخ الإرسال</span><strong>{dateText(request.createdAt)}</strong></div><div className="col-span-2"><span className="muted block">رقم التواصل</span><strong dir="ltr" className="inline-block">{request.contactPhone}</strong></div></div>
       <div className="border-t border-line pt-4"><div className="mb-2 text-xs font-bold text-subtle">تفاصيل العميل</div><p className="max-h-44 overflow-y-auto whitespace-pre-wrap text-sm leading-7">{request.description}</p></div>
       <div className="border-t border-line pt-4"><RequestFiles key={request.id} scope="office" requestId={request.id} attachments={request.attachments} canUpload onChanged={() => qc.invalidateQueries({ queryKey: getListOfficeServiceRequestsQueryKey() })} onExtract={setExtracting}/></div>
       {extracting && <ExtractReminder requestId={request.id} file={extracting} onClose={() => setExtracting(null)}/>}
+      <div className="border-t border-line pt-4"><RequestConversation requestId={request.id} scope="office"/></div>
       <div className="border-t border-line pt-4"><OfficeInvoices requestId={request.id} onChanged={() => qc.invalidateQueries({ queryKey: getListOfficeServiceRequestsQueryKey() })}/></div>
       {request.rating && <div className="border-t border-line pt-4 text-sm"><span className="muted block text-xs">تقييم العميل</span><strong className="text-copper">{'★'.repeat(request.rating)}{'☆'.repeat(5 - request.rating)}</strong>{request.ratingComment && <p className="mt-1 whitespace-pre-wrap leading-7">«{request.ratingComment}»</p>}</div>}
       <form onSubmit={submit} className="space-y-4 border-t border-line pt-5">

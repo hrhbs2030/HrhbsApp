@@ -25,6 +25,7 @@ const dbCommands = [
   'test:office-revocation',
   'test:office-admin',
   'test:office-features',
+  'test:company-file',
 ];
 const discovered = Object.entries(scripts)
   .filter(([name, command]) => name === 'test:db' || /run-db-test\.mjs|run-tests\.mjs api-db/.test(command))

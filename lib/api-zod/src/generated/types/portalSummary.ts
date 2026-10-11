@@ -6,9 +6,18 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Inquiry } from './inquiry';
+import type { Reminder } from './reminder';
 import type { ServiceRequest } from './serviceRequest';
 
 export interface PortalSummary {
+  unpaidInvoices: number;
+  /** Halalas */
+  unpaidTotal: number;
+  /** Up to 8 documents expiring in the next 60 days or already expired in the last 30, soonest first */
+  expiringSoon: Reminder[];
+  employeesCount: number;
+  licensesCount: number;
+  hasCompany: boolean;
   totalRequests: number;
   activeRequests: number;
   completedRequests: number;

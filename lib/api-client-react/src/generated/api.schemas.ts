@@ -52,6 +52,14 @@ export const AuditLogEntryAction = {
   invoicepaid_online: 'invoice.paid_online',
   offerupdate: 'offer.update',
   remindercreate: 'reminder.create',
+  companyupdate: 'company.update',
+  employeecreate: 'employee.create',
+  employeeupdate: 'employee.update',
+  employeedelete: 'employee.delete',
+  employeereveal: 'employee.reveal',
+  licensecreate: 'license.create',
+  licenseupdate: 'license.update',
+  licensedelete: 'license.delete',
 } as const;
 
 export type AuditLogEntryDetails = { [key: string]: unknown };
@@ -345,6 +353,33 @@ export interface ServiceAttachment {
   createdAt: string;
 }
 
+export type RequestSubjectType = typeof RequestSubjectType[keyof typeof RequestSubjectType];
+
+
+export const RequestSubjectType = {
+  employee: 'employee',
+  license: 'license',
+} as const;
+
+export interface RequestSubject {
+  type: RequestSubjectType;
+  id: number;
+  label: string;
+}
+
+export type RequestLastMessageBy = typeof RequestLastMessageBy[keyof typeof RequestLastMessageBy];
+
+
+export const RequestLastMessageBy = {
+  customer: 'customer',
+  office: 'office',
+} as const;
+
+export interface RequestLastMessage {
+  by: RequestLastMessageBy;
+  at: string;
+}
+
 export interface ServiceRequest {
   id: number;
   reference: string;
@@ -370,6 +405,8 @@ export interface ServiceRequest {
   ratingComment: string | null;
   /** @nullable */
   ratedAt: string | null;
+  subject: RequestSubject | null;
+  lastMessage: RequestLastMessage | null;
 }
 
 export type ServiceRequestStatusEventStatus = typeof ServiceRequestStatusEventStatus[keyof typeof ServiceRequestStatusEventStatus];
@@ -449,6 +486,10 @@ export interface OfficeServiceRequest {
   ratingComment: string | null;
   /** @nullable */
   ratedAt: string | null;
+  subject: RequestSubject | null;
+  lastMessage: RequestLastMessage | null;
+  /** The customer's user ID, for opening their file */
+  userId: string;
 }
 
 export interface OfficeServiceRequestPage {
@@ -531,6 +572,18 @@ export interface ServiceRequestInput {
      * @items.minimum 1
      */
   attachmentIds?: number[];
+  /**
+     * An employee in the customer's company file
+     * @minimum 1
+     * @nullable
+     */
+  employeeId?: number | null;
+  /**
+     * A license in the customer's company file
+     * @minimum 1
+     * @nullable
+     */
+  licenseId?: number | null;
 }
 
 export type ServiceRequestUpdateStatus = typeof ServiceRequestUpdateStatus[keyof typeof ServiceRequestUpdateStatus];
@@ -664,7 +717,64 @@ export interface InquiryAnswer {
   answer: string;
 }
 
+/**
+ * Reminders from the company file are edited there
+ */
+export type ReminderSource = typeof ReminderSource[keyof typeof ReminderSource];
+
+
+export const ReminderSource = {
+  manual: 'manual',
+  employee: 'employee',
+  license: 'license',
+} as const;
+
+export type ReminderKind = typeof ReminderKind[keyof typeof ReminderKind];
+
+
+export const ReminderKind = {
+  iqama: 'iqama',
+  passport: 'passport',
+  commercial_register: 'commercial_register',
+  work_permit: 'work_permit',
+  other: 'other',
+} as const;
+
+export type ReminderAddedBy = typeof ReminderAddedBy[keyof typeof ReminderAddedBy];
+
+
+export const ReminderAddedBy = {
+  customer: 'customer',
+  office: 'office',
+} as const;
+
+export interface Reminder {
+  /**
+     * The employee or license ID for company-file reminders
+     * @nullable
+     */
+  sourceId: number | null;
+  /** Reminders from the company file are edited there */
+  source: ReminderSource;
+  id: number;
+  kind: ReminderKind;
+  label: string;
+  expiresOn: string;
+  /** @nullable */
+  note: string | null;
+  addedBy: ReminderAddedBy;
+  createdAt: string;
+}
+
 export interface PortalSummary {
+  unpaidInvoices: number;
+  /** Halalas */
+  unpaidTotal: number;
+  /** Up to 8 documents expiring in the next 60 days or already expired in the last 30, soonest first */
+  expiringSoon: Reminder[];
+  employeesCount: number;
+  licensesCount: number;
+  hasCompany: boolean;
   totalRequests: number;
   activeRequests: number;
   completedRequests: number;
@@ -674,6 +784,8 @@ export interface PortalSummary {
 }
 
 export interface OfficeSummary {
+  /** Open requests whose latest message is from the customer */
+  awaitingReply: number;
   /** Open requests assigned to the signed-in member */
   myRequests: number;
   /** Open requests past their due date */
@@ -889,17 +1001,6 @@ export interface PaymentStart {
   url: string;
 }
 
-export type ReminderKind = typeof ReminderKind[keyof typeof ReminderKind];
-
-
-export const ReminderKind = {
-  iqama: 'iqama',
-  passport: 'passport',
-  commercial_register: 'commercial_register',
-  work_permit: 'work_permit',
-  other: 'other',
-} as const;
-
 export interface ReminderInput {
   kind: ReminderKind;
   /**
@@ -913,25 +1014,6 @@ export interface ReminderInput {
      * @nullable
      */
   note?: string | null;
-}
-
-export type ReminderAddedBy = typeof ReminderAddedBy[keyof typeof ReminderAddedBy];
-
-
-export const ReminderAddedBy = {
-  customer: 'customer',
-  office: 'office',
-} as const;
-
-export interface Reminder {
-  id: number;
-  kind: ReminderKind;
-  label: string;
-  expiresOn: string;
-  /** @nullable */
-  note: string | null;
-  addedBy: ReminderAddedBy;
-  createdAt: string;
 }
 
 export type OfficeReminder = Reminder & ({
@@ -1050,6 +1132,329 @@ export interface OfficeReport {
   revenue: OfficeReportRevenue;
 }
 
+export interface CompanyInput {
+  /**
+     * @minLength 2
+     * @maxLength 160
+     */
+  name: string;
+  /**
+     * @maxLength 20
+     * @nullable
+     */
+  crNumber?: string | null;
+  /**
+     * @maxLength 20
+     * @nullable
+     */
+  unifiedNumber?: string | null;
+  /**
+     * @maxLength 20
+     * @nullable
+     */
+  vatNumber?: string | null;
+  /**
+     * @maxLength 80
+     * @nullable
+     */
+  city?: string | null;
+  /**
+     * @maxLength 300
+     * @nullable
+     */
+  address?: string | null;
+  /**
+     * @maxLength 200
+     * @nullable
+     */
+  activity?: string | null;
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  contactName?: string | null;
+  /**
+     * @maxLength 24
+     * @nullable
+     */
+  contactPhone?: string | null;
+  /**
+     * @maxLength 1000
+     * @nullable
+     */
+  notes?: string | null;
+}
+
+export interface Company {
+  name: string;
+  /** @nullable */
+  crNumber: string | null;
+  /** @nullable */
+  unifiedNumber: string | null;
+  /** @nullable */
+  vatNumber: string | null;
+  /** @nullable */
+  city: string | null;
+  /** @nullable */
+  address: string | null;
+  /** @nullable */
+  activity: string | null;
+  /** @nullable */
+  contactName: string | null;
+  /** @nullable */
+  contactPhone: string | null;
+  /** @nullable */
+  notes: string | null;
+  updatedAt: string;
+}
+
+export type EmployeeInputStatus = typeof EmployeeInputStatus[keyof typeof EmployeeInputStatus];
+
+
+export const EmployeeInputStatus = {
+  active: 'active',
+  left: 'left',
+} as const;
+
+export interface EmployeeInput {
+  /**
+     * @minLength 2
+     * @maxLength 120
+     */
+  fullName: string;
+  /**
+     * @maxLength 60
+     * @nullable
+     */
+  nationality?: string | null;
+  /**
+     * @maxLength 100
+     * @nullable
+     */
+  occupation?: string | null;
+  /**
+     * Omit to keep the stored number; null clears it
+     * @maxLength 20
+     * @nullable
+     */
+  idNumber?: string | null;
+  /**
+     * Omit to keep the stored number; null clears it
+     * @maxLength 20
+     * @nullable
+     */
+  passportNumber?: string | null;
+  /** @nullable */
+  iqamaExpiresOn?: string | null;
+  /** @nullable */
+  passportExpiresOn?: string | null;
+  /** @nullable */
+  workPermitExpiresOn?: string | null;
+  /**
+     * @maxLength 24
+     * @nullable
+     */
+  phone?: string | null;
+  status?: EmployeeInputStatus;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  notes?: string | null;
+}
+
+export type EmployeeStatus = typeof EmployeeStatus[keyof typeof EmployeeStatus];
+
+
+export const EmployeeStatus = {
+  active: 'active',
+  left: 'left',
+} as const;
+
+export type EmployeeAddedBy = typeof EmployeeAddedBy[keyof typeof EmployeeAddedBy];
+
+
+export const EmployeeAddedBy = {
+  customer: 'customer',
+  office: 'office',
+} as const;
+
+export interface Employee {
+  id: number;
+  fullName: string;
+  /** @nullable */
+  nationality: string | null;
+  /** @nullable */
+  occupation: string | null;
+  /**
+     * Last four digits only
+     * @nullable
+     */
+  idNumberMasked: string | null;
+  /** @nullable */
+  passportNumberMasked: string | null;
+  /** @nullable */
+  iqamaExpiresOn: string | null;
+  /** @nullable */
+  passportExpiresOn: string | null;
+  /** @nullable */
+  workPermitExpiresOn: string | null;
+  /** @nullable */
+  phone: string | null;
+  status: EmployeeStatus;
+  /** @nullable */
+  notes: string | null;
+  addedBy: EmployeeAddedBy;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeNumbers {
+  /** @nullable */
+  idNumber: string | null;
+  /** @nullable */
+  passportNumber: string | null;
+}
+
+export type LicenseKind = typeof LicenseKind[keyof typeof LicenseKind];
+
+
+export const LicenseKind = {
+  commercial_register: 'commercial_register',
+  municipal: 'municipal',
+  civil_defense: 'civil_defense',
+  chamber: 'chamber',
+  gosi: 'gosi',
+  zakat_vat: 'zakat_vat',
+  other: 'other',
+} as const;
+
+export interface LicenseInput {
+  kind: LicenseKind;
+  /**
+     * @minLength 2
+     * @maxLength 120
+     */
+  title: string;
+  /**
+     * @maxLength 40
+     * @nullable
+     */
+  number?: string | null;
+  /** @nullable */
+  issuedOn?: string | null;
+  /** @nullable */
+  expiresOn?: string | null;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  notes?: string | null;
+}
+
+export type LicenseAddedBy = typeof LicenseAddedBy[keyof typeof LicenseAddedBy];
+
+
+export const LicenseAddedBy = {
+  customer: 'customer',
+  office: 'office',
+} as const;
+
+export interface License {
+  id: number;
+  kind: LicenseKind;
+  title: string;
+  /** @nullable */
+  number: string | null;
+  /** @nullable */
+  issuedOn: string | null;
+  /** @nullable */
+  expiresOn: string | null;
+  /** @nullable */
+  notes: string | null;
+  addedBy: LicenseAddedBy;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CompanyFile {
+  company: Company | null;
+  employees: Employee[];
+  licenses: License[];
+}
+
+export interface RequestMessageInput {
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  body: string;
+}
+
+export type RequestMessageAuthorRole = typeof RequestMessageAuthorRole[keyof typeof RequestMessageAuthorRole];
+
+
+export const RequestMessageAuthorRole = {
+  customer: 'customer',
+  office: 'office',
+} as const;
+
+export interface RequestMessage {
+  id: number;
+  authorRole: RequestMessageAuthorRole;
+  body: string;
+  createdAt: string;
+}
+
+export interface OfficeCustomerListItem {
+  userId: string;
+  customer: OfficeCustomer | null;
+  /** @nullable */
+  contactPhone: string | null;
+  /** @nullable */
+  companyName: string | null;
+  employees: number;
+  licenses: number;
+  activeRequests: number;
+  /** Documents expiring in the next 60 days */
+  expiringSoon: number;
+  /** @nullable */
+  lastActivityAt: string | null;
+}
+
+export type OfficeCustomerRequestStatus = typeof OfficeCustomerRequestStatus[keyof typeof OfficeCustomerRequestStatus];
+
+
+export const OfficeCustomerRequestStatus = {
+  received: 'received',
+  reviewing: 'reviewing',
+  waiting_on_customer: 'waiting_on_customer',
+  submitted_to_authority: 'submitted_to_authority',
+  awaiting_payment: 'awaiting_payment',
+  completed: 'completed',
+} as const;
+
+export interface OfficeCustomerRequest {
+  id: number;
+  reference: string;
+  service: string;
+  status: OfficeCustomerRequestStatus;
+  createdAt: string;
+  subject: RequestSubject | null;
+}
+
+export interface OfficeCustomerFile {
+  userId: string;
+  customer: OfficeCustomer | null;
+  /** @nullable */
+  contactPhone: string | null;
+  company: Company | null;
+  employees: Employee[];
+  licenses: License[];
+  requests: OfficeCustomerRequest[];
+  reminders: Reminder[];
+}
+
 export type ListOfficeServiceRequestsParams = {
 /**
  * 1-based page; defaults to 1
@@ -1085,6 +1490,10 @@ assignee?: string;
  * Only open requests past their due date
  */
 overdue?: boolean;
+/**
+ * Only open requests whose latest message is from the customer
+ */
+awaitingReply?: boolean;
 };
 
 export type ListOfficeServiceRequestsStatus = typeof ListOfficeServiceRequestsStatus[keyof typeof ListOfficeServiceRequestsStatus];
@@ -1173,4 +1582,13 @@ export const GetOfficeReportDays = {
   NUMBER_90: 90,
   NUMBER_365: 365,
 } as const;
+
+export type ListOfficeCustomersParams = {
+/**
+ * Name, email, company or phone
+ * @minLength 1
+ * @maxLength 120
+ */
+q?: string;
+};
 

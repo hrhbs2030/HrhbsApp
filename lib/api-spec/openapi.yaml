@@ -22,6 +22,8 @@ tags:
     description: Invoices and online payment
   - name: reminders
     description: Document expiry reminders
+  - name: company
+    description: Customer company files (company, employees, licenses)
 paths:
   /healthz:
     get:
@@ -636,6 +638,7 @@ paths:
         - { name: sort, in: query, description: "Newest created first, oldest updated first, or soonest due date first; ID breaks ties", schema: { type: string, enum: [newest, oldest_update, due_soon] } }
         - { name: assignee, in: query, description: "me, unassigned, or an office member's user ID", schema: { type: string, minLength: 1, maxLength: 120 } }
         - { name: overdue, in: query, description: "Only open requests past their due date", schema: { type: boolean } }
+        - { name: awaitingReply, in: query, description: "Only open requests whose latest message is from the customer", schema: { type: boolean } }
       responses:
         "200":
           description: Matching page and total count across all matching records
@@ -1257,6 +1260,380 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/OfficeReport" }
         "403": { description: Office owner access required }
+  /company:
+    get:
+      operationId: getCompanyFile
+      tags: [company]
+      summary: The signed-in customer's company file (company, employees, licenses)
+      responses:
+        "200":
+          description: Company file
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CompanyFile" }
+    put:
+      operationId: saveCompany
+      tags: [company]
+      summary: Save the signed-in customer's company details
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CompanyInput" }
+      responses:
+        "200":
+          description: Saved company
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Company" }
+        "400": { description: Invalid company details }
+  /company/employees:
+    post:
+      operationId: createEmployee
+      tags: [company]
+      summary: Add an employee to the signed-in customer's company file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmployeeInput" }
+      responses:
+        "201":
+          description: Saved employee
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Employee" }
+        "400": { description: Invalid employee }
+        "409": { description: Too many employees }
+  /company/employees/{id}:
+    put:
+      operationId: updateEmployee
+      tags: [company]
+      summary: Update one of the signed-in customer's employees
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmployeeInput" }
+      responses:
+        "200":
+          description: Saved employee
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Employee" }
+        "400": { description: Invalid employee }
+        "404": { description: Not found }
+    delete:
+      operationId: deleteEmployee
+      tags: [company]
+      summary: Remove one of the signed-in customer's employees
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Removed }
+        "404": { description: Not found }
+  /company/employees/{id}/numbers:
+    get:
+      operationId: getEmployeeNumbers
+      tags: [company]
+      summary: Full identity and passport numbers of one of the signed-in customer's employees
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Numbers
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EmployeeNumbers" }
+        "404": { description: Not found }
+  /company/licenses:
+    post:
+      operationId: createLicense
+      tags: [company]
+      summary: Add a license to the signed-in customer's company file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LicenseInput" }
+      responses:
+        "201":
+          description: Saved license
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/License" }
+        "400": { description: Invalid license }
+        "409": { description: Too many licenses }
+  /company/licenses/{id}:
+    put:
+      operationId: updateLicense
+      tags: [company]
+      summary: Update one of the signed-in customer's licenses
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LicenseInput" }
+      responses:
+        "200":
+          description: Saved license
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/License" }
+        "400": { description: Invalid license }
+        "404": { description: Not found }
+    delete:
+      operationId: deleteLicense
+      tags: [company]
+      summary: Remove one of the signed-in customer's licenses
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Removed }
+        "404": { description: Not found }
+  /office/customers:
+    get:
+      operationId: listOfficeCustomers
+      tags: [company]
+      summary: Staff-only customer directory
+      parameters:
+        - { name: q, in: query, description: "Name, email, company or phone", schema: { type: string, minLength: 1, maxLength: 120 } }
+      responses:
+        "200":
+          description: Customers, newest activity first (at most 200)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/OfficeCustomerListItem" }
+        "403": { description: Office access required }
+  /office/customers/{userId}:
+    get:
+      operationId: getOfficeCustomerFile
+      tags: [company]
+      summary: Staff-only full customer file
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
+      responses:
+        "200":
+          description: Customer file
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OfficeCustomerFile" }
+        "403": { description: Office access required }
+        "404": { description: Not a customer }
+  /office/customers/{userId}/company:
+    put:
+      operationId: saveOfficeCustomerCompany
+      tags: [company]
+      summary: Staff-only save a customer's company details (audited)
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CompanyInput" }
+      responses:
+        "200":
+          description: Saved company
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Company" }
+        "400": { description: Invalid company details }
+        "404": { description: Not a customer }
+  /office/customers/{userId}/employees:
+    post:
+      operationId: createOfficeCustomerEmployee
+      tags: [company]
+      summary: Staff-only add an employee to a customer's company file (audited)
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmployeeInput" }
+      responses:
+        "201":
+          description: Saved employee
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Employee" }
+        "400": { description: Invalid employee }
+        "404": { description: Not a customer }
+  /office/customers/{userId}/employees/{id}:
+    put:
+      operationId: updateOfficeCustomerEmployee
+      tags: [company]
+      summary: Staff-only update a customer's employee (audited)
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmployeeInput" }
+      responses:
+        "200":
+          description: Saved employee
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Employee" }
+        "400": { description: Invalid employee }
+        "404": { description: Not found }
+    delete:
+      operationId: deleteOfficeCustomerEmployee
+      tags: [company]
+      summary: Staff-only remove a customer's employee (audited)
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Removed }
+        "404": { description: Not found }
+  /office/customers/{userId}/employees/{id}/numbers:
+    get:
+      operationId: getOfficeCustomerEmployeeNumbers
+      tags: [company]
+      summary: Staff-only full identity and passport numbers (audited)
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Numbers
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EmployeeNumbers" }
+        "404": { description: Not found }
+  /office/customers/{userId}/licenses:
+    post:
+      operationId: createOfficeCustomerLicense
+      tags: [company]
+      summary: Staff-only add a license to a customer's company file (audited)
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LicenseInput" }
+      responses:
+        "201":
+          description: Saved license
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/License" }
+        "400": { description: Invalid license }
+        "404": { description: Not a customer }
+  /office/customers/{userId}/licenses/{id}:
+    put:
+      operationId: updateOfficeCustomerLicense
+      tags: [company]
+      summary: Staff-only update a customer's license (audited)
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LicenseInput" }
+      responses:
+        "200":
+          description: Saved license
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/License" }
+        "400": { description: Invalid license }
+        "404": { description: Not found }
+    delete:
+      operationId: deleteOfficeCustomerLicense
+      tags: [company]
+      summary: Staff-only remove a customer's license (audited)
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Removed }
+        "404": { description: Not found }
+  /service-requests/{id}/messages:
+    get:
+      operationId: listServiceRequestMessages
+      tags: [portal]
+      summary: Conversation on a request owned by the signed-in customer, oldest first
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/RequestMessage" }
+        "404": { description: Not found }
+    post:
+      operationId: sendServiceRequestMessage
+      tags: [portal]
+      summary: Send a message to the office on the customer's own request
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RequestMessageInput" }
+      responses:
+        "201":
+          description: Sent message
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RequestMessage" }
+        "400": { description: Invalid message }
+        "404": { description: Not found }
+        "429": { description: Too many messages }
+  /office/service-requests/{id}/messages:
+    get:
+      operationId: listOfficeServiceRequestMessages
+      tags: [portal]
+      summary: Staff-only conversation on a request, oldest first
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/RequestMessage" }
+        "404": { description: Not found }
+    post:
+      operationId: sendOfficeServiceRequestMessage
+      tags: [portal]
+      summary: Staff-only message to the customer on a request
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RequestMessageInput" }
+      responses:
+        "201":
+          description: Sent message
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RequestMessage" }
+        "400": { description: Invalid message }
+        "404": { description: Not found }
 components:
   schemas:
     OfficeStaffInput:
@@ -1285,7 +1662,7 @@ components:
         actorEmail: { type: ["string", "null"], format: email }
         action:
           type: string
-          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge, registration.approve, registration.reject, information.review, information.publish, information.unpublish, attachment.extract, invoice.issue, invoice.mark_paid, invoice.cancel, invoice.paid_online, offer.update, reminder.create]
+          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge, registration.approve, registration.reject, information.review, information.publish, information.unpublish, attachment.extract, invoice.issue, invoice.mark_paid, invoice.cancel, invoice.paid_online, offer.update, reminder.create, company.update, employee.create, employee.update, employee.delete, employee.reveal, license.create, license.update, license.delete]
         targetType: { type: string }
         targetId: { type: string }
         details:
@@ -1463,7 +1840,7 @@ components:
         reason: { type: ["string", "null"], maxLength: 1000 }
     ServiceRequest:
       type: object
-      required: [id, reference, category, service, description, contactPhone, status, customerMessage, clientRequestId, createdAt, updatedAt, attachments, rating, ratingComment, ratedAt]
+      required: [id, reference, category, service, description, contactPhone, status, customerMessage, clientRequestId, createdAt, updatedAt, attachments, rating, ratingComment, ratedAt, subject, lastMessage]
       properties:
         id: { type: integer }
         reference: { type: string }
@@ -1486,6 +1863,14 @@ components:
         rating: { type: ["integer", "null"], minimum: 1, maximum: 5 }
         ratingComment: { type: ["string", "null"] }
         ratedAt: { type: ["string", "null"], format: date-time }
+        subject:
+          oneOf:
+            - $ref: "#/components/schemas/RequestSubject"
+            - type: "null"
+        lastMessage:
+          oneOf:
+            - $ref: "#/components/schemas/RequestLastMessage"
+            - type: "null"
     ServiceRequestStatusEvent:
       type: object
       required: [status, at]
@@ -1502,7 +1887,7 @@ components:
         email: { type: string, format: email }
     OfficeServiceRequest:
       type: object
-      required: [id, reference, category, service, description, contactPhone, status, customerMessage, createdAt, updatedAt, attachments, customer, assignedTo, dueAt, rating, ratingComment, ratedAt]
+      required: [id, reference, category, service, description, contactPhone, status, customerMessage, createdAt, updatedAt, attachments, customer, assignedTo, dueAt, rating, ratingComment, ratedAt, subject, lastMessage, userId]
       properties:
         id: { type: integer }
         reference: { type: string }
@@ -1531,6 +1916,15 @@ components:
         rating: { type: ["integer", "null"], minimum: 1, maximum: 5 }
         ratingComment: { type: ["string", "null"] }
         ratedAt: { type: ["string", "null"], format: date-time }
+        subject:
+          oneOf:
+            - $ref: "#/components/schemas/RequestSubject"
+            - type: "null"
+        lastMessage:
+          oneOf:
+            - $ref: "#/components/schemas/RequestLastMessage"
+            - type: "null"
+        userId: { type: string, description: "The customer's user ID, for opening their file" }
     OfficeServiceRequestPage:
       type: object
       required: [items, total, page, pageSize]
@@ -1595,6 +1989,8 @@ components:
           maxItems: 10
           uniqueItems: true
           items: { type: integer, minimum: 1 }
+        employeeId: { type: ["integer", "null"], minimum: 1, description: "An employee in the customer's company file" }
+        licenseId: { type: ["integer", "null"], minimum: 1, description: "A license in the customer's company file" }
     ServiceRequestUpdate:
       type: object
       required: [status, expectedUpdatedAt]
@@ -1672,8 +2068,17 @@ components:
         answer: { type: string, minLength: 2, maxLength: 5000 }
     PortalSummary:
       type: object
-      required: [totalRequests, activeRequests, completedRequests, openInquiries, recentRequests, recentInquiries]
+      required: [totalRequests, activeRequests, completedRequests, openInquiries, recentRequests, recentInquiries, unpaidInvoices, unpaidTotal, expiringSoon, employeesCount, licensesCount, hasCompany]
       properties:
+        unpaidInvoices: { type: integer }
+        unpaidTotal: { type: integer, description: "Halalas" }
+        expiringSoon:
+          type: array
+          description: Up to 8 documents expiring in the next 60 days or already expired in the last 30, soonest first
+          items: { $ref: "#/components/schemas/Reminder" }
+        employeesCount: { type: integer }
+        licensesCount: { type: integer }
+        hasCompany: { type: boolean }
         totalRequests: { type: integer }
         activeRequests: { type: integer }
         completedRequests: { type: integer }
@@ -1688,8 +2093,9 @@ components:
             $ref: "#/components/schemas/Inquiry"
     OfficeSummary:
       type: object
-      required: [totalRequests, newRequests, activeRequests, staleRequests, openInquiries, myRequests, overdueRequests, expiringDocuments]
+      required: [totalRequests, newRequests, activeRequests, staleRequests, openInquiries, myRequests, overdueRequests, expiringDocuments, awaitingReply]
       properties:
+        awaitingReply: { type: integer, description: "Open requests whose latest message is from the customer" }
         myRequests: { type: integer, description: "Open requests assigned to the signed-in member" }
         overdueRequests: { type: integer, description: "Open requests past their due date" }
         expiringDocuments: { type: integer, description: "Customer documents expiring in the next 30 days" }
@@ -1851,8 +2257,13 @@ components:
         note: { type: ["string", "null"], maxLength: 500 }
     Reminder:
       type: object
-      required: [id, kind, label, expiresOn, note, addedBy, createdAt]
+      required: [id, kind, label, expiresOn, note, addedBy, createdAt, source, sourceId]
       properties:
+        sourceId: { type: ["integer", "null"], description: "The employee or license ID for company-file reminders" }
+        source:
+          type: string
+          enum: [manual, employee, license]
+          description: Reminders from the company file are edited there
         id: { type: integer }
         kind: { $ref: "#/components/schemas/ReminderKind" }
         label: { type: string }
@@ -1968,3 +2379,214 @@ components:
             paidCount: { type: integer }
             outstandingTotal: { type: integer }
             outstandingCount: { type: integer }
+    CompanyInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 160 }
+        crNumber: { type: ["string", "null"], maxLength: 20 }
+        unifiedNumber: { type: ["string", "null"], maxLength: 20 }
+        vatNumber: { type: ["string", "null"], maxLength: 20 }
+        city: { type: ["string", "null"], maxLength: 80 }
+        address: { type: ["string", "null"], maxLength: 300 }
+        activity: { type: ["string", "null"], maxLength: 200 }
+        contactName: { type: ["string", "null"], maxLength: 120 }
+        contactPhone: { type: ["string", "null"], maxLength: 24 }
+        notes: { type: ["string", "null"], maxLength: 1000 }
+    Company:
+      type: object
+      required: [name, crNumber, unifiedNumber, vatNumber, city, address, activity, contactName, contactPhone, notes, updatedAt]
+      properties:
+        name: { type: string }
+        crNumber: { type: ["string", "null"] }
+        unifiedNumber: { type: ["string", "null"] }
+        vatNumber: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        activity: { type: ["string", "null"] }
+        contactName: { type: ["string", "null"] }
+        contactPhone: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        updatedAt: { type: string, format: date-time }
+    EmployeeInput:
+      type: object
+      additionalProperties: false
+      required: [fullName]
+      properties:
+        fullName: { type: string, minLength: 2, maxLength: 120 }
+        nationality: { type: ["string", "null"], maxLength: 60 }
+        occupation: { type: ["string", "null"], maxLength: 100 }
+        idNumber: { type: ["string", "null"], maxLength: 20, description: "Omit to keep the stored number; null clears it" }
+        passportNumber: { type: ["string", "null"], maxLength: 20, description: "Omit to keep the stored number; null clears it" }
+        iqamaExpiresOn: { type: ["string", "null"], format: date }
+        passportExpiresOn: { type: ["string", "null"], format: date }
+        workPermitExpiresOn: { type: ["string", "null"], format: date }
+        phone: { type: ["string", "null"], maxLength: 24 }
+        status:
+          type: string
+          enum: [active, left]
+        notes: { type: ["string", "null"], maxLength: 500 }
+    Employee:
+      type: object
+      required: [id, fullName, nationality, occupation, idNumberMasked, passportNumberMasked, iqamaExpiresOn, passportExpiresOn, workPermitExpiresOn, phone, status, notes, addedBy, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        fullName: { type: string }
+        nationality: { type: ["string", "null"] }
+        occupation: { type: ["string", "null"] }
+        idNumberMasked: { type: ["string", "null"], description: "Last four digits only" }
+        passportNumberMasked: { type: ["string", "null"] }
+        iqamaExpiresOn: { type: ["string", "null"], format: date }
+        passportExpiresOn: { type: ["string", "null"], format: date }
+        workPermitExpiresOn: { type: ["string", "null"], format: date }
+        phone: { type: ["string", "null"] }
+        status:
+          type: string
+          enum: [active, left]
+        notes: { type: ["string", "null"] }
+        addedBy:
+          type: string
+          enum: [customer, office]
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    EmployeeNumbers:
+      type: object
+      required: [idNumber, passportNumber]
+      properties:
+        idNumber: { type: ["string", "null"] }
+        passportNumber: { type: ["string", "null"] }
+    LicenseKind:
+      type: string
+      enum: [commercial_register, municipal, civil_defense, chamber, gosi, zakat_vat, other]
+    LicenseInput:
+      type: object
+      additionalProperties: false
+      required: [kind, title]
+      properties:
+        kind: { $ref: "#/components/schemas/LicenseKind" }
+        title: { type: string, minLength: 2, maxLength: 120 }
+        number: { type: ["string", "null"], maxLength: 40 }
+        issuedOn: { type: ["string", "null"], format: date }
+        expiresOn: { type: ["string", "null"], format: date }
+        notes: { type: ["string", "null"], maxLength: 500 }
+    License:
+      type: object
+      required: [id, kind, title, number, issuedOn, expiresOn, notes, addedBy, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        kind: { $ref: "#/components/schemas/LicenseKind" }
+        title: { type: string }
+        number: { type: ["string", "null"] }
+        issuedOn: { type: ["string", "null"], format: date }
+        expiresOn: { type: ["string", "null"], format: date }
+        notes: { type: ["string", "null"] }
+        addedBy:
+          type: string
+          enum: [customer, office]
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CompanyFile:
+      type: object
+      required: [company, employees, licenses]
+      properties:
+        company:
+          oneOf:
+            - $ref: "#/components/schemas/Company"
+            - type: "null"
+        employees:
+          type: array
+          items: { $ref: "#/components/schemas/Employee" }
+        licenses:
+          type: array
+          items: { $ref: "#/components/schemas/License" }
+    RequestSubject:
+      type: object
+      required: [type, id, label]
+      properties:
+        type:
+          type: string
+          enum: [employee, license]
+        id: { type: integer }
+        label: { type: string }
+    RequestLastMessage:
+      type: object
+      required: [by, at]
+      properties:
+        by:
+          type: string
+          enum: [customer, office]
+        at: { type: string, format: date-time }
+    RequestMessageInput:
+      type: object
+      additionalProperties: false
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 2000 }
+    RequestMessage:
+      type: object
+      required: [id, authorRole, body, createdAt]
+      properties:
+        id: { type: integer }
+        authorRole:
+          type: string
+          enum: [customer, office]
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+    OfficeCustomerListItem:
+      type: object
+      required: [userId, customer, contactPhone, companyName, employees, licenses, activeRequests, expiringSoon, lastActivityAt]
+      properties:
+        userId: { type: string }
+        customer:
+          oneOf:
+            - $ref: "#/components/schemas/OfficeCustomer"
+            - type: "null"
+        contactPhone: { type: ["string", "null"] }
+        companyName: { type: ["string", "null"] }
+        employees: { type: integer }
+        licenses: { type: integer }
+        activeRequests: { type: integer }
+        expiringSoon: { type: integer, description: "Documents expiring in the next 60 days" }
+        lastActivityAt: { type: ["string", "null"], format: date-time }
+    OfficeCustomerRequest:
+      type: object
+      required: [id, reference, service, status, createdAt, subject]
+      properties:
+        id: { type: integer }
+        reference: { type: string }
+        service: { type: string }
+        status:
+          type: string
+          enum: [received, reviewing, waiting_on_customer, submitted_to_authority, awaiting_payment, completed]
+        createdAt: { type: string, format: date-time }
+        subject:
+          oneOf:
+            - $ref: "#/components/schemas/RequestSubject"
+            - type: "null"
+    OfficeCustomerFile:
+      type: object
+      required: [userId, customer, contactPhone, company, employees, licenses, requests, reminders]
+      properties:
+        userId: { type: string }
+        customer:
+          oneOf:
+            - $ref: "#/components/schemas/OfficeCustomer"
+            - type: "null"
+        contactPhone: { type: ["string", "null"] }
+        company:
+          oneOf:
+            - $ref: "#/components/schemas/Company"
+            - type: "null"
+        employees:
+          type: array
+          items: { $ref: "#/components/schemas/Employee" }
+        licenses:
+          type: array
+          items: { $ref: "#/components/schemas/License" }
+        requests:
+          type: array
+          items: { $ref: "#/components/schemas/OfficeCustomerRequest" }
+        reminders:
+          type: array
+          items: { $ref: "#/components/schemas/Reminder" }
