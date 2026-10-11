@@ -77,6 +77,8 @@ export const AuditLogEntryAction = {
   subscriptionstart: 'subscription.start',
   subscriptionupdate: 'subscription.update',
   service_requestauto_renew: 'service_request.auto_renew',
+  notificationpreferences: 'notification.preferences',
+  whatsappreply: 'whatsapp.reply',
 } as const;
 
 export type AuditLogEntryDetails = { [key: string]: unknown };
@@ -1924,6 +1926,272 @@ export interface CompanySubscriptionUpdate {
   cancel?: true;
 }
 
+export type NotificationKind = typeof NotificationKind[keyof typeof NotificationKind];
+
+
+export const NotificationKind = {
+  requeststatus: 'request.status',
+  requestmessage: 'request.message',
+  requestfile: 'request.file',
+  requestassigned: 'request.assigned',
+  quotesent: 'quote.sent',
+  invoiceissued: 'invoice.issued',
+  invoiceoverdue: 'invoice.overdue',
+  reminderexpiring: 'reminder.expiring',
+  registrationdecision: 'registration.decision',
+  inquiryanswered: 'inquiry.answered',
+  companyinvite: 'company.invite',
+  subscriptionstarted: 'subscription.started',
+  subscriptioninvoice: 'subscription.invoice',
+  subscriptionpast_due: 'subscription.past_due',
+  subscriptioncancelled: 'subscription.cancelled',
+  officerequest_new: 'office.request_new',
+  officeregistration_new: 'office.registration_new',
+  officeinquiry_new: 'office.inquiry_new',
+  officefile_new: 'office.file_new',
+  officemessage_new: 'office.message_new',
+  officequote_answered: 'office.quote_answered',
+  officeinvoice_paid: 'office.invoice_paid',
+  officewhatsapp_unmatched: 'office.whatsapp_unmatched',
+  officewhatsapp_message: 'office.whatsapp_message',
+} as const;
+
+export type NotificationPriority = typeof NotificationPriority[keyof typeof NotificationPriority];
+
+
+export const NotificationPriority = {
+  urgent: 'urgent',
+  high: 'high',
+  normal: 'normal',
+  low: 'low',
+} as const;
+
+export type NotificationAudience = typeof NotificationAudience[keyof typeof NotificationAudience];
+
+
+export const NotificationAudience = {
+  customer: 'customer',
+  office: 'office',
+} as const;
+
+export interface Notification {
+  id: number;
+  audience: NotificationAudience;
+  kind: NotificationKind;
+  title: string;
+  body: string;
+  /**
+     * Portal path the notification opens, e.g. /requests/12
+     * @nullable
+     */
+  path: string | null;
+  priority: NotificationPriority;
+  /** How many events were coalesced into this notification */
+  count: number;
+  /** @nullable */
+  targetType: string | null;
+  /** @nullable */
+  targetId: string | null;
+  createdAt: string;
+  /** @nullable */
+  readAt: string | null;
+}
+
+export interface NotificationList {
+  items: Notification[];
+  unreadCount: number;
+}
+
+export interface ReadAllResult {
+  updated: number;
+}
+
+export interface BriefItem {
+  kind: string;
+  priority: NotificationPriority;
+  title: string;
+  reason: string;
+  /** @nullable */
+  path: string | null;
+}
+
+export interface NotificationBrief {
+  generatedAt: string;
+  headline: string;
+  items: BriefItem[];
+}
+
+export type NotificationPreferencesDigest = typeof NotificationPreferencesDigest[keyof typeof NotificationPreferencesDigest];
+
+
+export const NotificationPreferencesDigest = {
+  instant: 'instant',
+  daily: 'daily',
+} as const;
+
+export interface NotificationPreferences {
+  emailEnabled: boolean;
+  pushEnabled: boolean;
+  /**
+     * Hour (Asia/Riyadh) quiet hours begin; null with quietEnd null means none
+     * @minimum 0
+     * @maximum 23
+     * @nullable
+     */
+  quietStart: number | null;
+  /**
+     * Hour (Asia/Riyadh) quiet hours end; may be before quietStart (wraps past midnight)
+     * @minimum 0
+     * @maximum 23
+     * @nullable
+     */
+  quietEnd: number | null;
+  digest: NotificationPreferencesDigest;
+  mutedKinds: NotificationKind[];
+  /** Whether Web Push is configured on the server */
+  pushAvailable: boolean;
+  /** Whether the office has WhatsApp messages turned on */
+  whatsappAvailable: boolean;
+}
+
+export type NotificationPreferencesInputDigest = typeof NotificationPreferencesInputDigest[keyof typeof NotificationPreferencesInputDigest];
+
+
+export const NotificationPreferencesInputDigest = {
+  instant: 'instant',
+  daily: 'daily',
+} as const;
+
+export interface NotificationPreferencesInput {
+  emailEnabled: boolean;
+  pushEnabled: boolean;
+  /**
+     * @minimum 0
+     * @maximum 23
+     * @nullable
+     */
+  quietStart: number | null;
+  /**
+     * @minimum 0
+     * @maximum 23
+     * @nullable
+     */
+  quietEnd: number | null;
+  digest: NotificationPreferencesInputDigest;
+  /** @maxItems 50 */
+  mutedKinds: NotificationKind[];
+}
+
+export interface PushKey {
+  /** @nullable */
+  publicKey: string | null;
+}
+
+export type PushSubscriptionInputKeys = {
+  /**
+     * @minLength 1
+     * @maxLength 512
+     */
+  p256dh: string;
+  /**
+     * @minLength 1
+     * @maxLength 512
+     */
+  auth: string;
+};
+
+export interface PushSubscriptionInput {
+  /** @maxLength 2048 */
+  endpoint: string;
+  keys: PushSubscriptionInputKeys;
+  /** @maxLength 512 */
+  userAgent?: string;
+}
+
+export interface PushUnsubscribeInput {
+  /** @maxLength 2048 */
+  endpoint: string;
+}
+
+export type MessageIntentIntent = typeof MessageIntentIntent[keyof typeof MessageIntentIntent];
+
+
+export const MessageIntentIntent = {
+  status_question: 'status_question',
+  payment: 'payment',
+  document: 'document',
+  complaint: 'complaint',
+  new_request: 'new_request',
+  thanks: 'thanks',
+  greeting: 'greeting',
+  other: 'other',
+} as const;
+
+export interface MessageIntent {
+  intent: MessageIntentIntent;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  confidence: number;
+  urgent: boolean;
+  /**
+     * Request reference mentioned in the message, e.g. HBS-12
+     * @nullable
+     */
+  reference: string | null;
+}
+
+export type WhatsappInboxItemHandled = typeof WhatsappInboxItemHandled[keyof typeof WhatsappInboxItemHandled];
+
+
+export const WhatsappInboxItemHandled = {
+  request_message: 'request_message',
+  inquiry: 'inquiry',
+  unmatched: 'unmatched',
+  ignored: 'ignored',
+} as const;
+
+export interface WhatsappInboxItem {
+  waMessageId: string;
+  /** Sender number with the middle digits hidden */
+  fromPhoneMasked: string;
+  /** @nullable */
+  userId: string | null;
+  /** @nullable */
+  customerName: string | null;
+  /** @nullable */
+  requestId: number | null;
+  body: string;
+  receivedAt: string;
+  handled: WhatsappInboxItemHandled;
+  intent: MessageIntent;
+  /** @maxItems 3 */
+  suggestedReplies: string[];
+  /** Whether the 24 h free-text window is still open */
+  canReplyFreeText: boolean;
+}
+
+export interface WhatsappReplyInput {
+  /**
+     * @minLength 1
+     * @maxLength 1024
+     */
+  text: string;
+}
+
+export type WhatsappReplyResultSentAs = typeof WhatsappReplyResultSentAs[keyof typeof WhatsappReplyResultSentAs];
+
+
+export const WhatsappReplyResultSentAs = {
+  text: 'text',
+  template: 'template',
+} as const;
+
+export interface WhatsappReplyResult {
+  sentAs: WhatsappReplyResultSentAs;
+}
+
 /**
  * Meta's WhatsApp Business webhook body, passed through as sent
  */
@@ -2099,6 +2367,41 @@ page?: number;
 pageSize?: number;
 status?: SubscriptionStatus;
 };
+
+export type ListNotificationsParams = {
+/**
+ * Only unread notifications
+ */
+unread?: boolean;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+/**
+ * Cursor: only notifications with a smaller id
+ * @minimum 1
+ * @maximum 2147483647
+ */
+before?: number;
+};
+
+export type ListWhatsappInboxParams = {
+handled?: ListWhatsappInboxHandled;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type ListWhatsappInboxHandled = typeof ListWhatsappInboxHandled[keyof typeof ListWhatsappInboxHandled];
+
+
+export const ListWhatsappInboxHandled = {
+  unmatched: 'unmatched',
+  all: 'all',
+} as const;
 
 export type WhatsappWebhookVerifyParams = {
 'hub.mode': WhatsappWebhookVerifyHubMode;

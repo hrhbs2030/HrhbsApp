@@ -6,10 +6,10 @@ import {
 import { recordAudit } from "./audit";
 import { AUTOMATION_ACTOR, applyAssignmentRule } from "./automations";
 import { checklistForService } from "./checklist";
-import { notifyCustomerNow } from "./customer-contact";
+import { notifyCustomerNow, notifyOffice } from "./customer-contact";
 import { logger } from "./logger";
 import { requestReference } from "./money";
-import { notify, officeNewRequestMail, reminderMail, type Mail } from "./notify";
+import { officeNewRequestMail, reminderMail, type Mail } from "./notify";
 import { SUBSCRIPTION_AUDIT, autoRenewalCovered } from "./subscriptions";
 
 // Reminders go out 30, 7 and 1 day before a document expires, by the date in
@@ -102,9 +102,9 @@ export async function openAutoRenewalRequest(reminder: HbsDocumentReminder): Pro
     return applyAssignmentRule(tx, row);
   });
   if (created) {
-    notify(officeNewRequestMail({
+    void notifyOffice(() => officeNewRequestMail({
       id: created.id, reference: requestReference(created.id, created.createdAt), service: created.service, category: created.category,
-    }));
+    }), { kind: "office.request_new", targetType: "service_request", targetId: created.id });
   }
   return created;
 }
@@ -159,7 +159,7 @@ export async function sendDueReminders(send: typeof notifyCustomerNow = notifyCu
     try {
       await send(claimed.userId, to => withAutoRenewal(reminderMail(to, {
         kindLabel, label: claimed.label, expiresText: expiresText(claimed.expiresOn), days: row.daysLeft,
-      }), autoRequest));
+      }), autoRequest), { kind: "reminder.expiring", targetType: "document_reminder", targetId: claimed.id, signals: { daysLeft: row.daysLeft } });
     } catch (err) {
       // Not sent: give the claim back so the next sweep tries again, unless
       // another instance has already moved the reminder on since.

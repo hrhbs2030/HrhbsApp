@@ -46,7 +46,9 @@ export async function remindOverdueInvoices(send: typeof notifyCustomerNow = not
         ? invoiceOverdueMail(to,
           { id: request.id, reference: requestReference(request.id, request.createdAt), service: request.service },
           { id: invoice.id, reference: invoiceReference(invoice.id, invoice.issuedAt), total: riyals(invoice.totalHalalas), days })
-        : subscriptionInvoiceMail(to, plan?.name ?? "الاشتراك الشهري", invoiceInfo(invoice), days));
+        : subscriptionInvoiceMail(to, plan?.name ?? "الاشتراك الشهري", invoiceInfo(invoice), days),
+      { kind: request ? "invoice.overdue" : "subscription.invoice", targetType: "invoice", targetId: invoice.id,
+        signals: { daysOverdue: days, amountHalalas: invoice.totalHalalas, repeated: invoice.reminderCount > 0 } });
     } catch (err) {
       // Not sent: give the claim back so the next sweep tries again, unless
       // the invoice moved on since.

@@ -1548,7 +1548,7 @@ export const ListOfficeAuditLogResponseItem = zod.object({
   "id": zod.number().int(),
   "actorId": zod.string(),
   "actorEmail": zod.string().email().nullable(),
-  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge', 'registration.approve', 'registration.reject', 'information.review', 'information.publish', 'information.unpublish', 'attachment.extract', 'invoice.issue', 'invoice.mark_paid', 'invoice.cancel', 'invoice.paid_online', 'offer.update', 'reminder.create', 'company.update', 'employee.create', 'employee.update', 'employee.delete', 'employee.reveal', 'license.create', 'license.update', 'license.delete', 'employee.import', 'license.import', 'automation.update', 'service_request.quote', 'service_request.quote_accept', 'service_request.quote_decline', 'service_request.checklist', 'company.member_invite', 'company.member_update', 'company.member_remove', 'company.member_leave', 'service_request.employee_item', 'plan.create', 'plan.update', 'subscription.start', 'subscription.update', 'service_request.auto_renew']),
+  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge', 'registration.approve', 'registration.reject', 'information.review', 'information.publish', 'information.unpublish', 'attachment.extract', 'invoice.issue', 'invoice.mark_paid', 'invoice.cancel', 'invoice.paid_online', 'offer.update', 'reminder.create', 'company.update', 'employee.create', 'employee.update', 'employee.delete', 'employee.reveal', 'license.create', 'license.update', 'license.delete', 'employee.import', 'license.import', 'automation.update', 'service_request.quote', 'service_request.quote_accept', 'service_request.quote_decline', 'service_request.checklist', 'company.member_invite', 'company.member_update', 'company.member_remove', 'company.member_leave', 'service_request.employee_item', 'plan.create', 'plan.update', 'subscription.start', 'subscription.update', 'service_request.auto_renew', 'notification.preferences', 'whatsapp.reply']),
   "targetType": zod.string(),
   "targetId": zod.string(),
   "details": zod.record(zod.string(), zod.unknown()),
@@ -4640,6 +4640,276 @@ export const ListCompanyInvoicesResponseItem = zod.object({
 })
 })
 export const ListCompanyInvoicesResponse = zod.array(ListCompanyInvoicesResponseItem)
+
+
+/**
+ * @summary The signed-in user's notifications, newest first, with the unread count
+ */
+export const listNotificationsQueryLimitDefault = 30;
+export const listNotificationsQueryLimitMax = 100;
+
+export const listNotificationsQueryBeforeMax = 2147483647;
+
+
+
+export const ListNotificationsQueryParams = zod.object({
+  "unread": zod.coerce.boolean().optional().describe('Only unread notifications'),
+  "limit": zod.coerce.number().int().min(1).max(listNotificationsQueryLimitMax).default(listNotificationsQueryLimitDefault),
+  "before": zod.coerce.number().int().min(1).max(listNotificationsQueryBeforeMax).optional().describe('Cursor: only notifications with a smaller id')
+})
+
+export const ListNotificationsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.number().int(),
+  "audience": zod.enum(['customer', 'office']),
+  "kind": zod.enum(['request.status', 'request.message', 'request.file', 'request.assigned', 'quote.sent', 'invoice.issued', 'invoice.overdue', 'reminder.expiring', 'registration.decision', 'inquiry.answered', 'company.invite', 'subscription.started', 'subscription.invoice', 'subscription.past_due', 'subscription.cancelled', 'office.request_new', 'office.registration_new', 'office.inquiry_new', 'office.file_new', 'office.message_new', 'office.quote_answered', 'office.invoice_paid', 'office.whatsapp_unmatched', 'office.whatsapp_message']),
+  "title": zod.string(),
+  "body": zod.string(),
+  "path": zod.string().nullable().describe('Portal path the notification opens, e.g. /requests/12'),
+  "priority": zod.enum(['urgent', 'high', 'normal', 'low']),
+  "count": zod.number().int().describe('How many events were coalesced into this notification'),
+  "targetType": zod.string().nullable(),
+  "targetId": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "readAt": zod.coerce.date().nullable()
+})),
+  "unreadCount": zod.number().int()
+})
+
+
+/**
+ * @summary Mark one of the signed-in user's notifications as read
+ */
+export const markNotificationReadPathIdMax = 2147483647;
+
+
+
+export const MarkNotificationReadParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(markNotificationReadPathIdMax)
+})
+
+export const MarkNotificationReadResponse = zod.object({
+  "id": zod.number().int(),
+  "audience": zod.enum(['customer', 'office']),
+  "kind": zod.enum(['request.status', 'request.message', 'request.file', 'request.assigned', 'quote.sent', 'invoice.issued', 'invoice.overdue', 'reminder.expiring', 'registration.decision', 'inquiry.answered', 'company.invite', 'subscription.started', 'subscription.invoice', 'subscription.past_due', 'subscription.cancelled', 'office.request_new', 'office.registration_new', 'office.inquiry_new', 'office.file_new', 'office.message_new', 'office.quote_answered', 'office.invoice_paid', 'office.whatsapp_unmatched', 'office.whatsapp_message']),
+  "title": zod.string(),
+  "body": zod.string(),
+  "path": zod.string().nullable().describe('Portal path the notification opens, e.g. /requests/12'),
+  "priority": zod.enum(['urgent', 'high', 'normal', 'low']),
+  "count": zod.number().int().describe('How many events were coalesced into this notification'),
+  "targetType": zod.string().nullable(),
+  "targetId": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "readAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Mark all of the signed-in user's notifications as read
+ */
+export const MarkAllNotificationsReadResponse = zod.object({
+  "updated": zod.number().int()
+})
+
+
+/**
+ * @summary Live notifications as server-sent events: `notification` (Notification JSON), `unread` ({count}) and a comment heartbeat every 25 s
+ */
+export const StreamNotificationsResponse = zod.unknown()
+
+
+/**
+ * @summary The smart brief: what needs the signed-in user's attention today, ranked
+ */
+export const GetNotificationBriefResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "headline": zod.string(),
+  "items": zod.array(zod.object({
+  "kind": zod.string(),
+  "priority": zod.enum(['urgent', 'high', 'normal', 'low']),
+  "title": zod.string(),
+  "reason": zod.string(),
+  "path": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary The signed-in user's delivery preferences
+ */
+export const getNotificationPreferencesResponseQuietStartMin = 0;
+export const getNotificationPreferencesResponseQuietStartMax = 23;
+
+export const getNotificationPreferencesResponseQuietEndMin = 0;
+export const getNotificationPreferencesResponseQuietEndMax = 23;
+
+
+
+export const GetNotificationPreferencesResponse = zod.object({
+  "emailEnabled": zod.boolean(),
+  "pushEnabled": zod.boolean(),
+  "quietStart": zod.number().int().min(getNotificationPreferencesResponseQuietStartMin).max(getNotificationPreferencesResponseQuietStartMax).nullable().describe('Hour (Asia/Riyadh) quiet hours begin; null with quietEnd null means none'),
+  "quietEnd": zod.number().int().min(getNotificationPreferencesResponseQuietEndMin).max(getNotificationPreferencesResponseQuietEndMax).nullable().describe('Hour (Asia/Riyadh) quiet hours end; may be before quietStart (wraps past midnight)'),
+  "digest": zod.enum(['instant', 'daily']),
+  "mutedKinds": zod.array(zod.enum(['request.status', 'request.message', 'request.file', 'request.assigned', 'quote.sent', 'invoice.issued', 'invoice.overdue', 'reminder.expiring', 'registration.decision', 'inquiry.answered', 'company.invite', 'subscription.started', 'subscription.invoice', 'subscription.past_due', 'subscription.cancelled', 'office.request_new', 'office.registration_new', 'office.inquiry_new', 'office.file_new', 'office.message_new', 'office.quote_answered', 'office.invoice_paid', 'office.whatsapp_unmatched', 'office.whatsapp_message'])),
+  "pushAvailable": zod.boolean().describe('Whether Web Push is configured on the server'),
+  "whatsappAvailable": zod.boolean().describe('Whether the office has WhatsApp messages turned on')
+})
+
+
+/**
+ * @summary Save the signed-in user's delivery preferences
+ */
+export const saveNotificationPreferencesBodyQuietStartMin = 0;
+export const saveNotificationPreferencesBodyQuietStartMax = 23;
+
+export const saveNotificationPreferencesBodyQuietEndMin = 0;
+export const saveNotificationPreferencesBodyQuietEndMax = 23;
+
+export const saveNotificationPreferencesBodyMutedKindsMax = 50;
+
+
+
+export const SaveNotificationPreferencesBody = zod.object({
+  "emailEnabled": zod.boolean(),
+  "pushEnabled": zod.boolean(),
+  "quietStart": zod.number().int().min(saveNotificationPreferencesBodyQuietStartMin).max(saveNotificationPreferencesBodyQuietStartMax).nullable(),
+  "quietEnd": zod.number().int().min(saveNotificationPreferencesBodyQuietEndMin).max(saveNotificationPreferencesBodyQuietEndMax).nullable(),
+  "digest": zod.enum(['instant', 'daily']),
+  "mutedKinds": zod.array(zod.enum(['request.status', 'request.message', 'request.file', 'request.assigned', 'quote.sent', 'invoice.issued', 'invoice.overdue', 'reminder.expiring', 'registration.decision', 'inquiry.answered', 'company.invite', 'subscription.started', 'subscription.invoice', 'subscription.past_due', 'subscription.cancelled', 'office.request_new', 'office.registration_new', 'office.inquiry_new', 'office.file_new', 'office.message_new', 'office.quote_answered', 'office.invoice_paid', 'office.whatsapp_unmatched', 'office.whatsapp_message'])).max(saveNotificationPreferencesBodyMutedKindsMax)
+})
+
+export const saveNotificationPreferencesResponseQuietStartMin = 0;
+export const saveNotificationPreferencesResponseQuietStartMax = 23;
+
+export const saveNotificationPreferencesResponseQuietEndMin = 0;
+export const saveNotificationPreferencesResponseQuietEndMax = 23;
+
+
+
+export const SaveNotificationPreferencesResponse = zod.object({
+  "emailEnabled": zod.boolean(),
+  "pushEnabled": zod.boolean(),
+  "quietStart": zod.number().int().min(saveNotificationPreferencesResponseQuietStartMin).max(saveNotificationPreferencesResponseQuietStartMax).nullable().describe('Hour (Asia/Riyadh) quiet hours begin; null with quietEnd null means none'),
+  "quietEnd": zod.number().int().min(saveNotificationPreferencesResponseQuietEndMin).max(saveNotificationPreferencesResponseQuietEndMax).nullable().describe('Hour (Asia/Riyadh) quiet hours end; may be before quietStart (wraps past midnight)'),
+  "digest": zod.enum(['instant', 'daily']),
+  "mutedKinds": zod.array(zod.enum(['request.status', 'request.message', 'request.file', 'request.assigned', 'quote.sent', 'invoice.issued', 'invoice.overdue', 'reminder.expiring', 'registration.decision', 'inquiry.answered', 'company.invite', 'subscription.started', 'subscription.invoice', 'subscription.past_due', 'subscription.cancelled', 'office.request_new', 'office.registration_new', 'office.inquiry_new', 'office.file_new', 'office.message_new', 'office.quote_answered', 'office.invoice_paid', 'office.whatsapp_unmatched', 'office.whatsapp_message'])),
+  "pushAvailable": zod.boolean().describe('Whether Web Push is configured on the server'),
+  "whatsappAvailable": zod.boolean().describe('Whether the office has WhatsApp messages turned on')
+})
+
+
+/**
+ * @summary The VAPID public key browsers subscribe with (null when Web Push is off)
+ */
+export const GetPushKeyResponse = zod.object({
+  "publicKey": zod.string().nullable()
+})
+
+
+/**
+ * @summary Register (or refresh) this browser's Web Push subscription for the signed-in user
+ */
+export const savePushSubscriptionBodyEndpointMax = 2048;
+
+export const savePushSubscriptionBodyKeysP256dhMax = 512;
+
+export const savePushSubscriptionBodyKeysAuthMax = 512;
+
+export const savePushSubscriptionBodyUserAgentMax = 512;
+
+
+
+export const SavePushSubscriptionBody = zod.object({
+  "endpoint": zod.string().url().max(savePushSubscriptionBodyEndpointMax),
+  "keys": zod.object({
+  "p256dh": zod.string().min(1).max(savePushSubscriptionBodyKeysP256dhMax),
+  "auth": zod.string().min(1).max(savePushSubscriptionBodyKeysAuthMax)
+}),
+  "userAgent": zod.string().max(savePushSubscriptionBodyUserAgentMax).optional()
+})
+
+export const SavePushSubscriptionResponse = zod.void()
+
+
+/**
+ * @summary Remove this browser's Web Push subscription
+ */
+export const deletePushSubscriptionBodyEndpointMax = 2048;
+
+
+
+export const DeletePushSubscriptionBody = zod.object({
+  "endpoint": zod.string().url().max(deletePushSubscriptionBodyEndpointMax)
+})
+
+export const DeletePushSubscriptionResponse = zod.void()
+
+
+/**
+ * @summary Inbound WhatsApp messages with their detected intent and suggested replies (office staff)
+ */
+export const listWhatsappInboxQueryHandledDefault = `unmatched`;
+export const listWhatsappInboxQueryLimitDefault = 30;
+export const listWhatsappInboxQueryLimitMax = 100;
+
+
+
+export const ListWhatsappInboxQueryParams = zod.object({
+  "handled": zod.enum(['unmatched', 'all']).default(listWhatsappInboxQueryHandledDefault),
+  "limit": zod.coerce.number().int().min(1).max(listWhatsappInboxQueryLimitMax).default(listWhatsappInboxQueryLimitDefault)
+})
+
+export const listWhatsappInboxResponseIntentConfidenceMin = 0;
+export const listWhatsappInboxResponseIntentConfidenceMax = 1;
+
+export const listWhatsappInboxResponseSuggestedRepliesMax = 3;
+
+
+
+export const ListWhatsappInboxResponseItem = zod.object({
+  "waMessageId": zod.string(),
+  "fromPhoneMasked": zod.string().describe('Sender number with the middle digits hidden'),
+  "userId": zod.string().nullable(),
+  "customerName": zod.string().nullable(),
+  "requestId": zod.number().int().nullable(),
+  "body": zod.string(),
+  "receivedAt": zod.coerce.date(),
+  "handled": zod.enum(['request_message', 'inquiry', 'unmatched', 'ignored']),
+  "intent": zod.object({
+  "intent": zod.enum(['status_question', 'payment', 'document', 'complaint', 'new_request', 'thanks', 'greeting', 'other']),
+  "confidence": zod.number().min(listWhatsappInboxResponseIntentConfidenceMin).max(listWhatsappInboxResponseIntentConfidenceMax),
+  "urgent": zod.boolean(),
+  "reference": zod.string().nullable().describe('Request reference mentioned in the message, e.g. HBS-12')
+}),
+  "suggestedReplies": zod.array(zod.string()).max(listWhatsappInboxResponseSuggestedRepliesMax),
+  "canReplyFreeText": zod.boolean().describe('Whether the 24 h free-text window is still open')
+})
+export const ListWhatsappInboxResponse = zod.array(ListWhatsappInboxResponseItem)
+
+
+/**
+ * @summary Reply to an inbound WhatsApp message (free text inside the 24 h window, otherwise the configured template)
+ */
+export const replyWhatsappInboxPathWaMessageIdMax = 200;
+
+
+
+export const ReplyWhatsappInboxParams = zod.object({
+  "waMessageId": zod.coerce.string().min(1).max(replyWhatsappInboxPathWaMessageIdMax)
+})
+
+export const replyWhatsappInboxBodyTextMax = 1024;
+
+
+
+export const ReplyWhatsappInboxBody = zod.object({
+  "text": zod.string().min(1).max(replyWhatsappInboxBodyTextMax)
+})
+
+export const ReplyWhatsappInboxResponse = zod.object({
+  "sentAs": zod.enum(['text', 'template'])
+})
 
 
 /**

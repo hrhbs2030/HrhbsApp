@@ -37,3 +37,5 @@ export * from "./hbs-company-members";
 export * from "./hbs-request-employees";
 export * from "./hbs-subscriptions";
 export * from "./hbs-whatsapp-inbound";
+export * from "./hbs-notifications";
+export * from "./hbs-push-subscriptions";

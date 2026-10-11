@@ -95,7 +95,6 @@ import {
   officeMessageMail,
   customerNewFileMail,
   inquiryAnsweredMail,
-  notify,
   officeNewFileMail,
   officeNewInquiryMail,
   officeNewRegistrationMail,
@@ -104,7 +103,7 @@ import {
   statusChangedMail,
 } from "../lib/notify";
 import { statusHistory } from "../lib/request-history";
-import { notifyCustomer } from "../lib/customer-contact";
+import { notifyCustomer, notifyOffice } from "../lib/customer-contact";
 import { subjectLabels, subjectOf } from "../lib/company";
 import { hasCustomerApproval, hasLegacyCustomerData, resolveCompanyAccess, resolveCompanyAccessFor } from "../lib/company-access";
 import { applyAssignmentRule, resumeAfterCustomerReply } from "../lib/automations";
@@ -532,7 +531,7 @@ router.post("/portal/registration", requirePortalAuth, async (req, res): Promise
     return;
   }
   res.status(201).json(SubmitPortalRegistrationResponse.parse(portalRegistration(record)));
-  notify(officeNewRegistrationMail(record.fullName));
+  void notifyOffice(() => officeNewRegistrationMail(record.fullName), { kind: "office.registration_new", targetType: "registration", targetId: record.id });
 });
 
 router.get("/portal/summary", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
@@ -760,10 +759,13 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
     service: record.service,
     category: record.category,
   };
-  notify(officeNewRequestMail(created));
+  void notifyOffice(() => officeNewRequestMail(created), { kind: "office.request_new", targetType: "service_request", targetId: record.id });
   if (record.assignedTo) {
-    notify(assignedMail(await staffEmail(record.assignedTo), created,
-      record.dueAt ? new Intl.DateTimeFormat("ar-SA-u-ca-gregory", { dateStyle: "long", timeZone: "Asia/Riyadh" }).format(record.dueAt) : null));
+    const assignee = record.assignedTo;
+    const email = await staffEmail(assignee);
+    void notifyOffice(() => assignedMail(email, created,
+      record.dueAt ? new Intl.DateTimeFormat("ar-SA-u-ca-gregory", { dateStyle: "long", timeZone: "Asia/Riyadh" }).format(record.dueAt) : null),
+    { kind: "request.assigned", recipients: [assignee], targetType: "service_request", targetId: record.id });
   }
 });
 
@@ -938,8 +940,8 @@ async function attachToRequest(req: Request, res: import("express").Response, of
   else res.json(AttachServiceRequestFilesResponse.parse(publicRequest(current, details)));
   const info = { id: request.id, reference: publicRequest(request).reference, service: request.service };
   const names = finalized.map(({ row }) => row.name).join("، ");
-  if (office) void notifyCustomer(request.userId, to => customerNewFileMail(to, info));
-  else notify(officeNewFileMail(info, names));
+  if (office) void notifyCustomer(request.userId, to => customerNewFileMail(to, info), { kind: "request.file", targetType: "service_request", targetId: request.id });
+  else void notifyOffice(() => officeNewFileMail(info, names), { kind: "office.file_new", targetType: "service_request", targetId: request.id });
 }
 
 router.post("/service-requests/:id/attachments", requirePortalAuth, requireApprovedCustomer,
@@ -1055,7 +1057,9 @@ router.post("/inquiries", requirePortalAuth, requireApprovedCustomer, async (req
     linkedServiceRequestId: parsed.data.linkedServiceRequestId ?? null,
   }).returning();
   res.status(201).json(CreateInquiryResponse.parse(inquiry(record, linkedRequest)));
-  notify(officeNewInquiryMail(record.subject, linkedRequest ? publicRequest(linkedRequest).reference : null));
+  const linkedReference = linkedRequest ? publicRequest(linkedRequest).reference : null;
+  void notifyOffice(() => officeNewInquiryMail(record.subject, linkedReference),
+    { kind: "office.inquiry_new", targetType: "inquiry", targetId: record.id, signals: { text: `${record.subject} ${record.message}` } });
 });
 
 router.get("/office/registrations", requireOfficeStaff, async (_req, res): Promise<void> => {
@@ -1123,7 +1127,8 @@ router.patch("/office/registrations/:id", requireOfficeStaff, async (req, res): 
     return;
   }
   res.json(ReviewOfficeRegistrationResponse.parse(await officeRegistration(record)));
-  notify(registrationDecisionMail(record.email, record.status === "approved"));
+  void notifyCustomer(record.userId, to => registrationDecisionMail(to, record.status === "approved"),
+    { kind: "registration.decision", targetType: "registration", targetId: record.id });
 });
 
 // An office member's address: their staff email, or the owner's approved email.
@@ -1239,8 +1244,12 @@ async function sendMessage(req: Request, res: import("express").Response, office
   res.status(201).json(SendServiceRequestMessageResponse.parse(message(row)));
   // Emails say that a message arrived, never what it says.
   const info = { id: record.id, reference: publicRequest(record).reference, service: record.service };
-  if (office) void notifyCustomer(record.userId, to => customerMessageMail(to, info));
-  else notify(officeMessageMail(record.assignedTo ? await staffEmail(record.assignedTo) : null, info));
+  const meta = { targetType: "service_request", targetId: record.id, signals: { text } };
+  if (office) void notifyCustomer(record.userId, to => customerMessageMail(to, info), { kind: "request.message", ...meta });
+  else {
+    const assigneeEmail = record.assignedTo ? await staffEmail(record.assignedTo) : null;
+    void notifyOffice(() => officeMessageMail(assigneeEmail, info), { kind: "office.message_new", ...meta });
+  }
 }
 
 router.get("/service-requests/:id/messages", requirePortalAuth, requireApprovedCustomer, (req, res) => listMessages(req, res, false));
@@ -1457,11 +1466,15 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
   res.json(response);
   const info = { id: record.id, reference: publicRequest(record).reference, service: record.service };
   if (previousStatus !== record.status) {
-    void notifyCustomer(record.userId, to => statusChangedMail(to, info, record.status, record.customerMessage));
+    void notifyCustomer(record.userId, to => statusChangedMail(to, info, record.status, record.customerMessage),
+      { kind: "request.status", targetType: "service_request", targetId: record.id, signals: { text: record.customerMessage ?? undefined } });
   }
   if (record.assignedTo && record.assignedTo !== previousAssignee && record.assignedTo !== getAuth(req).userId) {
-    notify(assignedMail(await staffEmail(record.assignedTo), info,
-      record.dueAt ? new Intl.DateTimeFormat("ar-SA-u-ca-gregory", { dateStyle: "long", timeZone: "Asia/Riyadh" }).format(record.dueAt) : null));
+    const assignee = record.assignedTo;
+    const email = await staffEmail(assignee);
+    void notifyOffice(() => assignedMail(email, info,
+      record.dueAt ? new Intl.DateTimeFormat("ar-SA-u-ca-gregory", { dateStyle: "long", timeZone: "Asia/Riyadh" }).format(record.dueAt) : null),
+    { kind: "request.assigned", recipients: [assignee], targetType: "service_request", targetId: record.id });
   }
 });
 
@@ -1557,7 +1570,7 @@ router.patch("/office/inquiries/:id", requireOfficeStaff, async (req, res): Prom
   const response = officeInquiry(record, linkedRequest, await customerOf(record.userId));
   AnswerOfficeInquiryResponse.parse(response);
   res.json(response);
-  if (firstAnswer) void notifyCustomer(record.userId, to => inquiryAnsweredMail(to, record.subject));
+  if (firstAnswer) void notifyCustomer(record.userId, to => inquiryAnsweredMail(to, record.subject), { kind: "inquiry.answered", targetType: "inquiry", targetId: record.id });
 });
 
 router.post("/office/legacy/preview", requireOfficeOwner, async (req, res): Promise<void> => {

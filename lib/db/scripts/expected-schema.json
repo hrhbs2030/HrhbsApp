@@ -168,6 +168,37 @@
       "kind": "text not null",
       "legacy_id": "text not null"
     },
+    "hbs_notification_preferences": {
+      "digest": "text not null",
+      "email_enabled": "boolean not null",
+      "muted_kinds": "jsonb not null",
+      "push_enabled": "boolean not null",
+      "quiet_end": "smallint",
+      "quiet_start": "smallint",
+      "updated_at": "timestamp with time zone not null",
+      "user_id": "text not null"
+    },
+    "hbs_notifications": {
+      "audience": "text not null",
+      "body": "text not null",
+      "count": "integer not null",
+      "created_at": "timestamp with time zone not null",
+      "dedupe_key": "text",
+      "deliver_after": "timestamp with time zone",
+      "delivered": "jsonb not null",
+      "digested_at": "timestamp with time zone",
+      "group_key": "text",
+      "id": "integer not null",
+      "kind": "text not null",
+      "path": "text",
+      "priority": "text not null",
+      "read_at": "timestamp with time zone",
+      "target_id": "text",
+      "target_type": "text",
+      "title": "text not null",
+      "updated_at": "timestamp with time zone not null",
+      "user_id": "text not null"
+    },
     "hbs_office_staff": {
       "added_by": "text",
       "created_at": "timestamp with time zone not null",
@@ -187,6 +218,16 @@
       "slug": "text not null",
       "sort": "integer not null",
       "updated_at": "timestamp with time zone not null"
+    },
+    "hbs_push_subscriptions": {
+      "auth": "text not null",
+      "created_at": "timestamp with time zone not null",
+      "endpoint": "text not null",
+      "failed_at": "timestamp with time zone",
+      "last_used_at": "timestamp with time zone",
+      "p256dh": "text not null",
+      "user_agent": "text",
+      "user_id": "text not null"
     },
     "hbs_registration_requests": {
       "contact_phone": "text not null",
@@ -343,6 +384,26 @@
     "hbs_invoices_subject_check": {
       "table": "hbs_invoices",
       "definition": "CHECK (((request_id IS NOT NULL) OR (subscription_id IS NOT NULL)))"
+    },
+    "hbs_notification_preferences_digest_check": {
+      "table": "hbs_notification_preferences",
+      "definition": "CHECK ((digest = ANY (ARRAY['instant'::text, 'daily'::text])))"
+    },
+    "hbs_notification_preferences_quiet_end_check": {
+      "table": "hbs_notification_preferences",
+      "definition": "CHECK (((quiet_end IS NULL) OR ((quiet_end >= 0) AND (quiet_end <= 23))))"
+    },
+    "hbs_notification_preferences_quiet_start_check": {
+      "table": "hbs_notification_preferences",
+      "definition": "CHECK (((quiet_start IS NULL) OR ((quiet_start >= 0) AND (quiet_start <= 23))))"
+    },
+    "hbs_notifications_audience_check": {
+      "table": "hbs_notifications",
+      "definition": "CHECK ((audience = ANY (ARRAY['customer'::text, 'office'::text])))"
+    },
+    "hbs_notifications_priority_check": {
+      "table": "hbs_notifications",
+      "definition": "CHECK ((priority = ANY (ARRAY['urgent'::text, 'high'::text, 'normal'::text, 'low'::text])))"
     },
     "hbs_plans_price_check": {
       "table": "hbs_plans",
@@ -534,6 +595,30 @@
       "table": "hbs_legacy_records",
       "definition": "CREATE UNIQUE INDEX hbs_legacy_records_source_idx ON public.hbs_legacy_records USING btree (import_id, kind, legacy_id)"
     },
+    "hbs_notification_preferences_pkey": {
+      "table": "hbs_notification_preferences",
+      "definition": "CREATE UNIQUE INDEX hbs_notification_preferences_pkey ON public.hbs_notification_preferences USING btree (user_id)"
+    },
+    "hbs_notifications_dedupe_unique": {
+      "table": "hbs_notifications",
+      "definition": "CREATE UNIQUE INDEX hbs_notifications_dedupe_unique ON public.hbs_notifications USING btree (dedupe_key) WHERE (dedupe_key IS NOT NULL)"
+    },
+    "hbs_notifications_deliver_after_idx": {
+      "table": "hbs_notifications",
+      "definition": "CREATE INDEX hbs_notifications_deliver_after_idx ON public.hbs_notifications USING btree (deliver_after) WHERE ((deliver_after IS NOT NULL) AND (digested_at IS NULL))"
+    },
+    "hbs_notifications_pkey": {
+      "table": "hbs_notifications",
+      "definition": "CREATE UNIQUE INDEX hbs_notifications_pkey ON public.hbs_notifications USING btree (id)"
+    },
+    "hbs_notifications_user_created_idx": {
+      "table": "hbs_notifications",
+      "definition": "CREATE INDEX hbs_notifications_user_created_idx ON public.hbs_notifications USING btree (user_id, created_at DESC NULLS LAST)"
+    },
+    "hbs_notifications_user_unread_idx": {
+      "table": "hbs_notifications",
+      "definition": "CREATE INDEX hbs_notifications_user_unread_idx ON public.hbs_notifications USING btree (user_id) WHERE (read_at IS NULL)"
+    },
     "hbs_office_staff_email_unique": {
       "table": "hbs_office_staff",
       "definition": "CREATE UNIQUE INDEX hbs_office_staff_email_unique ON public.hbs_office_staff USING btree (email)"
@@ -549,6 +634,14 @@
     "hbs_plans_slug_unique": {
       "table": "hbs_plans",
       "definition": "CREATE UNIQUE INDEX hbs_plans_slug_unique ON public.hbs_plans USING btree (slug)"
+    },
+    "hbs_push_subscriptions_pkey": {
+      "table": "hbs_push_subscriptions",
+      "definition": "CREATE UNIQUE INDEX hbs_push_subscriptions_pkey ON public.hbs_push_subscriptions USING btree (endpoint)"
+    },
+    "hbs_push_subscriptions_user_idx": {
+      "table": "hbs_push_subscriptions",
+      "definition": "CREATE INDEX hbs_push_subscriptions_user_idx ON public.hbs_push_subscriptions USING btree (user_id)"
     },
     "hbs_registration_requests_pkey": {
       "table": "hbs_registration_requests",

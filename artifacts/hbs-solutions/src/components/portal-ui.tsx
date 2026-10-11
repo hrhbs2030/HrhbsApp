@@ -1,12 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useClerk, useUser } from '@clerk/react';
-import { Archive, ArrowLeft, ArrowUpLeft, BarChart3, BellRing, Building2, Check, Contact, CircleHelp, ClipboardList, CreditCard, FileClock, History, Home, Inbox, LogOut, Menu, Package, Plus, Settings, Tags, UserRoundCheck, UsersRound, X } from 'lucide-react';
+import { Archive, ArrowLeft, ArrowUpLeft, BarChart3, Bell, BellRing, Building2, Check, Contact, CircleHelp, ClipboardList, CreditCard, FileClock, History, Home, Inbox, LogOut, Menu, MessageCircle, Package, Plus, Settings, Tags, UserRoundCheck, UsersRound, X } from 'lucide-react';
 import { getGetPortalMeQueryKey, useGetPortalMe, type Inquiry, type ServiceRequest, type ServiceRequestStatus } from '@workspace/api-client-react';
 import { daysLabel, formatDate, formatNumber } from '@/lib/format';
 import { milestoneIndex, milestoneKeys, milestones, pauses, stageLabel, stageNote } from '@/content/milestones';
 import { ReplyBadge, SubjectChip } from './request-conversation';
 import { Logo, LogoMark } from './brand/logo';
+import { NotificationBell, NotificationToasts } from './notification-bell';
 import { PrintFrame } from './brand/print';
 import './portal-ui.css';
 
@@ -41,7 +42,7 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
   const owner = staff && me.data?.officeRole === 'owner';
   useEffect(() => setMenuOpen(false), [location]);
   const ownerLinks = owner ? [{ href: '/office/reports', label: 'التقارير', icon: BarChart3 }, { href: '/office/catalog', label: 'الأسعار والمتطلبات', icon: Tags }, { href: '/office/plans', label: 'الباقات', icon: Package }, { href: '/office/subscriptions', label: 'الاشتراكات', icon: CreditCard }, { href: '/office/legacy', label: 'الأرشيف القديم', icon: Archive }, { href: '/office/staff', label: 'فريق المكتب', icon: UsersRound }, { href: '/office/audit', label: 'سجل التدقيق', icon: History }] : [];
-  const links = staff ? [{ href: '/office', label: 'نظرة عامة', icon: Home }, { href: '/office/registrations', label: 'طلبات التسجيل', icon: UserRoundCheck }, { href: '/office/requests', label: 'طلبات العملاء', icon: ClipboardList }, { href: '/office/inquiries', label: 'الاستفسارات', icon: CircleHelp }, { href: '/office/customers', label: 'ملفات العملاء', icon: Contact }, { href: '/office/reminders', label: 'وثائق تنتهي قريبًا', icon: FileClock }, ...ownerLinks] : registrationOnly ? [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }] : [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }, { href: '/dashboard', label: 'نظرة عامة', icon: Home }, { href: '/requests', label: 'طلباتي', icon: ClipboardList }, { href: '/inquiries', label: 'استفساراتي', icon: CircleHelp }, { href: '/company', label: 'ملف المنشأة', icon: Building2 }, { href: '/documents', label: 'تنبيهات وثائقي', icon: BellRing }, { href: '/settings', label: 'الإشعارات', icon: Settings }];
+  const links = staff ? [{ href: '/office', label: 'نظرة عامة', icon: Home }, { href: '/office/registrations', label: 'طلبات التسجيل', icon: UserRoundCheck }, { href: '/office/requests', label: 'طلبات العملاء', icon: ClipboardList }, { href: '/office/inquiries', label: 'الاستفسارات', icon: CircleHelp }, { href: '/office/customers', label: 'ملفات العملاء', icon: Contact }, { href: '/office/reminders', label: 'وثائق تنتهي قريبًا', icon: FileClock }, { href: '/office/whatsapp', label: 'واتساب الوارد', icon: MessageCircle }, { href: '/office/notifications', label: 'الإشعارات', icon: Bell }, ...ownerLinks] : registrationOnly ? [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }] : [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }, { href: '/dashboard', label: 'نظرة عامة', icon: Home }, { href: '/requests', label: 'طلباتي', icon: ClipboardList }, { href: '/inquiries', label: 'استفساراتي', icon: CircleHelp }, { href: '/company', label: 'ملف المنشأة', icon: Building2 }, { href: '/documents', label: 'تنبيهات وثائقي', icon: BellRing }, { href: '/notifications', label: 'الإشعارات', icon: Bell }, { href: '/settings', label: 'الإعدادات', icon: Settings }];
   const current = links.find(({ href }) => location === href) ?? links.filter(({ href }) => location.startsWith(href + '/')).sort((a, b) => b.href.length - a.href.length)[0];
   return <div className="relative z-[1] min-h-[100dvh] lg:flex" dir="rtl">
     <aside className={`${menuOpen ? 'translate-x-0' : 'translate-x-full'} fixed inset-y-0 right-0 z-50 flex w-[270px] flex-col bg-ink px-5 py-7 text-on-dark transition-transform duration-300 lg:sticky lg:top-0 lg:h-[100dvh] lg:translate-x-0`}>
@@ -58,9 +59,13 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
           <button className="rounded-lg border border-line-dark-2 p-2 text-on-dark lg:hidden" onClick={() => setMenuOpen(true)} aria-label="فتح القائمة"><Menu size={21}/></button>
           <p className="portal-crumb"><span>{staff ? 'مساحة المكتب' : registrationOnly ? 'بوابة العملاء' : 'مساحتي'}</span>{current && <><span aria-hidden="true" className="portal-crumb-sep">/</span><strong>{current.label}</strong></>}</p>
         </div>
-        <span className="portal-topbar-brand inline-flex items-center gap-2 lg:hidden" aria-hidden="true"><LogoMark size={28}/>HBS حلول الغد</span>
-        <Link href="/help" className="portal-topbar-help hidden lg:inline-flex"><CircleHelp size={17} strokeWidth={1.8} aria-hidden="true"/>المساعدة</Link>
+        <span className="portal-topbar-brand inline-flex items-center gap-2 lg:hidden" aria-hidden="true"><LogoMark size={28}/><span className="hidden min-[400px]:inline">HBS حلول الغد</span></span>
+        <div className="flex flex-none items-center gap-2">
+          <Link href="/help" className="portal-topbar-help hidden lg:inline-flex"><CircleHelp size={17} strokeWidth={1.8} aria-hidden="true"/>المساعدة</Link>
+          <NotificationBell staff={staff}/>
+        </div>
       </header>
+      <NotificationToasts/>
       <div className="portal-band" aria-hidden="true" />
       <main className="portal-sheet flex-1"><div className="mx-auto max-w-[1130px] px-5 pb-20 pt-9 sm:px-9 sm:pt-12 lg:px-12">
         <PrintFrame staff={staff} title={location === '/office/audit' ? 'سجل التدقيق' : location.startsWith('/requests/') ? 'تفاصيل الطلب' : current?.label ?? 'بوابة العملاء'}/>

@@ -90,9 +90,10 @@ function fakeDeps(options: { customers?: Record<string, string>; open?: Record<s
       return (options.open?.[userId] ?? []).map(id => ({ id, createdAt: new Date(0), service: "خدمة", assignedTo: null }));
     },
     async addRequestMessage(requestId, userId, body) { log.push({ kind: "message", args: [requestId, userId, body] }); },
-    async createInquiry(userId, body) { log.push({ kind: "inquiry", args: [userId, body] }); },
+    async createInquiry(userId, body) { log.push({ kind: "inquiry", args: [userId, body] }); return 7; },
     async finish(id, outcome) { log.push({ kind: "finish", args: [id, outcome] }); },
     async reply(to, body) { log.push({ kind: "reply", args: [to, body] }); },
+    async notifyOffice(build, meta) { log.push({ kind: "notify", args: [meta, build()] }); },
   };
   return { deps, log };
 }
@@ -102,18 +103,24 @@ const message = { id: "wamid.a", from: "966500000001", text: "هل اكتمل ا
 test("a known number with one open request adds a message to it", async () => {
   const { deps, log } = fakeDeps({ customers: { "0500000001": "user-1" }, open: { "user-1": [41] } });
   assert.equal(await handleInboundMessage(message, deps), "request_message");
-  assert.deepEqual(log.map(entry => entry.kind), ["record", "touch", "message", "finish"]);
+  assert.deepEqual(log.map(entry => entry.kind), ["record", "touch", "message", "finish", "notify"]);
   assert.deepEqual(log[2].args, [41, "user-1", "هل اكتمل الطلب؟"]);
   assert.deepEqual(log[3].args, ["wamid.a", { userId: "user-1", requestId: 41, handled: "request_message" }]);
+  // The office is told in-app which request the message landed on; the text itself only feeds the urgency.
+  const meta = log[4].args[0] as { kind: string; targetType: string; targetId: number; signals: { text: string } };
+  assert.equal(meta.kind, "office.whatsapp_message");
+  assert.deepEqual([meta.targetType, meta.targetId, meta.signals.text], ["service_request", 41, "هل اكتمل الطلب؟"]);
 });
 
 test("several open requests make an inquiry and a free-text reply", async () => {
   const { deps, log } = fakeDeps({ customers: { "0500000001": "user-1" }, open: { "user-1": [41, 42] } });
   assert.equal(await handleInboundMessage(message, deps), "inquiry");
-  assert.deepEqual(log.map(entry => entry.kind), ["record", "touch", "inquiry", "finish", "reply"]);
+  assert.deepEqual(log.map(entry => entry.kind), ["record", "touch", "inquiry", "finish", "notify", "reply"]);
   assert.deepEqual(log[2].args, ["user-1", "هل اكتمل الطلب؟"]);
   assert.deepEqual(log[3].args, ["wamid.a", { userId: "user-1", requestId: null, handled: "inquiry" }]);
-  assert.deepEqual(log[4].args, ["966500000001", SEVERAL_OPEN_REPLY]);
+  const meta = log[4].args[0] as { kind: string; targetType: string; targetId: number };
+  assert.deepEqual([meta.kind, meta.targetType, meta.targetId], ["office.whatsapp_message", "inquiry", 7]);
+  assert.deepEqual(log[5].args, ["966500000001", SEVERAL_OPEN_REPLY]);
   assert.ok(INQUIRY_SUBJECT.length);
 });
 
@@ -126,8 +133,15 @@ test("no open request also makes an inquiry, with its own reply", async () => {
 test("an unknown or foreign number is kept as unmatched without a reply", async () => {
   const { deps, log } = fakeDeps({ customers: { "0500000001": "user-1" }, open: { "user-1": [41] } });
   assert.equal(await handleInboundMessage({ ...message, from: "966500000002" }, deps), "unmatched");
-  assert.deepEqual(log.map(entry => entry.kind), ["record", "finish"]);
+  assert.deepEqual(log.map(entry => entry.kind), ["record", "finish", "notify"]);
   assert.deepEqual(log[1].args, ["wamid.a", { userId: null, requestId: null, handled: "unmatched" }]);
+  // No mail for an unknown number; the office sees a masked number and the start of the text.
+  const [meta, mail] = log[2].args as [{ kind: string; targetId: string; copy: { title: string; body: string; path: string } }, unknown];
+  assert.equal(mail, null);
+  assert.equal(meta.kind, "office.whatsapp_unmatched");
+  assert.equal(meta.targetId, "9665••••••02");
+  assert.equal(meta.copy.body, "9665••••••02: هل اكتمل الطلب؟");
+  assert.equal(meta.copy.path, "/office/whatsapp");
   const foreign = fakeDeps({ customers: { "0500000001": "user-1" } });
   assert.equal(await handleInboundMessage({ ...message, from: "+44 7700 900123" }, foreign.deps), "unmatched");
   assert.equal(foreign.log[0].args[1], "447700900123", "the stored number keeps digits only");
@@ -189,7 +203,7 @@ test("the webhook verifies the token on GET and the signature on POST", async ()
     assert.equal((await post(body, { "x-hub-signature-256": sign(body + " ") })).status, 401, "signed over other bytes");
     assert.equal(log.length, 0, "nothing is processed before the signature passes");
     assert.equal((await post(body, { "x-hub-signature-256": sign(body) })).status, 200);
-    assert.deepEqual(log.map(entry => entry.kind), ["record", "touch", "message", "finish"]);
+    assert.deepEqual(log.map(entry => entry.kind), ["record", "touch", "message", "finish", "notify"]);
     assert.equal((await post("not json", { "x-hub-signature-256": sign("not json") })).status, 200, "acknowledged so Meta does not retry");
     const form = await fetch(base, { method: "POST", headers: { "content-type": "text/plain", "x-hub-signature-256": sign(body) }, body });
     assert.equal(form.status, 400, "the raw JSON body is required");

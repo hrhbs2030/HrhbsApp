@@ -270,7 +270,8 @@ export async function renewSubscriptions(send: typeof notifyCustomerNow = notify
     if (!result) continue;
     outcome.issued++;
     try {
-      await send(subscription.userId, to => subscriptionInvoiceMail(to, plan.name, invoiceInfo(result), null));
+      await send(subscription.userId, to => subscriptionInvoiceMail(to, plan.name, invoiceInfo(result), null),
+        { kind: "subscription.invoice", targetType: "invoice", targetId: result.id, signals: { amountHalalas: result.totalHalalas } });
     } catch (err) {
       // The invoice stands; the overdue sweep reminds the customer again.
       logger.warn({ err, subscriptionId: subscription.id, invoiceId: result.id }, "Subscription invoice email was not sent");
@@ -298,7 +299,8 @@ export async function renewSubscriptions(send: typeof notifyCustomerNow = notify
     if (!moved) continue;
     outcome.pastDue++;
     try {
-      await send(subscription.userId, to => subscriptionPastDueMail(to, plan.name, invoiceInfo(invoice)));
+      await send(subscription.userId, to => subscriptionPastDueMail(to, plan.name, invoiceInfo(invoice)),
+        { kind: "subscription.past_due", targetType: "subscription", targetId: subscription.id, signals: { amountHalalas: invoice.totalHalalas } });
     } catch (err) {
       logger.warn({ err, subscriptionId: subscription.id }, "Subscription past-due email was not sent");
     }
@@ -335,7 +337,8 @@ export async function renewSubscriptions(send: typeof notifyCustomerNow = notify
     if (!closed) continue;
     outcome.cancelled++;
     try {
-      await send(subscription.userId, to => subscriptionCancelledUnpaidMail(to, plan.name, invoiceInfo(invoice)));
+      await send(subscription.userId, to => subscriptionCancelledUnpaidMail(to, plan.name, invoiceInfo(invoice)),
+        { kind: "subscription.cancelled", targetType: "subscription", targetId: subscription.id });
     } catch (err) {
       logger.warn({ err, subscriptionId: subscription.id }, "Subscription cancellation email was not sent");
     }

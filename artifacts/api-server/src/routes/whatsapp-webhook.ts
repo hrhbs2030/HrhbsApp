@@ -6,7 +6,9 @@ import { WhatsappWebhookVerifyQueryParams } from "@workspace/api-zod";
 import { resumeAfterCustomerReply } from "../lib/automations";
 import { logger } from "../lib/logger";
 import { requestReference } from "../lib/money";
-import { notify, officeMessageMail, officeNewInquiryMail } from "../lib/notify";
+import { notifyOffice } from "../lib/customer-contact";
+import { maskPhone } from "../lib/notification-intelligence";
+import { officeMessageMail, officeNewInquiryMail } from "../lib/notify";
 import { inboundPhoneLocal, parseInboundMessages, sendText, verifyWhatsappSignature, type InboundTextMessage } from "../lib/whatsapp";
 import { staffEmail } from "./portal";
 
@@ -73,9 +75,11 @@ export type InboundDeps = {
   // The customer's requests that are not completed, newest activity first (two are enough).
   openRequests(userId: string): Promise<{ id: number; createdAt: Date; service: string; assignedTo: string | null }[]>;
   addRequestMessage(requestId: number, userId: string, text: string): Promise<void>;
-  createInquiry(userId: string, text: string): Promise<void>;
+  createInquiry(userId: string, text: string): Promise<number>;
   finish(waMessageId: string, outcome: { userId: string | null; requestId: number | null; handled: InboundHandled }): Promise<void>;
   reply(to: string, text: string): Promise<void>;
+  // The office's in-app notification (and inbox mail) for the message.
+  notifyOffice: typeof notifyOffice;
 };
 
 export const inboundDeps: InboundDeps = {
@@ -106,7 +110,8 @@ export const inboundDeps: InboundDeps = {
     await resumeAfterCustomerReply(requestId, "customer_message");
   },
   async createInquiry(userId, text) {
-    await db.insert(hbsInquiries).values({ userId, subject: INQUIRY_SUBJECT, message: text });
+    const [row] = await db.insert(hbsInquiries).values({ userId, subject: INQUIRY_SUBJECT, message: text }).returning({ id: hbsInquiries.id });
+    return row.id;
   },
   async finish(waMessageId, outcome) {
     // A message from a number nobody registered is kept only as far as the
@@ -117,7 +122,11 @@ export const inboundDeps: InboundDeps = {
   async reply(to, text) {
     await sendText(to, text);
   },
+  notifyOffice,
 };
+
+// How much of an unknown sender's message the office sees in the notification.
+export const UNMATCHED_PREVIEW_CHARS = 80;
 
 // Routes one text message. Returns what was done, or null for a repeat delivery.
 export async function handleInboundMessage(message: InboundTextMessage, deps: InboundDeps = inboundDeps): Promise<InboundHandled | null> {
@@ -127,6 +136,12 @@ export async function handleInboundMessage(message: InboundTextMessage, deps: In
   const customer = local ? await deps.customerByPhone(local) : null;
   if (!customer) {
     await deps.finish(message.id, { userId: null, requestId: null, handled: "unmatched" });
+    // No mail for these (there never was); the notification shows who wrote and the start of what.
+    const masked = maskPhone(fromPhone);
+    void deps.notifyOffice(() => null, {
+      kind: "office.whatsapp_unmatched", targetType: "whatsapp_phone", targetId: masked, signals: { text: message.text },
+      copy: { title: "رسالة واتساب من رقم غير معروف", body: `${masked}: ${message.text.slice(0, UNMATCHED_PREVIEW_CHARS)}`, path: "/office/whatsapp" },
+    });
     return "unmatched";
   }
   await deps.touchInbound(customer.userId);
@@ -135,13 +150,16 @@ export async function handleInboundMessage(message: InboundTextMessage, deps: In
     const [request] = open;
     await deps.addRequestMessage(request.id, customer.userId, message.text);
     await deps.finish(message.id, { userId: customer.userId, requestId: request.id, handled: "request_message" });
-    notify(officeMessageMail(request.assignedTo ? await staffEmail(request.assignedTo) : null,
-      { id: request.id, reference: requestReference(request.id, request.createdAt), service: request.service }));
+    const assigneeEmail = request.assignedTo ? await staffEmail(request.assignedTo) : null;
+    const info = { id: request.id, reference: requestReference(request.id, request.createdAt), service: request.service };
+    void deps.notifyOffice(() => officeMessageMail(assigneeEmail, info),
+      { kind: "office.whatsapp_message", targetType: "service_request", targetId: request.id, signals: { text: message.text } });
     return "request_message";
   }
-  await deps.createInquiry(customer.userId, message.text);
+  const inquiryId = await deps.createInquiry(customer.userId, message.text);
   await deps.finish(message.id, { userId: customer.userId, requestId: null, handled: "inquiry" });
-  notify(officeNewInquiryMail(INQUIRY_SUBJECT, null));
+  void deps.notifyOffice(() => officeNewInquiryMail(INQUIRY_SUBJECT, null),
+    { kind: "office.whatsapp_message", targetType: "inquiry", targetId: inquiryId, signals: { text: message.text } });
   // The customer's own message opened the 24-hour window, so plain text is allowed.
   await deps.reply(fromPhone, open.length ? SEVERAL_OPEN_REPLY : NO_OPEN_REPLY);
   return "inquiry";

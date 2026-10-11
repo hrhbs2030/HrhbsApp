@@ -213,8 +213,11 @@ function isHashed(file) {
   );
 }
 
+// The push service worker must be re-checked on every load, or a browser could
+// keep an old worker for a day after a deploy (it is small and not hashed).
+const serviceWorkerFile = `${publicRoot}${sep}sw.js`;
 function cacheControlFor(file, extension) {
-  if (extension === '.html') return 'no-cache';
+  if (extension === '.html' || file === serviceWorkerFile) return 'no-cache';
   if (isHashed(file)) return 'public, max-age=31536000, immutable';
   return 'public, max-age=3600';
 }

@@ -13,6 +13,7 @@ const webChecks = [
   [hbs, 'test:content'],
   [hbs, 'test:customer'],
   [hbs, 'test:office-extras'],
+  [hbs, 'test:notifications-ui'],
   [hbs, 'test:city'],
   [hbs, 'test:assistant-source'],
   [hbs, 'test:services-contrast'],
@@ -25,6 +26,7 @@ const apiChecks = [
   [api, 'test:db-guards'],
   [api, 'test:assistant-retrieval'],
   [api, 'test:notifications'],
+  [api, 'test:notification-intelligence'],
   [api, 'test:api-security'],
   [api, 'test:office-access'],
   [api, 'test:openai-auth'],
@@ -48,6 +50,8 @@ const databaseChecks = [
   [api, 'test:package-c'],
   [api, 'test:package-d-members'],
   [api, 'test:package-d-subscriptions'],
+  [api, 'test:notifications-api'],
+  [api, 'test:notification-pipeline'],
 ];
 const storageCheck = [api, 'test:attachment-storage'];
 

@@ -5,6 +5,7 @@ import { ensureRequestTrackingGuide } from "./lib/portal-usage-information";
 import { startDocumentReminders } from "./lib/document-reminders";
 import { startPaymentReconciliation } from "./routes/billing";
 import { startInvoiceReminders } from "./lib/invoice-reminders";
+import { startNotificationJobs } from "./lib/notification-digest";
 import { startSubscriptionRenewals } from "./lib/subscriptions";
 import { startWhatsappInboundPurge } from "./routes/whatsapp-webhook";
 
@@ -35,6 +36,7 @@ ensureRequestTrackingGuide().then(() => app.listen(port, (err) => {
   startInvoiceReminders();
   startSubscriptionRenewals();
   startWhatsappInboundPurge();
+  startNotificationJobs();
 })).catch(err => {
   logger.error({ err }, "Failed to initialize portal usage information");
   process.exitCode = 1;
