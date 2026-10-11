@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { check, index, integer, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
+import { hbsCompanyEmployees, hbsCompanyLicenses } from "./hbs-company";
 import { z } from "zod/v4";
 
 export const hbsServiceRequests = pgTable("hbs_service_requests", {
@@ -21,6 +22,9 @@ export const hbsServiceRequests = pgTable("hbs_service_requests", {
   rating: integer("rating"),
   ratingComment: text("rating_comment"),
   ratedAt: timestamp("rated_at", { withTimezone: true }),
+  // The employee or license the request is about, from the company file.
+  employeeId: integer("employee_id").references(() => hbsCompanyEmployees.id, { onDelete: "set null" }),
+  licenseId: integer("license_id").references(() => hbsCompanyLicenses.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [

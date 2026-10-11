@@ -37,6 +37,7 @@ const databaseChecks = [
   [api, 'test:office-revocation'],
   [api, 'test:office-admin'],
   [api, 'test:office-features'],
+  [api, 'test:company-file'],
 ];
 const storageCheck = [api, 'test:attachment-storage'];
 

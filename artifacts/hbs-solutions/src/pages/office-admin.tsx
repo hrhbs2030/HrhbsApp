@@ -103,6 +103,14 @@ const actionNames: Record<AuditLogEntry['action'], string> = {
   'invoice.paid_online': 'سداد إلكتروني لفاتورة',
   'offer.update': 'تحديث سعر ومتطلبات خدمة',
   'reminder.create': 'إضافة تنبيه وثيقة لعميل',
+  'company.update': 'تحديث بيانات منشأة عميل',
+  'employee.create': 'إضافة موظف لعميل',
+  'employee.update': 'تعديل موظف لعميل',
+  'employee.delete': 'حذف موظف لعميل',
+  'employee.reveal': 'إظهار أرقام هوية موظف',
+  'license.create': 'إضافة ترخيص لعميل',
+  'license.update': 'تعديل ترخيص لعميل',
+  'license.delete': 'حذف ترخيص لعميل',
 };
 
 function auditSummary(entry: AuditLogEntry): string {
@@ -115,6 +123,10 @@ function auditSummary(entry: AuditLogEntry): string {
     return `طلب رقم ${entry.targetId}: فاتورة رقم ${String(entry.details.invoiceId ?? '-')}${total}`;
   }
   if (entry.action === 'reminder.create') return `طلب رقم ${entry.targetId}: تنتهي في ${String(entry.details.expiresOn ?? '-')}`;
+  if (entry.targetType === 'customer') {
+    const what = typeof entry.details.name === 'string' ? `«${entry.details.name}»` : typeof entry.details.title === 'string' ? `«${entry.details.title}»` : '';
+    return `ملف عميل${what ? `: ${what}` : ''}`;
+  }
   if (entry.action === 'offer.update') return `خدمة ${entry.targetId}${entry.details.published ? ' (منشورة)' : ''}`;
   if (entry.action === 'service_request.update') return `طلب رقم ${entry.targetId}`;
   if (entry.action.startsWith('information.')) return typeof entry.details.title === 'string' ? `«${entry.details.title}»` : `معلومة رقم ${entry.targetId}`;

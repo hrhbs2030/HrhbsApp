@@ -35,6 +35,52 @@
       "target_id": "text not null",
       "target_type": "text not null"
     },
+    "hbs_companies": {
+      "activity": "text",
+      "address": "text",
+      "city": "text",
+      "contact_name": "text",
+      "contact_phone": "text",
+      "cr_number": "text",
+      "name": "text not null",
+      "notes": "text",
+      "unified_number": "text",
+      "updated_at": "timestamp with time zone not null",
+      "updated_by": "text not null",
+      "user_id": "text not null",
+      "vat_number": "text"
+    },
+    "hbs_company_employees": {
+      "created_at": "timestamp with time zone not null",
+      "created_by": "text not null",
+      "full_name": "text not null",
+      "id": "integer not null",
+      "id_number": "text",
+      "iqama_expires_on": "date",
+      "nationality": "text",
+      "notes": "text",
+      "occupation": "text",
+      "passport_expires_on": "date",
+      "passport_number": "text",
+      "phone": "text",
+      "status": "text not null",
+      "updated_at": "timestamp with time zone not null",
+      "user_id": "text not null",
+      "work_permit_expires_on": "date"
+    },
+    "hbs_company_licenses": {
+      "created_at": "timestamp with time zone not null",
+      "created_by": "text not null",
+      "expires_on": "date",
+      "id": "integer not null",
+      "issued_on": "date",
+      "kind": "text not null",
+      "notes": "text",
+      "number": "text",
+      "title": "text not null",
+      "updated_at": "timestamp with time zone not null",
+      "user_id": "text not null"
+    },
     "hbs_customer_settings": {
       "updated_at": "timestamp with time zone not null",
       "user_id": "text not null",
@@ -44,11 +90,13 @@
     "hbs_document_reminders": {
       "created_at": "timestamp with time zone not null",
       "created_by": "text not null",
+      "employee_id": "integer",
       "expires_on": "date not null",
       "id": "integer not null",
       "kind": "text not null",
       "label": "text not null",
       "last_reminder_days": "integer",
+      "license_id": "integer",
       "note": "text",
       "updated_at": "timestamp with time zone not null",
       "user_id": "text not null"
@@ -126,6 +174,14 @@
       "size": "integer not null",
       "user_id": "text not null"
     },
+    "hbs_request_messages": {
+      "author_id": "text not null",
+      "author_role": "text not null",
+      "body": "text not null",
+      "created_at": "timestamp with time zone not null",
+      "id": "integer not null",
+      "request_id": "integer not null"
+    },
     "hbs_service_offers": {
       "government_fees_note": "text",
       "price_halalas": "integer",
@@ -145,7 +201,9 @@
       "customer_message": "text",
       "description": "text not null",
       "due_at": "timestamp with time zone",
+      "employee_id": "integer",
       "id": "integer not null",
+      "license_id": "integer",
       "office_note": "text",
       "rated_at": "timestamp with time zone",
       "rating": "integer",
@@ -164,6 +222,14 @@
     }
   },
   "checks": {
+    "hbs_company_employees_status_check": {
+      "table": "hbs_company_employees",
+      "definition": "CHECK ((status = ANY (ARRAY['active'::text, 'left'::text])))"
+    },
+    "hbs_company_licenses_kind_check": {
+      "table": "hbs_company_licenses",
+      "definition": "CHECK ((kind = ANY (ARRAY['commercial_register'::text, 'municipal'::text, 'civil_defense'::text, 'chamber'::text, 'gosi'::text, 'zakat_vat'::text, 'other'::text])))"
+    },
     "hbs_document_reminders_kind_check": {
       "table": "hbs_document_reminders",
       "definition": "CHECK ((kind = ANY (ARRAY['iqama'::text, 'passport'::text, 'commercial_register'::text, 'work_permit'::text, 'other'::text])))"
@@ -187,6 +253,10 @@
     "hbs_registration_requests_status_check": {
       "table": "hbs_registration_requests",
       "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))"
+    },
+    "hbs_request_messages_role_check": {
+      "table": "hbs_request_messages",
+      "definition": "CHECK ((author_role = ANY (ARRAY['customer'::text, 'office'::text])))"
     },
     "hbs_service_offers_days_check": {
       "table": "hbs_service_offers",
@@ -230,13 +300,41 @@
       "table": "hbs_audit_log",
       "definition": "CREATE UNIQUE INDEX hbs_audit_log_pkey ON public.hbs_audit_log USING btree (id)"
     },
+    "hbs_companies_pkey": {
+      "table": "hbs_companies",
+      "definition": "CREATE UNIQUE INDEX hbs_companies_pkey ON public.hbs_companies USING btree (user_id)"
+    },
+    "hbs_company_employees_pkey": {
+      "table": "hbs_company_employees",
+      "definition": "CREATE UNIQUE INDEX hbs_company_employees_pkey ON public.hbs_company_employees USING btree (id)"
+    },
+    "hbs_company_employees_user_idx": {
+      "table": "hbs_company_employees",
+      "definition": "CREATE INDEX hbs_company_employees_user_idx ON public.hbs_company_employees USING btree (user_id)"
+    },
+    "hbs_company_licenses_pkey": {
+      "table": "hbs_company_licenses",
+      "definition": "CREATE UNIQUE INDEX hbs_company_licenses_pkey ON public.hbs_company_licenses USING btree (id)"
+    },
+    "hbs_company_licenses_user_idx": {
+      "table": "hbs_company_licenses",
+      "definition": "CREATE INDEX hbs_company_licenses_user_idx ON public.hbs_company_licenses USING btree (user_id)"
+    },
     "hbs_customer_settings_pkey": {
       "table": "hbs_customer_settings",
       "definition": "CREATE UNIQUE INDEX hbs_customer_settings_pkey ON public.hbs_customer_settings USING btree (user_id)"
     },
+    "hbs_document_reminders_employee_kind_unique": {
+      "table": "hbs_document_reminders",
+      "definition": "CREATE UNIQUE INDEX hbs_document_reminders_employee_kind_unique ON public.hbs_document_reminders USING btree (employee_id, kind)"
+    },
     "hbs_document_reminders_expires_idx": {
       "table": "hbs_document_reminders",
       "definition": "CREATE INDEX hbs_document_reminders_expires_idx ON public.hbs_document_reminders USING btree (expires_on)"
+    },
+    "hbs_document_reminders_license_unique": {
+      "table": "hbs_document_reminders",
+      "definition": "CREATE UNIQUE INDEX hbs_document_reminders_license_unique ON public.hbs_document_reminders USING btree (license_id)"
     },
     "hbs_document_reminders_pkey": {
       "table": "hbs_document_reminders",
@@ -317,6 +415,14 @@
     "hbs_request_attachments_user_idx": {
       "table": "hbs_request_attachments",
       "definition": "CREATE INDEX hbs_request_attachments_user_idx ON public.hbs_request_attachments USING btree (user_id)"
+    },
+    "hbs_request_messages_pkey": {
+      "table": "hbs_request_messages",
+      "definition": "CREATE UNIQUE INDEX hbs_request_messages_pkey ON public.hbs_request_messages USING btree (id)"
+    },
+    "hbs_request_messages_request_idx": {
+      "table": "hbs_request_messages",
+      "definition": "CREATE INDEX hbs_request_messages_request_idx ON public.hbs_request_messages USING btree (request_id, created_at)"
     },
     "hbs_service_offers_pkey": {
       "table": "hbs_service_offers",

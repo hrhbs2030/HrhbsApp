@@ -1,5 +1,5 @@
 import { getAuth } from "@clerk/express";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db, hbsDocumentReminders, hbsRegistrationRequests, hbsRequestAttachments, hbsServiceRequests,
@@ -27,8 +27,13 @@ function reminder(row: HbsDocumentReminder) {
     id: row.id, kind: row.kind, label: row.label, expiresOn: row.expiresOn, note: row.note,
     addedBy: row.createdBy === row.userId ? "customer" as const : "office" as const,
     createdAt: row.createdAt,
+    source: row.employeeId ? "employee" as const : row.licenseId ? "license" as const : "manual" as const,
+    sourceId: row.employeeId ?? row.licenseId ?? null,
   };
 }
+
+// Reminders made from the company file change only through it.
+const manualOnly = and(isNull(hbsDocumentReminders.employeeId), isNull(hbsDocumentReminders.licenseId));
 
 type Input = { kind: HbsDocumentReminder["kind"]; label: string; expiresOn: string; note: string | null };
 
@@ -85,8 +90,8 @@ export function createRemindersRouter(readDocument: DocumentReader = readDocumen
       // A new expiry date starts the reminders again.
       lastReminderDays: sql`case when ${hbsDocumentReminders.expiresOn} = ${input.expiresOn}::date then ${hbsDocumentReminders.lastReminderDays} else null end`,
       updatedAt: new Date(),
-    }).where(and(eq(hbsDocumentReminders.id, params.data.id), eq(hbsDocumentReminders.userId, userId))).returning();
-    if (!row) { res.status(404).json({ error: "Reminder not found" }); return; }
+    }).where(and(eq(hbsDocumentReminders.id, params.data.id), eq(hbsDocumentReminders.userId, userId), manualOnly)).returning();
+    if (!row) { res.status(404).json({ error: "Reminder not found. Dates from the company file are edited there." }); return; }
     send(res, 200, UpdateReminderResponse, reminder(row));
   });
 
@@ -94,7 +99,7 @@ export function createRemindersRouter(readDocument: DocumentReader = readDocumen
     const params = DeleteReminderParams.safeParse(req.params);
     if (!params.success) { res.status(404).json({ error: "Reminder not found" }); return; }
     const [row] = await db.delete(hbsDocumentReminders).where(and(
-      eq(hbsDocumentReminders.id, params.data.id), eq(hbsDocumentReminders.userId, getAuth(req).userId!),
+      eq(hbsDocumentReminders.id, params.data.id), eq(hbsDocumentReminders.userId, getAuth(req).userId!), manualOnly,
     )).returning({ id: hbsDocumentReminders.id });
     if (!row) { res.status(404).json({ error: "Reminder not found" }); return; }
     res.status(204).end();

@@ -35,7 +35,7 @@ const server = await createServer({
       if (id === '@/components/portal-ui' || id.endsWith('/src/components/portal-ui')) return '\0office-ui';
       if (id === '@tanstack/react-query') return '\0office-query';
       // Invoices and document reading have their own API suites.
-      if (/(^@|\/src)\/components\/(request-billing|office-request-extras)(\.tsx)?$/.test(id)) return '\0office-extras';
+      if (/(^@|\/src)\/components\/(request-billing|office-request-extras|request-conversation)(\.tsx)?$/.test(id)) return '\0office-extras';
       if (id === 'wouter') return '\0office-router';
     },
     load(id) {
@@ -49,7 +49,7 @@ const server = await createServer({
         'export const statusOptions = ["received", "reviewing", "waiting_on_customer", "completed"];',
         'export const statusNames = { received: "جديد", reviewing: "مراجعة", waiting_on_customer: "بانتظار العميل", completed: "مكتمل" };',
       ].join('\n');
-      if (id === '\0office-extras') return 'export const OfficeInvoices = () => null; export const ExtractReminder = () => null;';
+      if (id === '\0office-extras') return 'export const OfficeInvoices = () => null; export const ExtractReminder = () => null; export const RequestConversation = () => null; export const ReplyBadge = () => null; export const SubjectChip = () => null;';
       if (id === '\0office-query') return 'export const useQueryClient = () => globalThis.__office.qc;';
       if (id === '\0office-router') return 'export const useSearch = () => globalThis.__office.search; export const Link = ({children}) => children;';
     },

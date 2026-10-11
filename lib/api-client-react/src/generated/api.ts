@@ -29,8 +29,14 @@ import type {
   AttachmentUploadInput,
   AttachmentUploadReservation,
   AuditLogEntry,
+  Company,
+  CompanyFile,
+  CompanyInput,
   CustomerAIAnswer,
   CustomerAIQuestion,
+  Employee,
+  EmployeeInput,
+  EmployeeNumbers,
   ExtractTransactionRequest,
   ExtractedDocument,
   ExtractedTransaction,
@@ -46,10 +52,15 @@ import type {
   LegacyBackupSummary,
   LegacyImportInput,
   LegacyImportSummary,
+  License,
+  LicenseInput,
+  ListOfficeCustomersParams,
   ListOfficeInquiriesParams,
   ListOfficeRemindersParams,
   ListOfficeServiceRequestsParams,
   OfficeAssignee,
+  OfficeCustomerFile,
+  OfficeCustomerListItem,
   OfficeInquiry,
   OfficeInquiryPage,
   OfficeRegistration,
@@ -72,6 +83,8 @@ import type {
   RegistrationReview,
   Reminder,
   ReminderInput,
+  RequestMessage,
+  RequestMessageInput,
   ServiceOffer,
   ServiceOfferInput,
   ServiceRequest,
@@ -5290,4 +5303,1924 @@ export function useGetOfficeReport<TData = Awaited<ReturnType<typeof getOfficeRe
 
 
 
+
+export const getGetCompanyFileUrl = () => {
+
+
+
+
+  return `/api/company`
+}
+
+/**
+ * @summary The signed-in customer's company file (company, employees, licenses)
+ */
+export const getCompanyFile = async ( options?: Parameters<typeof customFetch>[1]): Promise<CompanyFile> => {
+
+  return customFetch<CompanyFile>(getGetCompanyFileUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCompanyFileQueryKey = () => {
+    return [
+    `/api/company`
+    ] as const;
+    }
+
+
+export const getGetCompanyFileQueryOptions = <TData = Awaited<ReturnType<typeof getCompanyFile>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCompanyFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCompanyFileQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCompanyFile>>> = ({ signal }) => getCompanyFile({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCompanyFile>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCompanyFileQueryResult = NonNullable<Awaited<ReturnType<typeof getCompanyFile>>>
+export type GetCompanyFileQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The signed-in customer's company file (company, employees, licenses)
+ */
+
+export function useGetCompanyFile<TData = Awaited<ReturnType<typeof getCompanyFile>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCompanyFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCompanyFileQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveCompanyUrl = () => {
+
+
+
+
+  return `/api/company`
+}
+
+/**
+ * @summary Save the signed-in customer's company details
+ */
+export const saveCompany = async (companyInput: CompanyInput, options?: Parameters<typeof customFetch>[1]): Promise<Company> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Company>(getSaveCompanyUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(companyInput)
+  }
+);}
+
+
+
+
+
+export const getSaveCompanyMutationKey = () => ['saveCompany'] as const;
+
+export const getSaveCompanyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveCompany>>, TError,SaveCompanyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveCompany>>, TError,SaveCompanyMutationVariables, TContext> => {
+
+const mutationKey = getSaveCompanyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveCompany>>, SaveCompanyMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveCompany(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveCompanyMutationResult = NonNullable<Awaited<ReturnType<typeof saveCompany>>>
+    export type SaveCompanyMutationBody = BodyType<CompanyInput>
+    export type SaveCompanyMutationError = ErrorType<void>
+    export type SaveCompanyMutationVariables = {data: BodyType<CompanyInput>}
+
+    /**
+ * @summary Save the signed-in customer's company details
+ */
+export const useSaveCompany = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveCompany>>, TError,SaveCompanyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveCompany>>,
+        TError,
+        SaveCompanyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSaveCompanyMutationOptions(options));
+    }
+
+export const getCreateEmployeeUrl = () => {
+
+
+
+
+  return `/api/company/employees`
+}
+
+/**
+ * @summary Add an employee to the signed-in customer's company file
+ */
+export const createEmployee = async (employeeInput: EmployeeInput, options?: Parameters<typeof customFetch>[1]): Promise<Employee> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Employee>(getCreateEmployeeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(employeeInput)
+  }
+);}
+
+
+
+
+
+export const getCreateEmployeeMutationKey = () => ['createEmployee'] as const;
+
+export const getCreateEmployeeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEmployee>>, TError,CreateEmployeeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createEmployee>>, TError,CreateEmployeeMutationVariables, TContext> => {
+
+const mutationKey = getCreateEmployeeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEmployee>>, CreateEmployeeMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createEmployee(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateEmployeeMutationResult = NonNullable<Awaited<ReturnType<typeof createEmployee>>>
+    export type CreateEmployeeMutationBody = BodyType<EmployeeInput>
+    export type CreateEmployeeMutationError = ErrorType<void>
+    export type CreateEmployeeMutationVariables = {data: BodyType<EmployeeInput>}
+
+    /**
+ * @summary Add an employee to the signed-in customer's company file
+ */
+export const useCreateEmployee = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEmployee>>, TError,CreateEmployeeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createEmployee>>,
+        TError,
+        CreateEmployeeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateEmployeeMutationOptions(options));
+    }
+
+export const getUpdateEmployeeUrl = (id: number,) => {
+
+
+
+
+  return `/api/company/employees/${id}`
+}
+
+/**
+ * @summary Update one of the signed-in customer's employees
+ */
+export const updateEmployee = async (id: number,
+    employeeInput: EmployeeInput, options?: Parameters<typeof customFetch>[1]): Promise<Employee> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Employee>(getUpdateEmployeeUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(employeeInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateEmployeeMutationKey = () => ['updateEmployee'] as const;
+
+export const getUpdateEmployeeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEmployee>>, TError,UpdateEmployeeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateEmployee>>, TError,UpdateEmployeeMutationVariables, TContext> => {
+
+const mutationKey = getUpdateEmployeeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEmployee>>, UpdateEmployeeMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateEmployee(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateEmployeeMutationResult = NonNullable<Awaited<ReturnType<typeof updateEmployee>>>
+    export type UpdateEmployeeMutationBody = BodyType<EmployeeInput>
+    export type UpdateEmployeeMutationError = ErrorType<void>
+    export type UpdateEmployeeMutationVariables = {id: number;data: BodyType<EmployeeInput>}
+
+    /**
+ * @summary Update one of the signed-in customer's employees
+ */
+export const useUpdateEmployee = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEmployee>>, TError,UpdateEmployeeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateEmployee>>,
+        TError,
+        UpdateEmployeeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateEmployeeMutationOptions(options));
+    }
+
+export const getDeleteEmployeeUrl = (id: number,) => {
+
+
+
+
+  return `/api/company/employees/${id}`
+}
+
+/**
+ * @summary Remove one of the signed-in customer's employees
+ */
+export const deleteEmployee = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteEmployeeUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteEmployeeMutationKey = () => ['deleteEmployee'] as const;
+
+export const getDeleteEmployeeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEmployee>>, TError,DeleteEmployeeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteEmployee>>, TError,DeleteEmployeeMutationVariables, TContext> => {
+
+const mutationKey = getDeleteEmployeeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteEmployee>>, DeleteEmployeeMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteEmployee(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteEmployeeMutationResult = NonNullable<Awaited<ReturnType<typeof deleteEmployee>>>
+
+    export type DeleteEmployeeMutationError = ErrorType<void>
+    export type DeleteEmployeeMutationVariables = {id: number}
+
+    /**
+ * @summary Remove one of the signed-in customer's employees
+ */
+export const useDeleteEmployee = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEmployee>>, TError,DeleteEmployeeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteEmployee>>,
+        TError,
+        DeleteEmployeeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteEmployeeMutationOptions(options));
+    }
+
+export const getGetEmployeeNumbersUrl = (id: number,) => {
+
+
+
+
+  return `/api/company/employees/${id}/numbers`
+}
+
+/**
+ * @summary Full identity and passport numbers of one of the signed-in customer's employees
+ */
+export const getEmployeeNumbers = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<EmployeeNumbers> => {
+
+  return customFetch<EmployeeNumbers>(getGetEmployeeNumbersUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEmployeeNumbersQueryKey = (id: number,) => {
+    return [
+    `/api/company/employees/${id}/numbers`
+    ] as const;
+    }
+
+
+export const getGetEmployeeNumbersQueryOptions = <TData = Awaited<ReturnType<typeof getEmployeeNumbers>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEmployeeNumbers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEmployeeNumbersQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEmployeeNumbers>>> = ({ signal }) => getEmployeeNumbers(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEmployeeNumbers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEmployeeNumbersQueryResult = NonNullable<Awaited<ReturnType<typeof getEmployeeNumbers>>>
+export type GetEmployeeNumbersQueryError = ErrorType<void>
+
+
+/**
+ * @summary Full identity and passport numbers of one of the signed-in customer's employees
+ */
+
+export function useGetEmployeeNumbers<TData = Awaited<ReturnType<typeof getEmployeeNumbers>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEmployeeNumbers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEmployeeNumbersQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateLicenseUrl = () => {
+
+
+
+
+  return `/api/company/licenses`
+}
+
+/**
+ * @summary Add a license to the signed-in customer's company file
+ */
+export const createLicense = async (licenseInput: LicenseInput, options?: Parameters<typeof customFetch>[1]): Promise<License> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<License>(getCreateLicenseUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(licenseInput)
+  }
+);}
+
+
+
+
+
+export const getCreateLicenseMutationKey = () => ['createLicense'] as const;
+
+export const getCreateLicenseMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLicense>>, TError,CreateLicenseMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createLicense>>, TError,CreateLicenseMutationVariables, TContext> => {
+
+const mutationKey = getCreateLicenseMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLicense>>, CreateLicenseMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createLicense(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateLicenseMutationResult = NonNullable<Awaited<ReturnType<typeof createLicense>>>
+    export type CreateLicenseMutationBody = BodyType<LicenseInput>
+    export type CreateLicenseMutationError = ErrorType<void>
+    export type CreateLicenseMutationVariables = {data: BodyType<LicenseInput>}
+
+    /**
+ * @summary Add a license to the signed-in customer's company file
+ */
+export const useCreateLicense = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLicense>>, TError,CreateLicenseMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createLicense>>,
+        TError,
+        CreateLicenseMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateLicenseMutationOptions(options));
+    }
+
+export const getUpdateLicenseUrl = (id: number,) => {
+
+
+
+
+  return `/api/company/licenses/${id}`
+}
+
+/**
+ * @summary Update one of the signed-in customer's licenses
+ */
+export const updateLicense = async (id: number,
+    licenseInput: LicenseInput, options?: Parameters<typeof customFetch>[1]): Promise<License> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<License>(getUpdateLicenseUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(licenseInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateLicenseMutationKey = () => ['updateLicense'] as const;
+
+export const getUpdateLicenseMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLicense>>, TError,UpdateLicenseMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateLicense>>, TError,UpdateLicenseMutationVariables, TContext> => {
+
+const mutationKey = getUpdateLicenseMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateLicense>>, UpdateLicenseMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateLicense(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateLicenseMutationResult = NonNullable<Awaited<ReturnType<typeof updateLicense>>>
+    export type UpdateLicenseMutationBody = BodyType<LicenseInput>
+    export type UpdateLicenseMutationError = ErrorType<void>
+    export type UpdateLicenseMutationVariables = {id: number;data: BodyType<LicenseInput>}
+
+    /**
+ * @summary Update one of the signed-in customer's licenses
+ */
+export const useUpdateLicense = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLicense>>, TError,UpdateLicenseMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateLicense>>,
+        TError,
+        UpdateLicenseMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateLicenseMutationOptions(options));
+    }
+
+export const getDeleteLicenseUrl = (id: number,) => {
+
+
+
+
+  return `/api/company/licenses/${id}`
+}
+
+/**
+ * @summary Remove one of the signed-in customer's licenses
+ */
+export const deleteLicense = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteLicenseUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteLicenseMutationKey = () => ['deleteLicense'] as const;
+
+export const getDeleteLicenseMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLicense>>, TError,DeleteLicenseMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteLicense>>, TError,DeleteLicenseMutationVariables, TContext> => {
+
+const mutationKey = getDeleteLicenseMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteLicense>>, DeleteLicenseMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteLicense(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteLicenseMutationResult = NonNullable<Awaited<ReturnType<typeof deleteLicense>>>
+
+    export type DeleteLicenseMutationError = ErrorType<void>
+    export type DeleteLicenseMutationVariables = {id: number}
+
+    /**
+ * @summary Remove one of the signed-in customer's licenses
+ */
+export const useDeleteLicense = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLicense>>, TError,DeleteLicenseMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteLicense>>,
+        TError,
+        DeleteLicenseMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteLicenseMutationOptions(options));
+    }
+
+export const getListOfficeCustomersUrl = (params?: ListOfficeCustomersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/office/customers?${stringifiedParams}` : `/api/office/customers`
+}
+
+/**
+ * @summary Staff-only customer directory
+ */
+export const listOfficeCustomers = async (params?: ListOfficeCustomersParams, options?: Parameters<typeof customFetch>[1]): Promise<OfficeCustomerListItem[]> => {
+
+  return customFetch<OfficeCustomerListItem[]>(getListOfficeCustomersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeCustomersQueryKey = (params?: ListOfficeCustomersParams,) => {
+    return [
+    `/api/office/customers`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListOfficeCustomersQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeCustomers>>, TError = ErrorType<void>>(params?: ListOfficeCustomersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeCustomers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeCustomersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeCustomers>>> = ({ signal }) => listOfficeCustomers(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeCustomers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeCustomersQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeCustomers>>>
+export type ListOfficeCustomersQueryError = ErrorType<void>
+
+
+/**
+ * @summary Staff-only customer directory
+ */
+
+export function useListOfficeCustomers<TData = Awaited<ReturnType<typeof listOfficeCustomers>>, TError = ErrorType<void>>(
+ params?: ListOfficeCustomersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeCustomers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeCustomersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetOfficeCustomerFileUrl = (userId: string,) => {
+
+
+
+
+  return `/api/office/customers/${userId}`
+}
+
+/**
+ * @summary Staff-only full customer file
+ */
+export const getOfficeCustomerFile = async (userId: string, options?: Parameters<typeof customFetch>[1]): Promise<OfficeCustomerFile> => {
+
+  return customFetch<OfficeCustomerFile>(getGetOfficeCustomerFileUrl(userId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOfficeCustomerFileQueryKey = (userId: string,) => {
+    return [
+    `/api/office/customers/${userId}`
+    ] as const;
+    }
+
+
+export const getGetOfficeCustomerFileQueryOptions = <TData = Awaited<ReturnType<typeof getOfficeCustomerFile>>, TError = ErrorType<void>>(userId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeCustomerFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOfficeCustomerFileQueryKey(userId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOfficeCustomerFile>>> = ({ signal }) => getOfficeCustomerFile(userId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: userId !== null && userId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOfficeCustomerFile>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOfficeCustomerFileQueryResult = NonNullable<Awaited<ReturnType<typeof getOfficeCustomerFile>>>
+export type GetOfficeCustomerFileQueryError = ErrorType<void>
+
+
+/**
+ * @summary Staff-only full customer file
+ */
+
+export function useGetOfficeCustomerFile<TData = Awaited<ReturnType<typeof getOfficeCustomerFile>>, TError = ErrorType<void>>(
+ userId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeCustomerFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOfficeCustomerFileQueryOptions(userId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveOfficeCustomerCompanyUrl = (userId: string,) => {
+
+
+
+
+  return `/api/office/customers/${userId}/company`
+}
+
+/**
+ * @summary Staff-only save a customer's company details (audited)
+ */
+export const saveOfficeCustomerCompany = async (userId: string,
+    companyInput: CompanyInput, options?: Parameters<typeof customFetch>[1]): Promise<Company> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Company>(getSaveOfficeCustomerCompanyUrl(userId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(companyInput)
+  }
+);}
+
+
+
+
+
+export const getSaveOfficeCustomerCompanyMutationKey = () => ['saveOfficeCustomerCompany'] as const;
+
+export const getSaveOfficeCustomerCompanyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveOfficeCustomerCompany>>, TError,SaveOfficeCustomerCompanyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveOfficeCustomerCompany>>, TError,SaveOfficeCustomerCompanyMutationVariables, TContext> => {
+
+const mutationKey = getSaveOfficeCustomerCompanyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveOfficeCustomerCompany>>, SaveOfficeCustomerCompanyMutationVariables> = (props) => {
+          const {userId,data} = props ?? {};
+
+          return  saveOfficeCustomerCompany(userId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveOfficeCustomerCompanyMutationResult = NonNullable<Awaited<ReturnType<typeof saveOfficeCustomerCompany>>>
+    export type SaveOfficeCustomerCompanyMutationBody = BodyType<CompanyInput>
+    export type SaveOfficeCustomerCompanyMutationError = ErrorType<void>
+    export type SaveOfficeCustomerCompanyMutationVariables = {userId: string;data: BodyType<CompanyInput>}
+
+    /**
+ * @summary Staff-only save a customer's company details (audited)
+ */
+export const useSaveOfficeCustomerCompany = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveOfficeCustomerCompany>>, TError,SaveOfficeCustomerCompanyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveOfficeCustomerCompany>>,
+        TError,
+        SaveOfficeCustomerCompanyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSaveOfficeCustomerCompanyMutationOptions(options));
+    }
+
+export const getCreateOfficeCustomerEmployeeUrl = (userId: string,) => {
+
+
+
+
+  return `/api/office/customers/${userId}/employees`
+}
+
+/**
+ * @summary Staff-only add an employee to a customer's company file (audited)
+ */
+export const createOfficeCustomerEmployee = async (userId: string,
+    employeeInput: EmployeeInput, options?: Parameters<typeof customFetch>[1]): Promise<Employee> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Employee>(getCreateOfficeCustomerEmployeeUrl(userId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(employeeInput)
+  }
+);}
+
+
+
+
+
+export const getCreateOfficeCustomerEmployeeMutationKey = () => ['createOfficeCustomerEmployee'] as const;
+
+export const getCreateOfficeCustomerEmployeeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOfficeCustomerEmployee>>, TError,CreateOfficeCustomerEmployeeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createOfficeCustomerEmployee>>, TError,CreateOfficeCustomerEmployeeMutationVariables, TContext> => {
+
+const mutationKey = getCreateOfficeCustomerEmployeeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createOfficeCustomerEmployee>>, CreateOfficeCustomerEmployeeMutationVariables> = (props) => {
+          const {userId,data} = props ?? {};
+
+          return  createOfficeCustomerEmployee(userId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateOfficeCustomerEmployeeMutationResult = NonNullable<Awaited<ReturnType<typeof createOfficeCustomerEmployee>>>
+    export type CreateOfficeCustomerEmployeeMutationBody = BodyType<EmployeeInput>
+    export type CreateOfficeCustomerEmployeeMutationError = ErrorType<void>
+    export type CreateOfficeCustomerEmployeeMutationVariables = {userId: string;data: BodyType<EmployeeInput>}
+
+    /**
+ * @summary Staff-only add an employee to a customer's company file (audited)
+ */
+export const useCreateOfficeCustomerEmployee = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOfficeCustomerEmployee>>, TError,CreateOfficeCustomerEmployeeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createOfficeCustomerEmployee>>,
+        TError,
+        CreateOfficeCustomerEmployeeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateOfficeCustomerEmployeeMutationOptions(options));
+    }
+
+export const getUpdateOfficeCustomerEmployeeUrl = (userId: string,
+    id: number,) => {
+
+
+
+
+  return `/api/office/customers/${userId}/employees/${id}`
+}
+
+/**
+ * @summary Staff-only update a customer's employee (audited)
+ */
+export const updateOfficeCustomerEmployee = async (userId: string,
+    id: number,
+    employeeInput: EmployeeInput, options?: Parameters<typeof customFetch>[1]): Promise<Employee> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Employee>(getUpdateOfficeCustomerEmployeeUrl(userId,id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(employeeInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateOfficeCustomerEmployeeMutationKey = () => ['updateOfficeCustomerEmployee'] as const;
+
+export const getUpdateOfficeCustomerEmployeeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficeCustomerEmployee>>, TError,UpdateOfficeCustomerEmployeeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateOfficeCustomerEmployee>>, TError,UpdateOfficeCustomerEmployeeMutationVariables, TContext> => {
+
+const mutationKey = getUpdateOfficeCustomerEmployeeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOfficeCustomerEmployee>>, UpdateOfficeCustomerEmployeeMutationVariables> = (props) => {
+          const {userId,id,data} = props ?? {};
+
+          return  updateOfficeCustomerEmployee(userId,id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateOfficeCustomerEmployeeMutationResult = NonNullable<Awaited<ReturnType<typeof updateOfficeCustomerEmployee>>>
+    export type UpdateOfficeCustomerEmployeeMutationBody = BodyType<EmployeeInput>
+    export type UpdateOfficeCustomerEmployeeMutationError = ErrorType<void>
+    export type UpdateOfficeCustomerEmployeeMutationVariables = {userId: string;id: number;data: BodyType<EmployeeInput>}
+
+    /**
+ * @summary Staff-only update a customer's employee (audited)
+ */
+export const useUpdateOfficeCustomerEmployee = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficeCustomerEmployee>>, TError,UpdateOfficeCustomerEmployeeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateOfficeCustomerEmployee>>,
+        TError,
+        UpdateOfficeCustomerEmployeeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateOfficeCustomerEmployeeMutationOptions(options));
+    }
+
+export const getDeleteOfficeCustomerEmployeeUrl = (userId: string,
+    id: number,) => {
+
+
+
+
+  return `/api/office/customers/${userId}/employees/${id}`
+}
+
+/**
+ * @summary Staff-only remove a customer's employee (audited)
+ */
+export const deleteOfficeCustomerEmployee = async (userId: string,
+    id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteOfficeCustomerEmployeeUrl(userId,id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteOfficeCustomerEmployeeMutationKey = () => ['deleteOfficeCustomerEmployee'] as const;
+
+export const getDeleteOfficeCustomerEmployeeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeCustomerEmployee>>, TError,DeleteOfficeCustomerEmployeeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeCustomerEmployee>>, TError,DeleteOfficeCustomerEmployeeMutationVariables, TContext> => {
+
+const mutationKey = getDeleteOfficeCustomerEmployeeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteOfficeCustomerEmployee>>, DeleteOfficeCustomerEmployeeMutationVariables> = (props) => {
+          const {userId,id} = props ?? {};
+
+          return  deleteOfficeCustomerEmployee(userId,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteOfficeCustomerEmployeeMutationResult = NonNullable<Awaited<ReturnType<typeof deleteOfficeCustomerEmployee>>>
+
+    export type DeleteOfficeCustomerEmployeeMutationError = ErrorType<void>
+    export type DeleteOfficeCustomerEmployeeMutationVariables = {userId: string;id: number}
+
+    /**
+ * @summary Staff-only remove a customer's employee (audited)
+ */
+export const useDeleteOfficeCustomerEmployee = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeCustomerEmployee>>, TError,DeleteOfficeCustomerEmployeeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteOfficeCustomerEmployee>>,
+        TError,
+        DeleteOfficeCustomerEmployeeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteOfficeCustomerEmployeeMutationOptions(options));
+    }
+
+export const getGetOfficeCustomerEmployeeNumbersUrl = (userId: string,
+    id: number,) => {
+
+
+
+
+  return `/api/office/customers/${userId}/employees/${id}/numbers`
+}
+
+/**
+ * @summary Staff-only full identity and passport numbers (audited)
+ */
+export const getOfficeCustomerEmployeeNumbers = async (userId: string,
+    id: number, options?: Parameters<typeof customFetch>[1]): Promise<EmployeeNumbers> => {
+
+  return customFetch<EmployeeNumbers>(getGetOfficeCustomerEmployeeNumbersUrl(userId,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOfficeCustomerEmployeeNumbersQueryKey = (userId: string,
+    id: number,) => {
+    return [
+    `/api/office/customers/${userId}/employees/${id}/numbers`
+    ] as const;
+    }
+
+
+export const getGetOfficeCustomerEmployeeNumbersQueryOptions = <TData = Awaited<ReturnType<typeof getOfficeCustomerEmployeeNumbers>>, TError = ErrorType<void>>(userId: string,
+    id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeCustomerEmployeeNumbers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOfficeCustomerEmployeeNumbersQueryKey(userId,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOfficeCustomerEmployeeNumbers>>> = ({ signal }) => getOfficeCustomerEmployeeNumbers(userId,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: userId !== null && userId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOfficeCustomerEmployeeNumbers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOfficeCustomerEmployeeNumbersQueryResult = NonNullable<Awaited<ReturnType<typeof getOfficeCustomerEmployeeNumbers>>>
+export type GetOfficeCustomerEmployeeNumbersQueryError = ErrorType<void>
+
+
+/**
+ * @summary Staff-only full identity and passport numbers (audited)
+ */
+
+export function useGetOfficeCustomerEmployeeNumbers<TData = Awaited<ReturnType<typeof getOfficeCustomerEmployeeNumbers>>, TError = ErrorType<void>>(
+ userId: string,
+    id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeCustomerEmployeeNumbers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOfficeCustomerEmployeeNumbersQueryOptions(userId,id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateOfficeCustomerLicenseUrl = (userId: string,) => {
+
+
+
+
+  return `/api/office/customers/${userId}/licenses`
+}
+
+/**
+ * @summary Staff-only add a license to a customer's company file (audited)
+ */
+export const createOfficeCustomerLicense = async (userId: string,
+    licenseInput: LicenseInput, options?: Parameters<typeof customFetch>[1]): Promise<License> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<License>(getCreateOfficeCustomerLicenseUrl(userId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(licenseInput)
+  }
+);}
+
+
+
+
+
+export const getCreateOfficeCustomerLicenseMutationKey = () => ['createOfficeCustomerLicense'] as const;
+
+export const getCreateOfficeCustomerLicenseMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOfficeCustomerLicense>>, TError,CreateOfficeCustomerLicenseMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createOfficeCustomerLicense>>, TError,CreateOfficeCustomerLicenseMutationVariables, TContext> => {
+
+const mutationKey = getCreateOfficeCustomerLicenseMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createOfficeCustomerLicense>>, CreateOfficeCustomerLicenseMutationVariables> = (props) => {
+          const {userId,data} = props ?? {};
+
+          return  createOfficeCustomerLicense(userId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateOfficeCustomerLicenseMutationResult = NonNullable<Awaited<ReturnType<typeof createOfficeCustomerLicense>>>
+    export type CreateOfficeCustomerLicenseMutationBody = BodyType<LicenseInput>
+    export type CreateOfficeCustomerLicenseMutationError = ErrorType<void>
+    export type CreateOfficeCustomerLicenseMutationVariables = {userId: string;data: BodyType<LicenseInput>}
+
+    /**
+ * @summary Staff-only add a license to a customer's company file (audited)
+ */
+export const useCreateOfficeCustomerLicense = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOfficeCustomerLicense>>, TError,CreateOfficeCustomerLicenseMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createOfficeCustomerLicense>>,
+        TError,
+        CreateOfficeCustomerLicenseMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateOfficeCustomerLicenseMutationOptions(options));
+    }
+
+export const getUpdateOfficeCustomerLicenseUrl = (userId: string,
+    id: number,) => {
+
+
+
+
+  return `/api/office/customers/${userId}/licenses/${id}`
+}
+
+/**
+ * @summary Staff-only update a customer's license (audited)
+ */
+export const updateOfficeCustomerLicense = async (userId: string,
+    id: number,
+    licenseInput: LicenseInput, options?: Parameters<typeof customFetch>[1]): Promise<License> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<License>(getUpdateOfficeCustomerLicenseUrl(userId,id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(licenseInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateOfficeCustomerLicenseMutationKey = () => ['updateOfficeCustomerLicense'] as const;
+
+export const getUpdateOfficeCustomerLicenseMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficeCustomerLicense>>, TError,UpdateOfficeCustomerLicenseMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateOfficeCustomerLicense>>, TError,UpdateOfficeCustomerLicenseMutationVariables, TContext> => {
+
+const mutationKey = getUpdateOfficeCustomerLicenseMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOfficeCustomerLicense>>, UpdateOfficeCustomerLicenseMutationVariables> = (props) => {
+          const {userId,id,data} = props ?? {};
+
+          return  updateOfficeCustomerLicense(userId,id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateOfficeCustomerLicenseMutationResult = NonNullable<Awaited<ReturnType<typeof updateOfficeCustomerLicense>>>
+    export type UpdateOfficeCustomerLicenseMutationBody = BodyType<LicenseInput>
+    export type UpdateOfficeCustomerLicenseMutationError = ErrorType<void>
+    export type UpdateOfficeCustomerLicenseMutationVariables = {userId: string;id: number;data: BodyType<LicenseInput>}
+
+    /**
+ * @summary Staff-only update a customer's license (audited)
+ */
+export const useUpdateOfficeCustomerLicense = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficeCustomerLicense>>, TError,UpdateOfficeCustomerLicenseMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateOfficeCustomerLicense>>,
+        TError,
+        UpdateOfficeCustomerLicenseMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateOfficeCustomerLicenseMutationOptions(options));
+    }
+
+export const getDeleteOfficeCustomerLicenseUrl = (userId: string,
+    id: number,) => {
+
+
+
+
+  return `/api/office/customers/${userId}/licenses/${id}`
+}
+
+/**
+ * @summary Staff-only remove a customer's license (audited)
+ */
+export const deleteOfficeCustomerLicense = async (userId: string,
+    id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteOfficeCustomerLicenseUrl(userId,id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteOfficeCustomerLicenseMutationKey = () => ['deleteOfficeCustomerLicense'] as const;
+
+export const getDeleteOfficeCustomerLicenseMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeCustomerLicense>>, TError,DeleteOfficeCustomerLicenseMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeCustomerLicense>>, TError,DeleteOfficeCustomerLicenseMutationVariables, TContext> => {
+
+const mutationKey = getDeleteOfficeCustomerLicenseMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteOfficeCustomerLicense>>, DeleteOfficeCustomerLicenseMutationVariables> = (props) => {
+          const {userId,id} = props ?? {};
+
+          return  deleteOfficeCustomerLicense(userId,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteOfficeCustomerLicenseMutationResult = NonNullable<Awaited<ReturnType<typeof deleteOfficeCustomerLicense>>>
+
+    export type DeleteOfficeCustomerLicenseMutationError = ErrorType<void>
+    export type DeleteOfficeCustomerLicenseMutationVariables = {userId: string;id: number}
+
+    /**
+ * @summary Staff-only remove a customer's license (audited)
+ */
+export const useDeleteOfficeCustomerLicense = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeCustomerLicense>>, TError,DeleteOfficeCustomerLicenseMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteOfficeCustomerLicense>>,
+        TError,
+        DeleteOfficeCustomerLicenseMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteOfficeCustomerLicenseMutationOptions(options));
+    }
+
+export const getListServiceRequestMessagesUrl = (id: number,) => {
+
+
+
+
+  return `/api/service-requests/${id}/messages`
+}
+
+/**
+ * @summary Conversation on a request owned by the signed-in customer, oldest first
+ */
+export const listServiceRequestMessages = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<RequestMessage[]> => {
+
+  return customFetch<RequestMessage[]>(getListServiceRequestMessagesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListServiceRequestMessagesQueryKey = (id: number,) => {
+    return [
+    `/api/service-requests/${id}/messages`
+    ] as const;
+    }
+
+
+export const getListServiceRequestMessagesQueryOptions = <TData = Awaited<ReturnType<typeof listServiceRequestMessages>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listServiceRequestMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListServiceRequestMessagesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listServiceRequestMessages>>> = ({ signal }) => listServiceRequestMessages(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listServiceRequestMessages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListServiceRequestMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof listServiceRequestMessages>>>
+export type ListServiceRequestMessagesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Conversation on a request owned by the signed-in customer, oldest first
+ */
+
+export function useListServiceRequestMessages<TData = Awaited<ReturnType<typeof listServiceRequestMessages>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listServiceRequestMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListServiceRequestMessagesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendServiceRequestMessageUrl = (id: number,) => {
+
+
+
+
+  return `/api/service-requests/${id}/messages`
+}
+
+/**
+ * @summary Send a message to the office on the customer's own request
+ */
+export const sendServiceRequestMessage = async (id: number,
+    requestMessageInput: RequestMessageInput, options?: Parameters<typeof customFetch>[1]): Promise<RequestMessage> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RequestMessage>(getSendServiceRequestMessageUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(requestMessageInput)
+  }
+);}
+
+
+
+
+
+export const getSendServiceRequestMessageMutationKey = () => ['sendServiceRequestMessage'] as const;
+
+export const getSendServiceRequestMessageMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendServiceRequestMessage>>, TError,SendServiceRequestMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendServiceRequestMessage>>, TError,SendServiceRequestMessageMutationVariables, TContext> => {
+
+const mutationKey = getSendServiceRequestMessageMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendServiceRequestMessage>>, SendServiceRequestMessageMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendServiceRequestMessage(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendServiceRequestMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendServiceRequestMessage>>>
+    export type SendServiceRequestMessageMutationBody = BodyType<RequestMessageInput>
+    export type SendServiceRequestMessageMutationError = ErrorType<void>
+    export type SendServiceRequestMessageMutationVariables = {id: number;data: BodyType<RequestMessageInput>}
+
+    /**
+ * @summary Send a message to the office on the customer's own request
+ */
+export const useSendServiceRequestMessage = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendServiceRequestMessage>>, TError,SendServiceRequestMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendServiceRequestMessage>>,
+        TError,
+        SendServiceRequestMessageMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSendServiceRequestMessageMutationOptions(options));
+    }
+
+export const getListOfficeServiceRequestMessagesUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/service-requests/${id}/messages`
+}
+
+/**
+ * @summary Staff-only conversation on a request, oldest first
+ */
+export const listOfficeServiceRequestMessages = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<RequestMessage[]> => {
+
+  return customFetch<RequestMessage[]>(getListOfficeServiceRequestMessagesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeServiceRequestMessagesQueryKey = (id: number,) => {
+    return [
+    `/api/office/service-requests/${id}/messages`
+    ] as const;
+    }
+
+
+export const getListOfficeServiceRequestMessagesQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeServiceRequestMessages>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceRequestMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeServiceRequestMessagesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeServiceRequestMessages>>> = ({ signal }) => listOfficeServiceRequestMessages(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceRequestMessages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeServiceRequestMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeServiceRequestMessages>>>
+export type ListOfficeServiceRequestMessagesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Staff-only conversation on a request, oldest first
+ */
+
+export function useListOfficeServiceRequestMessages<TData = Awaited<ReturnType<typeof listOfficeServiceRequestMessages>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceRequestMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeServiceRequestMessagesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendOfficeServiceRequestMessageUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/service-requests/${id}/messages`
+}
+
+/**
+ * @summary Staff-only message to the customer on a request
+ */
+export const sendOfficeServiceRequestMessage = async (id: number,
+    requestMessageInput: RequestMessageInput, options?: Parameters<typeof customFetch>[1]): Promise<RequestMessage> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RequestMessage>(getSendOfficeServiceRequestMessageUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(requestMessageInput)
+  }
+);}
+
+
+
+
+
+export const getSendOfficeServiceRequestMessageMutationKey = () => ['sendOfficeServiceRequestMessage'] as const;
+
+export const getSendOfficeServiceRequestMessageMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendOfficeServiceRequestMessage>>, TError,SendOfficeServiceRequestMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendOfficeServiceRequestMessage>>, TError,SendOfficeServiceRequestMessageMutationVariables, TContext> => {
+
+const mutationKey = getSendOfficeServiceRequestMessageMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendOfficeServiceRequestMessage>>, SendOfficeServiceRequestMessageMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendOfficeServiceRequestMessage(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendOfficeServiceRequestMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendOfficeServiceRequestMessage>>>
+    export type SendOfficeServiceRequestMessageMutationBody = BodyType<RequestMessageInput>
+    export type SendOfficeServiceRequestMessageMutationError = ErrorType<void>
+    export type SendOfficeServiceRequestMessageMutationVariables = {id: number;data: BodyType<RequestMessageInput>}
+
+    /**
+ * @summary Staff-only message to the customer on a request
+ */
+export const useSendOfficeServiceRequestMessage = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendOfficeServiceRequestMessage>>, TError,SendOfficeServiceRequestMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendOfficeServiceRequestMessage>>,
+        TError,
+        SendOfficeServiceRequestMessageMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSendOfficeServiceRequestMessageMutationOptions(options));
+    }
 

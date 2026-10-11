@@ -1,0 +1,14 @@
+.rc { display: grid; gap: 12px; scroll-margin-top: 96px; }
+.rc-thread { display: grid; gap: 10px; max-height: 420px; overflow-y: auto; padding: 14px; border: 1px solid var(--color-line); border-radius: 14px; background: var(--color-paper); }
+.rc-empty { margin: 0; font-size: 13px; line-height: 1.9; color: var(--color-subtle); }
+.rc-msg { display: grid; justify-items: end; gap: 3px; }
+.rc-msg.is-mine { justify-items: start; }
+.rc-bubble { max-width: min(85%, 520px); padding: 10px 14px; border-radius: 14px 14px 4px 14px; background: var(--color-surface); border: 1px solid var(--color-line); }
+.rc-msg.is-mine .rc-bubble { border-radius: 14px 14px 14px 4px; background: var(--color-teal); border-color: var(--color-teal); color: var(--color-on-dark); }
+.rc-bubble p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.85; }
+.rc-meta { font-size: 11.5px; color: var(--color-subtle); }
+.rc-form { display: flex; gap: 8px; align-items: flex-end; }
+.rc-form textarea { min-height: 52px !important; resize: vertical; }
+.rc-subject { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; background: var(--color-sage); font-size: 12px; color: var(--color-quiet); }
+.rc-subject b { color: var(--color-ink); }
+.rc-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; background: var(--color-info-soft); color: var(--color-info); font-size: 12px; font-weight: 700; white-space: nowrap; }

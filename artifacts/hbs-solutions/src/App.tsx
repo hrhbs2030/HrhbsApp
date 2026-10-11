@@ -46,6 +46,10 @@ const officeExtras = () => import('@/pages/office-extras');
 const OfficeReminders = lazy(() => officeExtras().then(m => ({ default: m.OfficeReminders })));
 const OfficeCatalog = lazy(() => officeExtras().then(m => ({ default: m.OfficeCatalog })));
 const OfficeReports = lazy(() => officeExtras().then(m => ({ default: m.OfficeReports })));
+const companyPages = () => import('@/pages/company');
+const CompanyPage = lazy(() => companyPages().then(m => ({ default: m.CompanyPage })));
+const OfficeCustomers = lazy(() => companyPages().then(m => ({ default: m.OfficeCustomers })));
+const OfficeCustomerFilePage = lazy(() => companyPages().then(m => ({ default: m.OfficeCustomerFilePage })));
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -177,8 +181,8 @@ function AuthPage({kind}:{kind:'sign-in'|'sign-up'}) {
 }
 function Missing() { return <main dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center p-6 text-center text-on-dark"><SceneWindow edge="top"/><div className="relative rounded-[22px] bg-night/70 px-8 py-10 backdrop-blur"><div className="display text-7xl font-semibold text-copper-light">404</div><h1 className="display mt-5 text-2xl">الصفحة غير موجودة</h1><p className="mt-3 text-sm text-on-dark-2">قد يكون الرابط غير صحيح أو تغيّر مكان الصفحة.</p><a href={basePath || '/'} className="btn btn-light mt-7">العودة للرئيسية</a></div></main>; }
 const isPublicPath = (location: string) => location === '/' || location === '/services' || location.startsWith('/services/') || location === '/trust' || location === '/help' || location === '/privacy' || location === '/terms';
-const isPortalPath = (location: string) => ['/registration', '/dashboard', '/requests', '/inquiries', '/documents', '/settings', '/office'].some((p) => location === p || location.startsWith(p + '/'));
-const routeTitles: Record<string,string> = {'/':'الرئيسية','/services':'دليل الخدمات','/trust':'الخصوصية والأمان','/help':'المساعدة','/privacy':'سياسة الخصوصية','/terms':'شروط الاستخدام','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم','/office/staff':'فريق المكتب','/office/audit':'سجل التدقيق','/documents':'تنبيهات وثائقي','/settings':'الإشعارات','/office/reminders':'وثائق تنتهي قريبًا','/office/catalog':'الأسعار والمتطلبات','/office/reports':'التقارير'};
+const isPortalPath = (location: string) => ['/registration', '/dashboard', '/requests', '/inquiries', '/documents', '/settings', '/company', '/office'].some((p) => location === p || location.startsWith(p + '/'));
+const routeTitles: Record<string,string> = {'/':'الرئيسية','/services':'دليل الخدمات','/trust':'الخصوصية والأمان','/help':'المساعدة','/privacy':'سياسة الخصوصية','/terms':'شروط الاستخدام','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم','/office/staff':'فريق المكتب','/office/audit':'سجل التدقيق','/documents':'تنبيهات وثائقي','/settings':'الإشعارات','/office/reminders':'وثائق تنتهي قريبًا','/office/catalog':'الأسعار والمتطلبات','/office/reports':'التقارير','/company':'ملف المنشأة','/office/customers':'ملفات العملاء'};
 function Routes() {
   const [location]=useLocation();
   const { isSignedIn } = useAuth();
@@ -188,7 +192,7 @@ function Routes() {
     : location.startsWith('/sign-in') || location.startsWith('/sign-up') ? 'full'
     : isPublicPath(location) ? 'band' : isPortalPath(location) ? 'portal' : 'full';
   useEffect(()=>{
-    const title = routeTitles[location] || (location.startsWith('/services/')?(serviceBySlug[location.slice(10)]?.name ?? 'الخدمة'):location.startsWith('/requests/')?'تفاصيل الطلب':location.startsWith('/sign-in')?'تسجيل الدخول':location.startsWith('/sign-up')?'إنشاء حساب':'الصفحة');
+    const title = routeTitles[location] || (location.startsWith('/services/')?(serviceBySlug[location.slice(10)]?.name ?? 'الخدمة'):location.startsWith('/requests/')?'تفاصيل الطلب':location.startsWith('/office/customers/')?'ملف عميل':location.startsWith('/sign-in')?'تسجيل الدخول':location.startsWith('/sign-up')?'إنشاء حساب':'الصفحة');
     document.title=`${title} | HBS حلول الغد`;
     const service = location.startsWith('/services/') ? serviceBySlug[location.slice(10)] : undefined;
     // A service address that does not exist is a "not found" page: keep it out of search results.
@@ -238,6 +242,9 @@ function Routes() {
     <Route path="/requests"><RoleGate><Requests/></RoleGate></Route>
     <Route path="/inquiries"><RoleGate><Inquiries/></RoleGate></Route>
     <Route path="/documents"><RoleGate><Documents/></RoleGate></Route>
+    <Route path="/company"><RoleGate><CompanyPage/></RoleGate></Route>
+    <Route path="/office/customers/:userId"><RoleGate staff><OfficeCustomerFilePage/></RoleGate></Route>
+    <Route path="/office/customers"><RoleGate staff><OfficeCustomers/></RoleGate></Route>
     <Route path="/settings"><RoleGate><NotificationSettings/></RoleGate></Route>
     <Route path="/office/reminders"><RoleGate staff><OfficeReminders/></RoleGate></Route>
     <Route path="/office/catalog"><RoleGate staff owner><OfficeCatalog/></RoleGate></Route>

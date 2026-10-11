@@ -30,4 +30,12 @@ export const AuditLogEntryAction = {
   invoicepaid_online: 'invoice.paid_online',
   offerupdate: 'offer.update',
   remindercreate: 'reminder.create',
+  companyupdate: 'company.update',
+  employeecreate: 'employee.create',
+  employeeupdate: 'employee.update',
+  employeedelete: 'employee.delete',
+  employeereveal: 'employee.reveal',
+  licensecreate: 'license.create',
+  licenseupdate: 'license.update',
+  licensedelete: 'license.delete',
 } as const;

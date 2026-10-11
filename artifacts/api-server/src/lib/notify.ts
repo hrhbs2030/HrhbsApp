@@ -243,6 +243,29 @@ export function reminderMail(to: string | null, reminder: { kindLabel: string; l
   };
 }
 
+export function customerMessageMail(to: string | null, request: RequestInfo): Mail | null {
+  if (!to) return null;
+  return {
+    to,
+    subject: `رسالة من المكتب على طلبك ${request.reference}`,
+    heading: "رسالة جديدة من المكتب",
+    lines: [`كتب لك المكتب بخصوص طلبك «${request.service}». اقرأ الرسالة وردّ عليها من صفحة الطلب.`],
+    action: { label: "افتح المحادثة", path: `/requests/${request.id}#messages` },
+  };
+}
+
+export function officeMessageMail(to: string | null, request: RequestInfo): Mail | null {
+  const address = to ?? officeInbox();
+  if (!address) return null;
+  return {
+    to: address,
+    subject: `ردّ العميل على الطلب ${request.reference}`,
+    heading: "رسالة جديدة من عميل",
+    lines: [`الطلب: ${request.reference} · ${request.service}`],
+    action: { label: "افتح طلبات العملاء", path: "/office/requests" },
+  };
+}
+
 export function customerNewFileMail(to: string | null, request: RequestInfo): Mail | null {
   if (!to) return null;
   return {

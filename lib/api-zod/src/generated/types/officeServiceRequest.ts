@@ -8,6 +8,8 @@
 import type { OfficeCustomer } from './officeCustomer';
 import type { OfficeServiceRequestCategory } from './officeServiceRequestCategory';
 import type { OfficeServiceRequestStatus } from './officeServiceRequestStatus';
+import type { RequestLastMessage } from './requestLastMessage';
+import type { RequestSubject } from './requestSubject';
 import type { ServiceAttachment } from './serviceAttachment';
 
 export interface OfficeServiceRequest {
@@ -43,4 +45,8 @@ export interface OfficeServiceRequest {
   ratingComment: string | null;
   /** @nullable */
   ratedAt: Date | null;
+  subject: RequestSubject | null;
+  lastMessage: RequestLastMessage | null;
+  /** The customer's user ID, for opening their file */
+  userId: string;
 }

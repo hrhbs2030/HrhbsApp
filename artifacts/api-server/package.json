@@ -28,7 +28,8 @@
     "test:office-revocation": "HBS_OFFICE_EMAIL=revocation-test-owner@example.invalid node ../../scripts/run-db-test.mjs tests/office-revocation-routes.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:office-features": "HBS_OFFICE_EMAIL=office-features-owner@example.invalid node ../../scripts/run-db-test.mjs tests/office-features.test.ts",
-    "test:office-features-units": "tsx --test tests/office-features-units.test.ts"
+    "test:office-features-units": "tsx --test tests/office-features-units.test.ts",
+    "test:company-file": "HBS_OFFICE_EMAIL=company-file-owner@example.invalid node ../../scripts/run-db-test.mjs tests/company-file.test.ts"
   },
   "dependencies": {
     "@clerk/express": "^2.1.72",

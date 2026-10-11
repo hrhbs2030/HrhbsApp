@@ -9,6 +9,7 @@ import billingRouter from "./billing";
 import catalogRouter from "./catalog";
 import remindersRouter from "./reminders";
 import reportsRouter from "./reports";
+import companyRouter from "./company";
 import { requireOfficeStaff } from "../lib/office-access";
 
 const router: IRouter = Router();
@@ -24,5 +25,6 @@ router.use(catalogRouter);
 router.use(billingRouter);
 router.use(remindersRouter);
 router.use(reportsRouter);
+router.use(companyRouter);
 
 export default router;
