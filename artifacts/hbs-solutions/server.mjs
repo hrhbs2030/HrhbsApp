@@ -64,7 +64,18 @@ function setSecurityHeaders(response) {
   );
   response.setHeader(
     'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=()',
+    'camera=(), microphone=(), geolocation=(), payment=()',
+  );
+  // Scripts and styles are left to Clerk's needs; these directives only stop
+  // framing, plugin content, <base> hijacking and off-site form posts.
+  response.setHeader(
+    'Content-Security-Policy',
+    "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'",
+  );
+  response.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  response.setHeader(
+    'Strict-Transport-Security',
+    'max-age=31536000; includeSubDomains',
   );
 }
 

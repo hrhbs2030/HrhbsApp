@@ -212,6 +212,38 @@ test("assignment, statuses, ratings, invoices, reminders, catalogue and reports"
       assert.equal(webhook.status, 404);
     });
 
+    await t.test("cancelling an invoice closes its open payment page", async () => {
+      const gatewayId = `gw-${randomUUID()}`;
+      const [row] = await db.insert(hbsInvoices).values({
+        requestId: reqB.id, description: "Page to close", amountHalalas: 1_000, vatRateBasisPoints: 1500,
+        vatHalalas: 150, totalHalalas: 1_150, issuedBy: staff, gatewayInvoiceId: gatewayId,
+      }).returning();
+      const calls: string[] = [];
+      const realFetch = globalThis.fetch;
+      const previousKey = process.env.MOYASAR_SECRET_KEY;
+      process.env.MOYASAR_SECRET_KEY = "sk_test_placeholder";
+      globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+        const url = String(input instanceof Request ? input.url : input);
+        if (!url.startsWith("https://api.moyasar.com/")) return realFetch(input, init);
+        calls.push(`${init?.method ?? "GET"} ${url}`);
+        const status = url.endsWith("/cancel") ? "canceled" : "initiated";
+        return new Response(JSON.stringify({ id: gatewayId, status, amount: 1_150, currency: "SAR", url: "https://example.invalid" }));
+      }) as typeof fetch;
+      try {
+        const cancelled = await call(staff, "PATCH", `/office/invoices/${row.id}`, { action: "cancel" });
+        assert.equal(cancelled.data.status, "cancelled");
+        for (let i = 0; i < 50 && calls.length < 2; i++) await new Promise(resolve => setTimeout(resolve, 10));
+        assert.deepEqual(calls, [
+          `GET https://api.moyasar.com/v1/invoices/${gatewayId}`,
+          `PUT https://api.moyasar.com/v1/invoices/${gatewayId}/cancel`,
+        ]);
+      } finally {
+        globalThis.fetch = realFetch;
+        if (previousKey === undefined) delete process.env.MOYASAR_SECRET_KEY;
+        else process.env.MOYASAR_SECRET_KEY = previousKey;
+      }
+    });
+
     await t.test("reminders: customers own theirs; office adds with audit; due reminders are sent once", async () => {
       const bad = await call(customerA, "POST", "/reminders", { kind: "iqama", label: "Me", expiresOn: "2030-02-30" });
       assert.equal(bad.status, 400);

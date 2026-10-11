@@ -11,6 +11,22 @@ export function approvedOfficeEmail(): string | null {
   return process.env.HBS_OFFICE_EMAIL?.trim().toLowerCase() || null;
 }
 
+// Signed-in visitors who are not the office owner are remembered briefly so a
+// page that polls /portal/me (or a script looping on it) does not spend a
+// Clerk Backend API call on every request and starve the office of quota.
+const NOT_OWNER_TTL_MS = 60_000;
+const NOT_OWNER_MAX = 5_000;
+const notOwnerUntil = new Map<string, number>();
+
+function rememberNotOwner(userId: string) {
+  if (notOwnerUntil.size >= NOT_OWNER_MAX) {
+    const now = Date.now();
+    for (const [id, until] of notOwnerUntil) if (until <= now) notOwnerUntil.delete(id);
+    if (notOwnerUntil.size >= NOT_OWNER_MAX) notOwnerUntil.delete(notOwnerUntil.keys().next().value!);
+  }
+  notOwnerUntil.set(userId, Date.now() + NOT_OWNER_TTL_MS);
+}
+
 export async function getOfficeRole(req: Request, bootstrap = false): Promise<OfficeRole | null> {
   const approvedEmail = approvedOfficeEmail();
   const userId = getAuth(req).userId;
@@ -20,10 +36,10 @@ export async function getOfficeRole(req: Request, bootstrap = false): Promise<Of
     .from(hbsOfficeStaff).where(eq(hbsOfficeStaff.userId, userId)).limit(1);
 
   if (!member) {
-    if (!bootstrap) return null;
+    if (!bootstrap || (notOwnerUntil.get(userId) ?? 0) > Date.now()) return null;
     const owner = (await clerkClient.users.getUserList({ emailAddress: [approvedEmail], limit: 10 }))
       .data.find((candidate) => candidate.id === userId);
-    if (!owner || !verifiedEmailOf(owner, approvedEmail)) return null;
+    if (!owner || !verifiedEmailOf(owner, approvedEmail)) { rememberNotOwner(userId); return null; }
     await db.insert(hbsOfficeStaff).values({ userId }).onConflictDoNothing();
     return "owner";
   }

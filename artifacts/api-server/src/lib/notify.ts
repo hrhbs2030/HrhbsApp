@@ -99,8 +99,10 @@ export function notify(mail: Mail | null): void {
   const { html, text } = renderMail(mail);
   const from = process.env.MAIL_FROM || `HBS حلول الغد <${process.env.SMTP_USER}>`;
   transport().sendMail({ from, to: mail.to, subject: mail.subject, html, text })
-    .then(() => logger.info({ subject: mail.subject }, "Notification sent"))
-    .catch((error: unknown) => logger.warn({ err: error, subject: mail.subject }, "Notification failed"));
+    // Subjects and SMTP errors can carry customer names and addresses, so the
+    // log keeps only the outcome and the SMTP error code.
+    .then(() => logger.info("Notification sent"))
+    .catch((error: unknown) => logger.warn({ code: (error as { code?: string })?.code ?? "unknown" }, "Notification failed"));
 }
 
 // ---- messages ---------------------------------------------------------------

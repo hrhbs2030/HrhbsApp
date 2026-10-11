@@ -15,7 +15,7 @@ import { recordAudit } from "../lib/audit";
 import { notifyCustomer } from "../lib/customer-contact";
 import { invoiceReference, requestReference, riyals, vatFor, VAT_RATE_BASIS_POINTS } from "../lib/money";
 import {
-  createGatewayInvoice, fetchGatewayInvoice, moyasarConfigured, type GatewayInvoice,
+  cancelGatewayInvoice, createGatewayInvoice, fetchGatewayInvoice, moyasarConfigured, type GatewayInvoice,
 } from "../lib/moyasar";
 import { closedInvoicePaidMail, invoiceIssuedMail, invoicePaidOfficeMail, notify } from "../lib/notify";
 import { logger } from "../lib/logger";
@@ -307,6 +307,13 @@ router.patch("/office/invoices/:id", requireOfficeStaff, async (req, res): Promi
   // Paid or cancelled, the request no longer waits on this invoice.
   await resumeAfterPayment(outcome.request.id);
   res.json(UpdateOfficeInvoiceResponse.parse(invoice(outcome.row, outcome.request)));
+  // An open payment page would still take the customer's money: close it.
+  // A payment that slips in first is still caught by the webhook.
+  const gatewayId = outcome.row.gatewayInvoiceId;
+  if (gatewayId && moyasarConfigured()) {
+    cancelGatewayInvoice(gatewayId).catch((error: unknown) =>
+      req.log.warn({ err: error, invoiceId: outcome.row.id }, "Could not close the payment page"));
+  }
 });
 
 export default router;

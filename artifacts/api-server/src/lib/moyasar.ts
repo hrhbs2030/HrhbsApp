@@ -58,3 +58,10 @@ export function fetchGatewayInvoice(id: string) {
   if (!/^[A-Za-z0-9-]{1,80}$/.test(id)) throw new GatewayError("Invalid gateway invoice ID");
   return call(`/invoices/${id}`);
 }
+
+// Closes a payment page so it can no longer be paid (after the office cancels
+// the invoice or records a payment at the office).
+export function cancelGatewayInvoice(id: string) {
+  if (!/^[A-Za-z0-9-]{1,80}$/.test(id)) throw new GatewayError("Invalid gateway invoice ID");
+  return call(`/invoices/${id}/cancel`, { method: "PUT" });
+}

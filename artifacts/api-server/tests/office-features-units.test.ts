@@ -78,3 +78,17 @@ test("license import keys on type and number, or type and name", () => {
   assert.equal(plan.create.length, 1);
   assert.deepEqual(plan.problems.map(p => p.row), [2, 3]);
 });
+
+test("imports apply the same length limits as the forms", () => {
+  const employees = planEmployees([
+    { fullName: "A".repeat(121) },
+    { fullName: "Valid Name", notes: "x".repeat(501) },
+    { fullName: "Valid Name", status: "y".repeat(5000) },
+    { fullName: "Fine Name", notes: "short" },
+  ], []);
+  assert.deepEqual(employees.problems.map(p => p.row), [1, 2, 3]);
+  assert.match(employees.problems[0].message, /الاسم أطول/);
+  assert.equal(employees.create.length, 1);
+  const licenses = planLicenses([{ kind: "municipal", title: "T".repeat(121) }], []);
+  assert.deepEqual(licenses.problems.map(p => p.row), [1]);
+});

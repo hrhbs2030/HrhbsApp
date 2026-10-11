@@ -112,9 +112,17 @@ test("files can be added to a request by its customer and the office, removed, l
 
     // The customer adds a file to the open request.
     const mine = await reserve(customerA);
+    const [{ objectPath: temporaryPath }] = await db.select().from(hbsRequestAttachments).where(eq(hbsRequestAttachments.id, mine));
     assert.equal((await attach(customerB, [mine])).status, 404);
     const added = await attach(customerA, [mine]);
     assert.equal(added.status, 200);
+    // The temporary key is not deleted while its signed PUT may still work: an
+    // already-expired reservation keeps it tracked for the sweeper.
+    const leftovers = await db.select().from(hbsRequestAttachments).where(eq(hbsRequestAttachments.objectPath, temporaryPath));
+    assert.equal(leftovers.length, 1);
+    assert.equal(leftovers[0].requestId, null);
+    assert.ok(leftovers[0].expiresAt.getTime() <= Date.now());
+    assert.ok(files.has(temporaryPath));
     const afterCustomer = await added.json() as { attachments: { id: number; uploadedBy: string }[] };
     assert.deepEqual(afterCustomer.attachments.map(a => [a.id, a.uploadedBy]), [[mine, "customer"]]);
     assert.equal((await attach(customerA, [mine])).status, 400);

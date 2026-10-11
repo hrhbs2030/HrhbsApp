@@ -39,9 +39,11 @@ export function clerkProxyMiddleware(): RequestHandler {
         proxyReq.setHeader("Clerk-Proxy-Url", proxyUrl);
         proxyReq.setHeader("Clerk-Secret-Key", secretKey);
 
-        const xff = req.headers["x-forwarded-for"];
+        // req.ip honours "trust proxy" (the platform proxy's entry), unlike
+        // the leftmost X-Forwarded-For entry, which the visitor can forge to
+        // dodge Clerk's per-IP sign-in limits.
         const clientIp =
-          (Array.isArray(xff) ? xff[0] : xff)?.split(",")[0]?.trim() ||
+          (req as typeof req & { ip?: string }).ip ||
           req.socket?.remoteAddress ||
           "";
         if (clientIp) {
