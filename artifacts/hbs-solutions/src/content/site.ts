@@ -44,6 +44,23 @@ export const faqs = [
   },
 ];
 
+// Subscription plans on the company page. Only what the code does: a plan is
+// billed monthly with VAT, the first invoice is issued the moment the person
+// subscribes, and renewal requests open on their own only when the plan
+// covers them and the owner keeps the option on. No prices live here; they
+// come from the plans the office publishes.
+export const plansCopy = {
+  title: 'باقات الاشتراك',
+  intro: 'اشتراك شهري يغطي متابعة ملف منشأتك وموظفيها. تصدر الفاتورة الأولى فور الاشتراك، ثم فاتورة كل شهر في موعد التجديد.',
+  empty: 'لا توجد باقات منشورة حاليًا',
+  emptyText: 'عندما ينشر المكتب باقاته تظهر هنا مع أسعارها.',
+  autoRenewals: 'تجديد تلقائي',
+  autoRenewalsHint: 'تفتح البوابة طلب تجديد تلقائيًا قبل انتهاء وثائق الموظفين والتراخيص المسجّلة في ملف المنشأة.',
+  autoRenewalsToggle: 'افتح طلبات التجديد تلقائيًا قبل انتهاء الوثائق',
+  cancelTitle: 'إلغاء الاشتراك؟',
+  cancelText: 'تتوقف الفواتير الشهرية، وتبقى مزايا الباقة حتى نهاية الفترة المدفوعة.',
+};
+
 // How any request moves through this portal. Service pages show it unless the
 // service declares its own `steps`; the wording matches the milestones in
 // content/milestones.ts and the pauses the request page really shows.

@@ -12,9 +12,29 @@ import type { InvoiceStatus } from './invoiceStatus';
 export interface Invoice {
   id: number;
   reference: string;
-  requestId: number;
-  requestReference: string;
+  /**
+     * Null for a subscription invoice
+     * @nullable
+     */
+  requestId: number | null;
+  /** @nullable */
+  requestReference: string | null;
+  /**
+     * Null for a request invoice
+     * @nullable
+     */
+  subscriptionId: number | null;
   description: string;
+  /**
+     * Number of units billed; 1 unless a unit amount was given
+     * @minimum 1
+     */
+  quantity: number;
+  /**
+     * Halalas per unit before VAT, when the amount was computed from a quantity
+     * @nullable
+     */
+  unitAmount: number | null;
   /** Halalas before VAT */
   amount: number;
   /** 1500 means 15% */

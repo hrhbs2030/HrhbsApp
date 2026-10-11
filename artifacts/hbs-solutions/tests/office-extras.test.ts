@@ -7,7 +7,7 @@ import { createServer } from 'vite';
 
 // The real components with only the API client, react-query, routing and
 // sibling panels replaced; the forms, state and messages are the real ones.
-const hooks = ['useSendOfficeQuote', 'useSaveOfficeChecklist', 'useListOfficeServiceRequestMessages', 'useCreateOfficeReminder', 'useExtractOfficeAttachmentDocument'];
+const hooks = ['useSendOfficeQuote', 'useSaveOfficeChecklist', 'useListOfficeServiceRequestMessages', 'useCreateOfficeReminder', 'useExtractOfficeAttachmentDocument', 'useUpdateOfficeRequestEmployee'];
 const fns = ['linkOfficeAttachmentToChecklist', 'lookupCommercialRegister', 'lookupOfficeCommercialRegister', 'saveCompany', 'createEmployee', 'updateEmployee', 'deleteEmployee', 'getEmployeeNumbers', 'createLicense', 'updateLicense', 'deleteLicense', 'importEmployees', 'importLicenses',
   'createOfficeCustomerEmployee', 'createOfficeCustomerLicense', 'deleteOfficeCustomerEmployee', 'deleteOfficeCustomerLicense', 'getOfficeCustomerEmployeeNumbers', 'saveOfficeCustomerCompany', 'importOfficeCustomerEmployees', 'importOfficeCustomerLicenses', 'updateOfficeCustomerEmployee', 'updateOfficeCustomerLicense'];
 const server = await createServer({
@@ -43,13 +43,14 @@ const server = await createServer({
   appType: 'custom',
 });
 after(async () => server.close());
-const { QuotePanel, ChecklistEditor, quoteState, declineNote, checklistInput } = await server.ssrLoadModule('/src/components/office-request-extras.tsx');
+const { QuotePanel, ChecklistEditor, quoteState, declineNote, checklistInput, RequestEmployees, employeeUpdateBody, employeeProgress, BulkInvoiceFields, bulkInvoiceBody } = await server.ssrLoadModule('/src/components/office-request-extras.tsx');
 const { CompanyFileView, customerCompanyApi, officeCompanyApi, applyRegister, asciiDigits, lookupError } = await server.ssrLoadModule('/src/components/company-file.tsx');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const query = data => ({ data, isLoading: false, isError: false, refetch() {} });
 const mutation = fn => ({ isPending: false, isError: false, mutateAsync: fn, reset() {} });
 const nodes = (tree, type) => tree.root.findAllByType(type);
+const within = (node, type) => node.findAllByType(type);
 const text = node => typeof node === 'string' ? node : (node.children ?? []).map(text).join('');
 const click = async button => act(async () => button.props.onClick());
 const change = async (field, value) => act(async () => field.props.onChange({ target: { value } }));
@@ -60,9 +61,10 @@ async function mount(element) {
   return tree;
 }
 function setup() {
-  const calls = { quotes: [], checklists: [], links: [], changed: 0, lookups: [] };
+  const calls = { quotes: [], checklists: [], links: [], changed: 0, lookups: [], employees: [] };
   globalThis.__x = {
     hooks: {
+      useUpdateOfficeRequestEmployee: () => mutation(async input => { calls.employees.push(input); return {}; }),
       useSendOfficeQuote: () => mutation(async input => { calls.quotes.push(input); return {}; }),
       useSaveOfficeChecklist: () => mutation(async input => { calls.checklists.push(input); return {}; }),
       useListOfficeServiceRequestMessages: () => query([{ id: 1, authorRole: 'customer', body: 'السعر مرتفع', createdAt: '2026-09-20T12:00:30.000Z' }]),
@@ -171,4 +173,54 @@ test('register lookup: digits normalised, blanks filled, differing values only o
   assert.equal(calls.lookups.at(-1)[0], 'lookupCommercialRegister');
   assert.match(text(customer.root), /لم يُعثر على السجل/);
   await act(async () => customer.unmount());
+});
+
+test('employees panel: the status always, the note only when edited; saved row by row with the progress count', async () => {
+  const employee = { employeeId: 7, fullName: 'أحمد', itemStatus: 'pending', note: 'ينقصه الجواز' };
+  assert.deepEqual(employeeUpdateBody(employee, {}), { itemStatus: 'pending' });
+  assert.deepEqual(employeeUpdateBody(employee, { itemStatus: 'done' }), { itemStatus: 'done' });
+  assert.deepEqual(employeeUpdateBody(employee, { note: ' ينقصه الجواز ' }), { itemStatus: 'pending' }, 'an unchanged note is not sent');
+  assert.deepEqual(employeeUpdateBody(employee, { note: '  ' }), { itemStatus: 'pending', note: null }, 'an emptied note clears it');
+  assert.equal(employeeProgress([employee, { ...employee, employeeId: 8, itemStatus: 'done' }]), '1/2 مكتمل');
+  const calls = setup();
+  const employees = [employee, { employeeId: 8, fullName: 'سعد', itemStatus: 'done', note: null }, { employeeId: 9, fullName: 'ليان', itemStatus: 'blocked', note: null }];
+  const tree = await mount(React.createElement(RequestEmployees, { requestId: 5, employees, onChanged: () => { calls.changed++; } }));
+  assert.match(text(tree.root), /1\/3 مكتمل/);
+  const row = () => nodes(tree, 'li')[0];
+  assert.equal(within(row(), 'button')[0].props.disabled, true, 'nothing to save yet');
+  await change(within(row(), 'select')[0], 'in_progress');
+  await change(within(row(), 'input')[0], ' بدأنا ');
+  assert.equal(within(row(), 'button')[0].props.disabled, false);
+  await click(within(row(), 'button')[0]);
+  assert.deepEqual(calls.employees, [{ id: 5, employeeId: 7, data: { itemStatus: 'in_progress', note: 'بدأنا' } }]);
+  assert.equal(calls.changed, 1);
+  assert.equal(within(row(), 'button')[0].props.disabled, true, 'the row follows the list again after saving');
+  // Status only, note untouched: the note is left out so the API keeps it.
+  await change(within(nodes(tree, 'li')[2], 'select')[0], 'done');
+  await click(within(nodes(tree, 'li')[2], 'button')[0]);
+  assert.deepEqual(calls.employees.at(-1), { id: 5, employeeId: 9, data: { itemStatus: 'done' } });
+  // The compact form keeps the status and shows the note as text.
+  await act(async () => tree.update(React.createElement(RequestEmployees, { requestId: 5, employees, compact: true, onChanged() {} })));
+  assert.equal(nodes(tree, 'input').length, 0);
+  assert.match(text(tree.root), /ينقصه الجواز/);
+  await act(async () => tree.unmount());
+});
+
+test('invoice quantity fields: nothing for a single invoice, unit price times quantity for a bulk one, a message otherwise', async () => {
+  assert.deepEqual(bulkInvoiceBody({ quantity: '', unitAmount: '' }), {});
+  assert.deepEqual(bulkInvoiceBody({ quantity: '1', unitAmount: '50' }), {});
+  assert.deepEqual(bulkInvoiceBody({ quantity: '٢٠', unitAmount: '150.5' }), { quantity: 20, unitAmount: 15050 });
+  assert.equal(bulkInvoiceBody({ quantity: '2', unitAmount: '' }), null);
+  assert.equal(bulkInvoiceBody({ quantity: '2.5', unitAmount: '100' }), null);
+  assert.equal(bulkInvoiceBody({ quantity: '501', unitAmount: '100' }), null);
+  assert.equal(bulkInvoiceBody({ quantity: '3', unitAmount: '0.5' }), null, 'less than a riyal per unit');
+  let value = { quantity: '', unitAmount: '' };
+  const tree = await mount(React.createElement(BulkInvoiceFields, { value, onChange: v => { value = v; }, defaultQuantity: 20 }));
+  await click(nodes(tree, 'button')[0]);
+  assert.equal(value.quantity, '20', 'the employee count fills in');
+  await act(async () => tree.update(React.createElement(BulkInvoiceFields, { value: { quantity: '20', unitAmount: '150' }, onChange() {} })));
+  assert.match(text(tree.root), /20 × 150\.00 ر\.س = 3,000\.00 ر\.س قبل الضريبة · شامل ضريبة 15%: 3,450\.00 ر\.س/);
+  await act(async () => tree.update(React.createElement(BulkInvoiceFields, { value: { quantity: '20', unitAmount: 'x' }, onChange() {} })));
+  assert.match(text(tree.root), /اكتب كمية صحيحة/);
+  await act(async () => tree.unmount());
 });

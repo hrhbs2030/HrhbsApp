@@ -12,4 +12,9 @@ export interface PortalSettings {
   whatsappPhone: string | null;
   /** Whether the office has WhatsApp messages turned on */
   whatsappAvailable: boolean;
+  /**
+     * When the customer last wrote to the office on WhatsApp
+     * @nullable
+     */
+  lastInboundAt: Date | null;
 }

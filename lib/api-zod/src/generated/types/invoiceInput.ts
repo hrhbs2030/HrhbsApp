@@ -13,11 +13,23 @@ export interface InvoiceInput {
      */
   description: string;
   /**
-     * Halalas before VAT
+     * Halalas before VAT; ignored when unitAmount is given
      * @minimum 100
      * @maximum 100000000
      */
   amount: number;
+  /**
+     * Units billed, for example employees on a bulk request
+     * @minimum 1
+     * @maximum 500
+     */
+  quantity?: number;
+  /**
+     * Halalas per unit before VAT; when given, amount = unitAmount x quantity
+     * @minimum 100
+     * @maximum 100000000
+     */
+  unitAmount?: number;
   /** Also move the request to awaiting payment */
   markAwaitingPayment?: boolean;
 }

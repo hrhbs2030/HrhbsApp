@@ -24,6 +24,12 @@ tags:
     description: Document expiry reminders
   - name: company
     description: Customer company files (company, employees, licenses)
+  - name: members
+    description: Company members invited by the owner
+  - name: subscriptions
+    description: Plans and monthly subscriptions
+  - name: webhooks
+    description: Inbound webhooks from third parties (no authentication)
 paths:
   /healthz:
     get:
@@ -1929,6 +1935,318 @@ paths:
         "429": { description: Too many lookups }
         "502": { description: Wathq failed }
         "503": { description: Wathq lookup is not configured }
+  /company/members:
+    get:
+      operationId: listCompanyMembers
+      tags: [members]
+      summary: The signed-in customer's company members, owner first
+      responses:
+        "200":
+          description: Members, owner first then by invitation date
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CompanyMember" }
+        "404": { description: Not a company owner or member }
+    post:
+      operationId: inviteCompanyMember
+      tags: [members]
+      summary: Owner-only invite a person by email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CompanyMemberInviteInput" }
+      responses:
+        "201":
+          description: Pending member
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CompanyMember" }
+        "400": { description: Invalid invitation }
+        "403": { description: Company owner access required }
+        "409": { description: "Already invited, or the company has 10 members" }
+  /company/members/{id}:
+    patch:
+      operationId: updateCompanyMember
+      tags: [members]
+      summary: Owner-only change a member's role
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CompanyMemberUpdate" }
+      responses:
+        "200":
+          description: Updated member
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CompanyMember" }
+        "400": { description: Invalid role }
+        "403": { description: Company owner access required }
+        "404": { description: Not found }
+    delete:
+      operationId: removeCompanyMember
+      tags: [members]
+      summary: Owner-only remove a member or withdraw an invitation
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      responses:
+        "204": { description: Removed }
+        "403": { description: Company owner access required }
+        "404": { description: Not found }
+  /company/membership:
+    get:
+      operationId: getCompanyMembership
+      tags: [members]
+      summary: The signed-in user's role in the company they own or were accepted into
+      responses:
+        "200":
+          description: Membership
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CompanyMembership" }
+        "404": { description: Neither an owner nor an accepted member }
+  /office/customers/{userId}/members:
+    get:
+      operationId: listOfficeCustomerMembers
+      tags: [members]
+      summary: Staff-only members of a customer's company, owner first
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
+      responses:
+        "200":
+          description: Members, owner first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CompanyMember" }
+        "403": { description: Office access required }
+        "404": { description: Not a customer }
+  /office/service-requests/{id}/employees/{employeeId}:
+    patch:
+      operationId: updateOfficeRequestEmployee
+      tags: [portal]
+      summary: Staff-only update one employee's progress on a bulk request
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+        - { name: employeeId, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RequestEmployeeUpdate" }
+      responses:
+        "200":
+          description: The request with its employees
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OfficeServiceRequest" }
+        "400": { description: Invalid update }
+        "403": { description: Office access required }
+        "404": { description: Request or employee not found }
+  /plans:
+    get:
+      operationId: listPlans
+      tags: [subscriptions]
+      summary: Published subscription plans
+      responses:
+        "200":
+          description: Active plans by sort order
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Plan" }
+  /office/plans:
+    get:
+      operationId: listOfficePlans
+      tags: [subscriptions]
+      summary: Owner-only list of all plans, including inactive ones
+      responses:
+        "200":
+          description: Plans by sort order
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Plan" }
+        "403": { description: Office owner access required }
+    post:
+      operationId: createOfficePlan
+      tags: [subscriptions]
+      summary: Owner-only create a plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlanInput" }
+      responses:
+        "201":
+          description: Created plan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Plan" }
+        "400": { description: Invalid plan }
+        "403": { description: Office owner access required }
+        "409": { description: Slug already used }
+  /office/plans/{id}:
+    put:
+      operationId: updateOfficePlan
+      tags: [subscriptions]
+      summary: Owner-only update a plan; existing subscriptions keep their plan
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlanInput" }
+      responses:
+        "200":
+          description: Updated plan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Plan" }
+        "400": { description: Invalid plan }
+        "403": { description: Office owner access required }
+        "404": { description: Not found }
+        "409": { description: Slug already used }
+  /office/subscriptions:
+    get:
+      operationId: listOfficeSubscriptions
+      tags: [subscriptions]
+      summary: Owner-only paginated subscriptions
+      parameters:
+        - { name: page, in: query, description: "1-based page; defaults to 1", schema: { type: integer, minimum: 1, maximum: 1000000 } }
+        - { name: pageSize, in: query, description: "Defaults to 20; capped at 100", schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/SubscriptionStatus" } }
+      responses:
+        "200":
+          description: Matching page and total count
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OfficeSubscriptionPage" }
+        "400": { description: Invalid pagination or filter }
+        "403": { description: Office owner access required }
+  /office/subscriptions/{id}:
+    patch:
+      operationId: updateOfficeSubscription
+      tags: [subscriptions]
+      summary: Owner-only cancel a subscription or change its automatic renewal requests
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OfficeSubscriptionUpdate" }
+      responses:
+        "200":
+          description: Updated subscription
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OfficeSubscription" }
+        "400": { description: Invalid update }
+        "403": { description: Office owner access required }
+        "404": { description: Not found }
+        "409": { description: The subscription is already cancelled }
+  /company/subscription:
+    get:
+      operationId: getCompanySubscription
+      tags: [subscriptions]
+      summary: The signed-in company owner's current subscription, if any
+      responses:
+        "200":
+          description: The active or past-due subscription, or null
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CompanySubscriptionResult" }
+        "403": { description: Company owner access required }
+    post:
+      operationId: startCompanySubscription
+      tags: [subscriptions]
+      summary: Owner-only subscribe to a plan; the first invoice is issued at once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StartSubscriptionInput" }
+      responses:
+        "201":
+          description: New subscription with its first invoice
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Subscription" }
+        "400": { description: Invalid plan }
+        "403": { description: Company owner access required }
+        "404": { description: Plan not found or not active }
+        "409": { description: A subscription is already active }
+    patch:
+      operationId: updateCompanySubscription
+      tags: [subscriptions]
+      summary: Owner-only cancel the subscription or change its automatic renewal requests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CompanySubscriptionUpdate" }
+      responses:
+        "200":
+          description: Updated subscription
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Subscription" }
+        "400": { description: Invalid update }
+        "403": { description: Company owner access required }
+        "404": { description: No active subscription }
+  /company/invoices:
+    get:
+      operationId: listCompanyInvoices
+      tags: [billing]
+      summary: All invoices of the signed-in customer, newest first, including subscription invoices
+      responses:
+        "200":
+          description: Invoices, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Invoice" }
+  /webhooks/whatsapp:
+    get:
+      operationId: whatsappWebhookVerify
+      tags: [webhooks]
+      summary: Meta's one-time verification of the WhatsApp webhook address
+      security: []
+      parameters:
+        - { name: hub.mode, in: query, required: true, schema: { type: string, enum: [subscribe] } }
+        - { name: hub.verify_token, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: hub.challenge, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+      responses:
+        "200":
+          description: The challenge, echoed back
+          content:
+            text/plain:
+              schema: { type: string }
+        "403": { description: Verify token mismatch }
+    post:
+      operationId: whatsappWebhook
+      tags: [webhooks]
+      summary: Inbound WhatsApp messages and status updates from Meta (signature checked against the raw body)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhatsappWebhookPayload" }
+      responses:
+        "200": { description: "Accepted; always answered quickly so Meta does not retry" }
+        "401": { description: Signature mismatch }
 components:
   schemas:
     OfficeStaffInput:
@@ -1957,7 +2275,7 @@ components:
         actorEmail: { type: ["string", "null"], format: email }
         action:
           type: string
-          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge, registration.approve, registration.reject, information.review, information.publish, information.unpublish, attachment.extract, invoice.issue, invoice.mark_paid, invoice.cancel, invoice.paid_online, offer.update, reminder.create, company.update, employee.create, employee.update, employee.delete, employee.reveal, license.create, license.update, license.delete, employee.import, license.import, automation.update, service_request.quote, service_request.quote_accept, service_request.quote_decline, service_request.checklist]
+          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge, registration.approve, registration.reject, information.review, information.publish, information.unpublish, attachment.extract, invoice.issue, invoice.mark_paid, invoice.cancel, invoice.paid_online, offer.update, reminder.create, company.update, employee.create, employee.update, employee.delete, employee.reveal, license.create, license.update, license.delete, employee.import, license.import, automation.update, service_request.quote, service_request.quote_accept, service_request.quote_decline, service_request.checklist, company.member_invite, company.member_update, company.member_remove, service_request.employee_item, plan.create, plan.update, subscription.start, subscription.update, service_request.auto_renew]
         targetType: { type: string }
         targetId: { type: string }
         details:
@@ -2199,7 +2517,7 @@ components:
         expiresOn: { type: ["string", "null"], description: "Date as given by Wathq" }
     ServiceRequest:
       type: object
-      required: [id, reference, category, service, description, contactPhone, status, customerMessage, clientRequestId, createdAt, updatedAt, attachments, rating, ratingComment, ratedAt, subject, lastMessage, quote, checklist]
+      required: [id, reference, category, service, description, contactPhone, status, customerMessage, clientRequestId, createdAt, updatedAt, attachments, rating, ratingComment, ratedAt, subject, lastMessage, quote, checklist, employees]
       properties:
         id: { type: integer }
         reference: { type: string }
@@ -2237,6 +2555,10 @@ components:
         checklist:
           type: array
           items: { $ref: "#/components/schemas/ChecklistItem" }
+        employees:
+          type: array
+          description: "Employees covered by a bulk request, each with its own progress; empty for single requests"
+          items: { $ref: "#/components/schemas/RequestEmployee" }
     ServiceRequestStatusEvent:
       type: object
       required: [status, at]
@@ -2253,7 +2575,7 @@ components:
         email: { type: string, format: email }
     OfficeServiceRequest:
       type: object
-      required: [id, reference, category, service, description, contactPhone, status, customerMessage, createdAt, updatedAt, attachments, customer, assignedTo, dueAt, rating, ratingComment, ratedAt, subject, lastMessage, userId, quote, checklist]
+      required: [id, reference, category, service, description, contactPhone, status, customerMessage, createdAt, updatedAt, attachments, customer, assignedTo, dueAt, rating, ratingComment, ratedAt, subject, lastMessage, userId, quote, checklist, employees]
       properties:
         id: { type: integer }
         reference: { type: string }
@@ -2298,6 +2620,10 @@ components:
         checklist:
           type: array
           items: { $ref: "#/components/schemas/ChecklistItem" }
+        employees:
+          type: array
+          description: "Employees covered by a bulk request, each with its own progress; empty for single requests"
+          items: { $ref: "#/components/schemas/RequestEmployee" }
     OfficeServiceRequestPage:
       type: object
       required: [items, total, page, pageSize]
@@ -2374,6 +2700,12 @@ components:
           uniqueItems: true
           items: { type: integer, minimum: 1 }
         employeeId: { type: ["integer", "null"], minimum: 1, description: "An employee in the customer's company file" }
+        employeeIds:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          description: "Employees of the customer's company file for a bulk request, tracked one by one; may be combined with employeeId"
+          items: { type: integer, minimum: 1 }
         licenseId: { type: ["integer", "null"], minimum: 1, description: "A license in the customer's company file" }
         serviceSlug: { type: string, pattern: "^[a-z0-9-]{2,60}$", description: "Catalogue slug of the chosen service; its published required documents become the request's checklist" }
     ServiceRequestUpdate:
@@ -2583,13 +2915,16 @@ components:
         vatNumber: { type: ["string", "null"] }
     Invoice:
       type: object
-      required: [id, reference, requestId, requestReference, description, amount, vatRateBasisPoints, vat, total, status, paymentMethod, paymentReference, issuedAt, paidAt, cancelledAt, canPayOnline, seller]
+      required: [id, reference, requestId, requestReference, subscriptionId, description, quantity, unitAmount, amount, vatRateBasisPoints, vat, total, status, paymentMethod, paymentReference, issuedAt, paidAt, cancelledAt, canPayOnline, seller]
       properties:
         id: { type: integer }
         reference: { type: string }
-        requestId: { type: integer }
-        requestReference: { type: string }
+        requestId: { type: ["integer", "null"], description: "Null for a subscription invoice" }
+        requestReference: { type: ["string", "null"] }
+        subscriptionId: { type: ["integer", "null"], description: "Null for a request invoice" }
         description: { type: string }
+        quantity: { type: integer, minimum: 1, description: "Number of units billed; 1 unless a unit amount was given" }
+        unitAmount: { type: ["integer", "null"], description: "Halalas per unit before VAT, when the amount was computed from a quantity" }
         amount: { type: integer, description: "Halalas before VAT" }
         vatRateBasisPoints: { type: integer, description: "1500 means 15%" }
         vat: { type: integer }
@@ -2612,7 +2947,9 @@ components:
       required: [description, amount]
       properties:
         description: { type: string, minLength: 2, maxLength: 300 }
-        amount: { type: integer, minimum: 100, maximum: 100000000, description: "Halalas before VAT" }
+        amount: { type: integer, minimum: 100, maximum: 100000000, description: "Halalas before VAT; ignored when unitAmount is given" }
+        quantity: { type: integer, minimum: 1, maximum: 500, default: 1, description: "Units billed, for example employees on a bulk request" }
+        unitAmount: { type: integer, minimum: 100, maximum: 100000000, description: "Halalas per unit before VAT; when given, amount = unitAmount x quantity" }
         markAwaitingPayment: { type: boolean, description: "Also move the request to awaiting payment" }
     InvoiceAction:
       type: object
@@ -2683,11 +3020,12 @@ components:
         notes: { type: ["string", "null"], maxLength: 500 }
     PortalSettings:
       type: object
-      required: [whatsappOptIn, whatsappPhone, whatsappAvailable]
+      required: [whatsappOptIn, whatsappPhone, whatsappAvailable, lastInboundAt]
       properties:
         whatsappOptIn: { type: boolean }
         whatsappPhone: { type: ["string", "null"] }
         whatsappAvailable: { type: boolean, description: "Whether the office has WhatsApp messages turned on" }
+        lastInboundAt: { type: ["string", "null"], format: date-time, description: "When the customer last wrote to the office on WhatsApp" }
     PortalSettingsInput:
       type: object
       additionalProperties: false
@@ -3027,3 +3365,157 @@ components:
         assignee: { type: ["string", "null"] }
         dueDays: { type: ["integer", "null"] }
         updatedAt: { type: ["string", "null"], format: date-time }
+    CompanyRole:
+      type: string
+      enum: [owner, hr, finance, viewer]
+    CompanyMember:
+      type: object
+      required: [id, email, role, memberUserId, invitedAt, acceptedAt]
+      properties:
+        id: { type: integer, description: "0 for the implicit owner row" }
+        email: { type: string, format: email }
+        role: { $ref: "#/components/schemas/CompanyRole" }
+        memberUserId: { type: ["string", "null"], description: "Set once the invited person signed in; the owner's own user ID for the owner row" }
+        invitedAt: { type: string, format: date-time }
+        acceptedAt: { type: ["string", "null"], format: date-time }
+    CompanyMemberInviteInput:
+      type: object
+      additionalProperties: false
+      required: [email, role]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        role:
+          type: string
+          enum: [hr, finance, viewer]
+    CompanyMemberUpdate:
+      type: object
+      additionalProperties: false
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [hr, finance, viewer]
+    CompanyMembership:
+      type: object
+      required: [role, companyUserId, companyName]
+      properties:
+        role: { $ref: "#/components/schemas/CompanyRole" }
+        companyUserId: { type: string, description: "The owner's user ID, which identifies the company" }
+        companyName: { type: ["string", "null"] }
+    RequestEmployeeStatus:
+      type: string
+      enum: [pending, in_progress, done, blocked]
+    RequestEmployee:
+      type: object
+      required: [employeeId, fullName, itemStatus, note]
+      properties:
+        employeeId: { type: integer }
+        fullName: { type: string }
+        itemStatus: { $ref: "#/components/schemas/RequestEmployeeStatus" }
+        note: { type: ["string", "null"] }
+    RequestEmployeeUpdate:
+      type: object
+      additionalProperties: false
+      required: [itemStatus]
+      properties:
+        itemStatus: { $ref: "#/components/schemas/RequestEmployeeStatus" }
+        note: { type: ["string", "null"], maxLength: 500, description: "Omit to keep; null to clear" }
+    Plan:
+      type: object
+      required: [id, slug, name, description, price, vat, total, employeeCap, requestsPerMonth, autoRenewals, active, sort]
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string }
+        price: { type: integer, description: "Halalas per month before VAT" }
+        vat: { type: integer, description: "Halalas per month" }
+        total: { type: integer, description: "Halalas per month including VAT" }
+        employeeCap: { type: ["integer", "null"], description: "Null for unlimited" }
+        requestsPerMonth: { type: ["integer", "null"], description: "Null for unlimited" }
+        autoRenewals: { type: boolean, description: "Whether the plan covers automatic renewal requests from expiry reminders" }
+        active: { type: boolean }
+        sort: { type: integer }
+    PlanInput:
+      type: object
+      additionalProperties: false
+      required: [slug, name, description, price]
+      properties:
+        slug: { type: string, pattern: "^[a-z0-9-]{2,60}$" }
+        name: { type: string, minLength: 2, maxLength: 120 }
+        description: { type: string, maxLength: 2000 }
+        price: { type: integer, minimum: 100, maximum: 100000000, description: "Halalas per month before VAT" }
+        employeeCap: { type: ["integer", "null"], minimum: 1, maximum: 100000 }
+        requestsPerMonth: { type: ["integer", "null"], minimum: 1, maximum: 100000 }
+        autoRenewals: { type: boolean, default: true }
+        active: { type: boolean, default: true }
+        sort: { type: integer, minimum: 0, maximum: 1000, default: 0 }
+    SubscriptionStatus:
+      type: string
+      enum: [active, past_due, cancelled]
+    Subscription:
+      type: object
+      required: [id, plan, status, startsAt, renewsAt, cancelledAt, autoRenewRequests, latestInvoice]
+      properties:
+        id: { type: integer }
+        plan: { $ref: "#/components/schemas/Plan" }
+        status: { $ref: "#/components/schemas/SubscriptionStatus" }
+        startsAt: { type: string, format: date-time }
+        renewsAt: { type: string, format: date-time, description: "When the next monthly invoice is issued" }
+        cancelledAt: { type: ["string", "null"], format: date-time }
+        autoRenewRequests: { type: boolean, description: "Whether expiring documents open renewal requests automatically" }
+        latestInvoice:
+          oneOf:
+            - $ref: "#/components/schemas/Invoice"
+            - type: "null"
+    OfficeSubscription:
+      allOf:
+        - $ref: "#/components/schemas/Subscription"
+        - type: object
+          required: [userId, companyName, customerName]
+          properties:
+            userId: { type: string, description: "The subscribing company owner's user ID" }
+            companyName: { type: ["string", "null"] }
+            customerName: { type: ["string", "null"] }
+    OfficeSubscriptionPage:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OfficeSubscription" }
+        total: { type: integer, minimum: 0 }
+    OfficeSubscriptionUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [cancelled]
+          description: "Only cancellation is allowed"
+        autoRenewRequests: { type: boolean }
+    CompanySubscriptionResult:
+      type: object
+      required: [subscription]
+      properties:
+        subscription:
+          oneOf:
+            - $ref: "#/components/schemas/Subscription"
+            - type: "null"
+    StartSubscriptionInput:
+      type: object
+      additionalProperties: false
+      required: [planId]
+      properties:
+        planId: { type: integer, minimum: 1, maximum: 2147483647 }
+        autoRenewRequests: { type: boolean, default: true }
+    CompanySubscriptionUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        autoRenewRequests: { type: boolean }
+        cancel: { type: boolean, enum: [true], description: "Cancel at once; renewals stop and the plan ends at renewsAt" }
+    WhatsappWebhookPayload:
+      type: object
+      description: "Meta's WhatsApp Business webhook body, passed through as sent"
+      additionalProperties: true

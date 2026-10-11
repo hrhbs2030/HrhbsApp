@@ -33,3 +33,7 @@ export * from "./hbs-document-reminders";
 export * from "./hbs-customer-settings";
 export * from "./hbs-company";
 export * from "./hbs-assignment-rules";
+export * from "./hbs-company-members";
+export * from "./hbs-request-employees";
+export * from "./hbs-subscriptions";
+export * from "./hbs-whatsapp-inbound";

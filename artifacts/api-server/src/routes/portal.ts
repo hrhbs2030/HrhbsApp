@@ -17,7 +17,9 @@ import {
   hbsCompanyEmployees,
   hbsCompanyLicenses,
   hbsInvoices,
+  hbsRequestEmployees,
   hbsRequestMessages,
+  hbsSubscriptions,
   type HbsInquiry,
   type HbsRegistrationRequest,
   type HbsServiceRequest,
@@ -80,6 +82,9 @@ import {
   ReviewOfficeRegistrationResponse,
   SubmitPortalRegistrationBody,
   SubmitPortalRegistrationResponse,
+  UpdateOfficeRequestEmployeeBody,
+  UpdateOfficeRequestEmployeeParams,
+  UpdateOfficeRequestEmployeeResponse,
 } from "@workspace/api-zod";
 import { recordAudit } from "../lib/audit";
 import {
@@ -99,6 +104,7 @@ import {
 import { statusHistory } from "../lib/request-history";
 import { notifyCustomer } from "../lib/customer-contact";
 import { subjectLabels, subjectOf } from "../lib/company";
+import { hasCustomerApproval, hasLegacyCustomerData, resolveCompanyAccess } from "../lib/company-access";
 import { applyAssignmentRule, resumeAfterCustomerReply } from "../lib/automations";
 import { checklistForService, checklistOf, linkChecklist, resumeIfChecklistComplete } from "../lib/checklist";
 import { requestReference, vatFor } from "../lib/money";
@@ -125,6 +131,7 @@ const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
 const allowedAttachmentTypes = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
 export const MAX_ATTACHMENTS_PER_REQUEST = 10;
+export const MAX_REQUEST_EMPLOYEES = 50;
 // Largest value of a Postgres integer column; larger IDs cannot exist.
 const MAX_ID = 2_147_483_647;
 
@@ -154,20 +161,42 @@ async function attachmentsFor(requestIds: number[]) {
   return grouped;
 }
 
+export type RequestEmployeeItem = { employeeId: number; fullName: string; itemStatus: string; note: string | null };
+
 type RequestDetails = {
   attachments: ReturnType<typeof attachmentInfo>[];
   checklist: ReturnType<typeof checklistOf>;
   subject: ReturnType<typeof subjectOf>;
   lastMessage: { by: "customer" | "office"; at: Date } | null;
+  employees: RequestEmployeeItem[];
 };
+
+// The employees a bulk request covers, by request, each with the office's
+// progress on it. Employees since removed from the company file drop out
+// with their rows (cascade), like the single-employee subject does.
+async function requestEmployeesFor(requestIds: number[]) {
+  const rows = requestIds.length
+    ? await db.select({
+      requestId: hbsRequestEmployees.requestId, employeeId: hbsRequestEmployees.employeeId,
+      fullName: hbsCompanyEmployees.fullName, itemStatus: hbsRequestEmployees.itemStatus, note: hbsRequestEmployees.note,
+    }).from(hbsRequestEmployees)
+      .innerJoin(hbsCompanyEmployees, eq(hbsRequestEmployees.employeeId, hbsCompanyEmployees.id))
+      .where(inArray(hbsRequestEmployees.requestId, requestIds))
+      .orderBy(asc(hbsCompanyEmployees.fullName), asc(hbsRequestEmployees.employeeId))
+    : [];
+  const grouped = new Map<number, RequestEmployeeItem[]>();
+  for (const { requestId, ...item } of rows) grouped.set(requestId, [...(grouped.get(requestId) ?? []), item]);
+  return grouped;
+}
 
 // Everything shown with a request besides its own row: files and which
 // checklist item each answers, the employee or license it is about, and who
 // wrote last in its conversation.
 export async function detailsFor(records: HbsServiceRequest[]): Promise<Map<number, RequestDetails>> {
   const ids = records.map(r => r.id);
-  const [attached, labels, last] = await Promise.all([
+  const [attached, employees, labels, last] = await Promise.all([
     attachmentsFor(ids),
+    requestEmployeesFor(ids),
     subjectLabels(records.flatMap(r => r.employeeId ? [r.employeeId] : []), records.flatMap(r => r.licenseId ? [r.licenseId] : [])),
     ids.length ? db.selectDistinctOn([hbsRequestMessages.requestId], {
       requestId: hbsRequestMessages.requestId, by: hbsRequestMessages.authorRole, at: hbsRequestMessages.createdAt,
@@ -179,6 +208,7 @@ export async function detailsFor(records: HbsServiceRequest[]): Promise<Map<numb
     attachments: (attached.get(r.id) ?? []).map(({ attachment, ownerId }) => attachmentInfo(attachment, ownerId)),
     checklist: checklistOf(r.documentChecklist, (attached.get(r.id) ?? []).map(({ attachment }) => attachment)),
     subject: subjectOf(r, labels), lastMessage: lastBy.get(r.id) ?? null,
+    employees: employees.get(r.id) ?? [],
   }]));
 }
 
@@ -269,22 +299,9 @@ const requirePortalAuth: RequestHandler = (req, res, next) => {
   next();
 };
 
-async function hasLegacyCustomerData(userId: string): Promise<boolean> {
-  const [request] = await db.select({ id: hbsServiceRequests.id })
-    .from(hbsServiceRequests).where(eq(hbsServiceRequests.userId, userId)).limit(1);
-  if (request) return true;
-  const [inquiry] = await db.select({ id: hbsInquiries.id })
-    .from(hbsInquiries).where(eq(hbsInquiries.userId, userId)).limit(1);
-  return !!inquiry;
-}
-
-export async function hasCustomerApproval(userId: string): Promise<boolean> {
-  const [registration] = await db.select({ status: hbsRegistrationRequests.status })
-    .from(hbsRegistrationRequests)
-    .where(eq(hbsRegistrationRequests.userId, userId))
-    .limit(1);
-  return registration?.status === "approved" || hasLegacyCustomerData(userId);
-}
+// Lives in lib/company-access (company members resolve against it too);
+// re-exported for the routes that import it from here.
+export { hasCustomerApproval };
 
 export const requireApprovedCustomer: RequestHandler = async (req, res, next) => {
   const userId = getAuth(req).userId;
@@ -332,6 +349,7 @@ export function publicRequest(record: HbsServiceRequest, details?: RequestDetail
     lastMessage: details?.lastMessage ?? null,
     quote: quoteOf(record),
     checklist: details?.checklist ?? [],
+    employees: details?.employees ?? [],
   };
 }
 
@@ -536,8 +554,10 @@ router.get("/portal/summary", requirePortalAuth, requireApprovedCustomer, async 
   const [attached, [unpaid], expiring, [counts]] = await Promise.all([
     detailsFor(recentRequests),
     db.select({ count: sql<number>`count(*)::int`, total: sql<number>`coalesce(sum(${hbsInvoices.totalHalalas}), 0)::bigint`.mapWith(Number) })
-      .from(hbsInvoices).innerJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
-      .where(and(eq(hbsServiceRequests.userId, userId), eq(hbsInvoices.status, "issued"))),
+      // Request invoices and subscription invoices (request_id null) alike.
+      .from(hbsInvoices).leftJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
+      .leftJoin(hbsSubscriptions, eq(hbsInvoices.subscriptionId, hbsSubscriptions.id))
+      .where(and(or(eq(hbsServiceRequests.userId, userId), eq(hbsSubscriptions.userId, userId)), eq(hbsInvoices.status, "issued"))),
     db.select().from(hbsDocumentReminders).where(and(eq(hbsDocumentReminders.userId, userId),
       sql`${hbsDocumentReminders.expiresOn} between ${riyadhToday()} - 30 and ${riyadhToday()} + 60`))
       .orderBy(asc(hbsDocumentReminders.expiresOn), asc(hbsDocumentReminders.id)).limit(8),
@@ -649,19 +669,30 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
     await respondExisting(previous);
     return;
   }
-  const employeeId = parsed.data.employeeId ?? null;
+  // A bulk request names several employees, tracked one by one; it is also
+  // linked to the first of them so the single-employee views still apply.
+  const employeeIds = [...new Set(parsed.data.employeeIds ?? [])];
+  if (employeeIds.length > MAX_REQUEST_EMPLOYEES) {
+    res.status(400).json({ error: `A request can cover at most ${MAX_REQUEST_EMPLOYEES} employees.` });
+    return;
+  }
+  const employeeId = employeeIds[0] ?? parsed.data.employeeId ?? null;
   const licenseId = parsed.data.licenseId ?? null;
   if (employeeId && licenseId) {
     res.status(400).json({ error: "Link the request to one employee or one license." });
     return;
   }
   if (employeeId || licenseId) {
-    const owned = employeeId
+    // Employees come from the company the caller works in: their own, or the
+    // one they are a member of. The request itself stays theirs.
+    const companyUserId = (await resolveCompanyAccess(req))?.companyUserId ?? userId;
+    const wanted = employeeIds.length ? employeeIds : employeeId ? [employeeId] : [];
+    const owned = wanted.length
       ? await db.select({ id: hbsCompanyEmployees.id }).from(hbsCompanyEmployees)
-        .where(and(eq(hbsCompanyEmployees.id, employeeId), eq(hbsCompanyEmployees.userId, userId))).limit(1)
+        .where(and(inArray(hbsCompanyEmployees.id, wanted), eq(hbsCompanyEmployees.userId, companyUserId)))
       : await db.select({ id: hbsCompanyLicenses.id }).from(hbsCompanyLicenses)
-        .where(and(eq(hbsCompanyLicenses.id, licenseId!), eq(hbsCompanyLicenses.userId, userId))).limit(1);
-    if (!owned.length) {
+        .where(and(eq(hbsCompanyLicenses.id, licenseId!), eq(hbsCompanyLicenses.userId, companyUserId))).limit(1);
+    if (owned.length !== Math.max(wanted.length, 1)) {
       // Same answer for missing and other-customer IDs.
       res.status(400).json({ error: "Invalid employee or license" });
       return;
@@ -691,6 +722,9 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
         // request's checklist, for the customer to tick off with uploads.
         documentChecklist: await checklistForService(tx, parsed.data.serviceSlug, parsed.data.service.trim()),
       }).returning();
+      if (employeeIds.length) {
+        await tx.insert(hbsRequestEmployees).values(employeeIds.map(id => ({ requestId: created.id, employeeId: id })));
+      }
       await lockAndAttach(tx, userId, ids, created.id, finalized);
       return applyAssignmentRule(tx, created);
     });
@@ -1127,6 +1161,7 @@ router.get("/portal/settings", requirePortalAuth, requireApprovedCustomer, async
     whatsappOptIn: settings?.whatsappOptIn ?? false,
     whatsappPhone: settings?.whatsappPhone ?? null,
     whatsappAvailable: whatsappConfigured(),
+    lastInboundAt: settings?.lastInboundAt ?? null,
   }));
 });
 
@@ -1144,6 +1179,7 @@ router.put("/portal/settings", requirePortalAuth, requireApprovedCustomer, async
     .onConflictDoUpdate({ target: hbsCustomerSettings.userId, set: values }).returning();
   res.json(SavePortalSettingsResponse.parse({
     whatsappOptIn: settings.whatsappOptIn, whatsappPhone: settings.whatsappPhone, whatsappAvailable: whatsappConfigured(),
+    lastInboundAt: settings.lastInboundAt,
   }));
 });
 
@@ -1409,6 +1445,35 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
     notify(assignedMail(await staffEmail(record.assignedTo), info,
       record.dueAt ? new Intl.DateTimeFormat("ar-SA-u-ca-gregory", { dateStyle: "long", timeZone: "Asia/Riyadh" }).format(record.dueAt) : null));
   }
+});
+
+// One employee's progress on a bulk request. Items are the office's own
+// tracking: when every item is done the office still completes the request
+// itself.
+router.patch("/office/service-requests/:id/employees/:employeeId", requireOfficeStaff, async (req, res): Promise<void> => {
+  const params = UpdateOfficeRequestEmployeeParams.safeParse(req.params);
+  const body = UpdateOfficeRequestEmployeeBody.safeParse(req.body);
+  if (!params.success) { res.status(404).json({ error: "Request not found" }); return; }
+  if (!body.success) { res.status(400).json({ error: "Invalid update" }); return; }
+  const note = body.data.note === undefined ? undefined : body.data.note?.trim() || null;
+  const actorId = getAuth(req).userId!;
+  const record = await db.transaction(async tx => {
+    const [item] = await tx.update(hbsRequestEmployees)
+      .set({ itemStatus: body.data.itemStatus, ...(note === undefined ? {} : { note }), updatedAt: new Date() })
+      .where(and(eq(hbsRequestEmployees.requestId, params.data.id), eq(hbsRequestEmployees.employeeId, params.data.employeeId)))
+      .returning();
+    if (!item) return null;
+    await recordAudit(tx, {
+      actorId, action: "service_request.employee_item", targetType: "service_request", targetId: item.requestId,
+      details: { employeeId: item.employeeId, itemStatus: item.itemStatus, noteChanged: note !== undefined },
+    });
+    const [current] = await tx.select().from(hbsServiceRequests).where(eq(hbsServiceRequests.id, item.requestId)).limit(1);
+    return current ?? null;
+  });
+  if (!record) { res.status(404).json({ error: "Request or employee not found" }); return; }
+  const response = officeRequest(record, (await detailsFor([record])).get(record.id), await customerOf(record.userId));
+  UpdateOfficeRequestEmployeeResponse.parse(response);
+  res.json(response);
 });
 
 router.get("/office/inquiries", requireOfficeStaff, async (req, res): Promise<void> => {

@@ -353,3 +353,73 @@ export function invoiceOverdueMail(to: string | null, request: RequestInfo, invo
     action: { label: "سدّد الفاتورة", path: `/requests/${request.id}?invoice=${invoice.id}` },
   };
 }
+
+const companyRoleLabels: Record<string, string> = {
+  hr: "الموارد البشرية",
+  finance: "المالية",
+  viewer: "مشاهدة فقط",
+};
+
+// Sent to the address a company owner invited. The invitation is accepted
+// by signing in with that same (verified) address.
+export function companyInviteMail(to: string | null, companyName: string | null, role: string, inviterName?: string | null): Mail | null {
+  if (!to) return null;
+  const company = companyName ? `منشأة «${companyName}»` : "منشأة على بوابة HBS";
+  const who = inviterName ? `دعاك ${inviterName} للانضمام` : "دُعيت للانضمام";
+  return {
+    to,
+    subject: `دعوة للانضمام إلى ${companyName ?? "منشأة"} على بوابة HBS`,
+    heading: "دعوة للانضمام إلى منشأة",
+    lines: [
+      `${who} إلى ${company} بصلاحية «${companyRoleLabels[role] ?? role}».`,
+      "سجّل الدخول أو أنشئ حسابًا بهذا البريد نفسه، وستجد ملف المنشأة في بوابتك مباشرة.",
+    ],
+    action: { label: "إنشاء حساب", path: "/sign-up" },
+  };
+}
+
+// ---- subscriptions ------------------------------------------------------------
+
+type SubscriptionInvoiceInfo = { id: number; reference: string; total: string };
+
+export function subscriptionStartedMail(to: string | null, planName: string, invoice: SubscriptionInvoiceInfo, renewsText: string): Mail | null {
+  if (!to) return null;
+  return {
+    to,
+    subject: `بدأ اشتراكك في باقة «${planName}»`,
+    heading: "بدأ اشتراكك",
+    lines: [`اشتركت في باقة «${planName}»، ويتجدد الاشتراك شهريًا في ${renewsText}.`,
+      `صدرت فاتورة الشهر الأول ${invoice.reference} بقيمة ${invoice.total} شاملة الضريبة. تجدها في صفحة الاشتراك.`],
+    action: { label: "اعرض الاشتراك", path: `/company?tab=subscription&invoice=${invoice.id}` },
+  };
+}
+
+// The monthly invoice when it is issued (days null), or an overdue reminder
+// for it (days since issue).
+export function subscriptionInvoiceMail(to: string | null, planName: string, invoice: SubscriptionInvoiceInfo, days: number | null): Mail | null {
+  if (!to) return null;
+  const reminder = days !== null;
+  return {
+    to,
+    subject: reminder ? `تذكير بسداد فاتورة الاشتراك ${invoice.reference}` : `فاتورة اشتراكك الشهرية ${invoice.reference}`,
+    heading: reminder ? "فاتورة اشتراك بانتظار السداد" : "صدرت فاتورة اشتراكك الشهرية",
+    lines: [`الباقة: «${planName}»`,
+      reminder
+        ? `الفاتورة ${invoice.reference} بقيمة ${invoice.total} صدرت قبل ${days} أيام ولم تُسدد بعد.`
+        : `رقم الفاتورة: ${invoice.reference} · الإجمالي شامل الضريبة: ${invoice.total}`,
+      "يمكنك السداد إلكترونيًا من صفحة الاشتراك، أو التواصل مع المكتب لترتيب السداد."],
+    action: { label: "سدّد الفاتورة", path: `/company?tab=subscription&invoice=${invoice.id}` },
+  };
+}
+
+export function subscriptionPastDueMail(to: string | null, planName: string, invoice: SubscriptionInvoiceInfo): Mail | null {
+  if (!to) return null;
+  return {
+    to,
+    subject: `اشتراكك متأخر السداد · ${invoice.reference}`,
+    heading: "اشتراكك متأخر السداد",
+    lines: [`لم تُسدد فاتورة اشتراكك في باقة «${planName}» ${invoice.reference} بقيمة ${invoice.total} خلال 14 يومًا من صدورها، فأصبح الاشتراك متأخر السداد.`,
+      "سدّد الفاتورة ليعود الاشتراك نشطًا، أو تواصل مع المكتب لترتيب السداد."],
+    action: { label: "سدّد الفاتورة", path: `/company?tab=subscription&invoice=${invoice.id}` },
+  };
+}

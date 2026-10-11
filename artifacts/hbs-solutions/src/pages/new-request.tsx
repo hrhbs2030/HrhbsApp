@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, Camera, Check, Paperclip, Pencil, Send, Shapes, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, Camera, Check, Paperclip, Pencil, Send, Shapes, UsersRound, X } from 'lucide-react';
 import { getGetCompanyFileQueryKey, getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, useCreateServiceRequest, useGetCompanyFile, type ServiceRequestInputCategory } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading } from '@/components/portal-ui';
 import { categories, categoryById, serviceBySlug, services, type ServiceCategory } from '@/content/services';
@@ -17,6 +17,18 @@ import './new-request.css';
 const LIMITS = { service: [2, 120], description: [10, 5000], phone: [9, 24] } as const;
 const steps = ['الخدمة', 'التفاصيل', 'المراجعة'];
 const categoryIcons: Record<ServiceCategory, typeof BookUser> = { passports: BookUser, labor: BriefcaseBusiness, business: Building2, other: Shapes };
+// Labour and passport services are the ones done for many employees at once
+// (iqama renewals, work permits); there the picker takes several employees.
+// Mirrors ServiceRequestInput.employeeIds (maxItems 50).
+export const BULK_CATEGORIES: ServiceCategory[] = ['labor', 'passports'];
+export const MAX_EMPLOYEES = 50;
+export const employeesLabel = (n: number) => n === 1 ? 'موظف واحد' : n === 2 ? 'موظفان' : n <= 10 ? `${n} موظفين` : `${n} موظفًا`;
+// What the request links to: one employee stays `employeeId` (the office sees
+// a single subject); several become `employeeIds`, tracked one by one.
+export function employeeLink(ids: number[]): { employeeId?: number; employeeIds?: number[] } {
+  const unique = [...new Set(ids)].slice(0, MAX_EMPLOYEES);
+  return unique.length === 0 ? {} : unique.length === 1 ? { employeeId: unique[0] } : { employeeIds: unique };
+}
 
 type Errors = Partial<Record<'service' | 'description' | 'contactPhone', string>>;
 
@@ -47,6 +59,9 @@ export function NewRequest() {
   const company = useGetCompanyFile({ query: { queryKey: getGetCompanyFileQueryKey() } });
   // "employee:12" or "license:3": what the request is about, from the company file.
   const [subject, setSubject] = useState(() => query.get('employee') ? `employee:${query.get('employee')}` : query.get('license') ? `license:${query.get('license')}` : '');
+  // The bulk picker's choice (labour and passport services), seeded from `?employee=`.
+  const [picked, setPicked] = useState<number[]>(() => Number(query.get('employee')) ? [Number(query.get('employee'))] : []);
+  const [employeeSearch, setEmployeeSearch] = useState('');
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
@@ -73,9 +88,18 @@ export function NewRequest() {
   const suggestions = useMemo(() => services.filter((s) => s.category === category), [category]);
   const matched = services.find((s) => s.name === service.trim()) ?? preset;
   const guidance = matched?.whatToWrite;
-  const subjectOptions = [...(company.data?.employees.filter((e) => e.status === 'active') ?? []), ...(company.data?.licenses ?? [])];
-  const subjectLabel = subject.startsWith('employee:') ? company.data?.employees.find((e) => `employee:${e.id}` === subject)?.fullName
+  const activeEmployees = company.data?.employees.filter((e) => e.status === 'active') ?? [];
+  const bulk = BULK_CATEGORIES.includes(category) && activeEmployees.length > 0;
+  // Only employees still in the file count; a stale id from the address bar is dropped.
+  const pickedEmployees = activeEmployees.filter((e) => picked.includes(e.id));
+  const shownEmployees = activeEmployees.filter((e) => !employeeSearch.trim() || [e.fullName, e.nationality, e.occupation].some((x) => x?.includes(employeeSearch.trim())));
+  const subjectOptions = [...activeEmployees, ...(company.data?.licenses ?? [])];
+  const subjectLabel = bulk ? (pickedEmployees.length === 1 ? pickedEmployees[0].fullName : pickedEmployees.length > 1 ? `${employeesLabel(pickedEmployees.length)}: ${pickedEmployees.map((e) => e.fullName).join('، ')}` : undefined)
+    : subject.startsWith('employee:') ? company.data?.employees.find((e) => `employee:${e.id}` === subject)?.fullName
     : subject.startsWith('license:') ? company.data?.licenses.find((l) => `license:${l.id}` === subject)?.title : undefined;
+  function toggleEmployee(id: number, on: boolean) {
+    setPicked(on ? (picked.includes(id) || picked.length >= MAX_EMPLOYEES ? picked : [...picked, id]) : picked.filter((x) => x !== id));
+  }
 
   function go(next: number) {
     setDirection(next > step ? 'forward' : 'back');
@@ -126,8 +150,8 @@ export function NewRequest() {
     try {
       const attachmentIds = files.map((file) => uploaded.current.get(file)!).filter(Boolean);
       // A link to an employee or license that is no longer in the file is ignored.
-      const [subjectType, subjectId] = subjectLabel ? subject.split(':') : [];
-      const link = subjectType === 'employee' ? { employeeId: Number(subjectId) } : subjectType === 'license' ? { licenseId: Number(subjectId) } : {};
+      const [subjectType, subjectId] = !bulk && subjectLabel ? subject.split(':') : [];
+      const link = bulk ? employeeLink(pickedEmployees.map((e) => e.id)) : subjectType === 'employee' ? { employeeId: Number(subjectId) } : subjectType === 'license' ? { licenseId: Number(subjectId) } : {};
       const result = await mutation.mutateAsync({ data: { category, service: service.trim(), ...(matched?.slug ? { serviceSlug: matched.slug } : {}), description: description.trim(), contactPhone: normalizePhone(contactPhone) ?? contactPhone.trim(), clientRequestId, ...link, ...(attachmentIds.length ? { attachmentIds } : {}) } });
       await Promise.all([qc.invalidateQueries({ queryKey: getListServiceRequestsQueryKey() }), qc.invalidateQueries({ queryKey: getGetPortalSummaryQueryKey() })]);
       navigate(`/requests/${result.id}?sent=1`);
@@ -194,10 +218,22 @@ export function NewRequest() {
                   <textarea id="field-description" className="form-control" placeholder="صف المعاملة وما تحتاجه من المكتب" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={LIMITS.description[1]} aria-invalid={!!errors.description} aria-describedby={errors.description ? 'err-description' : 'hint-description'} />
                   {errors.description ? <span id="err-description" className="field-error" role="alert">{errors.description}</span> : <small id="hint-description" className="muted flex justify-between gap-3 font-normal"><span>لا تشارك كلمات مرور المنصات أو رموز التحقق.</span><span className="nums shrink-0" dir="ltr">{description.trim().length}/{LIMITS.description[1]}</span></small>}
                 </label>
-                {subjectOptions.length > 0 && <label className="form-field mt-6" htmlFor="field-subject">يخص موظفًا أو ترخيصًا؟ (اختياري)
+                {bulk ? <fieldset className="nr-pick" aria-describedby="hint-employees">
+                  <legend className="nr-pick-legend"><UsersRound size={16} aria-hidden="true"/>الموظفون المعنيون بالطلب <small>(اختياري)</small><span className="nr-pick-count nums" aria-live="polite">{pickedEmployees.length}/{MAX_EMPLOYEES}</span></legend>
+                  <div className="nr-pick-tools">
+                    <input className="form-control" placeholder="ابحث بالاسم أو الجنسية أو المهنة" value={employeeSearch} onChange={(e) => setEmployeeSearch(e.target.value)} aria-label="بحث في الموظفين"/>
+                    {pickedEmployees.length < Math.min(activeEmployees.length, MAX_EMPLOYEES)
+                      ? <button type="button" className="btn btn-outline btn-sm" onClick={() => setPicked([...new Set([...picked, ...shownEmployees.map((e) => e.id)])].slice(0, MAX_EMPLOYEES))}>تحديد الكل</button>
+                      : <button type="button" className="btn btn-outline btn-sm" onClick={() => setPicked([])}>إلغاء التحديد</button>}
+                  </div>
+                  <ul className="nr-pick-list">{shownEmployees.map((e) => { const on = picked.includes(e.id); return <li key={e.id}>
+                    <label className="nr-pick-item" data-checked={on}><input type="checkbox" checked={on} disabled={!on && picked.length >= MAX_EMPLOYEES} onChange={(ev) => toggleEmployee(e.id, ev.target.checked)}/><span className="min-w-0"><strong>{e.fullName}</strong>{(e.occupation || e.nationality) && <small>{[e.occupation, e.nationality].filter(Boolean).join(' · ')}</small>}</span></label>
+                  </li>; })}{!shownEmployees.length && <li className="muted px-3 py-4 text-center text-xs">لا يوجد موظفون مطابقون.</li>}</ul>
+                  <small id="hint-employees" className="muted font-normal">{picked.length >= MAX_EMPLOYEES ? `الحد الأقصى ${MAX_EMPLOYEES} موظفًا في الطلب الواحد؛ أرسل طلبًا آخر للبقية.` : 'اختر موظفًا واحدًا أو أكثر؛ يتابع المكتب كل موظف على حدة ويظهر الطلب في ملفاتهم.'}</small>
+                </fieldset> : subjectOptions.length > 0 && <label className="form-field mt-6" htmlFor="field-subject">يخص موظفًا أو ترخيصًا؟ (اختياري)
                   <select id="field-subject" className="form-control" value={subject} onChange={(e) => setSubject(e.target.value)}>
                     <option value="">لا يخص موظفًا أو ترخيصًا محددًا</option>
-                    {company.data!.employees.filter((e) => e.status === 'active').length > 0 && <optgroup label="الموظفون">{company.data!.employees.filter((e) => e.status === 'active').map((e) => <option key={e.id} value={`employee:${e.id}`}>{e.fullName}{e.occupation ? ` · ${e.occupation}` : ''}</option>)}</optgroup>}
+                    {activeEmployees.length > 0 && <optgroup label="الموظفون">{activeEmployees.map((e) => <option key={e.id} value={`employee:${e.id}`}>{e.fullName}{e.occupation ? ` · ${e.occupation}` : ''}</option>)}</optgroup>}
                     {company.data!.licenses.length > 0 && <optgroup label="التراخيص">{company.data!.licenses.map((l) => <option key={l.id} value={`license:${l.id}`}>{l.title}</option>)}</optgroup>}
                   </select>
                   <small className="muted font-normal">يظهر الطلب في ملف الموظف أو الترخيص، ويرى المكتب بياناته مباشرة.</small>
@@ -234,13 +270,13 @@ export function NewRequest() {
                   <div><dt>المجال</dt><dd>{categoryById[category].name}</dd><button type="button" onClick={() => go(0)} aria-label="تعديل المجال"><Pencil size={15} /></button></div>
                   <div><dt>الخدمة</dt><dd>{service.trim()}</dd><button type="button" onClick={() => go(0)} aria-label="تعديل اسم الخدمة"><Pencil size={15} /></button></div>
                   <div className="nr-review-wide"><dt>التفاصيل</dt><dd className="whitespace-pre-wrap">{description.trim()}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل التفاصيل"><Pencil size={15} /></button></div>
-                  {subjectLabel && <div className="nr-review-wide"><dt>يخص</dt><dd>{subjectLabel}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل ما يخصه الطلب"><Pencil size={15} /></button></div>}
+                  {subjectLabel && <div className="nr-review-wide"><dt>{bulk && pickedEmployees.length > 1 ? 'الموظفون' : 'يخص'}</dt><dd>{subjectLabel}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل ما يخصه الطلب"><Pencil size={15} /></button></div>}
                   <div><dt>رقم التواصل</dt><dd dir="ltr" className="text-right">{normalizePhone(contactPhone) ?? contactPhone.trim()}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل رقم التواصل"><Pencil size={15} /></button></div>
                   <div className="nr-review-wide"><dt>المستندات</dt><dd>{files.length ? files.map((f) => f.name).join('، ') : 'لا توجد'}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل المستندات"><Pencil size={15} /></button></div>
                 </dl>
                 <p className="muted mt-5 text-sm leading-7">سيراجع المكتب طلبك، وإن احتاج مستندًا إضافيًا تصبح الحالة «بانتظار العميل» وترفعه من صفحة الطلب.</p>
                 {fileProblems.length > 0 && <div role="alert" className="nr-files-errors mt-4">{fileProblems.map((p) => <p key={p}>{p}</p>)}</div>}
-                {mutation.isError && <div role="alert" className="mt-5 rounded-lg bg-danger-soft p-4 text-sm text-danger">{(mutation.error as { status?: number } | null)?.status === 400 ? 'تحقق من بيانات الطلب: الموظف أو الترخيص المختار لم يعد في ملف المنشأة.' : 'تعذّر إرسال الطلب. تحقق من اتصالك وحاول مرة أخرى؛ لن يُرسل الطلب مرتين.'}</div>}
+                {mutation.isError && <div role="alert" className="mt-5 rounded-lg bg-danger-soft p-4 text-sm text-danger">{(mutation.error as { status?: number } | null)?.status === 400 ? 'تحقق من بيانات الطلب: موظف أو ترخيص مختار لم يعد في ملف المنشأة، أو تجاوز العدد 50 موظفًا.' : 'تعذّر إرسال الطلب. تحقق من اتصالك وحاول مرة أخرى؛ لن يُرسل الطلب مرتين.'}</div>}
               </div>
             )}
           </div>

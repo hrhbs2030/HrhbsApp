@@ -34,6 +34,9 @@ const Legacy = lazy(() => import('@/pages/legacy'));
 const officeAdminPages = () => import('@/pages/office-admin');
 const OfficeStaff = lazy(() => officeAdminPages().then(m => ({ default: m.OfficeStaff })));
 const OfficeAuditLog = lazy(() => officeAdminPages().then(m => ({ default: m.OfficeAuditLog })));
+const OfficePlans = lazy(() => officeAdminPages().then(m => ({ default: m.OfficePlans })));
+const OfficeSubscriptions = lazy(() => officeAdminPages().then(m => ({ default: m.OfficeSubscriptions })));
+const OfficeRequestPage = lazy(() => import('@/pages/office-request'));
 const customerExtras = () => import('@/pages/customer-extras');
 const Documents = lazy(() => customerExtras().then(m => ({ default: m.Documents })));
 const NotificationSettings = lazy(() => customerExtras().then(m => ({ default: m.NotificationSettings })));
@@ -184,7 +187,10 @@ export default function PortalShell() {
       <Route path="/office/reminders"><RoleGate staff><OfficeReminders/></RoleGate></Route>
       <Route path="/office/catalog"><RoleGate staff owner><OfficeCatalog/></RoleGate></Route>
       <Route path="/office/reports"><RoleGate staff owner><OfficeReports/></RoleGate></Route>
+      <Route path="/office/requests/:id"><RoleGate staff><OfficeRequestPage/></RoleGate></Route>
       <Route path="/office/requests"><RoleGate staff><OfficeRequests/></RoleGate></Route>
+      <Route path="/office/plans"><RoleGate staff owner><OfficePlans/></RoleGate></Route>
+      <Route path="/office/subscriptions"><RoleGate staff owner><OfficeSubscriptions/></RoleGate></Route>
       <Route path="/office/registrations"><RoleGate staff><OfficeRegistrations/></RoleGate></Route>
       <Route path="/office/inquiries"><RoleGate staff><OfficeInquiries/></RoleGate></Route>
       <Route path="/office/legacy"><RoleGate staff owner><Legacy/></RoleGate></Route>

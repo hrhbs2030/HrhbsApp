@@ -29,6 +29,7 @@ const apiChecks = [
   [api, 'test:office-access'],
   [api, 'test:openai-auth'],
   [api, 'test:office-features-units'],
+  [api, 'test:whatsapp-inbound'],
 ];
 const databaseChecks = [
   [api, 'test:portal-isolation'],
@@ -45,6 +46,8 @@ const databaseChecks = [
   [api, 'test:company-file'],
   [api, 'test:automations'],
   [api, 'test:package-c'],
+  [api, 'test:package-d-members'],
+  [api, 'test:package-d-subscriptions'],
 ];
 const storageCheck = [api, 'test:attachment-storage'];
 

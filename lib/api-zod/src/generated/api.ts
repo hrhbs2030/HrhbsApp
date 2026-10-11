@@ -384,7 +384,13 @@ export const GetPortalSummaryResponse = zod.object({
   "label": zod.string(),
   "attachmentId": zod.number().int().nullable(),
   "attachmentName": zod.string().nullable()
-}))
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
 })),
   "recentInquiries": zod.array(zod.object({
   "id": zod.number().int(),
@@ -452,7 +458,13 @@ export const ListServiceRequestsResponseItem = zod.object({
   "label": zod.string(),
   "attachmentId": zod.number().int().nullable(),
   "attachmentName": zod.string().nullable()
-}))
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
 })
 export const ListServiceRequestsResponse = zod.array(ListServiceRequestsResponseItem)
 
@@ -474,6 +486,9 @@ export const createServiceRequestBodyAttachmentIdsMax = 10;
 
 
 
+export const createServiceRequestBodyEmployeeIdsMax = 50;
+
+
 export const createServiceRequestBodyServiceSlugRegExp = new RegExp('^[a-z0-9-]{2,60}$');
 
 
@@ -485,6 +500,7 @@ export const CreateServiceRequestBody = zod.object({
   "clientRequestId": zod.string().uuid().optional(),
   "attachmentIds": zod.array(zod.number().int().min(1)).max(createServiceRequestBodyAttachmentIdsMax).optional(),
   "employeeId": zod.number().int().min(1).nullish().describe('An employee in the customer\'s company file'),
+  "employeeIds": zod.array(zod.number().int().min(1)).max(createServiceRequestBodyEmployeeIdsMax).optional().describe('Employees of the customer\'s company file for a bulk request, tracked one by one; may be combined with employeeId'),
   "licenseId": zod.number().int().min(1).nullish().describe('A license in the customer\'s company file'),
   "serviceSlug": zod.string().regex(createServiceRequestBodyServiceSlugRegExp).optional().describe('Catalogue slug of the chosen service; its published required documents become the request\'s checklist')
 })
@@ -539,7 +555,13 @@ export const CreateServiceRequestResponse = zod.object({
   "label": zod.string(),
   "attachmentId": zod.number().int().nullable(),
   "attachmentName": zod.string().nullable()
-}))
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
 })
 
 
@@ -639,7 +661,13 @@ export const AttachServiceRequestFilesResponse = zod.object({
   "label": zod.string(),
   "attachmentId": zod.number().int().nullable(),
   "attachmentName": zod.string().nullable()
-}))
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
 })
 
 
@@ -766,7 +794,13 @@ export const AttachOfficeServiceRequestFilesResponse = zod.object({
   "label": zod.string(),
   "attachmentId": zod.number().int().nullable(),
   "attachmentName": zod.string().nullable()
-}))
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
 })
 
 
@@ -851,7 +885,13 @@ export const GetServiceRequestResponse = zod.object({
   "label": zod.string(),
   "attachmentId": zod.number().int().nullable(),
   "attachmentName": zod.string().nullable()
-}))
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
 })
 
 
@@ -1023,7 +1063,13 @@ export const ListOfficeServiceRequestsResponse = zod.object({
   "label": zod.string(),
   "attachmentId": zod.number().int().nullable(),
   "attachmentName": zod.string().nullable()
-}))
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
 })),
   "total": zod.number().int().min(listOfficeServiceRequestsResponseTotalMin),
   "page": zod.number().int().min(1),
@@ -1170,7 +1216,13 @@ export const UpdateOfficeServiceRequestResponse = zod.object({
   "label": zod.string(),
   "attachmentId": zod.number().int().nullable(),
   "attachmentName": zod.string().nullable()
-}))
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
 })
 
 
@@ -1416,7 +1468,7 @@ export const ListOfficeAuditLogResponseItem = zod.object({
   "id": zod.number().int(),
   "actorId": zod.string(),
   "actorEmail": zod.string().email().nullable(),
-  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge', 'registration.approve', 'registration.reject', 'information.review', 'information.publish', 'information.unpublish', 'attachment.extract', 'invoice.issue', 'invoice.mark_paid', 'invoice.cancel', 'invoice.paid_online', 'offer.update', 'reminder.create', 'company.update', 'employee.create', 'employee.update', 'employee.delete', 'employee.reveal', 'license.create', 'license.update', 'license.delete', 'employee.import', 'license.import', 'automation.update', 'service_request.quote', 'service_request.quote_accept', 'service_request.quote_decline', 'service_request.checklist']),
+  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge', 'registration.approve', 'registration.reject', 'information.review', 'information.publish', 'information.unpublish', 'attachment.extract', 'invoice.issue', 'invoice.mark_paid', 'invoice.cancel', 'invoice.paid_online', 'offer.update', 'reminder.create', 'company.update', 'employee.create', 'employee.update', 'employee.delete', 'employee.reveal', 'license.create', 'license.update', 'license.delete', 'employee.import', 'license.import', 'automation.update', 'service_request.quote', 'service_request.quote_accept', 'service_request.quote_decline', 'service_request.checklist', 'company.member_invite', 'company.member_update', 'company.member_remove', 'service_request.employee_item', 'plan.create', 'plan.update', 'subscription.start', 'subscription.update', 'service_request.auto_renew']),
   "targetType": zod.string(),
   "targetId": zod.string(),
   "details": zod.record(zod.string(), zod.unknown()),
@@ -1583,7 +1635,13 @@ export const RateServiceRequestResponse = zod.object({
   "label": zod.string(),
   "attachmentId": zod.number().int().nullable(),
   "attachmentName": zod.string().nullable()
-}))
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
 })
 
 
@@ -1598,12 +1656,18 @@ export const ListServiceRequestInvoicesParams = zod.object({
   "id": zod.coerce.number().int().min(1).max(listServiceRequestInvoicesPathIdMax)
 })
 
+
+
+
 export const ListServiceRequestInvoicesResponseItem = zod.object({
   "id": zod.number().int(),
   "reference": zod.string(),
-  "requestId": zod.number().int(),
-  "requestReference": zod.string(),
+  "requestId": zod.number().int().nullable().describe('Null for a subscription invoice'),
+  "requestReference": zod.string().nullable(),
+  "subscriptionId": zod.number().int().nullable().describe('Null for a request invoice'),
   "description": zod.string(),
+  "quantity": zod.number().int().min(1).describe('Number of units billed; 1 unless a unit amount was given'),
+  "unitAmount": zod.number().int().nullable().describe('Halalas per unit before VAT, when the amount was computed from a quantity'),
   "amount": zod.number().int().describe('Halalas before VAT'),
   "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
   "vat": zod.number().int(),
@@ -1650,12 +1714,18 @@ export const RefreshInvoicePaymentParams = zod.object({
   "id": zod.coerce.number().int().min(1).max(refreshInvoicePaymentPathIdMax)
 })
 
+
+
+
 export const RefreshInvoicePaymentResponse = zod.object({
   "id": zod.number().int(),
   "reference": zod.string(),
-  "requestId": zod.number().int(),
-  "requestReference": zod.string(),
+  "requestId": zod.number().int().nullable().describe('Null for a subscription invoice'),
+  "requestReference": zod.string().nullable(),
+  "subscriptionId": zod.number().int().nullable().describe('Null for a request invoice'),
   "description": zod.string(),
+  "quantity": zod.number().int().min(1).describe('Number of units billed; 1 unless a unit amount was given'),
+  "unitAmount": zod.number().int().nullable().describe('Halalas per unit before VAT, when the amount was computed from a quantity'),
   "amount": zod.number().int().describe('Halalas before VAT'),
   "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
   "vat": zod.number().int(),
@@ -1685,12 +1755,18 @@ export const ListOfficeServiceRequestInvoicesParams = zod.object({
   "id": zod.coerce.number().int().min(1).max(listOfficeServiceRequestInvoicesPathIdMax)
 })
 
+
+
+
 export const ListOfficeServiceRequestInvoicesResponseItem = zod.object({
   "id": zod.number().int(),
   "reference": zod.string(),
-  "requestId": zod.number().int(),
-  "requestReference": zod.string(),
+  "requestId": zod.number().int().nullable().describe('Null for a subscription invoice'),
+  "requestReference": zod.string().nullable(),
+  "subscriptionId": zod.number().int().nullable().describe('Null for a request invoice'),
   "description": zod.string(),
+  "quantity": zod.number().int().min(1).describe('Number of units billed; 1 unless a unit amount was given'),
+  "unitAmount": zod.number().int().nullable().describe('Halalas per unit before VAT, when the amount was computed from a quantity'),
   "amount": zod.number().int().describe('Halalas before VAT'),
   "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
   "vat": zod.number().int(),
@@ -1727,20 +1803,34 @@ export const issueOfficeInvoiceBodyDescriptionMax = 300;
 export const issueOfficeInvoiceBodyAmountMin = 100;
 export const issueOfficeInvoiceBodyAmountMax = 100000000;
 
+export const issueOfficeInvoiceBodyQuantityDefault = 1;
+export const issueOfficeInvoiceBodyQuantityMax = 500;
+
+export const issueOfficeInvoiceBodyUnitAmountMin = 100;
+export const issueOfficeInvoiceBodyUnitAmountMax = 100000000;
+
 
 
 export const IssueOfficeInvoiceBody = zod.object({
   "description": zod.string().min(issueOfficeInvoiceBodyDescriptionMin).max(issueOfficeInvoiceBodyDescriptionMax),
-  "amount": zod.number().int().min(issueOfficeInvoiceBodyAmountMin).max(issueOfficeInvoiceBodyAmountMax).describe('Halalas before VAT'),
+  "amount": zod.number().int().min(issueOfficeInvoiceBodyAmountMin).max(issueOfficeInvoiceBodyAmountMax).describe('Halalas before VAT; ignored when unitAmount is given'),
+  "quantity": zod.number().int().min(1).max(issueOfficeInvoiceBodyQuantityMax).default(issueOfficeInvoiceBodyQuantityDefault).describe('Units billed, for example employees on a bulk request'),
+  "unitAmount": zod.number().int().min(issueOfficeInvoiceBodyUnitAmountMin).max(issueOfficeInvoiceBodyUnitAmountMax).optional().describe('Halalas per unit before VAT; when given, amount = unitAmount x quantity'),
   "markAwaitingPayment": zod.boolean().optional().describe('Also move the request to awaiting payment')
 })
+
+
+
 
 export const IssueOfficeInvoiceResponse = zod.object({
   "id": zod.number().int(),
   "reference": zod.string(),
-  "requestId": zod.number().int(),
-  "requestReference": zod.string(),
+  "requestId": zod.number().int().nullable().describe('Null for a subscription invoice'),
+  "requestReference": zod.string().nullable(),
+  "subscriptionId": zod.number().int().nullable().describe('Null for a request invoice'),
   "description": zod.string(),
+  "quantity": zod.number().int().min(1).describe('Number of units billed; 1 unless a unit amount was given'),
+  "unitAmount": zod.number().int().nullable().describe('Halalas per unit before VAT, when the amount was computed from a quantity'),
   "amount": zod.number().int().describe('Halalas before VAT'),
   "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
   "vat": zod.number().int(),
@@ -1779,12 +1869,18 @@ export const UpdateOfficeInvoiceBody = zod.object({
   "paymentReference": zod.string().max(updateOfficeInvoiceBodyPaymentReferenceMax).nullish()
 })
 
+
+
+
 export const UpdateOfficeInvoiceResponse = zod.object({
   "id": zod.number().int(),
   "reference": zod.string(),
-  "requestId": zod.number().int(),
-  "requestReference": zod.string(),
+  "requestId": zod.number().int().nullable().describe('Null for a subscription invoice'),
+  "requestReference": zod.string().nullable(),
+  "subscriptionId": zod.number().int().nullable().describe('Null for a request invoice'),
   "description": zod.string(),
+  "quantity": zod.number().int().min(1).describe('Number of units billed; 1 unless a unit amount was given'),
+  "unitAmount": zod.number().int().nullable().describe('Halalas per unit before VAT, when the amount was computed from a quantity'),
   "amount": zod.number().int().describe('Halalas before VAT'),
   "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
   "vat": zod.number().int(),
@@ -2005,7 +2101,8 @@ export const ExtractOfficeAttachmentDocumentResponse = zod.object({
 export const GetPortalSettingsResponse = zod.object({
   "whatsappOptIn": zod.boolean(),
   "whatsappPhone": zod.string().nullable(),
-  "whatsappAvailable": zod.boolean().describe('Whether the office has WhatsApp messages turned on')
+  "whatsappAvailable": zod.boolean().describe('Whether the office has WhatsApp messages turned on'),
+  "lastInboundAt": zod.coerce.date().nullable().describe('When the customer last wrote to the office on WhatsApp')
 })
 
 
@@ -2024,7 +2121,8 @@ export const SavePortalSettingsBody = zod.object({
 export const SavePortalSettingsResponse = zod.object({
   "whatsappOptIn": zod.boolean(),
   "whatsappPhone": zod.string().nullable(),
-  "whatsappAvailable": zod.boolean().describe('Whether the office has WhatsApp messages turned on')
+  "whatsappAvailable": zod.boolean().describe('Whether the office has WhatsApp messages turned on'),
+  "lastInboundAt": zod.coerce.date().nullable().describe('When the customer last wrote to the office on WhatsApp')
 })
 
 
@@ -3270,7 +3368,13 @@ export const SendOfficeQuoteResponse = zod.object({
   "label": zod.string(),
   "attachmentId": zod.number().int().nullable(),
   "attachmentName": zod.string().nullable()
-}))
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
 })
 
 
@@ -3335,7 +3439,13 @@ export const AcceptQuoteResponse = zod.object({
   "label": zod.string(),
   "attachmentId": zod.number().int().nullable(),
   "attachmentName": zod.string().nullable()
-}))
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
 })
 
 
@@ -3408,7 +3518,13 @@ export const DeclineQuoteResponse = zod.object({
   "label": zod.string(),
   "attachmentId": zod.number().int().nullable(),
   "attachmentName": zod.string().nullable()
-}))
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
 })
 
 
@@ -3495,7 +3611,13 @@ export const SaveOfficeChecklistResponse = zod.object({
   "label": zod.string(),
   "attachmentId": zod.number().int().nullable(),
   "attachmentName": zod.string().nullable()
-}))
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
 })
 
 
@@ -3571,7 +3693,13 @@ export const LinkAttachmentToChecklistResponse = zod.object({
   "label": zod.string(),
   "attachmentId": zod.number().int().nullable(),
   "attachmentName": zod.string().nullable()
-}))
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
 })
 
 
@@ -3654,7 +3782,13 @@ export const LinkOfficeAttachmentToChecklistResponse = zod.object({
   "label": zod.string(),
   "attachmentId": zod.number().int().nullable(),
   "attachmentName": zod.string().nullable()
-}))
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
 })
 
 
@@ -3708,5 +3842,743 @@ export const LookupOfficeCommercialRegisterResponse = zod.object({
   "issuedOn": zod.string().nullable().describe('Date as given by Wathq'),
   "expiresOn": zod.string().nullable().describe('Date as given by Wathq')
 })
+
+
+/**
+ * @summary The signed-in customer's company members, owner first
+ */
+export const ListCompanyMembersResponseItem = zod.object({
+  "id": zod.number().int().describe('0 for the implicit owner row'),
+  "email": zod.string().email(),
+  "role": zod.enum(['owner', 'hr', 'finance', 'viewer']),
+  "memberUserId": zod.string().nullable().describe('Set once the invited person signed in; the owner\'s own user ID for the owner row'),
+  "invitedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable()
+})
+export const ListCompanyMembersResponse = zod.array(ListCompanyMembersResponseItem)
+
+
+/**
+ * @summary Owner-only invite a person by email
+ */
+export const inviteCompanyMemberBodyEmailMax = 254;
+
+
+
+export const InviteCompanyMemberBody = zod.object({
+  "email": zod.string().email().max(inviteCompanyMemberBodyEmailMax),
+  "role": zod.enum(['hr', 'finance', 'viewer'])
+})
+
+export const InviteCompanyMemberResponse = zod.object({
+  "id": zod.number().int().describe('0 for the implicit owner row'),
+  "email": zod.string().email(),
+  "role": zod.enum(['owner', 'hr', 'finance', 'viewer']),
+  "memberUserId": zod.string().nullable().describe('Set once the invited person signed in; the owner\'s own user ID for the owner row'),
+  "invitedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Owner-only change a member's role
+ */
+export const updateCompanyMemberPathIdMax = 2147483647;
+
+
+
+export const UpdateCompanyMemberParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(updateCompanyMemberPathIdMax)
+})
+
+export const UpdateCompanyMemberBody = zod.object({
+  "role": zod.enum(['hr', 'finance', 'viewer'])
+})
+
+export const UpdateCompanyMemberResponse = zod.object({
+  "id": zod.number().int().describe('0 for the implicit owner row'),
+  "email": zod.string().email(),
+  "role": zod.enum(['owner', 'hr', 'finance', 'viewer']),
+  "memberUserId": zod.string().nullable().describe('Set once the invited person signed in; the owner\'s own user ID for the owner row'),
+  "invitedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Owner-only remove a member or withdraw an invitation
+ */
+export const removeCompanyMemberPathIdMax = 2147483647;
+
+
+
+export const RemoveCompanyMemberParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(removeCompanyMemberPathIdMax)
+})
+
+export const RemoveCompanyMemberResponse = zod.void()
+
+
+/**
+ * @summary The signed-in user's role in the company they own or were accepted into
+ */
+export const GetCompanyMembershipResponse = zod.object({
+  "role": zod.enum(['owner', 'hr', 'finance', 'viewer']),
+  "companyUserId": zod.string().describe('The owner\'s user ID, which identifies the company'),
+  "companyName": zod.string().nullable()
+})
+
+
+/**
+ * @summary Staff-only members of a customer's company, owner first
+ */
+export const listOfficeCustomerMembersPathUserIdMax = 120;
+
+
+
+export const ListOfficeCustomerMembersParams = zod.object({
+  "userId": zod.coerce.string().min(1).max(listOfficeCustomerMembersPathUserIdMax)
+})
+
+export const ListOfficeCustomerMembersResponseItem = zod.object({
+  "id": zod.number().int().describe('0 for the implicit owner row'),
+  "email": zod.string().email(),
+  "role": zod.enum(['owner', 'hr', 'finance', 'viewer']),
+  "memberUserId": zod.string().nullable().describe('Set once the invited person signed in; the owner\'s own user ID for the owner row'),
+  "invitedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable()
+})
+export const ListOfficeCustomerMembersResponse = zod.array(ListOfficeCustomerMembersResponseItem)
+
+
+/**
+ * @summary Staff-only update one employee's progress on a bulk request
+ */
+export const updateOfficeRequestEmployeePathIdMax = 2147483647;
+
+export const updateOfficeRequestEmployeePathEmployeeIdMax = 2147483647;
+
+
+
+export const UpdateOfficeRequestEmployeeParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(updateOfficeRequestEmployeePathIdMax),
+  "employeeId": zod.coerce.number().int().min(1).max(updateOfficeRequestEmployeePathEmployeeIdMax)
+})
+
+export const updateOfficeRequestEmployeeBodyNoteMax = 500;
+
+
+
+export const UpdateOfficeRequestEmployeeBody = zod.object({
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().max(updateOfficeRequestEmployeeBodyNoteMax).nullish().describe('Omit to keep; null to clear')
+})
+
+export const updateOfficeRequestEmployeeResponseRatingMax = 5;
+
+
+
+export const UpdateOfficeRequestEmployeeResponse = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "category": zod.enum(['passports', 'labor', 'business', 'other']),
+  "service": zod.string(),
+  "description": zod.string(),
+  "contactPhone": zod.string(),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
+  "officeNote": zod.string().nullish(),
+  "customerMessage": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+})),
+  "customer": zod.union([zod.object({
+  "fullName": zod.string(),
+  "email": zod.string().email()
+}),zod.null()]),
+  "assignedTo": zod.string().nullable().describe('User ID of the responsible office member'),
+  "dueAt": zod.coerce.date().nullable(),
+  "rating": zod.number().int().min(1).max(updateOfficeRequestEmployeeResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable(),
+  "subject": zod.union([zod.object({
+  "type": zod.enum(['employee', 'license']),
+  "id": zod.number().int(),
+  "label": zod.string()
+}),zod.null()]),
+  "lastMessage": zod.union([zod.object({
+  "by": zod.enum(['customer', 'office']),
+  "at": zod.coerce.date()
+}),zod.null()]),
+  "userId": zod.string().describe('The customer\'s user ID, for opening their file'),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})
+
+
+/**
+ * @summary Published subscription plans
+ */
+export const ListPlansResponseItem = zod.object({
+  "id": zod.number().int(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "price": zod.number().int().describe('Halalas per month before VAT'),
+  "vat": zod.number().int().describe('Halalas per month'),
+  "total": zod.number().int().describe('Halalas per month including VAT'),
+  "employeeCap": zod.number().int().nullable().describe('Null for unlimited'),
+  "requestsPerMonth": zod.number().int().nullable().describe('Null for unlimited'),
+  "autoRenewals": zod.boolean().describe('Whether the plan covers automatic renewal requests from expiry reminders'),
+  "active": zod.boolean(),
+  "sort": zod.number().int()
+})
+export const ListPlansResponse = zod.array(ListPlansResponseItem)
+
+
+/**
+ * @summary Owner-only list of all plans, including inactive ones
+ */
+export const ListOfficePlansResponseItem = zod.object({
+  "id": zod.number().int(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "price": zod.number().int().describe('Halalas per month before VAT'),
+  "vat": zod.number().int().describe('Halalas per month'),
+  "total": zod.number().int().describe('Halalas per month including VAT'),
+  "employeeCap": zod.number().int().nullable().describe('Null for unlimited'),
+  "requestsPerMonth": zod.number().int().nullable().describe('Null for unlimited'),
+  "autoRenewals": zod.boolean().describe('Whether the plan covers automatic renewal requests from expiry reminders'),
+  "active": zod.boolean(),
+  "sort": zod.number().int()
+})
+export const ListOfficePlansResponse = zod.array(ListOfficePlansResponseItem)
+
+
+/**
+ * @summary Owner-only create a plan
+ */
+export const createOfficePlanBodySlugRegExp = new RegExp('^[a-z0-9-]{2,60}$');
+export const createOfficePlanBodyNameMin = 2;
+export const createOfficePlanBodyNameMax = 120;
+
+export const createOfficePlanBodyDescriptionMax = 2000;
+
+export const createOfficePlanBodyPriceMin = 100;
+export const createOfficePlanBodyPriceMax = 100000000;
+
+export const createOfficePlanBodyEmployeeCapMax = 100000;
+
+export const createOfficePlanBodyRequestsPerMonthMax = 100000;
+
+export const createOfficePlanBodyAutoRenewalsDefault = true;
+export const createOfficePlanBodyActiveDefault = true;
+export const createOfficePlanBodySortDefault = 0;
+export const createOfficePlanBodySortMin = 0;
+export const createOfficePlanBodySortMax = 1000;
+
+
+
+export const CreateOfficePlanBody = zod.object({
+  "slug": zod.string().regex(createOfficePlanBodySlugRegExp),
+  "name": zod.string().min(createOfficePlanBodyNameMin).max(createOfficePlanBodyNameMax),
+  "description": zod.string().max(createOfficePlanBodyDescriptionMax),
+  "price": zod.number().int().min(createOfficePlanBodyPriceMin).max(createOfficePlanBodyPriceMax).describe('Halalas per month before VAT'),
+  "employeeCap": zod.number().int().min(1).max(createOfficePlanBodyEmployeeCapMax).nullish(),
+  "requestsPerMonth": zod.number().int().min(1).max(createOfficePlanBodyRequestsPerMonthMax).nullish(),
+  "autoRenewals": zod.boolean().default(createOfficePlanBodyAutoRenewalsDefault),
+  "active": zod.boolean().default(createOfficePlanBodyActiveDefault),
+  "sort": zod.number().int().min(createOfficePlanBodySortMin).max(createOfficePlanBodySortMax).default(createOfficePlanBodySortDefault)
+})
+
+export const CreateOfficePlanResponse = zod.object({
+  "id": zod.number().int(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "price": zod.number().int().describe('Halalas per month before VAT'),
+  "vat": zod.number().int().describe('Halalas per month'),
+  "total": zod.number().int().describe('Halalas per month including VAT'),
+  "employeeCap": zod.number().int().nullable().describe('Null for unlimited'),
+  "requestsPerMonth": zod.number().int().nullable().describe('Null for unlimited'),
+  "autoRenewals": zod.boolean().describe('Whether the plan covers automatic renewal requests from expiry reminders'),
+  "active": zod.boolean(),
+  "sort": zod.number().int()
+})
+
+
+/**
+ * @summary Owner-only update a plan; existing subscriptions keep their plan
+ */
+export const updateOfficePlanPathIdMax = 2147483647;
+
+
+
+export const UpdateOfficePlanParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(updateOfficePlanPathIdMax)
+})
+
+export const updateOfficePlanBodySlugRegExp = new RegExp('^[a-z0-9-]{2,60}$');
+export const updateOfficePlanBodyNameMin = 2;
+export const updateOfficePlanBodyNameMax = 120;
+
+export const updateOfficePlanBodyDescriptionMax = 2000;
+
+export const updateOfficePlanBodyPriceMin = 100;
+export const updateOfficePlanBodyPriceMax = 100000000;
+
+export const updateOfficePlanBodyEmployeeCapMax = 100000;
+
+export const updateOfficePlanBodyRequestsPerMonthMax = 100000;
+
+export const updateOfficePlanBodyAutoRenewalsDefault = true;
+export const updateOfficePlanBodyActiveDefault = true;
+export const updateOfficePlanBodySortDefault = 0;
+export const updateOfficePlanBodySortMin = 0;
+export const updateOfficePlanBodySortMax = 1000;
+
+
+
+export const UpdateOfficePlanBody = zod.object({
+  "slug": zod.string().regex(updateOfficePlanBodySlugRegExp),
+  "name": zod.string().min(updateOfficePlanBodyNameMin).max(updateOfficePlanBodyNameMax),
+  "description": zod.string().max(updateOfficePlanBodyDescriptionMax),
+  "price": zod.number().int().min(updateOfficePlanBodyPriceMin).max(updateOfficePlanBodyPriceMax).describe('Halalas per month before VAT'),
+  "employeeCap": zod.number().int().min(1).max(updateOfficePlanBodyEmployeeCapMax).nullish(),
+  "requestsPerMonth": zod.number().int().min(1).max(updateOfficePlanBodyRequestsPerMonthMax).nullish(),
+  "autoRenewals": zod.boolean().default(updateOfficePlanBodyAutoRenewalsDefault),
+  "active": zod.boolean().default(updateOfficePlanBodyActiveDefault),
+  "sort": zod.number().int().min(updateOfficePlanBodySortMin).max(updateOfficePlanBodySortMax).default(updateOfficePlanBodySortDefault)
+})
+
+export const UpdateOfficePlanResponse = zod.object({
+  "id": zod.number().int(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "price": zod.number().int().describe('Halalas per month before VAT'),
+  "vat": zod.number().int().describe('Halalas per month'),
+  "total": zod.number().int().describe('Halalas per month including VAT'),
+  "employeeCap": zod.number().int().nullable().describe('Null for unlimited'),
+  "requestsPerMonth": zod.number().int().nullable().describe('Null for unlimited'),
+  "autoRenewals": zod.boolean().describe('Whether the plan covers automatic renewal requests from expiry reminders'),
+  "active": zod.boolean(),
+  "sort": zod.number().int()
+})
+
+
+/**
+ * @summary Owner-only paginated subscriptions
+ */
+export const listOfficeSubscriptionsQueryPageMax = 1000000;
+
+export const listOfficeSubscriptionsQueryPageSizeMax = 100;
+
+
+
+export const ListOfficeSubscriptionsQueryParams = zod.object({
+  "page": zod.coerce.number().int().min(1).max(listOfficeSubscriptionsQueryPageMax).optional().describe('1-based page; defaults to 1'),
+  "pageSize": zod.coerce.number().int().min(1).max(listOfficeSubscriptionsQueryPageSizeMax).optional().describe('Defaults to 20; capped at 100'),
+  "status": zod.enum(['active', 'past_due', 'cancelled']).optional()
+})
+
+
+export const listOfficeSubscriptionsResponseTotalMin = 0;
+
+
+
+export const ListOfficeSubscriptionsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.number().int(),
+  "plan": zod.object({
+  "id": zod.number().int(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "price": zod.number().int().describe('Halalas per month before VAT'),
+  "vat": zod.number().int().describe('Halalas per month'),
+  "total": zod.number().int().describe('Halalas per month including VAT'),
+  "employeeCap": zod.number().int().nullable().describe('Null for unlimited'),
+  "requestsPerMonth": zod.number().int().nullable().describe('Null for unlimited'),
+  "autoRenewals": zod.boolean().describe('Whether the plan covers automatic renewal requests from expiry reminders'),
+  "active": zod.boolean(),
+  "sort": zod.number().int()
+}),
+  "status": zod.enum(['active', 'past_due', 'cancelled']),
+  "startsAt": zod.coerce.date(),
+  "renewsAt": zod.coerce.date().describe('When the next monthly invoice is issued'),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "autoRenewRequests": zod.boolean().describe('Whether expiring documents open renewal requests automatically'),
+  "latestInvoice": zod.union([zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "requestId": zod.number().int().nullable().describe('Null for a subscription invoice'),
+  "requestReference": zod.string().nullable(),
+  "subscriptionId": zod.number().int().nullable().describe('Null for a request invoice'),
+  "description": zod.string(),
+  "quantity": zod.number().int().min(1).describe('Number of units billed; 1 unless a unit amount was given'),
+  "unitAmount": zod.number().int().nullable().describe('Halalas per unit before VAT, when the amount was computed from a quantity'),
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "status": zod.enum(['issued', 'paid', 'cancelled']),
+  "paymentMethod": zod.union([zod.literal('manual'),zod.literal('online'),zod.literal(null)]).nullable(),
+  "paymentReference": zod.string().nullable(),
+  "issuedAt": zod.coerce.date(),
+  "paidAt": zod.coerce.date().nullable(),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "canPayOnline": zod.boolean(),
+  "seller": zod.object({
+  "name": zod.string(),
+  "vatNumber": zod.string().nullable()
+})
+}),zod.null()])
+}).and(zod.object({
+  "userId": zod.string().describe('The subscribing company owner\'s user ID'),
+  "companyName": zod.string().nullable(),
+  "customerName": zod.string().nullable()
+}))),
+  "total": zod.number().int().min(listOfficeSubscriptionsResponseTotalMin)
+})
+
+
+/**
+ * @summary Owner-only cancel a subscription or change its automatic renewal requests
+ */
+export const updateOfficeSubscriptionPathIdMax = 2147483647;
+
+
+
+export const UpdateOfficeSubscriptionParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(updateOfficeSubscriptionPathIdMax)
+})
+
+export const UpdateOfficeSubscriptionBody = zod.object({
+  "status": zod.enum(['cancelled']).optional().describe('Only cancellation is allowed'),
+  "autoRenewRequests": zod.boolean().optional()
+})
+
+
+
+
+export const UpdateOfficeSubscriptionResponse = zod.object({
+  "id": zod.number().int(),
+  "plan": zod.object({
+  "id": zod.number().int(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "price": zod.number().int().describe('Halalas per month before VAT'),
+  "vat": zod.number().int().describe('Halalas per month'),
+  "total": zod.number().int().describe('Halalas per month including VAT'),
+  "employeeCap": zod.number().int().nullable().describe('Null for unlimited'),
+  "requestsPerMonth": zod.number().int().nullable().describe('Null for unlimited'),
+  "autoRenewals": zod.boolean().describe('Whether the plan covers automatic renewal requests from expiry reminders'),
+  "active": zod.boolean(),
+  "sort": zod.number().int()
+}),
+  "status": zod.enum(['active', 'past_due', 'cancelled']),
+  "startsAt": zod.coerce.date(),
+  "renewsAt": zod.coerce.date().describe('When the next monthly invoice is issued'),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "autoRenewRequests": zod.boolean().describe('Whether expiring documents open renewal requests automatically'),
+  "latestInvoice": zod.union([zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "requestId": zod.number().int().nullable().describe('Null for a subscription invoice'),
+  "requestReference": zod.string().nullable(),
+  "subscriptionId": zod.number().int().nullable().describe('Null for a request invoice'),
+  "description": zod.string(),
+  "quantity": zod.number().int().min(1).describe('Number of units billed; 1 unless a unit amount was given'),
+  "unitAmount": zod.number().int().nullable().describe('Halalas per unit before VAT, when the amount was computed from a quantity'),
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "status": zod.enum(['issued', 'paid', 'cancelled']),
+  "paymentMethod": zod.union([zod.literal('manual'),zod.literal('online'),zod.literal(null)]).nullable(),
+  "paymentReference": zod.string().nullable(),
+  "issuedAt": zod.coerce.date(),
+  "paidAt": zod.coerce.date().nullable(),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "canPayOnline": zod.boolean(),
+  "seller": zod.object({
+  "name": zod.string(),
+  "vatNumber": zod.string().nullable()
+})
+}),zod.null()])
+}).and(zod.object({
+  "userId": zod.string().describe('The subscribing company owner\'s user ID'),
+  "companyName": zod.string().nullable(),
+  "customerName": zod.string().nullable()
+}))
+
+
+/**
+ * @summary The signed-in company owner's current subscription, if any
+ */
+
+
+
+export const GetCompanySubscriptionResponse = zod.object({
+  "subscription": zod.union([zod.object({
+  "id": zod.number().int(),
+  "plan": zod.object({
+  "id": zod.number().int(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "price": zod.number().int().describe('Halalas per month before VAT'),
+  "vat": zod.number().int().describe('Halalas per month'),
+  "total": zod.number().int().describe('Halalas per month including VAT'),
+  "employeeCap": zod.number().int().nullable().describe('Null for unlimited'),
+  "requestsPerMonth": zod.number().int().nullable().describe('Null for unlimited'),
+  "autoRenewals": zod.boolean().describe('Whether the plan covers automatic renewal requests from expiry reminders'),
+  "active": zod.boolean(),
+  "sort": zod.number().int()
+}),
+  "status": zod.enum(['active', 'past_due', 'cancelled']),
+  "startsAt": zod.coerce.date(),
+  "renewsAt": zod.coerce.date().describe('When the next monthly invoice is issued'),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "autoRenewRequests": zod.boolean().describe('Whether expiring documents open renewal requests automatically'),
+  "latestInvoice": zod.union([zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "requestId": zod.number().int().nullable().describe('Null for a subscription invoice'),
+  "requestReference": zod.string().nullable(),
+  "subscriptionId": zod.number().int().nullable().describe('Null for a request invoice'),
+  "description": zod.string(),
+  "quantity": zod.number().int().min(1).describe('Number of units billed; 1 unless a unit amount was given'),
+  "unitAmount": zod.number().int().nullable().describe('Halalas per unit before VAT, when the amount was computed from a quantity'),
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "status": zod.enum(['issued', 'paid', 'cancelled']),
+  "paymentMethod": zod.union([zod.literal('manual'),zod.literal('online'),zod.literal(null)]).nullable(),
+  "paymentReference": zod.string().nullable(),
+  "issuedAt": zod.coerce.date(),
+  "paidAt": zod.coerce.date().nullable(),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "canPayOnline": zod.boolean(),
+  "seller": zod.object({
+  "name": zod.string(),
+  "vatNumber": zod.string().nullable()
+})
+}),zod.null()])
+}),zod.null()])
+})
+
+
+/**
+ * @summary Owner-only subscribe to a plan; the first invoice is issued at once
+ */
+export const startCompanySubscriptionBodyPlanIdMax = 2147483647;
+
+export const startCompanySubscriptionBodyAutoRenewRequestsDefault = true;
+
+export const StartCompanySubscriptionBody = zod.object({
+  "planId": zod.number().int().min(1).max(startCompanySubscriptionBodyPlanIdMax),
+  "autoRenewRequests": zod.boolean().default(startCompanySubscriptionBodyAutoRenewRequestsDefault)
+})
+
+
+
+
+export const StartCompanySubscriptionResponse = zod.object({
+  "id": zod.number().int(),
+  "plan": zod.object({
+  "id": zod.number().int(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "price": zod.number().int().describe('Halalas per month before VAT'),
+  "vat": zod.number().int().describe('Halalas per month'),
+  "total": zod.number().int().describe('Halalas per month including VAT'),
+  "employeeCap": zod.number().int().nullable().describe('Null for unlimited'),
+  "requestsPerMonth": zod.number().int().nullable().describe('Null for unlimited'),
+  "autoRenewals": zod.boolean().describe('Whether the plan covers automatic renewal requests from expiry reminders'),
+  "active": zod.boolean(),
+  "sort": zod.number().int()
+}),
+  "status": zod.enum(['active', 'past_due', 'cancelled']),
+  "startsAt": zod.coerce.date(),
+  "renewsAt": zod.coerce.date().describe('When the next monthly invoice is issued'),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "autoRenewRequests": zod.boolean().describe('Whether expiring documents open renewal requests automatically'),
+  "latestInvoice": zod.union([zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "requestId": zod.number().int().nullable().describe('Null for a subscription invoice'),
+  "requestReference": zod.string().nullable(),
+  "subscriptionId": zod.number().int().nullable().describe('Null for a request invoice'),
+  "description": zod.string(),
+  "quantity": zod.number().int().min(1).describe('Number of units billed; 1 unless a unit amount was given'),
+  "unitAmount": zod.number().int().nullable().describe('Halalas per unit before VAT, when the amount was computed from a quantity'),
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "status": zod.enum(['issued', 'paid', 'cancelled']),
+  "paymentMethod": zod.union([zod.literal('manual'),zod.literal('online'),zod.literal(null)]).nullable(),
+  "paymentReference": zod.string().nullable(),
+  "issuedAt": zod.coerce.date(),
+  "paidAt": zod.coerce.date().nullable(),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "canPayOnline": zod.boolean(),
+  "seller": zod.object({
+  "name": zod.string(),
+  "vatNumber": zod.string().nullable()
+})
+}),zod.null()])
+})
+
+
+/**
+ * @summary Owner-only cancel the subscription or change its automatic renewal requests
+ */
+export const UpdateCompanySubscriptionBody = zod.object({
+  "autoRenewRequests": zod.boolean().optional(),
+  "cancel": zod.literal(true).optional().describe('Cancel at once; renewals stop and the plan ends at renewsAt')
+})
+
+
+
+
+export const UpdateCompanySubscriptionResponse = zod.object({
+  "id": zod.number().int(),
+  "plan": zod.object({
+  "id": zod.number().int(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "price": zod.number().int().describe('Halalas per month before VAT'),
+  "vat": zod.number().int().describe('Halalas per month'),
+  "total": zod.number().int().describe('Halalas per month including VAT'),
+  "employeeCap": zod.number().int().nullable().describe('Null for unlimited'),
+  "requestsPerMonth": zod.number().int().nullable().describe('Null for unlimited'),
+  "autoRenewals": zod.boolean().describe('Whether the plan covers automatic renewal requests from expiry reminders'),
+  "active": zod.boolean(),
+  "sort": zod.number().int()
+}),
+  "status": zod.enum(['active', 'past_due', 'cancelled']),
+  "startsAt": zod.coerce.date(),
+  "renewsAt": zod.coerce.date().describe('When the next monthly invoice is issued'),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "autoRenewRequests": zod.boolean().describe('Whether expiring documents open renewal requests automatically'),
+  "latestInvoice": zod.union([zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "requestId": zod.number().int().nullable().describe('Null for a subscription invoice'),
+  "requestReference": zod.string().nullable(),
+  "subscriptionId": zod.number().int().nullable().describe('Null for a request invoice'),
+  "description": zod.string(),
+  "quantity": zod.number().int().min(1).describe('Number of units billed; 1 unless a unit amount was given'),
+  "unitAmount": zod.number().int().nullable().describe('Halalas per unit before VAT, when the amount was computed from a quantity'),
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "status": zod.enum(['issued', 'paid', 'cancelled']),
+  "paymentMethod": zod.union([zod.literal('manual'),zod.literal('online'),zod.literal(null)]).nullable(),
+  "paymentReference": zod.string().nullable(),
+  "issuedAt": zod.coerce.date(),
+  "paidAt": zod.coerce.date().nullable(),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "canPayOnline": zod.boolean(),
+  "seller": zod.object({
+  "name": zod.string(),
+  "vatNumber": zod.string().nullable()
+})
+}),zod.null()])
+})
+
+
+/**
+ * @summary All invoices of the signed-in customer, newest first, including subscription invoices
+ */
+
+
+
+export const ListCompanyInvoicesResponseItem = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "requestId": zod.number().int().nullable().describe('Null for a subscription invoice'),
+  "requestReference": zod.string().nullable(),
+  "subscriptionId": zod.number().int().nullable().describe('Null for a request invoice'),
+  "description": zod.string(),
+  "quantity": zod.number().int().min(1).describe('Number of units billed; 1 unless a unit amount was given'),
+  "unitAmount": zod.number().int().nullable().describe('Halalas per unit before VAT, when the amount was computed from a quantity'),
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "status": zod.enum(['issued', 'paid', 'cancelled']),
+  "paymentMethod": zod.union([zod.literal('manual'),zod.literal('online'),zod.literal(null)]).nullable(),
+  "paymentReference": zod.string().nullable(),
+  "issuedAt": zod.coerce.date(),
+  "paidAt": zod.coerce.date().nullable(),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "canPayOnline": zod.boolean(),
+  "seller": zod.object({
+  "name": zod.string(),
+  "vatNumber": zod.string().nullable()
+})
+})
+export const ListCompanyInvoicesResponse = zod.array(ListCompanyInvoicesResponseItem)
+
+
+/**
+ * @summary Meta's one-time verification of the WhatsApp webhook address
+ */
+export const whatsappWebhookVerifyQueryHubVerifyTokenMax = 200;
+
+export const whatsappWebhookVerifyQueryHubChallengeMax = 200;
+
+
+
+export const WhatsappWebhookVerifyQueryParams = zod.object({
+  "hub.mode": zod.enum(['subscribe']),
+  "hub.verify_token": zod.coerce.string().min(1).max(whatsappWebhookVerifyQueryHubVerifyTokenMax),
+  "hub.challenge": zod.coerce.string().min(1).max(whatsappWebhookVerifyQueryHubChallengeMax)
+})
+
+export const WhatsappWebhookVerifyResponse = zod.string()
+
+
+/**
+ * @summary Inbound WhatsApp messages and status updates from Meta (signature checked against the raw body)
+ */
+export const WhatsappWebhookBody = zod.record(zod.string(), zod.unknown()).describe('Meta\'s WhatsApp Business webhook body, passed through as sent')
+
+export const WhatsappWebhookResponse = zod.unknown()
 
 

@@ -45,4 +45,13 @@ export const AuditLogEntryAction = {
   service_requestquote_accept: 'service_request.quote_accept',
   service_requestquote_decline: 'service_request.quote_decline',
   service_requestchecklist: 'service_request.checklist',
+  companymember_invite: 'company.member_invite',
+  companymember_update: 'company.member_update',
+  companymember_remove: 'company.member_remove',
+  service_requestemployee_item: 'service_request.employee_item',
+  plancreate: 'plan.create',
+  planupdate: 'plan.update',
+  subscriptionstart: 'subscription.start',
+  subscriptionupdate: 'subscription.update',
+  service_requestauto_renew: 'service_request.auto_renew',
 } as const;

@@ -11,10 +11,12 @@ const apiNames = [
   'useGetOfficeSummary', 'useListOfficeServiceRequests', 'useUpdateOfficeServiceRequest',
   'useListOfficeInquiries', 'useAnswerOfficeInquiry', 'useListOfficeStaff',
   'useAddOfficeStaff', 'useRemoveOfficeStaff', 'useListOfficeAuditLog', 'useListOfficeAssignees', 'useListOfficeServiceRequestInvoices',
+  'useListOfficePlans', 'useCreateOfficePlan', 'useUpdateOfficePlan', 'useListOfficeSubscriptions', 'useUpdateOfficeSubscription',
 ];
 const keys = [
   'getGetOfficeSummaryQueryKey', 'getListOfficeServiceRequestsQueryKey', 'getListOfficeServiceRequestInvoicesQueryKey',
   'getListOfficeInquiriesQueryKey', 'getListOfficeStaffQueryKey', 'getListOfficeAuditLogQueryKey', 'getListOfficeAssigneesQueryKey',
+  'getListOfficePlansQueryKey', 'getListOfficeSubscriptionsQueryKey',
 ];
 const uiNames = [
   'PortalLayout', 'PageHeading', 'LoadingBlock', 'ErrorBlock', 'EmptyBlock',
@@ -37,6 +39,7 @@ const server = await createServer({
       // Invoices and document reading have their own API suites.
       if (/(^@|\/src)\/components\/(request-billing|office-request-extras|request-conversation)(\.tsx)?$/.test(id)) return '\0office-extras';
       if (id === 'wouter') return '\0office-router';
+      if (/\.css$/.test(id)) return '\0office-css';
     },
     load(id) {
       if (id === '\0office-api') return [
@@ -51,11 +54,13 @@ const server = await createServer({
       ].join('\n');
       if (id === '\0office-extras') return [
         'export const OfficeInvoices = () => null; export const ExtractReminder = () => null; export const QuotePanel = () => null; export const ChecklistEditor = () => null; export const RequestConversation = () => null; export const ReplyBadge = () => null; export const SubjectChip = () => null;',
+        'export const RequestEmployees = () => null; export const employeeProgress = list => `${list.filter(e => e.itemStatus === "done").length}/${list.length} مكتمل`;',
         // The confirmation dialog, reduced to its confirm button while open.
         'import React from "react"; export const ConfirmDialog = ({ open, confirmLabel, onConfirm }) => open ? React.createElement("button", { "data-confirm": true, onClick: onConfirm }, confirmLabel) : null;',
       ].join('\n');
       if (id === '\0office-query') return 'export const useQueryClient = () => globalThis.__office.qc;';
-      if (id === '\0office-router') return 'export const useSearch = () => globalThis.__office.search; export const Link = ({children}) => children;';
+      if (id === '\0office-router') return 'export const useSearch = () => globalThis.__office.search; export const Link = ({children}) => children; export const useParams = () => globalThis.__office.params; export const useLocation = () => [globalThis.__office.location, to => globalThis.__office.navigations.push(to)];';
+      if (id === '\0office-css') return '';
     },
   }],
   server: { middlewareMode: true },
@@ -63,9 +68,13 @@ const server = await createServer({
 });
 after(async () => server.close());
 const { OfficeRequests, OfficeInquiries } = await server.ssrLoadModule('/src/pages/office.tsx');
-const { OfficeStaff, OfficeAuditLog } = await server.ssrLoadModule('/src/pages/office-admin.tsx');
+const { OfficeStaff, OfficeAuditLog, OfficePlans, OfficeSubscriptions, planInput } = await server.ssrLoadModule('/src/pages/office-admin.tsx');
+const { OfficeRequestPage, siblingIds, neighbours, shortcutOf, lookupParams } = await server.ssrLoadModule('/src/pages/office-request.tsx');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-globalThis.window = { matchMedia: () => ({ matches: true }) };
+// The request page's shortcuts listen on the window; tests press keys by calling the listeners.
+const keyListeners = new Set();
+globalThis.window = { matchMedia: () => ({ matches: true }), addEventListener: (_type, fn) => keyListeners.add(fn), removeEventListener: (_type, fn) => keyListeners.delete(fn) };
+const press = async key => act(async () => { for (const fn of [...keyListeners]) fn({ ...key, target: key.target ?? null, preventDefault() {} }); });
 
 const date = '2026-09-20T12:00:00.000Z';
 const request = (id, updatedAt = date) => ({
@@ -78,9 +87,12 @@ const inquiry = (id) => ({
   linkedServiceRequestReference: null, linkedServiceRequest: null, createdAt: date, answeredAt: null,
 });
 function setup() {
-  const calls = { requests: [], inquiries: [], updates: [], answers: [], add: [], remove: [], invalidated: [] };
+  const calls = { requests: [], inquiries: [], updates: [], answers: [], add: [], remove: [], invalidated: [], plans: [], planUpdates: [], subscriptions: [], subscriptionUpdates: [], navigations: [] };
   const state = {
     invoices: [],
+    plans: [],
+    subscriptions: params => ({ items: [], total: 0, page: params.page }),
+    cachedPages: [],
     requests: params => ({ items: [request(params.page)], total: params.q || params.status || params.category ? 1 : 41, page: params.page, pageSize: 20 }),
     inquiries: params => ({ items: [inquiry(params.page)], total: params.q ? 1 : 41, page: params.page, pageSize: 20 }),
     staff: [
@@ -96,7 +108,7 @@ function setup() {
   const mutation = fn => ({ isPending: false, isError: false, mutateAsync: fn, reset() {} });
   const ui = {
     PortalLayout: ({ children }) => children,
-    PageHeading: ({ title }) => React.createElement('h1', null, title),
+    PageHeading: ({ title, action }) => React.createElement('div', null, React.createElement('h1', null, title), action ?? null),
     LoadingBlock: () => 'loading',
     ErrorBlock: () => 'error',
     EmptyBlock: ({ title }) => title,
@@ -113,7 +125,8 @@ function setup() {
     useDebouncedValue: value => value,
   };
   globalThis.__office = {
-    search: '', ui, qc: { invalidateQueries: async value => { calls.invalidated.push(value.queryKey); } },
+    search: '', params: { id: '1' }, location: '/office/requests/1', navigations: calls.navigations, ui,
+    qc: { invalidateQueries: async value => { calls.invalidated.push(value.queryKey); }, getQueryCache: () => ({ findAll: () => state.cachedPages }) },
     hooks: {
       useGetOfficeSummary: () => query({ totalRequests: 0, newRequests: 0, activeRequests: 0, staleRequests: 0, openInquiries: 0 }),
       useListOfficeServiceRequests: params => { calls.requests.push(params); return query(state.requests(params)); },
@@ -126,11 +139,17 @@ function setup() {
       useListOfficeAuditLog: () => query(state.audit),
       useListOfficeAssignees: () => query(state.staff.map(({ userId, email, role }) => ({ userId, email, role }))),
       useListOfficeServiceRequestInvoices: () => query(state.invoices),
+      useListOfficePlans: () => query(state.plans),
+      useCreateOfficePlan: () => mutation(async input => { calls.plans.push(input); return { id: 9, ...input.data }; }),
+      useUpdateOfficePlan: () => mutation(async input => { calls.planUpdates.push(input); return { id: input.id, ...input.data }; }),
+      useListOfficeSubscriptions: params => { calls.subscriptions.push(params); return query(state.subscriptions(params)); },
+      useUpdateOfficeSubscription: () => mutation(async input => { calls.subscriptionUpdates.push(input); return {}; }),
     },
   };
   return { calls, state };
 }
 const nodes = (tree, type) => tree.root.findAllByType(type);
+const within = (node, type) => node.findAllByType(type);
 const text = node => typeof node === 'string' ? node : (node.children ?? []).map(text).join('');
 const click = async button => act(async () => button.props.onClick());
 const change = async (field, value) => act(async () => field.props.onChange({ target: { value } }));
@@ -257,4 +276,169 @@ test('staff and audit render direct API arrays, showing actions and actor fallba
   assert.match(text(audit.root), /removed/);
   assert.match(text(audit.root), /owner/);
   await act(async () => audit.unmount());
+});
+test('the request list links each row to the full page with the rows in order, and shows a bulk request\'s employee progress', async () => {
+  const { state } = setup();
+  state.requests = params => ({ items: [request(3), { ...request(4), employees: [{ employeeId: 1, fullName: 'أ', itemStatus: 'done', note: null }, { employeeId: 2, fullName: 'ب', itemStatus: 'pending', note: null }] }], total: 2, page: params.page, pageSize: 20 });
+  const tree = await mount(OfficeRequests);
+  const links = tree.root.findAll(n => n.props.href && /^\/office\/requests\/\d/.test(n.props.href)).map(n => n.props.href);
+  assert.deepEqual(links, ['/office/requests/3?list=3,4', '/office/requests/4?list=3,4']);
+  assert.match(text(tree.root), /1\/2 موظف/);
+  await act(async () => tree.unmount());
+});
+
+test('request page helpers: list order from the address or the cached inbox page, neighbours, physical-key shortcuts', () => {
+  const qc = { getQueryCache: () => ({ findAll: () => [
+    { queryKey: ['k', { page: 1 }], state: { data: { items: [{ id: 5 }, { id: 6 }] }, dataUpdatedAt: 1 } },
+    { queryKey: ['k', { q: '00006' }], state: { data: { items: [{ id: 6 }] }, dataUpdatedAt: 3 } },
+    { queryKey: ['k', { page: 2 }], state: { data: { items: [{ id: 6 }, { id: 7 }] }, dataUpdatedAt: 2 } },
+  ] }) };
+  assert.deepEqual(siblingIds(6, 'list=9,6,8', qc), [9, 6, 8], 'the address wins');
+  assert.deepEqual(siblingIds(6, 'list=9,8', qc), [6, 7], 'an address without this request falls back to the newest inbox page holding it, never the reference lookup');
+  assert.deepEqual(siblingIds(1, '', qc), []);
+  assert.deepEqual(neighbours([9, 6, 8], 6), { prev: 9, next: 8, index: 1, total: 3 });
+  assert.deepEqual(neighbours([9, 6, 8], 8), { prev: 6, next: null, index: 2, total: 3 });
+  assert.deepEqual(neighbours([], 8), { prev: null, next: null, index: -1, total: 0 });
+  assert.equal(shortcutOf({ code: 'KeyJ', key: 'ت' }), 'next', 'Arabic layout: the key position counts');
+  assert.equal(shortcutOf({ code: 'KeyK', key: 'ن' }), 'prev');
+  assert.equal(shortcutOf({ code: 'KeyS', key: 'س' }), 'save');
+  assert.equal(shortcutOf({ key: 'Escape' }), 'close');
+  assert.equal(shortcutOf({ key: 'x' }), null);
+  assert.deepEqual(lookupParams(42), { q: '00042', page: 1, pageSize: 10 });
+});
+
+test('the request page shows the header, tabs and update bar; J/K move through the list, S saves, Esc closes the drawer', async () => {
+  const { calls, state } = setup();
+  globalThis.__office.search = 'list=3,1,2';
+  const current = { ...request(1), customer: { fullName: 'سارة', email: 's@example.test' }, assignedTo: 'staff', employees: [{ employeeId: 1, fullName: 'أ', itemStatus: 'done', note: null }, { employeeId: 2, fullName: 'ب', itemStatus: 'pending', note: null }] };
+  state.requests = params => ({ items: [current], total: 1, page: params.page, pageSize: 20 });
+  const tree = await mount(OfficeRequestPage);
+  assert.deepEqual(calls.requests.at(-1), { q: '00001', page: 1, pageSize: 10 }, 'the request is found through a reference search');
+  const header = tree.root.findByType('header');
+  assert.match(text(header), /REQ-1/);
+  assert.match(text(header), /خدمة 1/);
+  assert.match(text(header), /سارة/);
+  assert.match(text(header), /0500000000/);
+  assert.match(text(header), /staff@example.test/, 'assignee');
+  assert.match(text(header), /2 من 3/, 'position in the list');
+  const tabs = tree.root.findAll(n => n.props.role === 'tab');
+  assert.deepEqual(tabs.map(t => text(t)), ['الطلب', 'المحادثة', 'المستندات', 'الفواتير', 'الموظفون1/2 مكتمل']);
+  assert.equal(tabs[0].props['aria-selected'], true);
+  await click(tabs[1]);
+  assert.equal(tree.root.findAll(n => n.props.role === 'tab')[1].props['aria-selected'], true);
+  assert.equal(tree.root.findByProps({ role: 'tabpanel' }).props.id, 'orq-panel-conversation');
+  const bar = nodes(tree, 'form')[0];
+  assert.equal(bar.props['aria-label'], 'تحديث الطلب');
+  assert.deepEqual(within(bar, 'select')[0].findAllByType('option').map(o => o.props.value), ['received', 'reviewing', 'waiting_on_customer', 'awaiting_payment'], 'current status first, then the allowed moves');
+  assert.equal(within(bar, 'textarea').length, 0, 'the drawer starts closed');
+  assert.match(text(bar), /J.*التالي.*K.*السابق.*S.*حفظ/s, 'the shortcuts hint');
+  // J / K follow the list order from the address, keeping it for the next page.
+  await press({ code: 'KeyJ', key: 'j' });
+  assert.deepEqual(calls.navigations, ['/office/requests/2?list=3,1,2']);
+  await press({ code: 'KeyK', key: 'ن' });
+  assert.equal(calls.navigations.at(-1), '/office/requests/3?list=3,1,2');
+  await press({ code: 'KeyJ', key: 'j', target: { tagName: 'INPUT' } });
+  assert.equal(calls.navigations.length, 2, 'typing in a field is not a shortcut');
+  // The drawer holds the note fields; Esc closes it.
+  await click(within(bar, 'button').find(n => n.props['aria-expanded'] !== undefined));
+  assert.equal(within(nodes(tree, 'form')[0], 'textarea').length, 1, 'internal note');
+  await change(within(nodes(tree, 'form')[0], 'textarea')[0], '  للفريق  ');
+  await press({ key: 'Escape' });
+  assert.equal(within(nodes(tree, 'form')[0], 'textarea').length, 0);
+  // S saves the draft: status plus the trimmed note; unchanged assignment and due date are not sent.
+  await change(within(nodes(tree, 'form')[0], 'select')[0], 'reviewing');
+  await press({ code: 'KeyS', key: 's' });
+  assert.deepEqual(calls.updates, [{ id: 1, data: { expectedUpdatedAt: date, status: 'reviewing', officeNote: 'للفريق', customerMessage: null } }]);
+  assert.ok(calls.invalidated.some(key => key[0] === 'getGetOfficeSummaryQueryKey'));
+  // The refreshed list carries the saved version, so the page is not "changed since opened".
+  state.requests = params => ({ items: [{ ...current, status: 'reviewing', officeNote: 'للفريق', updatedAt: '2026-09-21T12:00:00.000Z' }], total: 1, page: params.page, pageSize: 20 });
+  await act(async () => tree.update(React.createElement(OfficeRequestPage)));
+  assert.match(text(nodes(tree, 'form')[0]), /تم حفظ التحديث/);
+  // Waiting on the customer needs their message: the drawer opens on it instead of saving.
+  await change(within(nodes(tree, 'form')[0], 'select')[0], 'waiting_on_customer');
+  await press({ key: 'Escape' });
+  await press({ code: 'KeyS', key: 's' });
+  assert.equal(calls.updates.length, 1);
+  assert.equal(within(nodes(tree, 'form')[0], 'textarea').length, 2, 'customer message and note');
+  assert.match(text(nodes(tree, 'form')[0]), /اكتب للعميل ما يحتاجه المكتب/);
+  await act(async () => tree.unmount());
+  // Without a list in the address or the cache, J/K are off.
+  globalThis.__office.search = '';
+  const alone = await mount(OfficeRequestPage);
+  const navButtons = alone.root.findByProps({ 'aria-label': 'التنقل بين الطلبات' }).findAllByType('button');
+  assert.deepEqual(navButtons.map(b => b.props.disabled), [true, true]);
+  await press({ code: 'KeyJ', key: 'j' });
+  assert.equal(calls.navigations.length, 2);
+  await act(async () => alone.unmount());
+  // A bad address or an unknown id says so instead of spinning.
+  globalThis.__office.params = { id: 'x' };
+  const bad = await mount(OfficeRequestPage);
+  assert.match(text(bad.root), /الطلب غير متاح/);
+  await act(async () => bad.unmount());
+  globalThis.__office.params = { id: '77' };
+  state.requests = params => ({ items: [], total: 0, page: params.page, pageSize: 20 });
+  const missing = await mount(OfficeRequestPage);
+  assert.match(text(missing.root), /الطلب غير موجود/);
+  await act(async () => missing.unmount());
+});
+
+test('plan form: validation messages, riyals to halalas, blanks as unlimited; the page creates and edits plans', async () => {
+  assert.deepEqual(planInput({ name: 'أساسية', slug: 'basic-1', description: ' للمنشآت الصغيرة ', price: '١٥٠٫٥', employeeCap: '', requestsPerMonth: '10', autoRenewals: true, active: false, sort: '2' }),
+    { data: { name: 'أساسية', slug: 'basic-1', description: 'للمنشآت الصغيرة', price: 15050, employeeCap: null, requestsPerMonth: 10, autoRenewals: true, active: false, sort: 2 }, errors: {} });
+  const bad = planInput({ name: 'أ', slug: 'Basic Plan', description: '', price: 'abc', employeeCap: '0', requestsPerMonth: '1e3', autoRenewals: true, active: true, sort: '5000' });
+  assert.equal(bad.data, null);
+  assert.deepEqual(Object.keys(bad.errors).sort(), ['employeeCap', 'name', 'price', 'requestsPerMonth', 'slug', 'sort']);
+  assert.deepEqual(planInput({ name: 'مجانية', slug: 'free', description: '', price: '0', employeeCap: '', requestsPerMonth: '', autoRenewals: false, active: true, sort: '' }).data, { name: 'مجانية', slug: 'free', description: '', price: 0, employeeCap: null, requestsPerMonth: null, autoRenewals: false, active: true, sort: 0 }, 'a free plan with a blank sort');
+  const { calls, state } = setup();
+  state.plans = [{ id: 1, slug: 'pro', name: 'احترافية', description: '', price: 50000, vat: 7500, total: 57500, employeeCap: 50, requestsPerMonth: null, autoRenewals: true, active: true, sort: 1 }];
+  const tree = await mount(OfficePlans);
+  assert.match(text(tree.root), /احترافية/);
+  assert.match(text(tree.root), /500\.00 ر\.س شهريًا قبل الضريبة/);
+  await click(nodes(tree, 'button').find(n => text(n) === 'باقة جديدة'));
+  await submit(nodes(tree, 'form')[0]);
+  assert.equal(calls.plans.length, 0, 'an empty form is not sent');
+  assert.match(text(nodes(tree, 'form')[0]), /اكتب اسمًا من حرفين/);
+  const inputs = () => within(nodes(tree, 'form')[0], 'input');
+  await change(inputs()[0], 'أساسية');
+  await change(inputs()[1], 'basic');
+  await change(within(nodes(tree, 'form')[0], 'textarea')[0], 'للمنشآت الصغيرة');
+  await change(inputs()[2], '199.99');
+  assert.match(text(nodes(tree, 'form')[0]), /229\.99 ر\.س شهريًا/, 'the total with VAT is previewed');
+  await change(inputs()[4], '20');
+  await submit(nodes(tree, 'form')[0]);
+  assert.deepEqual(calls.plans, [{ data: { name: 'أساسية', slug: 'basic', description: 'للمنشآت الصغيرة', price: 19999, employeeCap: 20, requestsPerMonth: null, autoRenewals: true, active: true, sort: 0 } }]);
+  assert.ok(calls.invalidated.some(key => key[0] === 'getListOfficePlansQueryKey'));
+  assert.match(text(tree.root), /أُنشئت الباقة/);
+  assert.equal(nodes(tree, 'form').length, 0, 'the form closes after saving');
+  await click(nodes(tree, 'button').find(n => text(n) === 'تعديل'));
+  assert.equal(within(nodes(tree, 'form')[0], 'input')[1].props.disabled, true, 'the slug is fixed once created');
+  assert.equal(within(nodes(tree, 'form')[0], 'input')[2].props.value, '500');
+  await change(within(nodes(tree, 'form')[0], 'input')[2], '450');
+  await submit(nodes(tree, 'form')[0]);
+  assert.deepEqual(calls.planUpdates, [{ id: 1, data: { name: 'احترافية', slug: 'pro', description: '', price: 45000, employeeCap: 50, requestsPerMonth: null, autoRenewals: true, active: true, sort: 1 } }]);
+  await act(async () => tree.unmount());
+});
+
+test('subscriptions: filter by status, toggle automatic renewals, and cancel only after the in-page confirmation', async () => {
+  const { calls, state } = setup();
+  const plan = { id: 1, slug: 'pro', name: 'احترافية', description: '', price: 50000, vat: 7500, total: 57500, employeeCap: null, requestsPerMonth: null, autoRenewals: true, active: true, sort: 1 };
+  const subscription = (id, extra = {}) => ({ id, plan, status: 'active', startsAt: date, renewsAt: '2026-10-20T12:00:00.000Z', cancelledAt: null, autoRenewRequests: true, latestInvoice: { id: 3, reference: 'INV-3', status: 'issued' }, userId: `u${id}`, companyName: `منشأة ${id}`, customerName: `عميل ${id}`, ...extra });
+  state.subscriptions = params => ({ items: params.status === 'cancelled' ? [subscription(2, { status: 'cancelled', cancelledAt: date, latestInvoice: null })] : [subscription(1)], total: 1 });
+  const tree = await mount(OfficeSubscriptions);
+  assert.deepEqual(calls.subscriptions.at(-1), { page: 1, pageSize: 20 });
+  assert.match(text(tree.root), /منشأة 1/);
+  assert.match(text(tree.root), /غير مسددة/);
+  await click(nodes(tree, 'button').find(n => text(n) === 'إيقاف التجديد التلقائي'));
+  assert.deepEqual(calls.subscriptionUpdates, [{ id: 1, data: { autoRenewRequests: false } }]);
+  assert.ok(calls.invalidated.some(key => key[0] === 'getListOfficeSubscriptionsQueryKey'));
+  await click(nodes(tree, 'button').find(n => text(n) === 'إلغاء الاشتراك'));
+  assert.equal(calls.subscriptionUpdates.length, 1, 'nothing is cancelled before the in-page confirmation');
+  await click(nodes(tree, 'button').find(n => n.props['data-confirm']));
+  assert.deepEqual(calls.subscriptionUpdates.at(-1), { id: 1, data: { status: 'cancelled' } });
+  assert.match(text(tree.root), /أُلغي الاشتراك/);
+  await click(nodes(tree, 'button').find(n => text(n) === 'الملغاة'));
+  assert.deepEqual(calls.subscriptions.at(-1), { page: 1, pageSize: 20, status: 'cancelled' });
+  assert.match(text(tree.root), /منشأة 2/);
+  assert.ok(!nodes(tree, 'button').some(n => text(n) === 'إلغاء الاشتراك'), 'a cancelled subscription has no actions');
+  await act(async () => tree.unmount());
 });

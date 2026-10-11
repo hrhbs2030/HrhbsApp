@@ -9,7 +9,7 @@ import {
   lookupCommercialRegister, lookupOfficeCommercialRegister,
   updateEmployee, updateLicense, updateOfficeCustomerEmployee, updateOfficeCustomerLicense,
   type Company, type CompanyFile, type CompanyInput, type Employee, type EmployeeInput, type License,
-  type LicenseInput, type LicenseKind, type ImportResult, type CommercialRegisterLookup,
+  type LicenseInput, type LicenseKind, type ImportResult, type CommercialRegisterLookup, type CompanyRole,
 } from '@workspace/api-client-react';
 import { ExcelImport, ExportButtons } from '@/components/excel-import';
 import { ExpiryBadge } from '@/components/reminder-ui';
@@ -180,10 +180,11 @@ function CompanyForm({ company, api, onSaved, onCancel }: { company: Company | n
   </form>;
 }
 
-function CompanyCard({ company, api, onChanged }: { company: Company | null; api: CompanyApi; onChanged: () => void }) {
+function CompanyCard({ company, api, readOnly, onChanged }: { company: Company | null; api: CompanyApi; readOnly: boolean; onChanged: () => void }) {
   const [editing, setEditing] = useState(!company);
   useEffect(() => setEditing(!company), [company === null]);
-  if (editing) return <section className="surface p-5 sm:p-7"><h2 className="display mb-5 text-lg font-semibold">{company ? 'تعديل بيانات المنشأة' : 'أضف بيانات منشأتك'}</h2>
+  if (readOnly && !company) return <section className="surface p-5 text-sm leading-7 text-quiet sm:p-7">لم يُضِف مالك المنشأة بياناتها بعد.</section>;
+  if (editing && !readOnly) return <section className="surface p-5 sm:p-7"><h2 className="display mb-5 text-lg font-semibold">{company ? 'تعديل بيانات المنشأة' : 'أضف بيانات منشأتك'}</h2>
     <CompanyForm company={company} api={api} onSaved={() => { setEditing(false); onChanged(); }} onCancel={company ? () => setEditing(false) : undefined}/></section>;
   const rows: [string, string | null, boolean?][] = [
     ['السجل التجاري', company!.crNumber, true], ['الرقم الموحد', company!.unifiedNumber, true], ['الرقم الضريبي', company!.vatNumber, true],
@@ -193,7 +194,7 @@ function CompanyCard({ company, api, onChanged }: { company: Company | null; api
   return <section className="surface overflow-hidden">
     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line bg-sage px-5 py-5 sm:px-7">
       <div className="flex items-center gap-3"><span className="cf-icon"><Building2 size={22} aria-hidden="true"/></span><div><h2 className="display text-xl font-semibold">{company!.name}</h2><span className="text-xs text-subtle">آخر تحديث {formatCalendarDate(company!.updatedAt)}</span></div></div>
-      <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditing(true)}><Pencil size={15}/>تعديل</button>
+      {!readOnly && <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditing(true)}><Pencil size={15}/>تعديل</button>}
     </div>
     <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-4 px-5 py-6 sm:px-7 lg:grid-cols-4">{rows.map(([label, value, ltr]) =>
       <div key={label} className={`min-w-0 ${label === 'الرقم الضريبي' || label === 'العنوان' ? 'col-span-2 lg:col-span-1' : ''}`}><dt className="text-xs font-bold text-subtle">{label}</dt><dd className="m-0 mt-1 break-words font-semibold" dir={ltr && value ? 'ltr' : undefined} style={ltr ? { textAlign: 'right' } : undefined}>{value || '-'}</dd></div>)}</dl>
@@ -274,7 +275,7 @@ function Numbers({ employee, api, office }: { employee: Employee; api: CompanyAp
   </span>;
 }
 
-function EmployeesSection({ employees, api, office, onChanged }: { employees: Employee[]; api: CompanyApi; office: boolean; onChanged: () => void }) {
+function EmployeesSection({ employees, api, office, readOnly, onChanged }: { employees: Employee[]; api: CompanyApi; office: boolean; readOnly: boolean; onChanged: () => void }) {
   const [editing, setEditing] = useState<Employee | 'new' | null>(null);
   const [filter, setFilter] = useState<'active' | 'expiring' | 'left'>('active');
   const [search, setSearch] = useState('');
@@ -291,7 +292,7 @@ function EmployeesSection({ employees, api, office, onChanged }: { employees: Em
   }
   return <section className="surface overflow-hidden" aria-labelledby="cf-employees">
     <div className="cf-head"><h2 id="cf-employees" className="display text-lg font-semibold"><UsersRound size={19} aria-hidden="true"/>الموظفون</h2>
-      {!editing && <div className="flex flex-wrap gap-2">{employees.length > 0 && <ExportButtons name="الموظفون" columns={employeeColumns} rows={() => employeeRows(shown)}/>}<ExcelImport kind="employees" onImport={api.importEmployees} onDone={onChanged}/><button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16}/>إضافة موظف</button></div>}</div>
+      {!editing && <div className="flex flex-wrap gap-2">{employees.length > 0 && <ExportButtons name="الموظفون" columns={employeeColumns} rows={() => employeeRows(shown)}/>}{!readOnly && <><ExcelImport kind="employees" onImport={api.importEmployees} onDone={onChanged}/><button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16}/>إضافة موظف</button></>}</div>}</div>
     {editing && <div className="border-b border-line bg-paper p-5 sm:p-6"><EmployeeForm key={editing === 'new' ? 'new' : editing.id} employee={editing === 'new' ? null : editing} api={api} onDone={saved => { setEditing(null); if (saved) onChanged(); }}/></div>}
     <div className="cf-tools">
       <div className="flex flex-wrap gap-2" role="group" aria-label="تصفية الموظفين">{([['active', 'على رأس العمل'], ['expiring', 'وثائق تنتهي خلال 60 يومًا'], ['left', 'غادروا']] as const).map(([key, label]) =>
@@ -306,12 +307,12 @@ function EmployeesSection({ employees, api, office, onChanged }: { employees: Em
             <div className="flex flex-wrap items-center gap-2"><strong>{e.fullName}</strong>{e.occupation && <span className="text-xs text-subtle">{e.occupation}</span>}{e.nationality && <span className="text-xs text-subtle">· {e.nationality}</span>}{e.addedBy === 'office' && <span className="cf-tag">أضافه المكتب</span>}</div>
             <Numbers employee={e} api={api} office={office}/>
             {docs.length > 0 && <div className="cf-docs">{docs.map(([doc, date]) => <span key={doc} className="cf-doc"><span>{docNames[doc]}</span><span className="text-subtle">{formatCalendarDate(date)}</span><ExpiryBadge expiresOn={date}/>
-              {!office && e.status === 'active' && daysUntil(date) <= 60 && <Link href={employeeRenewal(e, doc)} className="cf-renew"><RefreshCw size={13}/>طلب تجديد</Link>}</span>)}</div>}
+              {!office && !readOnly && e.status === 'active' && daysUntil(date) <= 60 && <Link href={employeeRenewal(e, doc)} className="cf-renew"><RefreshCw size={13}/>طلب تجديد</Link>}</span>)}</div>}
           </div>
-          <div className="flex shrink-0 items-start gap-1">
+          {!readOnly && <div className="flex shrink-0 items-start gap-1">
             <button type="button" className="rf-btn" onClick={() => setEditing(e)} aria-label={`تعديل ${e.fullName}`}><Pencil size={16}/></button>
             <button type="button" className="rf-btn" onClick={() => setRemoving(e)} aria-label={`حذف ${e.fullName}`}><Trash2 size={16}/></button>
-          </div>
+          </div>}
         </li>;
       })}</ul>}
     {removeError && <p role="alert" className="px-6 pb-5 text-sm text-danger">{removeError}</p>}
@@ -344,7 +345,7 @@ function LicenseForm({ license, api, onDone }: { license: License | null; api: C
   </form>;
 }
 
-function LicensesSection({ licenses, api, office, onChanged }: { licenses: License[]; api: CompanyApi; office: boolean; onChanged: () => void }) {
+function LicensesSection({ licenses, api, office, readOnly, onChanged }: { licenses: License[]; api: CompanyApi; office: boolean; readOnly: boolean; onChanged: () => void }) {
   const [editing, setEditing] = useState<License | 'new' | null>(null);
   const [removing, setRemoving] = useState<License | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -355,19 +356,19 @@ function LicensesSection({ licenses, api, office, onChanged }: { licenses: Licen
   }
   return <section className="surface overflow-hidden" aria-labelledby="cf-licenses">
     <div className="cf-head"><h2 id="cf-licenses" className="display text-lg font-semibold"><FileBadge size={19} aria-hidden="true"/>التراخيص والشهادات</h2>
-      {!editing && <div className="flex flex-wrap gap-2">{licenses.length > 0 && <ExportButtons name="التراخيص والشهادات" columns={licenseColumns} rows={() => licenseRows(licenses, licenseKindNames)}/>}<ExcelImport kind="licenses" onImport={api.importLicenses} onDone={onChanged}/><button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16}/>إضافة ترخيص</button></div>}</div>
+      {!editing && <div className="flex flex-wrap gap-2">{licenses.length > 0 && <ExportButtons name="التراخيص والشهادات" columns={licenseColumns} rows={() => licenseRows(licenses, licenseKindNames)}/>}{!readOnly && <><ExcelImport kind="licenses" onImport={api.importLicenses} onDone={onChanged}/><button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16}/>إضافة ترخيص</button></>}</div>}</div>
     {editing && <div className="border-b border-line bg-paper p-5 sm:p-6"><LicenseForm key={editing === 'new' ? 'new' : editing.id} license={editing === 'new' ? null : editing} api={api} onDone={saved => { setEditing(null); if (saved) onChanged(); }}/></div>}
     {!licenses.length ? <p className="px-6 py-10 text-center text-sm text-subtle">أضف السجل التجاري ورخصة البلدية والشهادات لتتابع تواريخ انتهائها.</p>
       : <ul className="cf-list">{licenses.map(l => <li key={l.id} className="cf-row">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2"><BadgeCheck size={16} className="text-teal" aria-hidden="true"/><strong>{l.title}</strong><span className="text-xs text-subtle">{licenseKindNames[l.kind]}</span>{l.addedBy === 'office' && <span className="cf-tag">أضافه المكتب</span>}</div>
           <div className="cf-docs">{l.number && <span className="cf-doc">الرقم <b dir="ltr" className="nums">{l.number}</b></span>}{l.issuedOn && <span className="cf-doc">أُصدر {formatCalendarDate(l.issuedOn)}</span>}
-            {l.expiresOn ? <span className="cf-doc">ينتهي {formatCalendarDate(l.expiresOn)}<ExpiryBadge expiresOn={l.expiresOn}/>{!office && daysUntil(l.expiresOn) <= 60 && <Link href={licenseRenewal(l)} className="cf-renew"><RefreshCw size={13}/>طلب تجديد</Link>}</span> : <span className="cf-doc text-subtle">بلا تاريخ انتهاء</span>}</div>
+            {l.expiresOn ? <span className="cf-doc">ينتهي {formatCalendarDate(l.expiresOn)}<ExpiryBadge expiresOn={l.expiresOn}/>{!office && !readOnly && daysUntil(l.expiresOn) <= 60 && <Link href={licenseRenewal(l)} className="cf-renew"><RefreshCw size={13}/>طلب تجديد</Link>}</span> : <span className="cf-doc text-subtle">بلا تاريخ انتهاء</span>}</div>
         </div>
-        <div className="flex shrink-0 items-start gap-1">
+        {!readOnly && <div className="flex shrink-0 items-start gap-1">
           <button type="button" className="rf-btn" onClick={() => setEditing(l)} aria-label={`تعديل ${l.title}`}><Pencil size={16}/></button>
           <button type="button" className="rf-btn" onClick={() => setRemoving(l)} aria-label={`حذف ${l.title}`}><Trash2 size={16}/></button>
-        </div>
+        </div>}
       </li>)}</ul>}
     {removeError && <p role="alert" className="px-6 pb-5 text-sm text-danger">{removeError}</p>}
     <ConfirmDialog open={!!removing} onOpenChange={o => { if (!o) setRemoving(null); }} danger confirmLabel="حذف"
@@ -377,10 +378,16 @@ function LicensesSection({ licenses, api, office, onChanged }: { licenses: Licen
 
 // ---- the whole file ---------------------------------------------------------------
 
-export function CompanyFileView({ file, api, office = false, onChanged }: { file: CompanyFile; api: CompanyApi; office?: boolean; onChanged: () => void }) {
+// Who may change the people and licenses: the owner and HR members. Finance
+// and read-only members see the file; the office always edits (audited). The
+// API enforces the same roles; the gate here only hides controls that would fail.
+export const canEditCompanyFile = (role: CompanyRole | undefined, office = false) => office || !role || role === 'owner' || role === 'hr';
+
+export function CompanyFileView({ file, api, office = false, role, onChanged }: { file: CompanyFile; api: CompanyApi; office?: boolean; role?: CompanyRole; onChanged: () => void }) {
+  const readOnly = !canEditCompanyFile(role, office);
   return <div className="space-y-6">
-    <CompanyCard company={file.company} api={api} onChanged={onChanged}/>
-    <EmployeesSection employees={file.employees} api={api} office={office} onChanged={onChanged}/>
-    <LicensesSection licenses={file.licenses} api={api} office={office} onChanged={onChanged}/>
+    <CompanyCard company={file.company} api={api} readOnly={readOnly} onChanged={onChanged}/>
+    <EmployeesSection employees={file.employees} api={api} office={office} readOnly={readOnly} onChanged={onChanged}/>
+    <LicensesSection licenses={file.licenses} api={api} office={office} readOnly={readOnly} onChanged={onChanged}/>
   </div>;
 }

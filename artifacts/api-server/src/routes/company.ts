@@ -20,19 +20,20 @@ import { planEmployees, planLicenses, type Problem } from "../lib/company-import
 import { requestReference } from "../lib/money";
 import { officeCustomer, phoneMatches } from "../lib/office-search";
 import { requireOfficeStaff } from "../lib/office-access";
-import { hasCustomerApproval, requireApprovedCustomer } from "./portal";
+import { companyAccessOf, companyPermissions, hasCustomerApproval, requireCompanyRole } from "../lib/company-access";
 import { ImportEmployeesResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-// Who is acting and on whose file. Customers act on their own file; office
-// staff on the customer named in the path, and every office change is audited.
+// Who is acting and on whose file. Customers act on the file of the company
+// they work in (their own, or one they are a member of); office staff on the
+// customer named in the path. Every change by someone other than the owner
+// is audited.
 type Scope = { owner: string; actor: string; office: boolean };
 
-function customerScope(req: Request): Scope {
-  const userId = getAuth(req).userId!;
-  return { owner: userId, actor: userId, office: false };
+function customerScope(req: Request, res: Response): Scope {
+  return { owner: companyAccessOf(res).companyUserId, actor: getAuth(req).userId!, office: false };
 }
 
 async function officeScope(req: Request, res: Response): Promise<Scope | null> {
@@ -45,7 +46,7 @@ async function officeScope(req: Request, res: Response): Promise<Scope | null> {
 }
 
 async function audit(tx: Tx, scope: Scope, entry: Omit<AuditEntry, "actorId" | "targetType" | "targetId">) {
-  if (!scope.office) return;
+  if (!scope.office && scope.actor === scope.owner) return;
   await recordAudit(tx, { actorId: scope.actor, targetType: "customer", targetId: scope.owner, ...entry });
 }
 
@@ -247,19 +248,30 @@ async function importLicenses(scope: Scope, req: Request, res: Response) {
 
 // ---- customer routes -------------------------------------------------------------
 
-router.get("/company", requireApprovedCustomer, async (req, res): Promise<void> => {
-  send(res, 200, GetCompanyFileResponse, await companyFile(customerScope(req).owner));
+// Members work in the owner's file with the rights of their role
+// (lib/company-access): everyone reads; hr maintains people and licenses;
+// only the owner edits the company itself. Revealing numbers stays with the
+// owner and hr.
+const asCustomer = (handler: (scope: Scope, req: Request, res: Response) => Promise<void>) =>
+  (req: Request, res: Response) => handler(customerScope(req, res), req, res);
+const canRead = requireCompanyRole(companyPermissions.read);
+const canEditCompany = requireCompanyRole(companyPermissions.company);
+const canEditPeople = requireCompanyRole(companyPermissions.people);
+const canReveal = requireCompanyRole(companyPermissions.reveal);
+
+router.get("/company", canRead, async (req, res): Promise<void> => {
+  send(res, 200, GetCompanyFileResponse, await companyFile(customerScope(req, res).owner));
 });
-router.put("/company", requireApprovedCustomer, (req, res) => saveCompany(customerScope(req), req, res));
-router.post("/company/employees/import", requireApprovedCustomer, (req, res) => importEmployees(customerScope(req), req, res));
-router.post("/company/licenses/import", requireApprovedCustomer, (req, res) => importLicenses(customerScope(req), req, res));
-router.post("/company/employees", requireApprovedCustomer, (req, res) => createEmployee(customerScope(req), req, res));
-router.put("/company/employees/:id", requireApprovedCustomer, (req, res) => updateEmployee(customerScope(req), req, res));
-router.delete("/company/employees/:id", requireApprovedCustomer, (req, res) => deleteEmployee(customerScope(req), req, res));
-router.get("/company/employees/:id/numbers", requireApprovedCustomer, (req, res) => employeeNumbers(customerScope(req), req, res));
-router.post("/company/licenses", requireApprovedCustomer, (req, res) => createLicense(customerScope(req), req, res));
-router.put("/company/licenses/:id", requireApprovedCustomer, (req, res) => updateLicense(customerScope(req), req, res));
-router.delete("/company/licenses/:id", requireApprovedCustomer, (req, res) => deleteLicense(customerScope(req), req, res));
+router.put("/company", canEditCompany, asCustomer(saveCompany));
+router.post("/company/employees/import", canEditPeople, asCustomer(importEmployees));
+router.post("/company/licenses/import", canEditPeople, asCustomer(importLicenses));
+router.post("/company/employees", canEditPeople, asCustomer(createEmployee));
+router.put("/company/employees/:id", canEditPeople, asCustomer(updateEmployee));
+router.delete("/company/employees/:id", canEditPeople, asCustomer(deleteEmployee));
+router.get("/company/employees/:id/numbers", canReveal, asCustomer(employeeNumbers));
+router.post("/company/licenses", canEditPeople, asCustomer(createLicense));
+router.put("/company/licenses/:id", canEditPeople, asCustomer(updateLicense));
+router.delete("/company/licenses/:id", canEditPeople, asCustomer(deleteLicense));
 
 // ---- office routes ------------------------------------------------------------------
 

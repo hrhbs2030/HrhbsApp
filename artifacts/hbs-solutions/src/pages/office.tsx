@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlarmClock, ArrowLeft, ClipboardList, Clock3, Contact, FileClock, MessageSquareText, MessagesSquare, Save, Search, UserRound } from 'lucide-react';
+import { AlarmClock, ArrowLeft, ClipboardList, Clock3, Contact, FileClock, Maximize2, MessageSquareText, MessagesSquare, Save, Search, UserRound } from 'lucide-react';
 import {
   getGetOfficeSummaryQueryKey, getListOfficeServiceRequestsQueryKey, getListOfficeInquiriesQueryKey, getListOfficeAssigneesQueryKey,
   useGetOfficeSummary, useListOfficeServiceRequests, useUpdateOfficeServiceRequest, useListOfficeAssignees,
@@ -18,7 +18,7 @@ import {
 import { LOCALE } from '@/lib/format';
 import { RequestFiles } from '@/components/request-files';
 import { OfficeInvoices } from '@/components/request-billing';
-import { ChecklistEditor, ExtractReminder, QuotePanel } from '@/components/office-request-extras';
+import { ChecklistEditor, ExtractReminder, QuotePanel, RequestEmployees } from '@/components/office-request-extras';
 import { ExportButtons } from '@/components/excel-import';
 import { requestColumns, requestRows } from '@/lib/export';
 import { RequestConversation, ReplyBadge, SubjectChip } from '@/components/request-conversation';
@@ -29,21 +29,25 @@ import { statusChoices } from '@/lib/request-status';
 const pageSize = 20;
 type RequestSort = 'newest' | 'oldest_update' | 'due_soon';
 const requestSorts: Record<RequestSort, string> = { newest: 'الأحدث إرسالًا', oldest_update: 'الأقدم تحديثًا', due_soon: 'الأقرب موعدًا' };
-const isOverdue = (r: { status: string; dueAt?: string | null }) => r.status !== 'completed' && !!r.dueAt && new Date(r.dueAt).getTime() < Date.now();
-const memberName = (members: OfficeAssignee[] | undefined, userId: string | null | undefined) =>
+// Shared with the standalone request page (pages/office-request.tsx).
+export const isOverdue = (r: { status: string; dueAt?: string | null }) => r.status !== 'completed' && !!r.dueAt && new Date(r.dueAt).getTime() < Date.now();
+export const memberName = (members: OfficeAssignee[] | undefined, userId: string | null | undefined) =>
   !userId ? null : members?.find(m => m.userId === userId)?.email ?? 'عضو سابق';
 // <input type="date"> value from an API timestamp, in local time.
-const dateInput = (value: string | null | undefined) => {
+export const dateInput = (value: string | null | undefined) => {
   if (!value) return '';
   const d = new Date(value);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 // Due at the end of the chosen day, local time.
-const dueFromInput = (value: string) => value ? new Date(`${value}T23:59:00`).toISOString() : null;
-function useAssignees() {
+export const dueFromInput = (value: string) => value ? new Date(`${value}T23:59:00`).toISOString() : null;
+export function useAssignees() {
   return useListOfficeAssignees({ query: { queryKey: getListOfficeAssigneesQueryKey(), staleTime: 300_000 } });
 }
 const count = (value: number) => new Intl.NumberFormat(LOCALE).format(value);
+// The full page for a request, with the rows on screen (in list order) for its
+// J/K navigation; the ids are short, so the address stays readable.
+export const fullPageHref = (id: number, rows: { id: number }[] = []) => `/office/requests/${id}${rows.length > 1 ? `?list=${rows.map(r => r.id).join(',')}` : ''}`;
 
 export function OfficeOverview() {
   const summary = useGetOfficeSummary({ query: { queryKey: getGetOfficeSummaryQueryKey(), refetchInterval: 30_000 } });
@@ -178,9 +182,13 @@ export function OfficeRequests() {
        : <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
          <div className="min-w-0"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><ResultCount total={list.data?.total ?? 0}/>
            {/* The rows on screen (this page, with the filters applied), with the names as the list shows them. */}
-           {rows.length > 0 && <ExportButtons compact name="طلبات العملاء" columns={requestColumns} rows={() => requestRows(rows, { statusNames, categoryNames, memberName: id => memberName(members.data, id) })}/>}</div><div className={`surface overflow-hidden transition-opacity ${list.isPlaceholderData ? 'opacity-60' : ''}`}>{rows.length ? rows.map(r => <button type="button" aria-pressed={selected === r.id} key={r.id} onClick={() => setSelected(r.id)} className={`block w-full border-b border-line px-5 py-4 text-right transition-colors last:border-0 hover:bg-paper sm:px-6 ${selected === r.id ? 'bg-sage shadow-[inset_-3px_0_0_var(--color-teal)]' : ''}`}>
-          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-bold">{r.service}</div><div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span dir="ltr">{r.reference}</span><span>{categoryNames[r.category]}</span><span>{dateText(r.createdAt)}</span>{memberName(members.data, r.assignedTo) && <span className="inline-flex items-center gap-1"><UserRound size={12} aria-hidden="true"/>{memberName(members.data, r.assignedTo)}</span>}{isOverdue(r) && <span className="inline-flex items-center whitespace-nowrap rounded-md bg-danger-soft px-2 py-0.5 text-xs font-bold text-danger">متأخر عن موعده</span>}<SubjectChip subject={r.subject}/><ReplyBadge lastMessage={r.lastMessage} status={r.status} viewer="office"/>{isStale(r) && <StaleBadge updatedAt={r.updatedAt}/>}</div></div><Status value={r.status}/></div>
-        </button>) : <div className="p-10 text-center text-sm text-subtle">لا توجد نتائج مطابقة.</div>}</div><Pager page={page} pageSize={pageSize} total={list.data?.total ?? 0} onPage={setPage}/></div>
+           {rows.length > 0 && <ExportButtons compact name="طلبات العملاء" columns={requestColumns} rows={() => requestRows(rows, { statusNames, categoryNames, memberName: id => memberName(members.data, id) })}/>}</div><div className={`surface overflow-hidden transition-opacity ${list.isPlaceholderData ? 'opacity-60' : ''}`}>{rows.length ? rows.map(r => <div key={r.id} className={`flex items-stretch border-b border-line transition-colors last:border-0 ${selected === r.id ? 'bg-sage shadow-[inset_-3px_0_0_var(--color-teal)]' : ''}`}>
+          {/* The row selects for the inline editor; the link beside it opens the full page (J/K moves through these rows there). */}
+          <button type="button" aria-pressed={selected === r.id} onClick={() => setSelected(r.id)} className="block min-w-0 flex-1 px-5 py-4 text-right hover:bg-paper sm:px-6">
+          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-bold">{r.service}</div><div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span dir="ltr">{r.reference}</span><span>{categoryNames[r.category]}</span><span>{dateText(r.createdAt)}</span>{memberName(members.data, r.assignedTo) && <span className="inline-flex items-center gap-1"><UserRound size={12} aria-hidden="true"/>{memberName(members.data, r.assignedTo)}</span>}{isOverdue(r) && <span className="inline-flex items-center whitespace-nowrap rounded-md bg-danger-soft px-2 py-0.5 text-xs font-bold text-danger">متأخر عن موعده</span>}{r.employees?.length > 0 && <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-sunk px-2 py-0.5 text-xs font-bold text-quiet">{count(r.employees.filter(e => e.itemStatus === 'done').length)}/{count(r.employees.length)} موظف</span>}<SubjectChip subject={r.subject}/><ReplyBadge lastMessage={r.lastMessage} status={r.status} viewer="office"/>{isStale(r) && <StaleBadge updatedAt={r.updatedAt}/>}</div></div><Status value={r.status}/></div>
+        </button>
+          <Link href={fullPageHref(r.id, rows)} className="flex shrink-0 items-center gap-1 border-r border-line px-3 text-xs font-bold text-copper no-underline hover:bg-paper" title="فتح الصفحة الكاملة"><Maximize2 size={14} aria-hidden="true"/><span className="hidden sm:inline">فتح الصفحة الكاملة</span><span className="sr-only sm:hidden">فتح الصفحة الكاملة</span></Link>
+        </div>) : <div className="p-10 text-center text-sm text-subtle">لا توجد نتائج مطابقة.</div>}</div><Pager page={page} pageSize={pageSize} total={list.data?.total ?? 0} onPage={setPage}/></div>
          <div ref={editorRef} className="scroll-mt-24 xl:sticky xl:top-24">{active ? <RequestEditor key={active.id} request={active}/> : <div className="surface hidden min-h-64 flex-col items-center justify-center p-8 text-center text-subtle xl:flex"><ClipboardList className="mb-3" size={30} strokeWidth={1.5}/><p className="text-sm">اختر طلبًا من القائمة لعرض تفاصيله وتحديث حالته.</p></div>}</div>
       </div>}
   </PortalLayout>;
@@ -265,7 +273,7 @@ function RequestEditor({ request }: { request: OfficeServiceRequest }) {
     }
   }
   return <div className="surface overflow-hidden">
-    <div className="border-b border-line bg-sage p-5"><div className="flex items-start justify-between gap-3"><div><span className="text-xs font-bold text-subtle" dir="ltr">{request.reference}</span><h2 className="display mt-2 text-lg font-semibold">{request.service}</h2></div><Status value={request.status}/></div></div>
+    <div className="border-b border-line bg-sage p-5"><div className="flex items-start justify-between gap-3"><div><span className="text-xs font-bold text-subtle" dir="ltr">{request.reference}</span><h2 className="display mt-2 text-lg font-semibold"><Link href={fullPageHref(request.id)} className="text-inherit no-underline hover:underline" title="فتح الصفحة الكاملة">{request.service}</Link></h2></div><Status value={request.status}/></div></div>
     <div className="space-y-5 p-5">
       {isStale(request) && <StaleBadge updatedAt={request.updatedAt}/>}
       {(request.customer || request.subject) && <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-paper px-3 py-2 text-xs">
@@ -275,13 +283,15 @@ function RequestEditor({ request }: { request: OfficeServiceRequest }) {
       </div>}
       <div className="grid grid-cols-2 gap-3 text-xs"><div><span className="muted block">المجال</span><strong>{categoryNames[request.category]}</strong></div><div><span className="muted block">تاريخ الإرسال</span><strong>{dateText(request.createdAt)}</strong></div><div className="col-span-2"><span className="muted block">رقم التواصل</span><strong dir="ltr" className="inline-block">{request.contactPhone}</strong></div></div>
       <div className="border-t border-line pt-4"><div className="mb-2 text-xs font-bold text-subtle">تفاصيل العميل</div><p className="max-h-44 overflow-y-auto whitespace-pre-wrap text-sm leading-7">{request.description}</p></div>
+      {/* Bulk requests: each employee's progress, compact here; the full page has the notes. */}
+      {request.employees?.length > 0 && <div className="border-t border-line pt-4"><RequestEmployees compact requestId={request.id} employees={request.employees} onChanged={refreshOffice}/></div>}
       <div className="border-t border-line pt-4"><ChecklistEditor requestId={request.id} checklist={request.checklist} attachments={request.attachments} onChanged={refreshOffice}/></div>
       <div className="border-t border-line pt-4"><RequestFiles key={request.id} scope="office" requestId={request.id} attachments={request.attachments} checklist={request.checklist} canUpload onChanged={refreshOffice} onExtract={setExtracting}/></div>
       {extracting && <ExtractReminder requestId={request.id} file={extracting} onClose={() => setExtracting(null)}/>}
       <div className="border-t border-line pt-4"><RequestConversation requestId={request.id} scope="office"/></div>
       {/* A quote comes before the invoice: accepting it issues the invoice. */}
       <div className="border-t border-line pt-4"><QuotePanel requestId={request.id} quote={request.quote} onChanged={refreshOffice}/></div>
-      <div className="border-t border-line pt-4"><OfficeInvoices requestId={request.id} onChanged={refreshOffice}/></div>
+      <div className="border-t border-line pt-4"><OfficeInvoices requestId={request.id} onChanged={refreshOffice} employeesCount={request.employees?.length ?? 0}/></div>
       {request.rating && <div className="border-t border-line pt-4 text-sm"><span className="muted block text-xs">تقييم العميل</span><strong className="text-copper">{'★'.repeat(request.rating)}{'☆'.repeat(5 - request.rating)}</strong>{request.ratingComment && <p className="mt-1 whitespace-pre-wrap leading-7">«{request.ratingComment}»</p>}</div>}
       <form onSubmit={submit} className="space-y-4 border-t border-line pt-5">
         {/* Only the moves allowed from the current status; the API refuses the rest. */}

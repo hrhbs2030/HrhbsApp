@@ -49,7 +49,8 @@ async function whatsappCustomer(userId: string, mail: Mail | null, build: (to: s
     // With no email address the builder returns null; build the text again
     // with a placeholder address (only the text is used for WhatsApp).
     const message = mail ?? build("whatsapp-only");
-    if (phone && message) await sendWhatsApp(phone, whatsappText(message, siteUrl()));
+    // A customer who wrote to the office within 24 hours gets plain text instead of the template.
+    if (phone && message) await sendWhatsApp(phone, whatsappText(message, siteUrl()), settings?.lastInboundAt);
   } catch {
     // Logged inside sendWhatsApp; a settings lookup failure only skips WhatsApp.
   }
