@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useParams, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, BadgeCheck, Building2, CalendarClock, Mail, MailPlus, Phone, ReceiptText, Repeat, Search, ShieldCheck, Trash2, UsersRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BadgeCheck, Building2, CalendarClock, LogOut, Mail, MailPlus, Phone, ReceiptText, Repeat, Search, ShieldCheck, Trash2, UsersRound } from 'lucide-react';
 import {
   getGetCompanyFileQueryKey, getGetCompanyMembershipQueryKey, getGetCompanySubscriptionQueryKey, getGetOfficeCustomerFileQueryKey, getGetPortalSummaryQueryKey,
   getListCompanyInvoicesQueryKey, getListCompanyMembersQueryKey, getListOfficeCustomersQueryKey, getListPlansQueryKey,
-  useGetCompanyFile, useGetCompanyMembership, useGetCompanySubscription, useGetOfficeCustomerFile, useInviteCompanyMember, useListCompanyInvoices,
+  useGetCompanyFile, useGetCompanyMembership, useGetCompanySubscription, useGetOfficeCustomerFile, useInviteCompanyMember, useLeaveCompanyMembership, useListCompanyInvoices,
   useListCompanyMembers, useListOfficeCustomers, useListPlans, useRemoveCompanyMember, useStartCompanySubscription, useUpdateCompanyMember, useUpdateCompanySubscription,
   type CompanyMember, type CompanyMemberInviteInputRole, type CompanyRole, type Plan, type Subscription, type SubscriptionStatus,
 } from '@workspace/api-client-react';
@@ -50,9 +50,26 @@ export function CompanyPage() {
   const [chosen, setTab] = useState<CompanyTab>(() => (companyTabs.map(([k]) => k) as string[]).includes(search.get('tab') ?? '') ? search.get('tab') as CompanyTab : returnedInvoiceId ? 'subscription' : 'file');
   const tab = tabs.some(([key]) => key === chosen) ? chosen : 'file';
   const file = useGetCompanyFile({ query: { queryKey: getGetCompanyFileQueryKey() } });
+  const leave = useLeaveCompanyMembership();
+  const [leaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
+  // Leaving ends the member's access at once: the membership is forgotten and
+  // the page reloads so the shell routes the person like any other visitor.
+  async function leaveCompany() {
+    setLeaving(false); setLeaveError(null);
+    try {
+      await leave.mutateAsync();
+      await qc.invalidateQueries({ queryKey: getGetCompanyMembershipQueryKey() });
+      window.location.reload();
+    } catch { setLeaveError('تعذّرت مغادرة المنشأة. حاول مجددًا.'); }
+  }
   return <PortalLayout>
     <PageHeading eyebrow="منشأتي" title={membership.data?.companyName && role !== 'owner' ? membership.data.companyName : 'ملف المنشأة'} subtitle="بيانات المنشأة وموظفوها وتراخيصها في مكان واحد. يطّلع عليها المكتب ليخدمك أسرع، وتصلك تنبيهات قبل انتهاء أي وثيقة."/>
-    {role !== 'owner' && <p className="cp-role" role="status"><ShieldCheck size={16} aria-hidden="true"/>أنت عضو بصلاحية: <strong>{roleNames[role]}</strong></p>}
+    {role !== 'owner' && <p className="cp-role" role="status"><ShieldCheck size={16} aria-hidden="true"/>أنت عضو بصلاحية: <strong>{roleNames[role]}</strong>
+      <button type="button" className="btn btn-outline btn-sm ms-auto !text-danger" disabled={leave.isPending} onClick={() => setLeaving(true)}><LogOut size={14} aria-hidden="true"/>مغادرة المنشأة</button></p>}
+    {leaveError && <p role="alert" className="mb-4 text-sm text-danger">{leaveError}</p>}
+    {role !== 'owner' && <ConfirmDialog open={leaving} onOpenChange={o => { if (!o) setLeaving(false); }} danger busy={leave.isPending} confirmLabel="مغادرة"
+      title={`مغادرة ${membership.data?.companyName ?? 'المنشأة'}؟`} description="تفقد الوصول إلى ملف المنشأة فورًا، ولا يمكنك العودة إلا بدعوة جديدة من مالكها." onConfirm={() => void leaveCompany()}/>}
     {tabs.length > 1 && <div className="mb-5 flex flex-wrap gap-2" role="tablist">{tabs.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} type="button" onClick={() => setTab(key)} className={`cf-chip ${tab === key ? 'is-on' : ''}`}>{label}</button>)}</div>}
     {tab === 'file' && (file.isLoading ? <LoadingBlock/> : file.isError ? <ErrorBlock retry={() => file.refetch()}/> : file.data &&
       <CompanyFileView file={file.data} api={customerCompanyApi} role={role} onChanged={() => qc.invalidateQueries({ queryKey: getGetCompanyFileQueryKey() })}/>)}

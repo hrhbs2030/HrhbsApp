@@ -82,11 +82,23 @@ test("sensitive writes are limited per visitor while reads continue", async () =
   });
 });
 
-test("writes and all requests have their own ceilings; health and the payment webhook are exempt", async () => {
+test("inviting members and starting a subscription share the sensitive-write ceiling", async () => {
+  await withServer(async (base) => {
+    const invites = await hit(`${base}/api/company/members`, "POST", API_SENSITIVE_WRITE_LIMIT);
+    assert.ok(invites.every((status) => status === 200));
+    assert.equal((await fetch(`${base}/api/company/subscription`, { method: "POST" })).status, 429);
+    // Changing a member's role or the subscription is an ordinary write.
+    assert.equal((await fetch(`${base}/api/company/members/3`, { method: "PATCH" })).status, 200);
+    assert.equal((await fetch(`${base}/api/company/subscription`, { method: "PATCH" })).status, 200);
+  });
+});
+
+test("writes and all requests have their own ceilings; health and the signed webhooks are exempt", async () => {
   await withServer(async (base) => {
     const writes = await hit(`${base}/api/company`, "PUT", API_WRITE_LIMIT + 1);
     assert.equal(writes.filter((status) => status === 429).length, 1);
     assert.equal((await hit(`${base}/api/payments/moyasar/webhook`, "POST", 5)).every((status) => status === 200), true);
+    assert.equal((await hit(`${base}/api/webhooks/whatsapp`, "POST", 5)).every((status) => status === 200), true);
     const reads = await hit(`${base}/api/portal/me`, "GET", API_REQUEST_LIMIT - API_WRITE_LIMIT);
     assert.equal(reads.at(-1), 429);
     assert.equal((await fetch(`${base}/api/healthz`)).status, 200);

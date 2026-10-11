@@ -1,7 +1,7 @@
 import { getAuth } from "@clerk/express";
 import { timingSafeEqual } from "node:crypto";
 import { and, asc, desc, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type RequestHandler, type Response } from "express";
 import { db, hbsInvoices, hbsServiceRequests, hbsSubscriptions, type HbsInvoice, type HbsServiceRequest } from "@workspace/db";
 import {
   IssueOfficeInvoiceBody, IssueOfficeInvoiceParams, IssueOfficeInvoiceResponse,
@@ -12,6 +12,7 @@ import {
   UpdateOfficeInvoiceBody, UpdateOfficeInvoiceParams, UpdateOfficeInvoiceResponse,
 } from "@workspace/api-zod";
 import { recordAudit } from "../lib/audit";
+import { COMPANY_ACCESS_DENIED, companyPermissions, hasCustomerApproval, resolveCompanyAccess } from "../lib/company-access";
 import { notifyCustomer } from "../lib/customer-contact";
 import { invoiceReference, requestReference, riyals, vatFor, VAT_RATE_BASIS_POINTS } from "../lib/money";
 import {
@@ -64,14 +65,35 @@ async function invoicesOf(request: HbsServiceRequest) {
   return rows.map(row => invoice(row, request));
 }
 
+// Who may pay or refresh an invoice: an approved customer (their own
+// requests and subscription), or a company member whose role covers billing
+// (lib/company-access) for the company's subscription invoices only. The
+// company whose subscription invoices the member may act on is left in
+// res.locals.billingCompanyUserId; request invoices stay the customer's own.
+const requireInvoiceAccess: RequestHandler = async (req, res, next) => {
+  const userId = getAuth(req).userId;
+  if (!userId) { res.status(401).json({ error: "Sign in to continue" }); return; }
+  if (await hasCustomerApproval(userId)) { res.locals.billingCompanyUserId = null; next(); return; }
+  const access = await resolveCompanyAccess(req);
+  if (!access) { res.status(403).json({ error: "Customer registration approval required" }); return; }
+  if (!(companyPermissions.billing as readonly string[]).includes(access.role)) { res.status(403).json({ error: COMPANY_ACCESS_DENIED }); return; }
+  res.locals.billingCompanyUserId = access.companyUserId;
+  next();
+};
+
+const billingCompanyOf = (res: Response) => (res.locals.billingCompanyUserId ?? null) as string | null;
+
 // The customer's invoice with its request (null for a subscription invoice),
 // or nothing for another customer's. The customer owns it through the
-// request, or through the subscription (hbs_subscriptions.user_id).
-async function customerInvoice(id: number, userId: string) {
+// request, or through the subscription (hbs_subscriptions.user_id); a
+// billing member owns the company's subscription invoices.
+async function customerInvoice(id: number, userId: string, billingCompanyUserId: string | null) {
+  const owners = [eq(hbsServiceRequests.userId, userId), eq(hbsSubscriptions.userId, userId)];
+  if (billingCompanyUserId) owners.push(eq(hbsSubscriptions.userId, billingCompanyUserId));
   const [row] = await db.select({ invoice: hbsInvoices, request: hbsServiceRequests }).from(hbsInvoices)
     .leftJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
     .leftJoin(hbsSubscriptions, eq(hbsInvoices.subscriptionId, hbsSubscriptions.id))
-    .where(and(eq(hbsInvoices.id, id), or(eq(hbsServiceRequests.userId, userId), eq(hbsSubscriptions.userId, userId)))).limit(1);
+    .where(and(eq(hbsInvoices.id, id), or(...owners))).limit(1);
   return row ?? null;
 }
 
@@ -146,11 +168,11 @@ router.get("/service-requests/:id/invoices", requireApprovedCustomer, async (req
 // left by a crashed request and may be taken over.
 const GATEWAY_CLAIM_MS = 60_000;
 
-router.post("/invoices/:id/pay", requireApprovedCustomer, async (req, res): Promise<void> => {
+router.post("/invoices/:id/pay", requireInvoiceAccess, async (req, res): Promise<void> => {
   const params = StartInvoicePaymentParams.safeParse(req.params);
   if (!params.success) { res.status(404).json({ error: "Invoice not found" }); return; }
   if (!moyasarConfigured()) { res.status(503).json({ error: "Online payment is not available. Contact the office to pay." }); return; }
-  const found = await customerInvoice(params.data.id, getAuth(req).userId!);
+  const found = await customerInvoice(params.data.id, getAuth(req).userId!, billingCompanyOf(res));
   if (!found) { res.status(404).json({ error: "Invoice not found" }); return; }
   const { request } = found;
   const closed = () => { res.status(409).json({ error: "This invoice is already paid or cancelled." }); };
@@ -223,10 +245,10 @@ router.post("/invoices/:id/pay", requireApprovedCustomer, async (req, res): Prom
   }
 });
 
-router.post("/invoices/:id/refresh", requireApprovedCustomer, async (req, res): Promise<void> => {
+router.post("/invoices/:id/refresh", requireInvoiceAccess, async (req, res): Promise<void> => {
   const params = RefreshInvoicePaymentParams.safeParse(req.params);
   if (!params.success) { res.status(404).json({ error: "Invoice not found" }); return; }
-  const found = await customerInvoice(params.data.id, getAuth(req).userId!);
+  const found = await customerInvoice(params.data.id, getAuth(req).userId!, billingCompanyOf(res));
   if (!found) { res.status(404).json({ error: "Invoice not found" }); return; }
   let row = found.invoice;
   try {

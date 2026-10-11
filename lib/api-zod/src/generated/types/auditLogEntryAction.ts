@@ -48,6 +48,7 @@ export const AuditLogEntryAction = {
   companymember_invite: 'company.member_invite',
   companymember_update: 'company.member_update',
   companymember_remove: 'company.member_remove',
+  companymember_leave: 'company.member_leave',
   service_requestemployee_item: 'service_request.employee_item',
   plancreate: 'plan.create',
   planupdate: 'plan.update',

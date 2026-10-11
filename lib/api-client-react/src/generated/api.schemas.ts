@@ -70,6 +70,7 @@ export const AuditLogEntryAction = {
   companymember_invite: 'company.member_invite',
   companymember_update: 'company.member_update',
   companymember_remove: 'company.member_remove',
+  companymember_leave: 'company.member_leave',
   service_requestemployee_item: 'service_request.employee_item',
   plancreate: 'plan.create',
   planupdate: 'plan.update',
@@ -723,6 +724,7 @@ export interface ServiceRequestInput {
   /**
      * An employee in the customer's company file
      * @minimum 1
+     * @maximum 2147483647
      * @nullable
      */
   employeeId?: number | null;
@@ -730,6 +732,7 @@ export interface ServiceRequestInput {
      * Employees of the customer's company file for a bulk request, tracked one by one; may be combined with employeeId
      * @maxItems 50
      * @items.minimum 1
+     * @items.maximum 2147483647
      */
   employeeIds?: number[];
   /**

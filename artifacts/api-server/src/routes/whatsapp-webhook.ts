@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, lt, ne, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { db, hbsCustomerSettings, hbsInquiries, hbsRequestMessages, hbsServiceRequests, hbsWhatsappInbound } from "@workspace/db";
 import { WhatsappWebhookVerifyQueryParams } from "@workspace/api-zod";
@@ -31,6 +31,36 @@ export const SEVERAL_OPEN_REPLY = "وصلتنا رسالتك. لأنك تملك 
 export const NO_OPEN_REPLY = "وصلتنا رسالتك وأضفناها كاستفسار، وسيرد المكتب من البوابة.";
 
 export type InboundHandled = "request_message" | "inquiry" | "unmatched" | "ignored";
+
+// How much of an unmatched message is kept, and for how long any inbound
+// row (the dedupe record and the office's trail) is kept.
+export const UNMATCHED_BODY_CHARS = 200;
+export const INBOUND_RETENTION_DAYS = 90;
+const PURGE_INTERVAL_MS = 24 * 60 * 60_000;
+
+export async function purgeOldWhatsappInbound(now = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - INBOUND_RETENTION_DAYS * 86_400_000);
+  const removed = await db.delete(hbsWhatsappInbound).where(lt(hbsWhatsappInbound.receivedAt, cutoff))
+    .returning({ id: hbsWhatsappInbound.waMessageId });
+  return removed.length;
+}
+
+// Daily, after the server starts; no timer holds the process open.
+export function startWhatsappInboundPurge() {
+  const schedule = (delay: number) => {
+    setTimeout(async () => {
+      try {
+        const removed = await purgeOldWhatsappInbound();
+        if (removed) logger.info({ removed }, "Removed WhatsApp inbound records older than 90 days");
+      } catch (err) {
+        logger.error({ err }, "WhatsApp inbound purge failed");
+      } finally {
+        schedule(PURGE_INTERVAL_MS);
+      }
+    }, delay).unref();
+  };
+  schedule(10 * 60_000);
+}
 
 // What handling a message needs from the outside, so the routing can be
 // tested without a database or Meta.
@@ -79,7 +109,10 @@ export const inboundDeps: InboundDeps = {
     await db.insert(hbsInquiries).values({ userId, subject: INQUIRY_SUBJECT, message: text });
   },
   async finish(waMessageId, outcome) {
-    await db.update(hbsWhatsappInbound).set(outcome).where(eq(hbsWhatsappInbound.waMessageId, waMessageId));
+    // A message from a number nobody registered is kept only as far as the
+    // office needs to recognise it.
+    const body = outcome.handled === "unmatched" ? { body: sql`left(${hbsWhatsappInbound.body}, ${UNMATCHED_BODY_CHARS})` } : {};
+    await db.update(hbsWhatsappInbound).set({ ...outcome, ...body }).where(eq(hbsWhatsappInbound.waMessageId, waMessageId));
   },
   async reply(to, text) {
     await sendText(to, text);

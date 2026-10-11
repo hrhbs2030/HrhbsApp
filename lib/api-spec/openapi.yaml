@@ -717,6 +717,21 @@ paths:
         "409":
           description: Registration request is no longer pending
   /office/service-requests/{id}:
+    get:
+      operationId: getOfficeServiceRequest
+      tags: [portal]
+      summary: Staff-only one customer request with its customer, attachments, checklist and employees
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      responses:
+        "200":
+          description: The request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeServiceRequest"
+        "403": { description: Office access required }
+        "404": { description: Request not found }
     patch:
       operationId: updateOfficeServiceRequest
       tags: [portal]
@@ -2010,6 +2025,14 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/CompanyMembership" }
         "404": { description: Neither an owner nor an accepted member }
+    delete:
+      operationId: leaveCompanyMembership
+      tags: [members]
+      summary: Leave the company the signed-in user was accepted into (the owner cannot leave)
+      responses:
+        "204": { description: Left }
+        "403": { description: The owner cannot leave their own company }
+        "404": { description: Not an accepted member }
   /office/customers/{userId}/members:
     get:
       operationId: listOfficeCustomerMembers
@@ -2275,7 +2298,7 @@ components:
         actorEmail: { type: ["string", "null"], format: email }
         action:
           type: string
-          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge, registration.approve, registration.reject, information.review, information.publish, information.unpublish, attachment.extract, invoice.issue, invoice.mark_paid, invoice.cancel, invoice.paid_online, offer.update, reminder.create, company.update, employee.create, employee.update, employee.delete, employee.reveal, license.create, license.update, license.delete, employee.import, license.import, automation.update, service_request.quote, service_request.quote_accept, service_request.quote_decline, service_request.checklist, company.member_invite, company.member_update, company.member_remove, service_request.employee_item, plan.create, plan.update, subscription.start, subscription.update, service_request.auto_renew]
+          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge, registration.approve, registration.reject, information.review, information.publish, information.unpublish, attachment.extract, invoice.issue, invoice.mark_paid, invoice.cancel, invoice.paid_online, offer.update, reminder.create, company.update, employee.create, employee.update, employee.delete, employee.reveal, license.create, license.update, license.delete, employee.import, license.import, automation.update, service_request.quote, service_request.quote_accept, service_request.quote_decline, service_request.checklist, company.member_invite, company.member_update, company.member_remove, company.member_leave, service_request.employee_item, plan.create, plan.update, subscription.start, subscription.update, service_request.auto_renew]
         targetType: { type: string }
         targetId: { type: string }
         details:
@@ -2699,13 +2722,13 @@ components:
           maxItems: 10
           uniqueItems: true
           items: { type: integer, minimum: 1 }
-        employeeId: { type: ["integer", "null"], minimum: 1, description: "An employee in the customer's company file" }
+        employeeId: { type: ["integer", "null"], minimum: 1, maximum: 2147483647, description: "An employee in the customer's company file" }
         employeeIds:
           type: array
           maxItems: 50
           uniqueItems: true
           description: "Employees of the customer's company file for a bulk request, tracked one by one; may be combined with employeeId"
-          items: { type: integer, minimum: 1 }
+          items: { type: integer, minimum: 1, maximum: 2147483647 }
         licenseId: { type: ["integer", "null"], minimum: 1, description: "A license in the customer's company file" }
         serviceSlug: { type: string, pattern: "^[a-z0-9-]{2,60}$", description: "Catalogue slug of the chosen service; its published required documents become the request's checklist" }
     ServiceRequestUpdate:

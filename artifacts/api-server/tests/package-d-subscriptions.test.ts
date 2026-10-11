@@ -18,6 +18,7 @@ import whatsappWebhookRouter from "../src/routes/whatsapp-webhook";
 import { sendDueReminders, autoRenewalClientRequestId, AUTO_RENEWAL_DESCRIPTION } from "../src/lib/document-reminders";
 import { remindOverdueInvoices } from "../src/lib/invoice-reminders";
 import { addRiyadhMonth, onSubscriptionInvoicePaid, renewSubscriptions, riyadhMonthName } from "../src/lib/subscriptions";
+import { purgeOldWhatsappInbound } from "../src/routes/whatsapp-webhook";
 import type { Mail } from "../src/lib/notify";
 import { vatFor } from "../src/lib/money";
 
@@ -29,7 +30,9 @@ const customer = `package-d-customer-${randomUUID()}`;
 const viewer = `package-d-viewer-${randomUUID()}`;
 const finance = `package-d-finance-${randomUUID()}`;
 const unsubscribed = `package-d-plain-${randomUUID()}`;
-const customers = [customer, unsubscribed];
+// Past due and never paid: the sweep closes this one.
+const lapsed = `package-d-lapsed-${randomUUID()}`;
+const customers = [customer, unsubscribed, lapsed];
 const slugPrefix = `pkg-d-${randomUUID().slice(0, 8)}`;
 const whatsappSecret = "package-d-app-secret";
 const sign = (body: string) => `sha256=${createHmac("sha256", whatsappSecret).update(body).digest("hex")}`;
@@ -95,6 +98,13 @@ test("plans, subscriptions, renewals, automatic renewal requests and WhatsApp in
       assert.equal(addRiyadhMonth(new Date("2026-03-31T12:34:56Z")).toISOString(), "2026-04-30T12:34:56.000Z");
       // 23:30 UTC on 15 December is already 16 December in Riyadh: the day is kept there.
       assert.equal(addRiyadhMonth(new Date("2026-12-15T23:30:00Z")).toISOString(), "2027-01-15T23:30:00.000Z");
+      // The start's day of month is the anchor: clamped in February, back on the 31st in March.
+      const startedOn31st = new Date("2026-01-31T00:00:00Z");
+      const february = addRiyadhMonth(startedOn31st, startedOn31st);
+      assert.equal(february.toISOString(), "2026-02-28T00:00:00.000Z");
+      assert.equal(addRiyadhMonth(february, startedOn31st).toISOString(), "2026-03-31T00:00:00.000Z");
+      assert.equal(addRiyadhMonth(february).toISOString(), "2026-03-28T00:00:00.000Z", "without an anchor the day drifts");
+      assert.equal(addRiyadhMonth(new Date("2026-03-10T09:00:00Z"), startedOn31st).toISOString(), "2026-04-30T09:00:00.000Z", "a late payment renews on the anchored day");
       assert.match(riyadhMonthName(new Date("2026-10-11T00:00:00Z")), /أكتوبر 2026/);
     });
 
@@ -289,13 +299,55 @@ test("plans, subscriptions, renewals, automatic renewal requests and WhatsApp in
       assert.match(reminder.subject, /تذكير بسداد فاتورة الاشتراك/);
       assert.equal((await db.select().from(hbsInvoices).where(eq(hbsInvoices.id, renewal.id)))[0].reminderCount, 2);
 
-      // Paid at the office: the sweep (or the billing hook) brings it back.
-      await db.update(hbsInvoices).set({ status: "paid", paymentMethod: "manual", paidAt: new Date() }).where(eq(hbsInvoices.id, renewal.id));
+      // Paid at the office: the sweep (or the billing hook) brings it back,
+      // and the next renewal is a month after the payment, not the missed one.
+      const paidAt = new Date();
+      await db.update(hbsInvoices).set({ status: "paid", paymentMethod: "manual", paidAt }).where(eq(hbsInvoices.id, renewal.id));
       const third = await renewSubscriptions(send);
       assert.ok(third.reactivated >= 1);
-      assert.equal((await db.select().from(hbsSubscriptions).where(eq(hbsSubscriptions.id, subscriptionId)))[0].status, "active");
+      const [reactivated] = await db.select().from(hbsSubscriptions).where(eq(hbsSubscriptions.id, subscriptionId));
+      assert.equal(reactivated.status, "active");
+      assert.equal(reactivated.renewsAt.toISOString(), addRiyadhMonth(paidAt, reactivated.startsAt).toISOString());
+      assert.ok(reactivated.renewsAt.getTime() > Date.now() + 27 * 86_400_000, "the month ahead is bought");
       assert.equal(await onSubscriptionInvoicePaid({ id: renewal.id, subscriptionId }), null, "already active");
       assert.equal(await onSubscriptionInvoicePaid({ id: 1, subscriptionId: null }), null);
+      assert.equal((await db.select().from(hbsInvoices).where(eq(hbsInvoices.subscriptionId, subscriptionId))).length, 2, "no invoice for the missed month");
+    });
+
+    await t.test("past due for two months with the invoice unpaid: the sweep cancels the subscription, once", async () => {
+      const [plan] = await db.select().from(hbsPlans).where(eq(hbsPlans.id, basicId));
+      const startsAt = new Date(Date.now() - 100 * 86_400_000);
+      const [overdue] = await db.insert(hbsSubscriptions).values({
+        userId: lapsed, planId: plan.id, status: "past_due", startsAt, renewsAt: new Date(Date.now() - 10 * 86_400_000),
+      }).returning();
+      const unpaid = async (daysAgo: number) => (await db.insert(hbsInvoices).values({
+        subscriptionId: overdue.id, description: "اشتراك", amountHalalas: plan.priceHalalas, vatRateBasisPoints: 1_500,
+        vatHalalas: vatFor(plan.priceHalalas), totalHalalas: plan.priceHalalas + vatFor(plan.priceHalalas), issuedBy: owner,
+        issuedAt: new Date(Date.now() - daysAgo * 86_400_000),
+      }).returning())[0];
+      await unpaid(59);
+      sent.length = 0;
+      const early = await renewSubscriptions(send);
+      assert.equal(early.cancelled, 0);
+      assert.equal((await db.select().from(hbsSubscriptions).where(eq(hbsSubscriptions.id, overdue.id)))[0].status, "past_due", "59 days: still waiting");
+      // The newest invoice decides: a fresh one keeps the subscription open.
+      await db.update(hbsInvoices).set({ issuedAt: new Date(Date.now() - 61 * 86_400_000) }).where(eq(hbsInvoices.subscriptionId, overdue.id));
+      const late = await renewSubscriptions(send);
+      assert.equal(late.cancelled, 1);
+      const [closed] = await db.select().from(hbsSubscriptions).where(eq(hbsSubscriptions.id, overdue.id));
+      assert.equal(closed.status, "cancelled");
+      assert.ok(closed.cancelledAt);
+      const mail = sent.find(s => s.userId === lapsed)?.mail;
+      assert.ok(mail);
+      assert.match(mail.subject, /أُلغي اشتراكك لعدم السداد/);
+      const audits = await db.select().from(hbsAuditLog).where(and(eq(hbsAuditLog.targetType, "subscription"), eq(hbsAuditLog.targetId, String(overdue.id))));
+      assert.deepEqual(audits.map(a => a.action), ["subscription.update"]);
+      assert.deepEqual(audits[0].details, { fromStatus: "past_due", toStatus: "cancelled", automatic: "invoice_unpaid", invoiceId: (await db.select().from(hbsInvoices).where(eq(hbsInvoices.subscriptionId, overdue.id)))[0].id, userId: lapsed });
+      sent.length = 0;
+      assert.equal((await renewSubscriptions(send)).cancelled, 0, "not twice");
+      assert.equal(sent.length, 0);
+      assert.equal((await call(lapsed, "GET", "/company/subscription")).data.subscription, null, "the company may subscribe again");
+      await db.delete(hbsAuditLog).where(and(eq(hbsAuditLog.targetType, "subscription"), eq(hbsAuditLog.targetId, String(overdue.id))));
     });
 
     await t.test("an expiring employee document opens a renewal request for a subscribed company", async () => {
@@ -382,13 +434,28 @@ test("plans, subscriptions, renewals, automatic renewal requests and WhatsApp in
       assert.equal(inquiries[0].message, "استفسار عام");
       assert.equal((await db.select().from(hbsWhatsappInbound).where(eq(hbsWhatsappInbound.waMessageId, second)))[0].handled, "inquiry");
 
-      // An unknown number is kept for the office.
+      // An unknown number is kept for the office, its text cut to 200 characters.
       const third = `wamid.${randomUUID()}`;
-      assert.equal((await post(third, "966500000099", "من أنا؟")).status, 200);
+      assert.equal((await post(third, "966500000099", "من أنا؟ " + "نص طويل ".repeat(60))).status, 200);
       const [unknown] = await db.select().from(hbsWhatsappInbound).where(eq(hbsWhatsappInbound.waMessageId, third));
       assert.equal(unknown.handled, "unmatched");
       assert.equal(unknown.userId, null);
+      assert.equal(unknown.body.length, 200);
+      assert.ok(unknown.body.startsWith("من أنا؟ "));
       assert.equal((await db.select().from(hbsInquiries).where(eq(hbsInquiries.userId, customer))).length, 1);
+      assert.ok(messages[0].body.length < 200 && (await db.select().from(hbsWhatsappInbound).where(eq(hbsWhatsappInbound.waMessageId, first)))[0].body === "تم رفع المستند", "matched messages are kept whole");
+
+      // Inbound records older than 90 days are purged daily.
+      const old = `wamid.${randomUUID()}`;
+      const recent = `wamid.${randomUUID()}`;
+      const now = new Date("2026-10-01T00:00:00Z");
+      await db.insert(hbsWhatsappInbound).values([
+        { waMessageId: old, fromPhone: "966500000098", body: "قديم", handled: "unmatched", receivedAt: new Date(now.getTime() - 91 * 86_400_000) },
+        { waMessageId: recent, fromPhone: "966500000098", body: "حديث", handled: "unmatched", receivedAt: new Date(now.getTime() - 89 * 86_400_000) },
+      ]);
+      assert.ok(await purgeOldWhatsappInbound(now) >= 1);
+      const kept = await db.select({ id: hbsWhatsappInbound.waMessageId }).from(hbsWhatsappInbound).where(eq(hbsWhatsappInbound.fromPhone, "966500000098"));
+      assert.deepEqual(kept.map(k => k.id), [recent]);
     });
 
     await t.test("cancelling ends the subscription", async () => {

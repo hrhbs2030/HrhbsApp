@@ -2788,6 +2788,83 @@ export const useReviewOfficeRegistration = <TError = ErrorType<void>,
       return useMutation(getReviewOfficeRegistrationMutationOptions(options));
     }
 
+export const getGetOfficeServiceRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/service-requests/${id}`
+}
+
+/**
+ * @summary Staff-only one customer request with its customer, attachments, checklist and employees
+ */
+export const getOfficeServiceRequest = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<OfficeServiceRequest> => {
+
+  return customFetch<OfficeServiceRequest>(getGetOfficeServiceRequestUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOfficeServiceRequestQueryKey = (id: number,) => {
+    return [
+    `/api/office/service-requests/${id}`
+    ] as const;
+    }
+
+
+export const getGetOfficeServiceRequestQueryOptions = <TData = Awaited<ReturnType<typeof getOfficeServiceRequest>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeServiceRequest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOfficeServiceRequestQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOfficeServiceRequest>>> = ({ signal }) => getOfficeServiceRequest(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOfficeServiceRequest>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOfficeServiceRequestQueryResult = NonNullable<Awaited<ReturnType<typeof getOfficeServiceRequest>>>
+export type GetOfficeServiceRequestQueryError = ErrorType<void>
+
+
+/**
+ * @summary Staff-only one customer request with its customer, attachments, checklist and employees
+ */
+
+export function useGetOfficeServiceRequest<TData = Awaited<ReturnType<typeof getOfficeServiceRequest>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeServiceRequest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOfficeServiceRequestQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getUpdateOfficeServiceRequestUrl = (id: number,) => {
 
 
@@ -8875,6 +8952,80 @@ export function useGetCompanyMembership<TData = Awaited<ReturnType<typeof getCom
 
 
 
+
+export const getLeaveCompanyMembershipUrl = () => {
+
+
+
+
+  return `/api/company/membership`
+}
+
+/**
+ * @summary Leave the company the signed-in user was accepted into (the owner cannot leave)
+ */
+export const leaveCompanyMembership = async ( options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getLeaveCompanyMembershipUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getLeaveCompanyMembershipMutationKey = () => ['leaveCompanyMembership'] as const;
+
+export const getLeaveCompanyMembershipMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveCompanyMembership>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof leaveCompanyMembership>>, TError,void, TContext> => {
+
+const mutationKey = getLeaveCompanyMembershipMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof leaveCompanyMembership>>, void> = () => {
+
+
+          return  leaveCompanyMembership(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LeaveCompanyMembershipMutationResult = NonNullable<Awaited<ReturnType<typeof leaveCompanyMembership>>>
+
+    export type LeaveCompanyMembershipMutationError = ErrorType<void>
+
+
+    /**
+ * @summary Leave the company the signed-in user was accepted into (the owner cannot leave)
+ */
+export const useLeaveCompanyMembership = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveCompanyMembership>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof leaveCompanyMembership>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getLeaveCompanyMembershipMutationOptions(options));
+    }
 
 export const getListOfficeCustomerMembersUrl = (userId: string,) => {
 
