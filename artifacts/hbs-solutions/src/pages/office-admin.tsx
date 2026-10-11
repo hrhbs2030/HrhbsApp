@@ -111,6 +111,9 @@ const actionNames: Record<AuditLogEntry['action'], string> = {
   'license.create': 'إضافة ترخيص لعميل',
   'license.update': 'تعديل ترخيص لعميل',
   'license.delete': 'حذف ترخيص لعميل',
+  'employee.import': 'استيراد موظفين من Excel لعميل',
+  'license.import': 'استيراد تراخيص من Excel لعميل',
+  'automation.update': 'تعديل التوزيع التلقائي للطلبات',
 };
 
 function auditSummary(entry: AuditLogEntry): string {
@@ -124,6 +127,7 @@ function auditSummary(entry: AuditLogEntry): string {
   }
   if (entry.action === 'reminder.create') return `طلب رقم ${entry.targetId}: تنتهي في ${String(entry.details.expiresOn ?? '-')}`;
   if (entry.targetType === 'customer') {
+    if (entry.action.endsWith('.import')) return `ملف عميل: أُضيف ${String(entry.details.created ?? 0)} وحُدّث ${String(entry.details.updated ?? 0)}`;
     const what = typeof entry.details.name === 'string' ? `«${entry.details.name}»` : typeof entry.details.title === 'string' ? `«${entry.details.title}»` : '';
     return `ملف عميل${what ? `: ${what}` : ''}`;
   }
@@ -143,7 +147,7 @@ export function OfficeAuditLog() {
         <ul className="m-0 list-none p-0">{log.data.map(entry => <li key={entry.id} className="grid gap-1.5 border-b border-line px-5 py-4 last:border-0 sm:px-6 lg:grid-cols-[140px_minmax(0,1fr)_220px_170px] lg:items-center lg:gap-4">
           <span className="flex items-center justify-between gap-3 lg:block"><span className="inline-flex w-fit rounded-md bg-copper-soft px-2 py-0.5 text-xs font-bold text-copper">{actionNames[entry.action]}</span><span className="text-xs text-subtle lg:hidden">{timeText(entry.createdAt)}</span></span>
           <span className="min-w-0 text-sm leading-7">{auditSummary(entry)}</span>
-          <span className="min-w-0 truncate text-xs text-quiet" dir="ltr" style={{ textAlign: 'right' }}>{entry.actorId === 'system' ? 'النظام' : entry.actorId === 'payment-gateway' ? 'بوابة الدفع' : entry.actorEmail ?? entry.actorId}</span>
+          <span className="min-w-0 truncate text-xs text-quiet" dir="ltr" style={{ textAlign: 'right' }}>{entry.actorId === 'system' ? 'النظام' : entry.actorId === 'payment-gateway' ? 'بوابة الدفع' : entry.actorId === 'automation' ? 'أتمتة النظام' : entry.actorEmail ?? entry.actorId}</span>
           <span className="hidden text-xs text-subtle lg:block">{timeText(entry.createdAt)}</span>
         </li>)}</ul>
       </div>}

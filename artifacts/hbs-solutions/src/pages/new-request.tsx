@@ -118,7 +118,8 @@ export function NewRequest() {
     }
     try {
       const attachmentIds = files.map((file) => uploaded.current.get(file)!).filter(Boolean);
-      const [subjectType, subjectId] = subject.split(':');
+      // A link to an employee or license that is no longer in the file is ignored.
+      const [subjectType, subjectId] = subjectLabel ? subject.split(':') : [];
       const link = subjectType === 'employee' ? { employeeId: Number(subjectId) } : subjectType === 'license' ? { licenseId: Number(subjectId) } : {};
       const result = await mutation.mutateAsync({ data: { category, service: service.trim(), description: description.trim(), contactPhone: contactPhone.trim(), clientRequestId, ...link, ...(attachmentIds.length ? { attachmentIds } : {}) } });
       await Promise.all([qc.invalidateQueries({ queryKey: getListServiceRequestsQueryKey() }), qc.invalidateQueries({ queryKey: getGetPortalSummaryQueryKey() })]);
@@ -227,7 +228,7 @@ export function NewRequest() {
                 </dl>
                 <p className="muted mt-5 text-sm leading-7">سيراجع المكتب طلبك، وإن احتاج مستندًا إضافيًا تصبح الحالة «بانتظار العميل» وترفعه من صفحة الطلب.</p>
                 {fileProblems.length > 0 && <div role="alert" className="nr-files-errors mt-4">{fileProblems.map((p) => <p key={p}>{p}</p>)}</div>}
-                {mutation.isError && <div role="alert" className="mt-5 rounded-lg bg-danger-soft p-4 text-sm text-danger">تعذّر إرسال الطلب. تحقق من اتصالك وحاول مرة أخرى؛ لن يُرسل الطلب مرتين.</div>}
+                {mutation.isError && <div role="alert" className="mt-5 rounded-lg bg-danger-soft p-4 text-sm text-danger">{(mutation.error as { status?: number } | null)?.status === 400 ? 'تحقق من بيانات الطلب: الموظف أو الترخيص المختار لم يعد في ملف المنشأة.' : 'تعذّر إرسال الطلب. تحقق من اتصالك وحاول مرة أخرى؛ لن يُرسل الطلب مرتين.'}</div>}
               </div>
             )}
           </div>

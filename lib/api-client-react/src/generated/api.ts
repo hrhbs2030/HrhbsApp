@@ -25,6 +25,8 @@ import type {
   ApprovedInformationInput,
   ApprovedInformationMutation,
   ApprovedInformationUpdate,
+  AssignmentRule,
+  AssignmentRuleInput,
   AttachAttachmentsInput,
   AttachmentUploadInput,
   AttachmentUploadReservation,
@@ -35,6 +37,7 @@ import type {
   CustomerAIAnswer,
   CustomerAIQuestion,
   Employee,
+  EmployeeImport,
   EmployeeInput,
   EmployeeNumbers,
   ExtractTransactionRequest,
@@ -42,6 +45,7 @@ import type {
   ExtractedTransaction,
   GetOfficeReportParams,
   HealthStatus,
+  ImportResult,
   Inquiry,
   InquiryAnswer,
   InquiryInput,
@@ -53,6 +57,7 @@ import type {
   LegacyImportInput,
   LegacyImportSummary,
   License,
+  LicenseImport,
   LicenseInput,
   ListOfficeCustomersParams,
   ListOfficeInquiriesParams,
@@ -7222,5 +7227,527 @@ export const useSendOfficeServiceRequestMessage = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getSendOfficeServiceRequestMessageMutationOptions(options));
+    }
+
+export const getImportEmployeesUrl = () => {
+
+
+
+
+  return `/api/company/employees/import`
+}
+
+/**
+ * All rows are checked first; if any row is invalid nothing is saved and every problem is listed. A row updates the employee with the same ID number, or else the only employee with the same name; otherwise it adds one. Empty cells keep what is stored.
+ * @summary Add or update many employees at once (from a spreadsheet)
+ */
+export const importEmployees = async (employeeImport: EmployeeImport, options?: Parameters<typeof customFetch>[1]): Promise<ImportResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ImportResult>(getImportEmployeesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(employeeImport)
+  }
+);}
+
+
+
+
+
+export const getImportEmployeesMutationKey = () => ['importEmployees'] as const;
+
+export const getImportEmployeesMutationOptions = <TError = ErrorType<ImportResult>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importEmployees>>, TError,ImportEmployeesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importEmployees>>, TError,ImportEmployeesMutationVariables, TContext> => {
+
+const mutationKey = getImportEmployeesMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importEmployees>>, ImportEmployeesMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  importEmployees(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportEmployeesMutationResult = NonNullable<Awaited<ReturnType<typeof importEmployees>>>
+    export type ImportEmployeesMutationBody = BodyType<EmployeeImport>
+    export type ImportEmployeesMutationError = ErrorType<ImportResult>
+    export type ImportEmployeesMutationVariables = {data: BodyType<EmployeeImport>}
+
+    /**
+ * @summary Add or update many employees at once (from a spreadsheet)
+ */
+export const useImportEmployees = <TError = ErrorType<ImportResult>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importEmployees>>, TError,ImportEmployeesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importEmployees>>,
+        TError,
+        ImportEmployeesMutationVariables,
+        TContext
+      > => {
+      return useMutation(getImportEmployeesMutationOptions(options));
+    }
+
+export const getImportLicensesUrl = () => {
+
+
+
+
+  return `/api/company/licenses/import`
+}
+
+/**
+ * Same rules as the employee import. A row updates the license of the same type and number (or the same type and name when there is no number).
+ * @summary Add or update many licenses at once (from a spreadsheet)
+ */
+export const importLicenses = async (licenseImport: LicenseImport, options?: Parameters<typeof customFetch>[1]): Promise<ImportResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ImportResult>(getImportLicensesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(licenseImport)
+  }
+);}
+
+
+
+
+
+export const getImportLicensesMutationKey = () => ['importLicenses'] as const;
+
+export const getImportLicensesMutationOptions = <TError = ErrorType<ImportResult>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importLicenses>>, TError,ImportLicensesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importLicenses>>, TError,ImportLicensesMutationVariables, TContext> => {
+
+const mutationKey = getImportLicensesMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importLicenses>>, ImportLicensesMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  importLicenses(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportLicensesMutationResult = NonNullable<Awaited<ReturnType<typeof importLicenses>>>
+    export type ImportLicensesMutationBody = BodyType<LicenseImport>
+    export type ImportLicensesMutationError = ErrorType<ImportResult>
+    export type ImportLicensesMutationVariables = {data: BodyType<LicenseImport>}
+
+    /**
+ * @summary Add or update many licenses at once (from a spreadsheet)
+ */
+export const useImportLicenses = <TError = ErrorType<ImportResult>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importLicenses>>, TError,ImportLicensesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importLicenses>>,
+        TError,
+        ImportLicensesMutationVariables,
+        TContext
+      > => {
+      return useMutation(getImportLicensesMutationOptions(options));
+    }
+
+export const getImportOfficeCustomerEmployeesUrl = (userId: string,) => {
+
+
+
+
+  return `/api/office/customers/${userId}/employees/import`
+}
+
+/**
+ * @summary Staff-only spreadsheet import of a customer's employees (audited)
+ */
+export const importOfficeCustomerEmployees = async (userId: string,
+    employeeImport: EmployeeImport, options?: Parameters<typeof customFetch>[1]): Promise<ImportResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ImportResult>(getImportOfficeCustomerEmployeesUrl(userId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(employeeImport)
+  }
+);}
+
+
+
+
+
+export const getImportOfficeCustomerEmployeesMutationKey = () => ['importOfficeCustomerEmployees'] as const;
+
+export const getImportOfficeCustomerEmployeesMutationOptions = <TError = ErrorType<void | ImportResult>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importOfficeCustomerEmployees>>, TError,ImportOfficeCustomerEmployeesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importOfficeCustomerEmployees>>, TError,ImportOfficeCustomerEmployeesMutationVariables, TContext> => {
+
+const mutationKey = getImportOfficeCustomerEmployeesMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importOfficeCustomerEmployees>>, ImportOfficeCustomerEmployeesMutationVariables> = (props) => {
+          const {userId,data} = props ?? {};
+
+          return  importOfficeCustomerEmployees(userId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportOfficeCustomerEmployeesMutationResult = NonNullable<Awaited<ReturnType<typeof importOfficeCustomerEmployees>>>
+    export type ImportOfficeCustomerEmployeesMutationBody = BodyType<EmployeeImport>
+    export type ImportOfficeCustomerEmployeesMutationError = ErrorType<void | ImportResult>
+    export type ImportOfficeCustomerEmployeesMutationVariables = {userId: string;data: BodyType<EmployeeImport>}
+
+    /**
+ * @summary Staff-only spreadsheet import of a customer's employees (audited)
+ */
+export const useImportOfficeCustomerEmployees = <TError = ErrorType<void | ImportResult>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importOfficeCustomerEmployees>>, TError,ImportOfficeCustomerEmployeesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importOfficeCustomerEmployees>>,
+        TError,
+        ImportOfficeCustomerEmployeesMutationVariables,
+        TContext
+      > => {
+      return useMutation(getImportOfficeCustomerEmployeesMutationOptions(options));
+    }
+
+export const getImportOfficeCustomerLicensesUrl = (userId: string,) => {
+
+
+
+
+  return `/api/office/customers/${userId}/licenses/import`
+}
+
+/**
+ * @summary Staff-only spreadsheet import of a customer's licenses (audited)
+ */
+export const importOfficeCustomerLicenses = async (userId: string,
+    licenseImport: LicenseImport, options?: Parameters<typeof customFetch>[1]): Promise<ImportResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ImportResult>(getImportOfficeCustomerLicensesUrl(userId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(licenseImport)
+  }
+);}
+
+
+
+
+
+export const getImportOfficeCustomerLicensesMutationKey = () => ['importOfficeCustomerLicenses'] as const;
+
+export const getImportOfficeCustomerLicensesMutationOptions = <TError = ErrorType<void | ImportResult>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importOfficeCustomerLicenses>>, TError,ImportOfficeCustomerLicensesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importOfficeCustomerLicenses>>, TError,ImportOfficeCustomerLicensesMutationVariables, TContext> => {
+
+const mutationKey = getImportOfficeCustomerLicensesMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importOfficeCustomerLicenses>>, ImportOfficeCustomerLicensesMutationVariables> = (props) => {
+          const {userId,data} = props ?? {};
+
+          return  importOfficeCustomerLicenses(userId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportOfficeCustomerLicensesMutationResult = NonNullable<Awaited<ReturnType<typeof importOfficeCustomerLicenses>>>
+    export type ImportOfficeCustomerLicensesMutationBody = BodyType<LicenseImport>
+    export type ImportOfficeCustomerLicensesMutationError = ErrorType<void | ImportResult>
+    export type ImportOfficeCustomerLicensesMutationVariables = {userId: string;data: BodyType<LicenseImport>}
+
+    /**
+ * @summary Staff-only spreadsheet import of a customer's licenses (audited)
+ */
+export const useImportOfficeCustomerLicenses = <TError = ErrorType<void | ImportResult>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importOfficeCustomerLicenses>>, TError,ImportOfficeCustomerLicensesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importOfficeCustomerLicenses>>,
+        TError,
+        ImportOfficeCustomerLicensesMutationVariables,
+        TContext
+      > => {
+      return useMutation(getImportOfficeCustomerLicensesMutationOptions(options));
+    }
+
+export const getListAssignmentRulesUrl = () => {
+
+
+
+
+  return `/api/office/assignment-rules`
+}
+
+/**
+ * @summary Owner-only automatic assignment and due date for new requests, per category
+ */
+export const listAssignmentRules = async ( options?: Parameters<typeof customFetch>[1]): Promise<AssignmentRule[]> => {
+
+  return customFetch<AssignmentRule[]>(getListAssignmentRulesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAssignmentRulesQueryKey = () => {
+    return [
+    `/api/office/assignment-rules`
+    ] as const;
+    }
+
+
+export const getListAssignmentRulesQueryOptions = <TData = Awaited<ReturnType<typeof listAssignmentRules>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssignmentRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAssignmentRulesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssignmentRules>>> = ({ signal }) => listAssignmentRules({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAssignmentRules>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAssignmentRulesQueryResult = NonNullable<Awaited<ReturnType<typeof listAssignmentRules>>>
+export type ListAssignmentRulesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Owner-only automatic assignment and due date for new requests, per category
+ */
+
+export function useListAssignmentRules<TData = Awaited<ReturnType<typeof listAssignmentRules>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssignmentRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAssignmentRulesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveAssignmentRuleUrl = (category: 'passports' | 'labor' | 'business' | 'other',) => {
+
+
+
+
+  return `/api/office/assignment-rules/${category}`
+}
+
+/**
+ * @summary Owner-only set who new requests in a category go to and their due days (audited)
+ */
+export const saveAssignmentRule = async (category: 'passports' | 'labor' | 'business' | 'other',
+    assignmentRuleInput: AssignmentRuleInput, options?: Parameters<typeof customFetch>[1]): Promise<AssignmentRule> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AssignmentRule>(getSaveAssignmentRuleUrl(category),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(assignmentRuleInput)
+  }
+);}
+
+
+
+
+
+export const getSaveAssignmentRuleMutationKey = () => ['saveAssignmentRule'] as const;
+
+export const getSaveAssignmentRuleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveAssignmentRule>>, TError,SaveAssignmentRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveAssignmentRule>>, TError,SaveAssignmentRuleMutationVariables, TContext> => {
+
+const mutationKey = getSaveAssignmentRuleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveAssignmentRule>>, SaveAssignmentRuleMutationVariables> = (props) => {
+          const {category,data} = props ?? {};
+
+          return  saveAssignmentRule(category,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveAssignmentRuleMutationResult = NonNullable<Awaited<ReturnType<typeof saveAssignmentRule>>>
+    export type SaveAssignmentRuleMutationBody = BodyType<AssignmentRuleInput>
+    export type SaveAssignmentRuleMutationError = ErrorType<void>
+    export type SaveAssignmentRuleMutationVariables = {category: 'passports' | 'labor' | 'business' | 'other';data: BodyType<AssignmentRuleInput>}
+
+    /**
+ * @summary Owner-only set who new requests in a category go to and their due days (audited)
+ */
+export const useSaveAssignmentRule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveAssignmentRule>>, TError,SaveAssignmentRuleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveAssignmentRule>>,
+        TError,
+        SaveAssignmentRuleMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSaveAssignmentRuleMutationOptions(options));
     }
 

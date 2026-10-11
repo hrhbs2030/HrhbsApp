@@ -4,12 +4,14 @@ import { Search } from 'lucide-react';
 import {
   getGetOfficeReportQueryKey, getListOfficeRemindersQueryKey, getListOfficeServiceOffersQueryKey,
   useGetOfficeReport, useListOfficeReminders, useListOfficeServiceOffers, useSaveOfficeServiceOffer,
+  getListAssignmentRulesQueryKey, getListOfficeAssigneesQueryKey, saveAssignmentRule, useListAssignmentRules, useListOfficeAssignees,
+  type AssignmentRule,
   type GetOfficeReportDays, type ServiceOffer,
 } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock, categoryNames, statusNames } from '@/components/portal-ui';
 import { ExpiryBadge, reminderKindNames } from '@/components/reminder-ui';
 import { categories, services, type Service } from '@/content/services';
-import { formatCalendarDate, formatMoney, formatNumber } from '@/lib/format';
+import { formatCalendarDate, formatMoney, formatNumber, parseRiyals } from '@/lib/format';
 
 // ---- documents expiring soon -------------------------------------------------
 
@@ -53,10 +55,10 @@ function OfferEditor({ service, offer, onSaved }: { service: Service; offer: Ser
     setPublished(offer?.published ?? false);
     setSaved(false);
   }, [service.slug, offer?.updatedAt]);
-  const halalas = price.trim() ? Math.round(Number(price.replace(/[^\d.]/g, '')) * 100) : null;
+  const halalas = price.trim() ? parseRiyals(price) : null;
   const dayCount = days.trim() ? Number(days) : null;
   const docs = documents.split('\n').map(d => d.trim()).filter(d => d.length >= 2);
-  const invalid = (halalas !== null && !Number.isFinite(halalas)) || (dayCount !== null && !(Number.isInteger(dayCount) && dayCount >= 1 && dayCount <= 365)) || docs.length > 15;
+  const invalid = (price.trim() !== '' && halalas === null) || (dayCount !== null && !(Number.isInteger(dayCount) && dayCount >= 1 && dayCount <= 365)) || docs.length > 15;
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (invalid) return;
@@ -83,6 +85,37 @@ function OfferEditor({ service, offer, onSaved }: { service: Service; offer: Ser
   </form>;
 }
 
+// New requests in each category go to a chosen member with a due date,
+// without anyone opening them first. Changes are audited.
+function AssignmentRules() {
+  const qc = useQueryClient();
+  const rules = useListAssignmentRules({ query: { queryKey: getListAssignmentRulesQueryKey() } });
+  const members = useListOfficeAssignees({ query: { queryKey: getListOfficeAssigneesQueryKey() } });
+  const [saving, setSaving] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  async function save(rule: AssignmentRule, change: Partial<AssignmentRule>) {
+    setSaving(rule.category); setMessage(null);
+    try {
+      await saveAssignmentRule(rule.category, { assignee: change.assignee !== undefined ? change.assignee : rule.assignee, dueDays: change.dueDays !== undefined ? change.dueDays : rule.dueDays });
+      await qc.invalidateQueries({ queryKey: getListAssignmentRulesQueryKey() });
+      setMessage('تم الحفظ. يُطبّق على الطلبات الجديدة.');
+    } catch { setMessage('تعذّر الحفظ.'); } finally { setSaving(null); }
+  }
+  if (!rules.data) return null;
+  return <section className="surface mb-6 overflow-hidden" aria-labelledby="auto-title">
+    <div className="border-b border-line bg-paper px-5 py-4"><h2 id="auto-title" className="display text-lg font-semibold">توزيع الطلبات الجديدة تلقائيًا</h2>
+      <p className="muted mt-1 text-xs leading-6">يُسند كل طلب جديد فور وصوله إلى المسؤول المختار لمجاله، ويُحدّد موعد إنجازه، ويصل للمسؤول بريد. ويعود الطلب تلقائيًا إلى «قيد المراجعة» عندما يرد العميل أو تُسدد فاتورته.</p></div>
+    <div className="divide-y divide-line">{rules.data.map(rule => <div key={rule.category} className="grid items-end gap-3 px-5 py-3 sm:grid-cols-[1fr_14rem_9rem]">
+      <strong className="text-sm">{categoryNames[rule.category]}</strong>
+      <label className="form-field text-xs">المسؤول<select className="form-control" value={rule.assignee ?? ''} disabled={saving === rule.category} onChange={e => save(rule, { assignee: e.target.value || null })}>
+        <option value="">بلا إسناد تلقائي</option>{members.data?.map(m => <option key={m.userId} value={m.userId}>{m.email ?? m.userId}</option>)}</select></label>
+      <label className="form-field text-xs">أيام الإنجاز<select className="form-control" value={rule.dueDays ?? ''} disabled={saving === rule.category} onChange={e => save(rule, { dueDays: e.target.value ? Number(e.target.value) : null })}>
+        <option value="">بلا موعد</option>{[1, 2, 3, 5, 7, 10, 14, 21, 30].map(d => <option key={d} value={d}>{formatNumber(d)}</option>)}</select></label>
+    </div>)}</div>
+    {message && <p role="status" className="px-5 pb-3 text-xs font-bold text-ok">{message}</p>}
+  </section>;
+}
+
 export function OfficeCatalog() {
   const qc = useQueryClient();
   const offers = useListOfficeServiceOffers({ query: { queryKey: getListOfficeServiceOffersQueryKey() } });
@@ -92,7 +125,8 @@ export function OfficeCatalog() {
   const shown = services.filter(s => !search.trim() || s.name.includes(search.trim()));
   const active = services.find(s => s.slug === selected);
   return <PortalLayout staff>
-    <PageHeading eyebrow="دليل الخدمات" title="الأسعار والمتطلبات" subtitle="حدّد أتعاب كل خدمة ومدتها ومستنداتها، وانشرها ليراها العميل قبل إرسال طلبه."/>
+    <PageHeading eyebrow="دليل الخدمات والأتمتة" title="الأسعار والمتطلبات" subtitle="وزّع الطلبات الجديدة تلقائيًا، وحدّد أتعاب كل خدمة ومدتها ومستنداتها وانشرها ليراها العميل قبل إرسال طلبه."/>
+    <AssignmentRules/>
     {offers.isLoading ? <LoadingBlock/> : offers.isError ? <ErrorBlock retry={() => offers.refetch()}/> : <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
       <div className="min-w-0">
         <label className="relative mb-3 block"><span className="sr-only">بحث</span><Search className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle" size={17}/><input className="form-control !pr-10" placeholder="ابحث باسم الخدمة" value={search} onChange={e => setSearch(e.target.value)}/></label>

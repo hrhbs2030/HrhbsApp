@@ -34,24 +34,28 @@ export function validPassportNumber(value: string): boolean {
   return /^[A-Z0-9]{5,20}$/.test(value);
 }
 
-export function calendarDate(raw: unknown): string | null | undefined {
+export function calendarDate(raw: unknown, field = "التاريخ"): string | null | undefined {
   if (raw === undefined) return undefined;
   if (raw === null || raw === "") return null;
-  if (typeof raw !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) throw new InputError();
+  const invalid = new InputError(`${field} غير صحيح؛ اكتبه بالصيغة YYYY-MM-DD بالتقويم الميلادي.`);
+  if (typeof raw !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) throw invalid;
   const date = new Date(`${raw}T00:00:00Z`);
   const year = Number(raw.slice(0, 4));
-  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== raw || year < 1950 || year > 2100) throw new InputError();
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== raw || year < 1950 || year > 2100) throw invalid;
   return raw;
 }
 
-export class InputError extends Error {}
+// The message is shown to the person who entered the data (Arabic).
+export class InputError extends Error {
+  constructor(message = "تحقق من البيانات.") { super(message); }
+}
 
 export function companyValues(body: Record<string, unknown>) {
   const name = clean(body.name as string);
-  if (!name || name.length < 2) throw new InputError();
+  if (!name || name.length < 2) throw new InputError("اكتب اسم المنشأة.");
   const digits = (v: unknown) => {
     const text = clean(v as string | null)?.replace(/\s/g, "") ?? null;
-    if (text && !/^\d{5,20}$/.test(text)) throw new InputError();
+    if (text && !/^\d{5,20}$/.test(text)) throw new InputError("السجل التجاري والرقم الموحد والرقم الضريبي أرقام فقط.");
     return text;
   };
   return {
@@ -71,26 +75,26 @@ export function companyValues(body: Record<string, unknown>) {
 // Numbers: omitted keeps the stored value, null clears it.
 export function employeeValues(body: Record<string, unknown>) {
   const fullName = clean(body.fullName as string);
-  if (!fullName || fullName.length < 2) throw new InputError();
-  const number = (raw: unknown, check: (v: string) => boolean) => {
+  if (!fullName || fullName.length < 2) throw new InputError("اسم الموظف مطلوب.");
+  const number = (raw: unknown, check: (v: string) => boolean, message: string) => {
     if (raw === undefined) return undefined;
-    const text = clean(raw as string | null)?.replace(/\s/g, "").toUpperCase() ?? null;
-    if (text && !check(text)) throw new InputError();
+    const text = clean(raw === null ? null : String(raw))?.replace(/\s/g, "").toUpperCase() ?? null;
+    if (text && !check(text)) throw new InputError(message);
     return text;
   };
   const values = {
     fullName,
     nationality: clean(body.nationality as string),
     occupation: clean(body.occupation as string),
-    iqamaExpiresOn: calendarDate(body.iqamaExpiresOn) ?? null,
-    passportExpiresOn: calendarDate(body.passportExpiresOn) ?? null,
-    workPermitExpiresOn: calendarDate(body.workPermitExpiresOn) ?? null,
+    iqamaExpiresOn: calendarDate(body.iqamaExpiresOn, "تاريخ انتهاء الإقامة") ?? null,
+    passportExpiresOn: calendarDate(body.passportExpiresOn, "تاريخ انتهاء الجواز") ?? null,
+    workPermitExpiresOn: calendarDate(body.workPermitExpiresOn, "تاريخ انتهاء رخصة العمل") ?? null,
     phone: clean(body.phone as string),
     status: body.status === "left" ? "left" as const : "active" as const,
     notes: clean(body.notes as string),
   };
-  const idNumber = number(body.idNumber, validIdNumber);
-  const passportNumber = number(body.passportNumber, validPassportNumber);
+  const idNumber = number(body.idNumber, validIdNumber, "رقم الهوية أو الإقامة 10 أرقام يبدأ بـ1 أو 2.");
+  const passportNumber = number(body.passportNumber, validPassportNumber, "رقم الجواز من 5 إلى 20 حرفًا أو رقمًا إنجليزيًا.");
   return {
     ...values,
     ...(idNumber !== undefined ? { idNumber } : {}),
@@ -101,11 +105,12 @@ export function employeeValues(body: Record<string, unknown>) {
 export function licenseValues(body: Record<string, unknown>) {
   const title = clean(body.title as string);
   const kind = typeof body.kind === "string" && body.kind in licenseKindLabels ? body.kind : null;
-  if (!title || title.length < 2 || !kind) throw new InputError();
-  const issuedOn = calendarDate(body.issuedOn) ?? null;
-  const expiresOn = calendarDate(body.expiresOn) ?? null;
-  if (issuedOn && expiresOn && expiresOn < issuedOn) throw new InputError();
-  return { kind, title, number: clean(body.number as string), issuedOn, expiresOn, notes: clean(body.notes as string) };
+  if (!kind) throw new InputError("نوع الترخيص غير معروف.");
+  if (!title || title.length < 2) throw new InputError("اسم الترخيص مطلوب.");
+  const issuedOn = calendarDate(body.issuedOn, "تاريخ الإصدار") ?? null;
+  const expiresOn = calendarDate(body.expiresOn, "تاريخ الانتهاء") ?? null;
+  if (issuedOn && expiresOn && expiresOn < issuedOn) throw new InputError("تاريخ الانتهاء قبل تاريخ الإصدار.");
+  return { kind, title, number: clean(body.number == null ? null : String(body.number)), issuedOn, expiresOn, notes: clean(body.notes as string) };
 }
 
 // ---- output ------------------------------------------------------------------

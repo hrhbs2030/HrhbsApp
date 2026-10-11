@@ -99,6 +99,7 @@ import {
 import { statusHistory } from "../lib/request-history";
 import { notifyCustomer } from "../lib/customer-contact";
 import { subjectLabels, subjectOf } from "../lib/company";
+import { applyAssignmentRule, resumeAfterCustomerReply } from "../lib/automations";
 import { saudiMobile, whatsappConfigured } from "../lib/whatsapp";
 import { riyadhToday } from "../lib/document-reminders";
 import { inspectLegacyBackup, legacyKinds, type LegacyKind } from "../lib/legacy-backup";
@@ -116,6 +117,8 @@ const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
 const allowedAttachmentTypes = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
 export const MAX_ATTACHMENTS_PER_REQUEST = 10;
+// Largest value of a Postgres integer column; larger IDs cannot exist.
+const MAX_ID = 2_147_483_647;
 
 // Who added a file is read from the row: the request's owner, or office staff.
 function attachmentInfo(row: HbsRequestAttachment, ownerId: string) {
@@ -488,7 +491,7 @@ router.get("/portal/summary", requirePortalAuth, requireApprovedCustomer, async 
   ]);
   const [attached, [unpaid], expiring, [counts]] = await Promise.all([
     detailsFor(recentRequests),
-    db.select({ count: sql<number>`count(*)::int`, total: sql<number>`coalesce(sum(${hbsInvoices.totalHalalas}), 0)::int` })
+    db.select({ count: sql<number>`count(*)::int`, total: sql<number>`coalesce(sum(${hbsInvoices.totalHalalas}), 0)::bigint`.mapWith(Number) })
       .from(hbsInvoices).innerJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
       .where(and(eq(hbsServiceRequests.userId, userId), eq(hbsInvoices.status, "issued"))),
     db.select().from(hbsDocumentReminders).where(and(eq(hbsDocumentReminders.userId, userId),
@@ -639,7 +642,7 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
         clientRequestId: requestId ?? null, employeeId, licenseId,
       }).returning();
       await lockAndAttach(tx, userId, ids, created.id, finalized);
-      return created;
+      return applyAssignmentRule(tx, created);
     });
   } catch (error) {
     req.log.error({ err: error }, "Failed to save request and attachments");
@@ -660,12 +663,17 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
   // A response failure after commit must not delete the submitted copies.
   res.status(201).json(CreateServiceRequestResponse.parse(publicRequest(record,
     (await detailsFor([record])).get(record.id))));
-  notify(officeNewRequestMail({
+  const created = {
     id: record.id,
     reference: `HBS-${record.createdAt.getUTCFullYear()}-${String(record.id).padStart(5, "0")}`,
     service: record.service,
     category: record.category,
-  }));
+  };
+  notify(officeNewRequestMail(created));
+  if (record.assignedTo) {
+    notify(assignedMail(await staffEmail(record.assignedTo), created,
+      record.dueAt ? new Intl.DateTimeFormat("ar-SA-u-ca-gregory", { dateStyle: "long", timeZone: "Asia/Riyadh" }).format(record.dueAt) : null));
+  }
   // Cleanup is best-effort after the record has been committed; pending keys cannot be downloaded.
   void Promise.allSettled(pending.map(async row => (await storage.getObjectEntityFile(row.objectPath)).delete()));
 });
@@ -691,7 +699,7 @@ router.get("/service-requests/:id", requirePortalAuth, requireApprovedCustomer, 
 
 async function sendAttachment(req: Request, res: import("express").Response, staff: boolean) {
   const attachmentId = Number(req.params.attachmentId);
-  if (!Number.isSafeInteger(attachmentId) || attachmentId < 1) {
+  if (!Number.isInteger(attachmentId) || attachmentId < 1 || attachmentId > MAX_ID) {
     res.status(404).json({ error: "Attachment not found" }); return;
   }
   const [row] = await db.select({ attachment: hbsRequestAttachments, request: hbsServiceRequests })
@@ -822,9 +830,11 @@ async function attachToRequest(req: Request, res: import("express").Response, of
     res.status(409).json({ error: error instanceof FullRequestError ? full : "These uploads were already attached or have expired. Upload again." });
     return;
   }
-  const details = (await detailsFor([request])).get(request.id);
-  if (office) res.json(AttachOfficeServiceRequestFilesResponse.parse(officeRequest(request, details, await customerOf(request.userId))));
-  else res.json(AttachServiceRequestFilesResponse.parse(publicRequest(request, details)));
+  // A customer's document answers a request waiting on them: back to review first.
+  const current = !office ? (await resumeAfterCustomerReply(request.id, "customer_file")) ?? request : request;
+  const details = (await detailsFor([current])).get(current.id);
+  if (office) res.json(AttachOfficeServiceRequestFilesResponse.parse(officeRequest(current, details, await customerOf(current.userId))));
+  else res.json(AttachServiceRequestFilesResponse.parse(publicRequest(current, details)));
   // Temporary upload objects are no longer needed once copied.
   const moved = finalized.map(({ row }) => row.objectPath);
   void Promise.allSettled(moved.map(async path => (await storage.getObjectEntityFile(path)).delete()));
@@ -1084,7 +1094,7 @@ function message(row: typeof hbsRequestMessages.$inferSelect) {
 // The request, if the caller may see it: the customer's own, or any for staff.
 async function conversationRequest(req: Request, office: boolean) {
   const requestId = Number(req.params.id);
-  if (!Number.isSafeInteger(requestId) || requestId < 1) return null;
+  if (!Number.isInteger(requestId) || requestId < 1 || requestId > MAX_ID) return null;
   const [record] = await db.select().from(hbsServiceRequests).where(office
     ? eq(hbsServiceRequests.id, requestId)
     : and(eq(hbsServiceRequests.id, requestId), eq(hbsServiceRequests.userId, getAuth(req).userId!))).limit(1);
@@ -1105,6 +1115,10 @@ async function sendMessage(req: Request, res: import("express").Response, office
   if (!text) { res.status(400).json({ error: "Write a message." }); return; }
   const record = await conversationRequest(req, office);
   if (!record) { res.status(404).json({ error: "Request not found" }); return; }
+  if (!office && record.status === "completed") {
+    res.status(409).json({ error: "The request is completed. Send an inquiry instead." });
+    return;
+  }
   const authorId = getAuth(req).userId!;
   const [{ recent }] = await db.select({ recent: sql<number>`count(*)::int` }).from(hbsRequestMessages).where(and(
     eq(hbsRequestMessages.requestId, record.id), eq(hbsRequestMessages.authorId, authorId),
@@ -1113,6 +1127,8 @@ async function sendMessage(req: Request, res: import("express").Response, office
   const [row] = await db.insert(hbsRequestMessages).values({
     requestId: record.id, authorId, authorRole: office ? "office" : "customer", body: text,
   }).returning();
+  // Before answering, so the customer's next view already shows the new status.
+  if (!office) await resumeAfterCustomerReply(record.id, "customer_message");
   res.status(201).json(SendServiceRequestMessageResponse.parse(message(row)));
   // Emails say that a message arrived, never what it says.
   const info = { id: record.id, reference: publicRequest(record).reference, service: record.service };

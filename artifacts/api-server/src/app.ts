@@ -58,6 +58,8 @@ app.use(
   express.json({ limit: AI_REQUEST_BODY_LIMIT }),
 );
 app.use("/api/office/legacy", express.json({ limit: "6mb" }));
+// Spreadsheet imports send up to 500 rows at once.
+app.use(/^\/api\/(company|office\/customers\/[^/]+)\/(employees|licenses)\/import$/, express.json({ limit: "1mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

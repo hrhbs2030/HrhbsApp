@@ -155,6 +155,42 @@ test("company file, masked numbers, reminder sync, linked requests and conversat
       assert.ok(file.data.reminders.some((r: any) => r.source === "employee"));
     });
 
+    await t.test("spreadsheet import checks every row first, then adds or updates", async () => {
+      const bad = await call(customerB, "POST", "/company/employees/import", { rows: [
+        { fullName: "عامل أول", idNumber: "2000000001", iqamaExpiresOn: soon(10) },
+        { fullName: "عامل ثان", idNumber: "999" },
+        { fullName: "عامل ثالث", idNumber: "2000000001" },
+      ] });
+      assert.equal(bad.status, 422);
+      assert.deepEqual(bad.data.problems.map((p: any) => p.row), [2, 3]);
+      assert.equal((await db.select().from(hbsCompanyEmployees).where(eq(hbsCompanyEmployees.userId, customerB))).length, 1, "nothing saved");
+
+      const ok = await call(customerB, "POST", "/company/employees/import", { rows: [
+        { fullName: "عامل أول", idNumber: "2000000001", iqamaExpiresOn: soon(10), occupation: "فني" },
+        { fullName: "سارة", passportNumber: "P123456" },
+      ] });
+      assert.equal(ok.status, 200);
+      assert.deepEqual([ok.data.created, ok.data.updated], [1, 1]);
+      const [sara] = await db.select().from(hbsCompanyEmployees).where(and(eq(hbsCompanyEmployees.userId, customerB), eq(hbsCompanyEmployees.fullName, "سارة")));
+      assert.equal(sara.idNumber, "1098765432", "an empty cell keeps the stored number");
+      assert.equal(sara.passportNumber, "P123456");
+      assert.equal((await db.select().from(hbsDocumentReminders).where(eq(hbsDocumentReminders.userId, customerB))).length, 1);
+
+      const again = await call(customerB, "POST", "/company/employees/import", { rows: [{ fullName: "اسم جديد", idNumber: "2000000001" }] });
+      assert.deepEqual([again.data.created, again.data.updated], [0, 1], "matched by ID number");
+
+      const lic = await call(owner, "POST", `/office/customers/${customerB}/licenses/import`, { rows: [
+        { kind: "commercial_register", title: "السجل", number: "1010", expiresOn: soon(50) },
+        { kind: "municipal", title: "رخصة", expiresOn: soon(60) },
+      ] });
+      assert.deepEqual([lic.status, lic.data.created], [200, 2]);
+      const relic = await call(owner, "POST", `/office/customers/${customerB}/licenses/import`, { rows: [{ kind: "commercial_register", title: "السجل الرئيسي", number: "1010" }] });
+      assert.deepEqual([relic.data.created, relic.data.updated], [0, 1]);
+      const audits = await db.select().from(hbsAuditLog).where(and(eq(hbsAuditLog.targetId, customerB), eq(hbsAuditLog.action, "license.import")));
+      assert.equal(audits.length, 2);
+      assert.equal((await call(customerA, "POST", "/company/employees/import", { rows: [] })).status, 400);
+    });
+
     await t.test("requests link to the customer's own employee and carry a conversation", async () => {
       const base = { category: "passports", service: "تجديد الإقامة", description: "Renew the iqama please.", contactPhone: "0500000000" };
       const [other] = await db.select().from(hbsCompanyEmployees).where(eq(hbsCompanyEmployees.userId, customerB));

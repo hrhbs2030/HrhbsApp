@@ -8,6 +8,7 @@ const api = '@workspace/api-server';
 const webChecks = [
   [hbs, 'check:site'],
   [hbs, 'test:office'],
+  [hbs, 'test:excel'],
   [hbs, 'test:city'],
   [hbs, 'test:assistant-source'],
   [hbs, 'test:services-contrast'],
@@ -38,6 +39,7 @@ const databaseChecks = [
   [api, 'test:office-admin'],
   [api, 'test:office-features'],
   [api, 'test:company-file'],
+  [api, 'test:automations'],
 ];
 const storageCheck = [api, 'test:attachment-storage'];
 

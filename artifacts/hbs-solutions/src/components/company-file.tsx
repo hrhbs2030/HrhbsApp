@@ -5,10 +5,12 @@ import {
   createEmployee, createLicense, createOfficeCustomerEmployee, createOfficeCustomerLicense,
   deleteEmployee, deleteLicense, deleteOfficeCustomerEmployee, deleteOfficeCustomerLicense,
   getEmployeeNumbers, getOfficeCustomerEmployeeNumbers, saveCompany, saveOfficeCustomerCompany,
+  importEmployees, importLicenses, importOfficeCustomerEmployees, importOfficeCustomerLicenses,
   updateEmployee, updateLicense, updateOfficeCustomerEmployee, updateOfficeCustomerLicense,
   type Company, type CompanyFile, type CompanyInput, type Employee, type EmployeeInput, type License,
-  type LicenseInput, type LicenseKind,
+  type LicenseInput, type LicenseKind, type ImportResult,
 } from '@workspace/api-client-react';
+import { ExcelImport } from '@/components/excel-import';
 import { ExpiryBadge } from '@/components/reminder-ui';
 import { daysUntil, formatCalendarDate, formatNumber } from '@/lib/format';
 import './company-file.css';
@@ -25,11 +27,16 @@ export type CompanyApi = {
   createLicense: (data: LicenseInput) => Promise<unknown>;
   updateLicense: (id: number, data: LicenseInput) => Promise<unknown>;
   deleteLicense: (id: number) => Promise<unknown>;
+  importEmployees: (rows: Record<string, unknown>[]) => Promise<ImportResult>;
+  importLicenses: (rows: Record<string, unknown>[]) => Promise<ImportResult>;
 };
 
 export const customerCompanyApi: CompanyApi = {
   saveCompany, createEmployee, updateEmployee, deleteEmployee, employeeNumbers: getEmployeeNumbers,
   createLicense, updateLicense, deleteLicense,
+  // Rows are normalised spreadsheet cells; the server checks each one.
+  importEmployees: rows => importEmployees({ rows: rows as unknown as EmployeeInput[] }),
+  importLicenses: rows => importLicenses({ rows: rows as unknown as LicenseInput[] }),
 };
 
 export function officeCompanyApi(userId: string): CompanyApi {
@@ -42,6 +49,8 @@ export function officeCompanyApi(userId: string): CompanyApi {
     createLicense: data => createOfficeCustomerLicense(userId, data),
     updateLicense: (id, data) => updateOfficeCustomerLicense(userId, id, data),
     deleteLicense: id => deleteOfficeCustomerLicense(userId, id),
+    importEmployees: rows => importOfficeCustomerEmployees(userId, { rows: rows as unknown as EmployeeInput[] }),
+    importLicenses: rows => importOfficeCustomerLicenses(userId, { rows: rows as unknown as LicenseInput[] }),
   };
 }
 
@@ -184,17 +193,19 @@ function EmployeeForm({ employee, api, onDone }: { employee: Employee | null; ap
 function Numbers({ employee, api, office }: { employee: Employee; api: CompanyApi; office: boolean }) {
   const [shown, setShown] = useState<{ idNumber: string | null; passportNumber: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
   useEffect(() => { if (!shown) return; const t = setTimeout(() => setShown(null), 30_000); return () => clearTimeout(t); }, [shown]);
   if (!employee.idNumberMasked && !employee.passportNumberMasked) return null;
   async function toggle() {
     if (shown) { setShown(null); return; }
-    setBusy(true);
-    try { setShown(await api.employeeNumbers(employee.id)); } finally { setBusy(false); }
+    setBusy(true); setFailed(false);
+    try { setShown(await api.employeeNumbers(employee.id)); } catch { setFailed(true); } finally { setBusy(false); }
   }
   return <span className="cf-numbers">
     {employee.idNumberMasked && <span>الهوية <b dir="ltr" className="cf-num">{shown?.idNumber ?? employee.idNumberMasked}</b></span>}
     {employee.passportNumberMasked && <span>الجواز <b dir="ltr" className="cf-num">{shown?.passportNumber ?? employee.passportNumberMasked}</b></span>}
     <button type="button" className="rf-btn" onClick={toggle} disabled={busy} aria-label={shown ? 'إخفاء الأرقام' : 'إظهار الأرقام'} title={office && !shown ? 'يُسجَّل الإظهار في سجل التدقيق' : undefined}>{shown ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
+    {failed && <span role="alert" className="text-danger">تعذّر إظهار الأرقام.</span>}
   </span>;
 }
 
@@ -208,11 +219,12 @@ function EmployeesSection({ employees, api, office, onChanged }: { employees: Em
   const counts = { active: employees.filter(e => e.status === 'active').length, expiring: employees.filter(e => e.status === 'active' && ((n => n && daysUntil(n.date) <= 60)(nearestEmployeeExpiry(e)))).length, left: employees.filter(e => e.status === 'left').length };
   async function remove(e: Employee) {
     if (!window.confirm(`حذف «${e.fullName}» من ملف المنشأة؟ تُحذف تنبيهاته أيضًا.`)) return;
-    await api.deleteEmployee(e.id); onChanged();
+    try { await api.deleteEmployee(e.id); } catch { window.alert('تعذّر حذف الموظف. حدّث الصفحة وحاول مجددًا.'); }
+    onChanged();
   }
   return <section className="surface overflow-hidden" aria-labelledby="cf-employees">
     <div className="cf-head"><h2 id="cf-employees" className="display text-lg font-semibold"><UsersRound size={19} aria-hidden="true"/>الموظفون</h2>
-      {!editing && <button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16}/>إضافة موظف</button>}</div>
+      {!editing && <div className="flex flex-wrap gap-2"><ExcelImport kind="employees" onImport={api.importEmployees} onDone={onChanged}/><button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16}/>إضافة موظف</button></div>}</div>
     {editing && <div className="border-b border-line bg-paper p-5 sm:p-6"><EmployeeForm key={editing === 'new' ? 'new' : editing.id} employee={editing === 'new' ? null : editing} api={api} onDone={saved => { setEditing(null); if (saved) onChanged(); }}/></div>}
     <div className="cf-tools">
       <div className="flex flex-wrap gap-2" role="group" aria-label="تصفية الموظفين">{([['active', 'على رأس العمل'], ['expiring', 'وثائق تنتهي خلال 60 يومًا'], ['left', 'غادروا']] as const).map(([key, label]) =>
@@ -266,11 +278,12 @@ function LicensesSection({ licenses, api, office, onChanged }: { licenses: Licen
   const [editing, setEditing] = useState<License | 'new' | null>(null);
   async function remove(l: License) {
     if (!window.confirm(`حذف «${l.title}»؟`)) return;
-    await api.deleteLicense(l.id); onChanged();
+    try { await api.deleteLicense(l.id); } catch { window.alert('تعذّر حذف الترخيص. حدّث الصفحة وحاول مجددًا.'); }
+    onChanged();
   }
   return <section className="surface overflow-hidden" aria-labelledby="cf-licenses">
     <div className="cf-head"><h2 id="cf-licenses" className="display text-lg font-semibold"><FileBadge size={19} aria-hidden="true"/>التراخيص والشهادات</h2>
-      {!editing && <button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16}/>إضافة ترخيص</button>}</div>
+      {!editing && <div className="flex flex-wrap gap-2"><ExcelImport kind="licenses" onImport={api.importLicenses} onDone={onChanged}/><button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16}/>إضافة ترخيص</button></div>}</div>
     {editing && <div className="border-b border-line bg-paper p-5 sm:p-6"><LicenseForm key={editing === 'new' ? 'new' : editing.id} license={editing === 'new' ? null : editing} api={api} onDone={saved => { setEditing(null); if (saved) onChanged(); }}/></div>}
     {!licenses.length ? <p className="px-6 py-10 text-center text-sm text-subtle">أضف السجل التجاري ورخصة البلدية والشهادات لتتابع تواريخ انتهائها.</p>
       : <ul className="cf-list">{licenses.map(l => <li key={l.id} className="cf-row">

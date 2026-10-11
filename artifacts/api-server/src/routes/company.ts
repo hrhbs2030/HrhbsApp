@@ -16,10 +16,12 @@ import {
   license, licenseValues, subjectLabels, subjectOf, syncEmployeeReminders, syncLicenseReminder,
 } from "../lib/company";
 import { riyadhToday } from "../lib/document-reminders";
+import { planEmployees, planLicenses, type Problem } from "../lib/company-import";
 import { requestReference } from "../lib/money";
 import { officeCustomer } from "../lib/office-search";
 import { requireOfficeStaff } from "../lib/office-access";
 import { hasCustomerApproval, requireApprovedCustomer } from "./portal";
+import { ImportEmployeesResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -50,7 +52,7 @@ async function audit(tx: Tx, scope: Scope, entry: Omit<AuditEntry, "actorId" | "
 const invalid = (res: Response, what: string) => res.status(400).json({ error: `Check the ${what} details.` });
 const id = (req: Request) => {
   const value = Number(req.params.id);
-  return Number.isSafeInteger(value) && value > 0 ? value : null;
+  return Number.isInteger(value) && value > 0 && value <= 2_147_483_647 ? value : null;
 };
 // Validate a response but send the object itself: calendar dates stay YYYY-MM-DD.
 function send(res: Response, status: number, schema: { parse: (v: unknown) => unknown }, body: unknown) {
@@ -181,12 +183,76 @@ async function deleteLicense(scope: Scope, req: Request, res: Response) {
   res.status(204).end();
 }
 
+// ---- spreadsheet imports ---------------------------------------------------------
+
+const MAX_IMPORT_ROWS = 500;
+
+function importRows(req: Request): Record<string, unknown>[] | null {
+  const rows = (req.body as { rows?: unknown })?.rows;
+  if (!Array.isArray(rows) || rows.length < 1 || rows.length > MAX_IMPORT_ROWS) return null;
+  return rows.every(row => row && typeof row === "object" && !Array.isArray(row)) ? rows as Record<string, unknown>[] : null;
+}
+
+function rejectImport(res: Response, problems: Problem[]) {
+  res.status(422).json(ImportEmployeesResponse.parse({ created: 0, updated: 0, problems: problems.slice(0, 200) }));
+}
+
+async function importEmployees(scope: Scope, req: Request, res: Response) {
+  const rows = importRows(req);
+  if (!rows) { res.status(400).json({ error: `Send between 1 and ${MAX_IMPORT_ROWS} rows.` }); return; }
+  const existing = await db.select().from(hbsCompanyEmployees).where(eq(hbsCompanyEmployees.userId, scope.owner));
+  const plan = planEmployees(rows, existing);
+  if (existing.length + plan.create.length > MAX_EMPLOYEES) {
+    plan.problems.push({ row: 0, message: `يتسع ملف المنشأة لـ${MAX_EMPLOYEES} موظف فقط.` });
+  }
+  if (plan.problems.length) { rejectImport(res, plan.problems); return; }
+  await db.transaction(async tx => {
+    for (const values of plan.create) {
+      const [created] = await tx.insert(hbsCompanyEmployees).values({ userId: scope.owner, createdBy: scope.actor, ...values }).returning();
+      await syncEmployeeReminders(tx, created);
+    }
+    for (const { id: employeeId, values } of plan.update) {
+      const [updated] = await tx.update(hbsCompanyEmployees).set({ ...values, updatedAt: new Date() })
+        .where(and(eq(hbsCompanyEmployees.id, employeeId), eq(hbsCompanyEmployees.userId, scope.owner))).returning();
+      if (updated) await syncEmployeeReminders(tx, updated);
+    }
+    await audit(tx, scope, { action: "employee.import", details: { created: plan.create.length, updated: plan.update.length } });
+  });
+  res.json(ImportEmployeesResponse.parse({ created: plan.create.length, updated: plan.update.length, problems: [] }));
+}
+
+async function importLicenses(scope: Scope, req: Request, res: Response) {
+  const rows = importRows(req);
+  if (!rows) { res.status(400).json({ error: `Send between 1 and ${MAX_IMPORT_ROWS} rows.` }); return; }
+  const existing = await db.select().from(hbsCompanyLicenses).where(eq(hbsCompanyLicenses.userId, scope.owner));
+  const plan = planLicenses(rows, existing);
+  if (existing.length + plan.create.length > MAX_LICENSES) {
+    plan.problems.push({ row: 0, message: `يتسع ملف المنشأة لـ${MAX_LICENSES} ترخيص فقط.` });
+  }
+  if (plan.problems.length) { rejectImport(res, plan.problems); return; }
+  await db.transaction(async tx => {
+    for (const values of plan.create) {
+      const [created] = await tx.insert(hbsCompanyLicenses).values({ userId: scope.owner, createdBy: scope.actor, ...values }).returning();
+      await syncLicenseReminder(tx, created);
+    }
+    for (const { id: licenseId, values } of plan.update) {
+      const [updated] = await tx.update(hbsCompanyLicenses).set({ ...values, updatedAt: new Date() })
+        .where(and(eq(hbsCompanyLicenses.id, licenseId), eq(hbsCompanyLicenses.userId, scope.owner))).returning();
+      if (updated) await syncLicenseReminder(tx, updated);
+    }
+    await audit(tx, scope, { action: "license.import", details: { created: plan.create.length, updated: plan.update.length } });
+  });
+  res.json(ImportEmployeesResponse.parse({ created: plan.create.length, updated: plan.update.length, problems: [] }));
+}
+
 // ---- customer routes -------------------------------------------------------------
 
 router.get("/company", requireApprovedCustomer, async (req, res): Promise<void> => {
   send(res, 200, GetCompanyFileResponse, await companyFile(customerScope(req).owner));
 });
 router.put("/company", requireApprovedCustomer, (req, res) => saveCompany(customerScope(req), req, res));
+router.post("/company/employees/import", requireApprovedCustomer, (req, res) => importEmployees(customerScope(req), req, res));
+router.post("/company/licenses/import", requireApprovedCustomer, (req, res) => importLicenses(customerScope(req), req, res));
 router.post("/company/employees", requireApprovedCustomer, (req, res) => createEmployee(customerScope(req), req, res));
 router.put("/company/employees/:id", requireApprovedCustomer, (req, res) => updateEmployee(customerScope(req), req, res));
 router.delete("/company/employees/:id", requireApprovedCustomer, (req, res) => deleteEmployee(customerScope(req), req, res));
@@ -204,6 +270,8 @@ const asOffice = (handler: (scope: Scope, req: Request, res: Response) => Promis
   };
 
 router.put("/office/customers/:userId/company", requireOfficeStaff, asOffice(saveCompany));
+router.post("/office/customers/:userId/employees/import", requireOfficeStaff, asOffice(importEmployees));
+router.post("/office/customers/:userId/licenses/import", requireOfficeStaff, asOffice(importLicenses));
 router.post("/office/customers/:userId/employees", requireOfficeStaff, asOffice(createEmployee));
 router.put("/office/customers/:userId/employees/:id", requireOfficeStaff, asOffice(updateEmployee));
 router.delete("/office/customers/:userId/employees/:id", requireOfficeStaff, asOffice(deleteEmployee));

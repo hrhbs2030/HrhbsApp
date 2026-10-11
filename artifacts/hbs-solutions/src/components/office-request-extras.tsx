@@ -43,6 +43,6 @@ export function ExtractReminder({ requestId, file, onClose }: { requestId: numbe
       : !draft ? <p className="text-sm text-subtle" aria-live="polite">جارٍ قراءة المستند…</p>
       : <>{hint && <p className="mb-3 rounded-lg bg-sunk p-3 text-xs leading-6 text-quiet">{hint}</p>}
         <p className="mb-3 text-xs text-subtle">راجع البيانات مع المستند قبل الحفظ.</p>
-        <ReminderForm initial={draft} busy={create.isPending} error={error} submitLabel="حفظ التنبيه للعميل" onSubmit={save} onCancel={onClose}/></>}
+        <ReminderForm key={file.id} initial={draft} busy={create.isPending} error={error} submitLabel="حفظ التنبيه للعميل" onSubmit={save} onCancel={onClose}/></>}
   </section>;
 }

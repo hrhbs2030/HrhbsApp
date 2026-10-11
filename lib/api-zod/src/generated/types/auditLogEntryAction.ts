@@ -38,4 +38,7 @@ export const AuditLogEntryAction = {
   licensecreate: 'license.create',
   licenseupdate: 'license.update',
   licensedelete: 'license.delete',
+  employeeimport: 'employee.import',
+  licenseimport: 'license.import',
+  automationupdate: 'automation.update',
 } as const;

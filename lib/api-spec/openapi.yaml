@@ -533,6 +533,8 @@ paths:
           required: true
           schema:
             type: integer
+            minimum: 1
+            maximum: 2147483647
       responses:
         "200":
           description: Service request
@@ -557,6 +559,8 @@ paths:
           required: true
           schema:
             type: integer
+            minimum: 1
+            maximum: 2147483647
       responses:
         "200":
           description: Status history
@@ -681,6 +685,8 @@ paths:
           required: true
           schema:
             type: integer
+            minimum: 1
+            maximum: 2147483647
       requestBody:
         required: true
         content:
@@ -715,6 +721,8 @@ paths:
           required: true
           schema:
             type: integer
+            minimum: 1
+            maximum: 2147483647
       requestBody:
         required: true
         content:
@@ -766,6 +774,8 @@ paths:
           required: true
           schema:
             type: integer
+            minimum: 1
+            maximum: 2147483647
       requestBody:
         required: true
         content:
@@ -972,7 +982,7 @@ paths:
       tags: [portal]
       summary: Rate a completed request owned by the signed-in customer (once)
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       requestBody:
         required: true
         content:
@@ -993,7 +1003,7 @@ paths:
       tags: [billing]
       summary: Invoices on a request owned by the signed-in customer
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       responses:
         "200":
           description: Invoices, oldest first
@@ -1009,7 +1019,7 @@ paths:
       tags: [billing]
       summary: Open the payment gateway's hosted page for an unpaid invoice of the signed-in customer
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       responses:
         "200":
           description: Address of the hosted payment page
@@ -1026,7 +1036,7 @@ paths:
       tags: [billing]
       summary: Re-check the payment gateway for an invoice of the signed-in customer
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       responses:
         "200":
           description: Invoice with its current status
@@ -1040,7 +1050,7 @@ paths:
       tags: [billing]
       summary: Staff-only invoices on a request
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       responses:
         "200":
           description: Invoices, oldest first
@@ -1056,7 +1066,7 @@ paths:
       tags: [billing]
       summary: Staff-only issue an invoice on a request
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       requestBody:
         required: true
         content:
@@ -1077,7 +1087,7 @@ paths:
       tags: [billing]
       summary: Staff-only record a manual payment or cancel an unpaid invoice
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       requestBody:
         required: true
         content:
@@ -1129,7 +1139,7 @@ paths:
       tags: [reminders]
       summary: Replace one of the signed-in customer's reminders
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       requestBody:
         required: true
         content:
@@ -1148,7 +1158,7 @@ paths:
       tags: [reminders]
       summary: Remove one of the signed-in customer's reminders
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       responses:
         "204": { description: Removed }
         "404": { description: Not found }
@@ -1174,7 +1184,7 @@ paths:
       tags: [reminders]
       summary: Staff-only add a reminder for the customer who owns the request
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       requestBody:
         required: true
         content:
@@ -1195,7 +1205,7 @@ paths:
       tags: [reminders]
       summary: Staff-only read an attached document's type, holder and expiry date with AI (audited)
       parameters:
-        - { name: attachmentId, in: path, required: true, schema: { type: integer } }
+        - { name: attachmentId, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       responses:
         "200":
           description: Suggested reminder fields, to be checked by staff before saving
@@ -1311,7 +1321,7 @@ paths:
       tags: [company]
       summary: Update one of the signed-in customer's employees
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       requestBody:
         required: true
         content:
@@ -1330,7 +1340,7 @@ paths:
       tags: [company]
       summary: Remove one of the signed-in customer's employees
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       responses:
         "204": { description: Removed }
         "404": { description: Not found }
@@ -1340,7 +1350,7 @@ paths:
       tags: [company]
       summary: Full identity and passport numbers of one of the signed-in customer's employees
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       responses:
         "200":
           description: Numbers
@@ -1372,7 +1382,7 @@ paths:
       tags: [company]
       summary: Update one of the signed-in customer's licenses
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       requestBody:
         required: true
         content:
@@ -1391,7 +1401,7 @@ paths:
       tags: [company]
       summary: Remove one of the signed-in customer's licenses
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       responses:
         "204": { description: Removed }
         "404": { description: Not found }
@@ -1473,7 +1483,7 @@ paths:
       summary: Staff-only update a customer's employee (audited)
       parameters:
         - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       requestBody:
         required: true
         content:
@@ -1493,7 +1503,7 @@ paths:
       summary: Staff-only remove a customer's employee (audited)
       parameters:
         - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       responses:
         "204": { description: Removed }
         "404": { description: Not found }
@@ -1504,7 +1514,7 @@ paths:
       summary: Staff-only full identity and passport numbers (audited)
       parameters:
         - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       responses:
         "200":
           description: Numbers
@@ -1539,7 +1549,7 @@ paths:
       summary: Staff-only update a customer's license (audited)
       parameters:
         - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       requestBody:
         required: true
         content:
@@ -1559,7 +1569,7 @@ paths:
       summary: Staff-only remove a customer's license (audited)
       parameters:
         - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       responses:
         "204": { description: Removed }
         "404": { description: Not found }
@@ -1569,7 +1579,7 @@ paths:
       tags: [portal]
       summary: Conversation on a request owned by the signed-in customer, oldest first
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       responses:
         "200":
           description: Messages
@@ -1584,7 +1594,7 @@ paths:
       tags: [portal]
       summary: Send a message to the office on the customer's own request
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       requestBody:
         required: true
         content:
@@ -1605,7 +1615,7 @@ paths:
       tags: [portal]
       summary: Staff-only conversation on a request, oldest first
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       responses:
         "200":
           description: Messages
@@ -1620,7 +1630,7 @@ paths:
       tags: [portal]
       summary: Staff-only message to the customer on a request
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       requestBody:
         required: true
         content:
@@ -1634,6 +1644,132 @@ paths:
               schema: { $ref: "#/components/schemas/RequestMessage" }
         "400": { description: Invalid message }
         "404": { description: Not found }
+  /company/employees/import:
+    post:
+      operationId: importEmployees
+      tags: [company]
+      summary: Add or update many employees at once (from a spreadsheet)
+      description: All rows are checked first; if any row is invalid nothing is saved and every problem is listed. A row updates the employee with the same ID number, or else the only employee with the same name; otherwise it adds one. Empty cells keep what is stored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmployeeImport" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportResult" }
+        "422":
+          description: Problems found; nothing saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportResult" }
+  /company/licenses/import:
+    post:
+      operationId: importLicenses
+      tags: [company]
+      summary: Add or update many licenses at once (from a spreadsheet)
+      description: Same rules as the employee import. A row updates the license of the same type and number (or the same type and name when there is no number).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LicenseImport" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportResult" }
+        "422":
+          description: Problems found; nothing saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportResult" }
+  /office/customers/{userId}/employees/import:
+    post:
+      operationId: importOfficeCustomerEmployees
+      tags: [company]
+      summary: Staff-only spreadsheet import of a customer's employees (audited)
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmployeeImport" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportResult" }
+        "404": { description: Not a customer }
+        "422":
+          description: Problems found; nothing saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportResult" }
+  /office/customers/{userId}/licenses/import:
+    post:
+      operationId: importOfficeCustomerLicenses
+      tags: [company]
+      summary: Staff-only spreadsheet import of a customer's licenses (audited)
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LicenseImport" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportResult" }
+        "404": { description: Not a customer }
+        "422":
+          description: Problems found; nothing saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportResult" }
+  /office/assignment-rules:
+    get:
+      operationId: listAssignmentRules
+      tags: [portal]
+      summary: Owner-only automatic assignment and due date for new requests, per category
+      responses:
+        "200":
+          description: One rule per category
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AssignmentRule" }
+        "403": { description: Office owner access required }
+  /office/assignment-rules/{category}:
+    put:
+      operationId: saveAssignmentRule
+      tags: [portal]
+      summary: Owner-only set who new requests in a category go to and their due days (audited)
+      parameters:
+        - { name: category, in: path, required: true, schema: { type: string, enum: [passports, labor, business, other] } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssignmentRuleInput" }
+      responses:
+        "200":
+          description: Saved rule
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignmentRule" }
+        "400": { description: Invalid rule or not an office member }
+        "403": { description: Office owner access required }
 components:
   schemas:
     OfficeStaffInput:
@@ -1662,7 +1798,7 @@ components:
         actorEmail: { type: ["string", "null"], format: email }
         action:
           type: string
-          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge, registration.approve, registration.reject, information.review, information.publish, information.unpublish, attachment.extract, invoice.issue, invoice.mark_paid, invoice.cancel, invoice.paid_online, offer.update, reminder.create, company.update, employee.create, employee.update, employee.delete, employee.reveal, license.create, license.update, license.delete]
+          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge, registration.approve, registration.reject, information.review, information.publish, information.unpublish, attachment.extract, invoice.issue, invoice.mark_paid, invoice.cancel, invoice.paid_online, offer.update, reminder.create, company.update, employee.create, employee.update, employee.delete, employee.reveal, license.create, license.update, license.delete, employee.import, license.import, automation.update]
         targetType: { type: string }
         targetId: { type: string }
         details:
@@ -2590,3 +2726,55 @@ components:
         reminders:
           type: array
           items: { $ref: "#/components/schemas/Reminder" }
+    EmployeeImport:
+      type: object
+      additionalProperties: false
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: "#/components/schemas/EmployeeInput" }
+    LicenseImport:
+      type: object
+      additionalProperties: false
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: "#/components/schemas/LicenseInput" }
+    ImportProblem:
+      type: object
+      required: [row, message]
+      properties:
+        row: { type: integer, description: "1-based position in the submitted rows" }
+        message: { type: string }
+    ImportResult:
+      type: object
+      required: [created, updated, problems]
+      properties:
+        created: { type: integer }
+        updated: { type: integer }
+        problems:
+          type: array
+          items: { $ref: "#/components/schemas/ImportProblem" }
+    AssignmentRuleInput:
+      type: object
+      additionalProperties: false
+      required: [assignee, dueDays]
+      properties:
+        assignee: { type: ["string", "null"], maxLength: 120 }
+        dueDays: { type: ["integer", "null"], minimum: 1, maximum: 90 }
+    AssignmentRule:
+      type: object
+      required: [category, assignee, dueDays, updatedAt]
+      properties:
+        category:
+          type: string
+          enum: [passports, labor, business, other]
+        assignee: { type: ["string", "null"] }
+        dueDays: { type: ["integer", "null"] }
+        updatedAt: { type: ["string", "null"], format: date-time }

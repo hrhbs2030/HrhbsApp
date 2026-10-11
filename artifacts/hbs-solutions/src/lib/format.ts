@@ -50,3 +50,12 @@ export function daysUntil(value: string): number {
   const today = new Date();
   return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) / 86_400_000);
 }
+
+// Riyals typed by a person ("150", "150.5", "١٥٠٫٥", "1,500") to halalas.
+// Null when the text is not a plain amount.
+export function parseRiyals(text: string): number | null {
+  const latin = text.trim().replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660)).replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06f0))
+    .replace(/[٫]/g, '.').replace(/[,،\s]/g, '');
+  if (!/^\d+(\.\d{1,2})?$/.test(latin)) return null;
+  return Math.round(Number(latin) * 100);
+}
