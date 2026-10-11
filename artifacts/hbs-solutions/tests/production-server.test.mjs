@@ -3,7 +3,8 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { request as httpRequest } from 'node:http';
 import { createServer } from 'node:net';
-import { brotliDecompressSync } from 'node:zlib';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { brotliDecompressSync, gunzipSync } from 'node:zlib';
 import { test } from 'node:test';
 
 async function freePort() {
@@ -57,12 +58,56 @@ test('production server keeps SPA, API, assets, and compressed responses distinc
   }
   assert.ok(ready, `production server did not start: ${stderr}`);
 
-  for (const path of ['/privacy', '/terms', '/services/sample-service']) {
+  const routes = JSON.parse(readFileSync(new URL('../dist/public/routes.json', import.meta.url), 'utf8'));
+  const serviceRoute = routes.public.find((route) => route.startsWith('/services/'));
+  assert.ok(serviceRoute, 'routes.json lists service pages');
+  for (const path of ['/privacy', '/terms', '/services', serviceRoute]) {
     const response = await fetchRaw(port, path);
     assert.equal(response.status, 200, path);
     assert.match(response.headers['content-type'], /^text\/html/, path);
+    assert.equal(response.headers['cache-control'], 'no-cache', path);
+    assert.match(response.body.toString(), /<html/, path);
+    assert.match(response.body.toString(), /<div id="root"><\/div>/, path);
+    assert.match(response.body.toString(), new RegExp(`<link rel="canonical" href="https://hrhbs.com${path === '/' ? '/' : path}" />`), path);
+  }
+  // Per-route meta: the service page carries its own title, the shell's home title is gone.
+  const servicePage = (await fetchRaw(port, serviceRoute)).body.toString();
+  assert.match(servicePage, /<meta property="og:url" content="https:\/\/hrhbs\.com\/services\/[a-z0-9-]+" \/>/);
+  assert.match(servicePage, /"@type":"Service"/);
+  assert.match(servicePage, /"@type":"BreadcrumbList"/);
+  assert.doesNotMatch(servicePage, /<title>الرئيسية \|/);
+  // The lazy public-page chunk is announced before the entry bundle runs.
+  const preload = servicePage.match(/<link rel="modulepreload" href="(\/assets\/[^"]+\.js)" crossorigin>/)?.[1];
+  assert.ok(preload, 'service page has a modulepreload hint');
+  assert.equal((await fetchRaw(port, preload)).status, 200);
+  assert.doesNotMatch((await fetchRaw(port, '/')).body.toString(), /rel="modulepreload"/, 'home renders from the entry chunk');
+  const homePage = (await fetchRaw(port, '/')).body.toString();
+  assert.match(homePage, /"@type":"WebSite"/);
+  assert.match(homePage, /services\?q=\{search_term_string\}/);
+
+  // Portal and auth routes are rendered by the SPA behind sign-in: always 200.
+  for (const path of ['/dashboard', '/requests/abc123', '/office', '/office/customers/user_1', '/registration', '/sign-in/factor-one', '/company']) {
+    const response = await fetchRaw(port, path);
+    assert.equal(response.status, 200, path);
     assert.match(response.body.toString(), /<html/, path);
   }
+  // Unknown pages are real 404s that still carry the SPA so it shows its not-found page.
+  for (const path of ['/services/sample-service', '/nope', '/assets', '/services/nope/deeper']) {
+    const response = await fetchRaw(port, path);
+    assert.equal(response.status, 404, path);
+    assert.match(response.headers['content-type'], /^text\/html/, path);
+    assert.match(response.body.toString(), /<div id="root"><\/div>/, path);
+    assert.match(response.body.toString(), /<meta name="robots" content="noindex, nofollow" \/>/, path);
+    assert.doesNotMatch(response.body.toString(), /rel="canonical"/, path);
+  }
+  // One canonical address per page.
+  for (const [path, location] of [['/privacy/', '/privacy'], ['/privacy/?x=1&y=2', '/privacy?x=1&y=2'], ['/services/', '/services'], ['/index.html', '/'], ['/index.html?a=1', '/?a=1'], ['/services/index.html', '/services'], ['/nope/', '/nope']]) {
+    const response = await fetchRaw(port, path);
+    assert.equal(response.status, 301, path);
+    assert.equal(response.headers.location, location, path);
+  }
+  assert.equal((await fetchRaw(port, '/')).status, 200);
+  assert.equal((await fetchRaw(port, '/?q=1')).status, 200);
   for (const path of ['/api/healthz', '/%61pi/healthz', '/api%2Fhealthz', '/%2561pi/healthz']) {
     const response = await fetchRaw(port, path);
     assert.equal(response.status, 404, path);
@@ -74,6 +119,12 @@ test('production server keeps SPA, API, assets, and compressed responses distinc
     assert.doesNotMatch(response.body.toString(), /<html/, path);
   }
   assert.equal((await fetchRaw(port, '/assets/missing.js')).status, 404);
+  // Build internals are never addressable by name.
+  for (const path of ['/app.html', '/404.html', '/index.html.br', '/assets/missing.js.br', '/assets/missing.js.gz', '/.vite/manifest.json', '/.vite', '/assets/.hidden.js']) {
+    const response = await fetchRaw(port, path);
+    assert.equal(response.status, 404, path);
+    assert.doesNotMatch(response.body.toString(), /<html/, path);
+  }
   assert.match((await fetchRaw(port, '/robots.txt')).headers['content-type'], /^text\/plain/);
   const home = await fetchRaw(port, '/');
   assert.equal(home.headers['x-frame-options'], 'DENY');
@@ -96,4 +147,40 @@ test('production server keeps SPA, API, assets, and compressed responses distinc
     assert.equal(response.headers['referrer-policy'], 'strict-origin-when-cross-origin');
     assert.equal(response.headers['permissions-policy'], 'camera=(), microphone=(), geolocation=(), payment=()');
   }
+
+  // Hashed assets come from the .br/.gz siblings written at build time; the
+  // compressed body is byte-identical to the sibling and never made per request.
+  const indexHtml = readFileSync(new URL('../dist/public/index.html', import.meta.url), 'utf8');
+  const entryScript = indexHtml.match(/<script type="module" crossorigin src="(\/assets\/index-[^"]+\.js)"/)?.[1];
+  assert.ok(entryScript, 'built index.html references the entry chunk');
+  const assetFile = new URL(`../dist/public${entryScript}`, import.meta.url);
+  assert.ok(existsSync(new URL(`${assetFile.href}.br`)) && existsSync(new URL(`${assetFile.href}.gz`)), 'entry chunk has .br and .gz siblings');
+  const brotli = await fetchRaw(port, entryScript, 'GET', { 'Accept-Encoding': 'gzip, deflate, br' });
+  assert.equal(brotli.status, 200);
+  assert.equal(brotli.headers['content-encoding'], 'br');
+  assert.equal(brotli.headers['cache-control'], 'public, max-age=31536000, immutable');
+  assert.equal(brotli.headers.vary, 'Accept-Encoding');
+  assert.equal(Number(brotli.headers['content-length']), brotli.body.length);
+  assert.ok(brotli.body.equals(readFileSync(new URL(`${assetFile.href}.br`))), 'brotli body is the prebuilt sibling');
+  assert.ok(brotliDecompressSync(brotli.body).equals(readFileSync(assetFile)), 'sibling decodes to the asset');
+  const gzipped = await fetchRaw(port, entryScript, 'GET', { 'Accept-Encoding': 'gzip' });
+  assert.equal(gzipped.headers['content-encoding'], 'gzip');
+  assert.ok(gzipped.body.equals(readFileSync(new URL(`${assetFile.href}.gz`))), 'gzip body is the prebuilt sibling');
+  assert.ok(gunzipSync(gzipped.body).equals(readFileSync(assetFile)));
+  const identity = await fetchRaw(port, entryScript, 'GET', { 'Accept-Encoding': 'identity' });
+  assert.equal(identity.headers['content-encoding'], undefined);
+  assert.equal(Number(identity.headers['content-length']), statSync(assetFile).size);
+  assert.ok(identity.body.equals(readFileSync(assetFile)));
+  // A compressible file without a sibling (small, or not precompressed) is served as-is.
+  const robots = await fetchRaw(port, '/robots.txt', 'GET', { 'Accept-Encoding': 'br' });
+  assert.equal(robots.headers['content-encoding'], undefined);
+  assert.match(robots.body.toString(), /^User-agent:/m);
+  // Precompressed HTML keeps the SPA 404 and portal responses compressed too.
+  const missing = await fetchRaw(port, '/nope', 'GET', { 'Accept-Encoding': 'br' });
+  assert.equal(missing.status, 404);
+  assert.equal(missing.headers['content-encoding'], 'br');
+  assert.match(brotliDecompressSync(missing.body).toString(), /noindex/);
+  const sitemap = await fetchRaw(port, '/sitemap.xml');
+  assert.match(sitemap.body.toString(), /<lastmod>\d{4}-\d{2}-\d{2}T/);
+  assert.equal((sitemap.body.toString().match(/<url>/g) ?? []).length, routes.public.length);
 });

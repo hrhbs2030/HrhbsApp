@@ -173,3 +173,37 @@
 }
 .site-band .pub-intro h1 { text-shadow: 0 2px 22px rgb(8 26 28 / .55); }
 .site-band .pub-intro p.pub-intro-lead:last-child, .site-band .pub-detail-lead { color: var(--color-on-dark); text-shadow: 0 1px 14px rgb(8 26 28 / .7); }
+
+/* Service page editorial content (content/services.ts) and the grouped directory. */
+.pub-directory-intro { max-width: 48em; margin: 0 0 8px; color: var(--color-quiet); font-size: 16px; line-height: 1.95; }
+.pub-groups { display: grid; gap: 36px; }
+.pub-group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin: 0 0 14px; }
+.pub-group-head h2 { margin: 0; font-size: 24px; font-weight: 600; }
+.pub-group-head p { margin: 0; color: var(--color-subtle); font-size: 14px; line-height: 1.7; }
+.pub-group-count { color: var(--color-copper); font-weight: 700; }
+.pub-detail-intro { max-width: 40em; margin: 0 0 20px; color: var(--color-ink); font-size: 17.5px; line-height: 1.95; }
+.pub-cta-inline { display: none; align-items: center; flex-wrap: wrap; gap: 12px 16px; margin: 0 0 24px; color: var(--color-subtle); font-size: 14px; }
+.pub-cta-inline .btn { min-height: 50px; }
+.pub-flow-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: none; }
+.pub-flow-list li { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: start; column-gap: 12px; font-size: 16px; line-height: 1.8; }
+.pub-flow-list .pub-step-num { margin-top: 2px; }
+.pub-milestones { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 18px 0 0; color: var(--color-subtle); font-size: 14px; }
+.pub-milestone { display: inline-flex; align-items: center; gap: 6px; }
+.pub-milestone strong { color: var(--color-teal); font-weight: 700; }
+.pub-faq-compact { gap: 8px; }
+.pub-faq-compact .pub-faq-item summary { min-height: 52px; padding: 10px 18px; font-size: 16px; }
+.pub-faq-compact .pub-faq-item p { padding: 0 18px 18px; }
+.pub-related-block { margin-top: 28px; }
+.pub-related-block h2 { margin: 0 0 14px; font-size: 22px; font-weight: 600; }
+.pub-related-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1180px) { .pub-related-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 860px) {
+  /* Sidebar follows the whole article on phones: show the action under the intro and drop the duplicate card. */
+  .pub-cta-inline { display: flex; }
+  .pub-aside .pub-cta { display: none; }
+}
+@media (max-width: 600px) {
+  .pub-detail-intro { font-size: 16.5px; }
+  .pub-related-grid { grid-template-columns: minmax(0, 1fr); }
+  .pub-group-head h2 { font-size: 21px; }
+}

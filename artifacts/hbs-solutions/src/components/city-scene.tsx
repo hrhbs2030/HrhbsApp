@@ -1,10 +1,7 @@
-import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type ComponentType, type ReactNode } from 'react';
 import { useReducedMotion } from '@/lib/motion';
 import { setSceneCity, useSceneWindows } from './scene-window';
 import { RiyadhScene } from './city-scenes/riyadh';
-// Riyadh paints first; the other two cities load right after, off the critical path.
-const JeddahScene = lazy(() => import('./city-scenes/jeddah').then((m) => ({ default: m.JeddahScene })));
-const JazanScene = lazy(() => import('./city-scenes/jazan').then((m) => ({ default: m.JazanScene })));
 import './city-scene.css';
 
 // Animated backdrop of three Saudi cities, drawn in SVG and moved with CSS
@@ -13,6 +10,9 @@ import './city-scene.css';
 //
 // - Mounted once at app level, so it keeps playing without a restart as the
 //   visitor moves between public pages and the portal.
+// - Only the city on screen is in the DOM (each is ~1,300 SVG nodes). The next
+//   one mounts a few seconds before its turn so the crossfade has something to
+//   fade into, and the previous one leaves once its fade-out has finished.
 // - No video file or WebGL; lazy city modules can still fail to load, so the
 //   scene has a static gradient fallback independent of the page content.
 // - Seen through the page's top band and footer, and paused when neither is in
@@ -28,6 +28,11 @@ export const cityInfo: Record<CityKey, { name: string; region: string }> = {
   jazan: { name: 'جازان', region: 'منطقة جازان' },
 };
 const SCENE_MS = 12000;
+// Lead time for mounting the next city, and how long the previous one stays
+// mounted after the switch (the opacity transition in city-scene.css is 1.8 s).
+const PREMOUNT_MS = 3000;
+const FADE_MS = 2000;
+const RETRY_DELAY_MS = 1000;
 
 export type SceneVariant = 'full' | 'band' | 'portal';
 
@@ -40,29 +45,37 @@ class SceneErrorBoundary extends Component<{ children: ReactNode; onFailure: () 
   }
 }
 
-// Keep the import paths static so Vite can emit real chunks. Distinct URLs
-// bypass the browser module map's cached failure for an earlier fetch.
-const jeddahRetry = [
-  () => import('./city-scenes/jeddah?retry=1'),
-  () => import('./city-scenes/jeddah?retry=2'),
-  () => import('./city-scenes/jeddah?retry=3'),
-  () => import('./city-scenes/jeddah?retry=4'),
-  () => import('./city-scenes/jeddah?retry=5'),
-  () => import('./city-scenes/jeddah?retry=6'),
-];
-const jazanRetry = [
-  () => import('./city-scenes/jazan?retry=1'),
-  () => import('./city-scenes/jazan?retry=2'),
-  () => import('./city-scenes/jazan?retry=3'),
-  () => import('./city-scenes/jazan?retry=4'),
-  () => import('./city-scenes/jazan?retry=5'),
-  () => import('./city-scenes/jazan?retry=6'),
-];
-
-function retryableCity(city: 'jeddah' | 'jazan', attempt: number) {
-  if (attempt === 0) return city === 'jeddah' ? JeddahScene : JazanScene;
-  if (city === 'jeddah') return lazy(() => jeddahRetry[Math.min(attempt, jeddahRetry.length) - 1]().then((m) => ({ default: m.JeddahScene })));
-  return lazy(() => jazanRetry[Math.min(attempt, jazanRetry.length) - 1]().then((m) => ({ default: m.JazanScene })));
+type LazyCity = 'jeddah' | 'jazan';
+type CityModule = { JeddahScene?: ComponentType; JazanScene?: ComponentType };
+const cityImports: Record<LazyCity, () => Promise<CityModule>> = {
+  jeddah: () => import('./city-scenes/jeddah'),
+  jazan: () => import('./city-scenes/jazan'),
+};
+const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+let retrySerial = 0;
+// A failed import() is remembered by the browser's module map, so the same
+// URL rejects again at once. Browsers that name the chunk in the error
+// (Chrome, Firefox) get it fetched again under a fresh query string; the
+// others fall through to the static backdrop and the retry button.
+async function importFresh(load: () => Promise<CityModule>, error: unknown): Promise<CityModule> {
+  const url = String((error as Error)?.message ?? '').match(/(\S+\.(?:[cm]?js|tsx?))(?:\?\S*)?(?:\s|$)/)?.[1];
+  if (!url) return load();
+  const separator = url.includes('?') ? '&' : '?';
+  return import(/* @vite-ignore */ `${url}${separator}retry=${++retrySerial}`) as Promise<CityModule>;
+}
+async function loadCity(city: LazyCity): Promise<CityModule> {
+  const load = cityImports[city];
+  try {
+    return await load();
+  } catch (error) {
+    // One more try after a short pause covers a dropped connection; a second
+    // failure reaches the error boundary, whose fallback has the retry button.
+    await wait(RETRY_DELAY_MS);
+    return importFresh(load, error);
+  }
+}
+function lazyCity(city: LazyCity) {
+  return lazy(() => loadCity(city).then((m) => ({ default: (city === 'jeddah' ? m.JeddahScene : m.JazanScene) as ComponentType })));
 }
 
 export function CityScene({ routeKey, variant = 'full', showCaption = true }: { routeKey: string; variant?: SceneVariant; showCaption?: boolean }) {
@@ -70,10 +83,15 @@ export function CityScene({ routeKey, variant = 'full', showCaption = true }: { 
   // Review aid: ?city=jeddah pins one city (no cycling), for design QA.
   const pinned = typeof window !== 'undefined' ? cityOrder.indexOf(new URLSearchParams(window.location.search).get('city') as CityKey) : -1;
   const [index, setIndex] = useState(pinned >= 0 ? pinned : 0);
+  // The city mounting ahead of its turn, and the one still fading out.
+  const [warm, setWarm] = useState<CityKey | null>(null);
+  const [leaving, setLeaving] = useState<CityKey | null>(null);
   const [failed, setFailed] = useState<CityKey[]>([]);
   const [attempts, setAttempts] = useState({ jeddah: 0, jazan: 0 });
-  const Jeddah = useMemo(() => retryableCity('jeddah', attempts.jeddah), [attempts.jeddah]);
-  const Jazan = useMemo(() => retryableCity('jazan', attempts.jazan), [attempts.jazan]);
+  // A new attempt makes a new lazy component, so React asks for the chunk again.
+  const Jeddah = useMemo(() => lazyCity('jeddah'), [attempts.jeddah]);
+  const Jazan = useMemo(() => lazyCity('jazan'), [attempts.jazan]);
+  const previous = useRef(index);
   const firstRoute = useRef(true);
   const windows = useSceneWindows();
   const paused = windows.hidden || (windows.registered && !windows.any);
@@ -99,12 +117,25 @@ export function CityScene({ routeKey, variant = 'full', showCaption = true }: { 
 
   useEffect(() => setSceneCity(index), [index]);
 
-  // Advance like a video loop.
+  // Advance like a video loop, mounting the next city shortly before its turn.
   useEffect(() => {
     if (reduced || paused || pinned >= 0) return;
+    const next = cityOrder[(index + 1) % cityOrder.length];
+    const prepare = window.setTimeout(() => setWarm(next), SCENE_MS - PREMOUNT_MS);
     const timer = window.setTimeout(() => setIndex((i) => (i + 1) % cityOrder.length), SCENE_MS);
-    return () => window.clearTimeout(timer);
+    return () => { window.clearTimeout(prepare); window.clearTimeout(timer); };
   }, [index, reduced, paused]);
+
+  // After a switch the previous city stays until its fade-out has finished.
+  useEffect(() => {
+    if (previous.current === index) return;
+    const left = cityOrder[previous.current];
+    previous.current = index;
+    setWarm(null);
+    setLeaving(left);
+    const timer = window.setTimeout(() => setLeaving((current) => (current === left ? null : current)), FADE_MS);
+    return () => window.clearTimeout(timer);
+  }, [index]);
 
   // Page change: glide to the next city with the same crossfade.
   useEffect(() => {
@@ -113,12 +144,13 @@ export function CityScene({ routeKey, variant = 'full', showCaption = true }: { 
   }, [routeKey, reduced, pinned]);
 
   const active = cityOrder[index];
+  const mounted = cityOrder.filter((key) => key === active || key === warm || key === leaving);
   return (
     <>
     <div className="cs-underlay" data-on={windows.bottom || undefined} aria-hidden="true" />
     <div className={`cs cs--${variant}${expanded ? ' cs--expanded' : ''}${windows.bottom ? ' cs--footer' : ''}${paused || reduced ? ' cs--paused' : ''}`} data-snap={snap || undefined} aria-hidden="true">
       <>
-        {cityOrder.map((key) => (
+        {mounted.map((key) => (
           <div key={key} className="cs-scene" data-active={key === active} data-city={key}>
             {key === 'riyadh' ? <RiyadhScene /> : (
               <SceneErrorBoundary key={`${key}-${attempts[key]}`} onFailure={() => setFailed((current) => current.includes(key) ? current : [...current, key])}>

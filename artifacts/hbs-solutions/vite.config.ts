@@ -1,5 +1,6 @@
 import path from 'path';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
+import { execFileSync } from 'child_process';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type Plugin } from 'vite';
@@ -7,6 +8,9 @@ import { defineConfig, type Plugin } from 'vite';
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 import { reactQueryBuildCheck } from './react-query-build-check';
 import { reactBuildCheck } from './react-build-check';
+import { postBuild } from './scripts/prerender.mjs';
+import { categoryById, services } from './src/content/services';
+import { contact } from './src/content/contact';
 
 const rawPort = process.env.PORT;
 
@@ -32,10 +36,17 @@ if (!basePath) {
 
 // Build a crawlable sitemap from the same complete catalogue as the directory.
 // The count assertion makes a source-format change or missed slug fail loudly.
+// After the bundle is written the same plugin prerenders per-route HTML, emits
+// routes.json for the production server and precompresses assets
+// (scripts/prerender.mjs).
 function sitemap(siteUrl: string): Plugin {
+  let outDir = '';
   return {
     name: 'hbs-sitemap',
     apply: 'build',
+    configResolved(config) {
+      outDir = config.build.outDir;
+    },
     generateBundle() {
       const contentDir = path.resolve(import.meta.dirname, 'src/content');
       const core = readFileSync(path.join(contentDir, 'services.ts'), 'utf8');
@@ -51,16 +62,54 @@ function sitemap(siteUrl: string): Plugin {
       if (slugs.length !== expectedServiceCount || uniqueSlugs.size !== expectedServiceCount) {
         throw new Error(`HBS sitemap expected ${expectedServiceCount} unique service slugs, extracted ${slugs.length} (${uniqueSlugs.size} unique). Update the extractor or catalogue.`);
       }
+      // The catalogue module must agree with the source scan, or the prerendered
+      // service pages would not match the sitemap.
+      const moduleSlugs = new Set(services.map((service) => service.slug));
+      if (moduleSlugs.size !== expectedServiceCount || [...uniqueSlugs].some((slug) => !moduleSlugs.has(slug))) {
+        throw new Error(`HBS sitemap: services module exports ${moduleSlugs.size} slugs but the source scan found ${uniqueSlugs.size}.`);
+      }
       const base = siteUrl.replace(/\/$/, '');
+      const lastmod = catalogueLastModified();
       const paths = ['/', '/services', '/trust', '/help', '/privacy', '/terms', ...slugs.map((slug) => `/services/${slug}`)];
-      const body = paths.map((route) => `  <url><loc>${base}${route}</loc></url>`).join('\n');
+      const body = paths.map((route) => `  <url><loc>${base}${route}</loc><lastmod>${lastmod}</lastmod></url>`).join('\n');
       this.emitFile({
         type: 'asset',
         fileName: 'sitemap.xml',
         source: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`,
       });
     },
+    async closeBundle() {
+      // robots.txt is copied from public/; point its Sitemap line at this build's origin.
+      const robotsFile = path.join(outDir, 'robots.txt');
+      const robots = readFileSync(robotsFile, 'utf8');
+      writeFileSync(robotsFile, robots.replace(/^Sitemap:.*$/m, `Sitemap: ${siteUrl.replace(/\/$/, '')}/sitemap.xml`));
+      await postBuild({
+        outDir,
+        basePath,
+        siteUrl,
+        services,
+        categoryById,
+        city: contact.city,
+        log: (message: string) => console.log(`[hbs-sitemap] ${message}`),
+      });
+    },
   };
+}
+
+// <lastmod> for every sitemap entry: the last commit touching the catalogue,
+// or the build time when git history is unavailable (for example on Replit).
+function catalogueLastModified(): string {
+  try {
+    const date = execFileSync('git', ['log', '-1', '--format=%cI', '--', 'src/content/services.ts'], {
+      cwd: import.meta.dirname,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf8',
+    }).trim();
+    if (/^\d{4}-\d{2}-\d{2}T/.test(date)) return date;
+  } catch {
+    // Fall through to the build date.
+  }
+  return new Date().toISOString();
 }
 
 export default defineConfig({
@@ -102,6 +151,9 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, 'dist/public'),
     emptyOutDir: true,
+    // .vite/manifest.json lets the prerender step add modulepreload hints for
+    // the lazy public/legal page chunks; server.mjs never serves dot-directories.
+    manifest: true,
   },
   server: {
     port,

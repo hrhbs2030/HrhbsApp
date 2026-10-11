@@ -48,8 +48,11 @@ async function loadModules(failure = { city: '', offline: false }) {
         if (id === '@/components/service-discovery') return '\0test-discovery';
       },
       load(id) {
-        // The import itself rejects just as it would for a missing network chunk.
-        if (failure.offline && id.includes(`/city-scenes/${failure.city}.tsx`)) return `throw new Error("${failure.city} chunk unavailable");`;
+        // The import itself rejects just as it would for a missing network chunk,
+        // naming the module the way browsers do; the scene retries it under a
+        // fresh query string (also matched here), as the module map remembers
+        // the failed URL.
+        if (failure.offline && id.includes(`/city-scenes/${failure.city}.tsx`)) return `throw new TypeError("Failed to fetch dynamically imported module: /src/components/city-scenes/${failure.city}.tsx");`;
         if (id === '\0test-router') return `
           import React from 'react';
           export const useSearch = () => globalThis.window.location.search.slice(1);
@@ -103,8 +106,9 @@ for (const city of ['jeddah', 'jazan']) test(`${city} returns after a failed chu
     tree = await mount(Page);
     await settleScene(() => scene(tree).findAllByProps({ className: 'cs-static-fallback' }).length === 1);
     assert.equal(scene(tree).findAllByProps({ className: 'cs-static-fallback' }).length, 1);
+    // Only the city on screen is mounted; a failed chunk does not pull the others in.
     const otherCity = city === 'jeddah' ? 'jazan' : 'jeddah';
-    await settleScene(() => scene(tree).findAllByProps({ 'data-city': otherCity })[0]?.findAllByType('svg').length > 0);
+    assert.equal(scene(tree).findAllByProps({ 'data-city': otherCity }).length, 0);
     assert.equal(tree.root.findAllByType('button').some(node => node.props['aria-label'] === 'إعادة تحميل مشهد المدينة'), true);
     assert.match(content(tree.root), /دليل الخدمات/);
     assert.match(content(tree.root), /ما الخدمة التي تحتاجها؟/);

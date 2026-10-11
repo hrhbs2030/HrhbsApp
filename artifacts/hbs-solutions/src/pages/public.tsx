@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams, useSearch } from 'wouter';
-import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, CircleHelp, FileText, Hash, History, Info, KeyRound, MessageSquareText, Search, ShieldCheck, Shapes, UserRoundCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, CircleHelp, FileText, Hash, History, Info, KeyRound, MessageSquareText, MessagesSquare, Search, ShieldCheck, Shapes, UserRoundCheck } from 'lucide-react';
 import { PublicPage } from '@/components/site-chrome';
 import { ContactCard } from '@/components/contact-card';
 import { ServiceDiscovery } from '@/components/service-discovery';
 import { ServiceOffer } from '@/components/service-offer';
-import { categories, categoryById, platforms, searchServices, serviceBySlug, services, type ServiceCategory } from '@/content/services';
-import { faqs, trustFacts } from '@/content/site';
+import { categories, categoryById, platforms, searchServices, serviceBySlug, services, type ServiceCategory, type ServiceEntry } from '@/content/services';
+import { faqs, portalFlow, trustFacts } from '@/content/site';
+import { contact } from '@/content/contact';
 import { milestones, pauses } from '@/content/milestones';
 import { formatNumber } from '@/lib/format';
 import './public.css';
@@ -27,6 +28,48 @@ function PageIntro({ kicker, title, text }: { kicker?: string; title: string; te
 
 // The four portal milestones (content/milestones.ts); the pauses are named below them.
 const pauseNote = `قد يتوقف الطلب عند المراجعة بحالة «${pauses.waiting_on_customer.label}» إن احتاج المكتب معلومة أو مستندًا منك، أو «${pauses.awaiting_payment.label}» حتى تسدَّد الفاتورة، ثم يتابع مساره.`;
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+const ORG = 'HBS حلول الغد';
+
+// Structured data for crawlers that run scripts. The build prerenders the same
+// objects statically into each service page; when a static script of the same
+// @type is already in the head, the hook leaves it alone so nothing is doubled.
+const hasStaticJsonLd = (type: string) => [...document.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]:not([id])')].some((script) => {
+  try { return (JSON.parse(script.textContent || 'null') as { '@type'?: string } | null)?.['@type'] === type; } catch { return false; }
+});
+function useJsonLd(id: string, data: Record<string, unknown> | null) {
+  const json = data ? JSON.stringify(data) : null;
+  const type = typeof data?.['@type'] === 'string' ? (data['@type'] as string) : '';
+  useEffect(() => {
+    const existing = document.getElementById(id);
+    if (!json || (type && hasStaticJsonLd(type))) { existing?.remove(); return; }
+    const script = existing instanceof HTMLScriptElement ? existing : document.createElement('script');
+    script.type = 'application/ld+json';
+    script.id = id;
+    script.textContent = json;
+    if (!script.isConnected) document.head.appendChild(script);
+    return () => { script.remove(); };
+  }, [id, json]);
+}
+
+// Public URL of a route, without query string; used only in structured data.
+const pageUrl = (path: string) => (typeof window === 'undefined' ? path : `${window.location.origin}${basePath}${path}`);
+
+function ServiceCard({ service }: { service: ServiceEntry }) {
+  const Icon = categoryIcons[service.category];
+  return (
+    <li>
+      <Link href={`/services/${service.slug}`} className="pub-service-card">
+        <span className="pub-service-cat"><Icon size={16} strokeWidth={ICON} aria-hidden="true" />{categoryById[service.category].name}</span>
+        <strong>{service.name}</strong>
+        {service.platform && <span className="pub-platform-name">المنصة: {service.platform}</span>}
+        <span className="pub-service-summary">{service.summary}</span>
+        <ArrowLeft className="pub-service-arrow" size={18} strokeWidth={ICON} aria-hidden="true" />
+      </Link>
+    </li>
+  );
+}
 
 export function ServicesDirectory() {
   const search = useSearch();
@@ -79,24 +122,26 @@ export function ServicesDirectory() {
             ))}
           </div>
         </div>
+        <p className="pub-directory-intro">يجمع هذا الدليل الخدمات التي يقدّمها {ORG}، مكتب خدمات عامة في {contact.city}، للمنشآت والأفراد: معاملات الجوازات والإقامة، وشؤون العمل والرواتب، وتأسيس الشركات والتراخيص، ومعاملات أخرى تحتاجها منشأتك. تفتح كل خدمة صفحة توضح متى تحتاجها وما يفيد أن تكتبه في طلبك، ثم ترسل الطلب من حسابك ويتابعه المكتب معك خطوة بخطوة.</p>
         <p id="directory-results" className="pub-count" role="status" aria-live="polite">{resultsLabel(results.length)} · طلب الخدمة عبر المكتب بعد مراجعة الحالة، وليس ربطًا مباشرًا بالمنصة.</p>
         {results.length ? (
-          <ul className="pub-service-grid">
-            {results.map((service) => {
-              const Icon = categoryIcons[service.category];
+          <div className="pub-groups">
+            {categories.map((group) => {
+              const items = results.filter((service) => service.category === group.id);
+              if (!items.length) return null;
               return (
-                <li key={service.slug}>
-                  <Link href={`/services/${service.slug}`} className="pub-service-card">
-                    <span className="pub-service-cat"><Icon size={16} strokeWidth={ICON} aria-hidden="true" />{categoryById[service.category].name}</span>
-                    <strong>{service.name}</strong>
-                    {service.platform && <span className="pub-platform-name">المنصة: {service.platform}</span>}
-                    <span className="pub-service-summary">{service.summary}</span>
-                    <ArrowLeft className="pub-service-arrow" size={18} strokeWidth={ICON} aria-hidden="true" />
-                  </Link>
-                </li>
+                <section key={group.id} className="pub-group" aria-labelledby={`group-${group.slug}`}>
+                  <div className="pub-group-head">
+                    <h2 id={`group-${group.slug}`} className="display">{group.name}</h2>
+                    <p>{group.description} <span className="pub-group-count">{resultsLabel(items.length)}</span></p>
+                  </div>
+                  <ul className="pub-service-grid">
+                    {items.map((service) => <ServiceCard key={service.slug} service={service} />)}
+                  </ul>
+                </section>
               );
             })}
-          </ul>
+          </div>
         ) : (
           <div className="surface pub-empty">
             <Search size={28} strokeWidth={1.5} aria-hidden="true" />
@@ -113,7 +158,36 @@ export function ServicesDirectory() {
 export function ServiceDetail() {
   const { slug } = useParams<{ slug: string }>();
   const service = serviceBySlug[slug ?? ''];
-  if (!service) {
+  const category = service ? categoryById[service.category] : undefined;
+  const path = service ? `/services/${service.slug}` : '';
+
+  // Breadcrumbs, the service itself and its FAQ, in the shape the build emits too.
+  useJsonLd('ld-breadcrumbs', service && category ? {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'دليل الخدمات', item: pageUrl('/services') },
+      { '@type': 'ListItem', position: 2, name: category.name, item: pageUrl(`/services?category=${category.slug}`) },
+      { '@type': 'ListItem', position: 3, name: service.name, item: pageUrl(path) },
+    ],
+  } : null);
+  useJsonLd('ld-service', service && category ? {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    name: service.name,
+    description: service.summary,
+    provider: { '@type': 'ProfessionalService', name: ORG },
+    areaServed: contact.city,
+    serviceType: category.name,
+    url: pageUrl(path),
+  } : null);
+  useJsonLd('ld-faq', service ? {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: service.faq.map((item) => ({ '@type': 'Question', name: item.q, acceptedAnswer: { '@type': 'Answer', text: item.a } })),
+  } : null);
+
+  if (!service || !category) {
     return (
       <PublicPage intro={<PageIntro kicker="دليل الخدمات" title="الخدمة غير موجودة" text="قد يكون الرابط قديمًا. تصفّح دليل الخدمات للعثور على ما تحتاجه." />}>
         <div className="site-wrap pub-page">
@@ -127,9 +201,11 @@ export function ServiceDetail() {
       </PublicPage>
     );
   }
-  const category = categoryById[service.category];
   const Icon = categoryIcons[service.category];
-  const related = services.filter((s) => s.platform && s.platform === service.platform && s.slug !== service.slug).slice(0, 3);
+  const related = (service.related ?? []).map((s) => serviceBySlug[s]).filter(Boolean);
+  const samePlatform = services.filter((s) => s.platform && s.platform === service.platform && s.slug !== service.slug && !related.includes(s)).slice(0, 3);
+  const steps = service.steps ?? portalFlow;
+  const startHref = `/requests/new?service=${service.slug}`;
 
   const intro = (
     <div className="pub-intro">
@@ -151,6 +227,12 @@ export function ServiceDetail() {
       <div className="site-wrap pub-page">
         <div className="pub-split">
           <div className="pub-detail-main">
+            <p className="pub-detail-intro">{service.intro}</p>
+            {/* On phones the sidebar lands below everything, so the same action sits right under the intro. */}
+            <p className="pub-cta-inline">
+              <Link href={startHref} className="btn btn-primary">ابدأ الطلب <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
+              <span>يلزم حساب معتمد من المكتب.</span>
+            </p>
             <ServiceOffer slug={service.slug} />
             <section className="surface pub-block" aria-labelledby="write-title">
               <h2 id="write-title" className="display"><FileText size={20} strokeWidth={ICON} aria-hidden="true" />ما يفيد أن تكتبه في طلبك</h2>
@@ -161,32 +243,58 @@ export function ServiceDetail() {
             </section>
 
             <section className="surface pub-block" aria-labelledby="flow-title">
-              <h2 id="flow-title" className="display"><History size={20} strokeWidth={ICON} aria-hidden="true" />مراحل الطلب</h2>
-              <ol className="pub-steps">
-                {milestones.map((step, index) => (
-                  <li key={step.key}>
+              <h2 id="flow-title" className="display"><History size={20} strokeWidth={ICON} aria-hidden="true" />كيف تتم الخدمة عبر البوابة</h2>
+              <ol className="pub-flow-list">
+                {steps.map((step, index) => (
+                  <li key={step}>
                     <span className="pub-step-num" aria-hidden="true">{formatNumber(index + 1)}</span>
-                    <strong>{step.label}</strong>
-                    <span>{step.short}</span>
+                    <span>{step}</span>
                   </li>
                 ))}
               </ol>
+              <p className="pub-milestones" aria-label="حالات الطلب كما تظهر في حسابك">
+                <span>الحالات التي تراها في حسابك:</span>
+                {milestones.map((step, index) => (
+                  <span key={step.key} className="pub-milestone">{index > 0 && <ArrowLeft size={13} strokeWidth={ICON} aria-hidden="true" />}<strong>{step.label}</strong></span>
+                ))}
+              </p>
               <p className="pub-note"><Info size={16} strokeWidth={ICON} aria-hidden="true" />{pauseNote}</p>
             </section>
+
+            <section className="surface pub-block" aria-labelledby="faq-title">
+              <h2 id="faq-title" className="display"><MessagesSquare size={20} strokeWidth={ICON} aria-hidden="true" />أسئلة شائعة</h2>
+              <div className="pub-faq pub-faq-compact">
+                {service.faq.map((item, i) => (
+                  <details key={item.q} className="pub-faq-item" open={i === 0}>
+                    <summary>{item.q}</summary>
+                    <p>{item.a}</p>
+                  </details>
+                ))}
+              </div>
+            </section>
+
+            {related.length > 0 && (
+              <section className="pub-related-block" aria-labelledby="related-title">
+                <h2 id="related-title" className="display">خدمات ذات صلة</h2>
+                <ul className="pub-service-grid pub-related-grid">
+                  {related.map((s) => <ServiceCard key={s.slug} service={s} />)}
+                </ul>
+              </section>
+            )}
           </div>
 
           <aside className="pub-aside">
             <div className="pub-cta">
               <h2 className="display">ابدأ هذا الطلب</h2>
               <p>يُفتح النموذج واسم الخدمة معبّأ. يلزم حساب معتمد من المكتب، ولا يطلب المكتب كلمات مرور المنصات أو رموز التحقق.</p>
-              <Link href={`/requests/new?service=${service.slug}`} className="btn btn-light">ابدأ الطلب <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
+              <Link href={startHref} className="btn btn-light">ابدأ الطلب <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
               <Link href="/sign-up" className="pub-cta-link">لا أملك حسابًا: طلب التسجيل</Link>
             </div>
-            {related.length > 0 && (
+            {samePlatform.length > 0 && (
               <div className="pub-related">
                 <h2>خدمات أخرى عبر {service.platform}</h2>
                 <ul>
-                  {related.map((s) => <li key={s.slug}><Link href={`/services/${s.slug}`}>{s.name}<ArrowLeft size={15} strokeWidth={ICON} aria-hidden="true" /></Link></li>)}
+                  {samePlatform.map((s) => <li key={s.slug}><Link href={`/services/${s.slug}`}>{s.name}<ArrowLeft size={15} strokeWidth={ICON} aria-hidden="true" /></Link></li>)}
                 </ul>
               </div>
             )}

@@ -11,7 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node ../../scripts/run-tests.mjs hbs",
     "check:site": "tsx --test tests/site-integrity.test.ts",
-    "check:server": "node --test tests/production-server.test.mjs",
+    "check:server": "node --test tests/production-server.test.mjs tests/prerender.test.mjs",
     "test:office": "tsx --test tests/office-pages.test.ts",
     "test:city": "tsx --test tests/city-scene.test.ts",
     "test:assistant-source": "tsx --test tests/customer-assistant-source.test.tsx",
@@ -19,7 +19,8 @@
     "test:react-build-check": "tsx --test tests/react-build-check.test.ts",
     "test:react-query-build-check": "tsx --test tests/react-query-build-check.test.ts",
     "test:excel": "tsx --test tests/excel-rows.test.ts",
-    "test:lib": "tsx --test tests/phone.test.ts tests/days-until.test.ts"
+    "test:lib": "tsx --test tests/phone.test.ts tests/days-until.test.ts",
+    "test:content": "tsx --test tests/service-content.test.ts"
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",

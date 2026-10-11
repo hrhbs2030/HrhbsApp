@@ -1,33 +1,19 @@
-import { createContext, lazy, Suspense, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ClerkProvider, SignIn, SignUp, useAuth, useClerk } from '@clerk/react';
-import { arSA } from '@clerk/localizations';
-import { publishableKeyFromHost } from '@clerk/react/internal';
+import { createContext, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
-import { useGetPortalMe, getGetPortalMeQueryKey } from '@workspace/api-client-react';
+import { Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
+import { getGetPortalMeQueryKey } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
-import { color, font } from '@/design/tokens';
 import { serviceBySlug } from '@/content/services';
 import { CityScene } from '@/components/city-scene';
 import { SceneWindow } from '@/components/scene-window';
+import { hasSessionHint } from '@/lib/session-hint';
 import Landing from '@/pages/landing';
-import { ErrorBlock, LoadingBlock } from '@/components/portal-ui';
 
-// Portal pages load on demand, so landing-page visitors download only the landing page.
-const customerPages = () => import('@/pages/customer');
-const officePages = () => import('@/pages/office');
-const registrationPages = () => import('@/pages/registration-connected');
-const Dashboard = lazy(() => customerPages().then(m => ({ default: m.Dashboard })));
-const Requests = lazy(() => customerPages().then(m => ({ default: m.Requests })));
-const NewRequest = lazy(() => customerPages().then(m => ({ default: m.NewRequest })));
-const RequestDetail = lazy(() => customerPages().then(m => ({ default: m.RequestDetail })));
-const Inquiries = lazy(() => customerPages().then(m => ({ default: m.Inquiries })));
-const OfficeOverview = lazy(() => officePages().then(m => ({ default: m.OfficeOverview })));
-const OfficeRequests = lazy(() => officePages().then(m => ({ default: m.OfficeRequests })));
-const OfficeInquiries = lazy(() => officePages().then(m => ({ default: m.OfficeInquiries })));
-const CustomerRegistration = lazy(() => registrationPages().then(m => ({ default: m.CustomerRegistration })));
-const OfficeRegistrations = lazy(() => registrationPages().then(m => ({ default: m.OfficeRegistrations })));
-const Legacy = lazy(() => import('@/pages/legacy'));
+// Public pages load on demand, so landing-page visitors download only the
+// landing page. Everything that needs Clerk (auth screens, role gate, portal
+// pages) sits behind the lazy PortalShell: public routes never load the auth
+// script, and the shell stays mounted as the visitor moves between portal pages.
+const PortalShell = lazy(() => import('@/components/portal-shell'));
 const publicPages = () => import('@/pages/public');
 const ServicesDirectory = lazy(() => publicPages().then(m => ({ default: m.ServicesDirectory })));
 const ServiceDetail = lazy(() => publicPages().then(m => ({ default: m.ServiceDetail })));
@@ -36,29 +22,10 @@ const HelpPage = lazy(() => publicPages().then(m => ({ default: m.HelpPage })));
 const legalPages = () => import('@/pages/legal');
 const PrivacyPage = lazy(() => legalPages().then(m => ({ default: m.PrivacyPage })));
 const TermsPage = lazy(() => legalPages().then(m => ({ default: m.TermsPage })));
-const officeAdminPages = () => import('@/pages/office-admin');
-const OfficeStaff = lazy(() => officeAdminPages().then(m => ({ default: m.OfficeStaff })));
-const OfficeAuditLog = lazy(() => officeAdminPages().then(m => ({ default: m.OfficeAuditLog })));
-const customerExtras = () => import('@/pages/customer-extras');
-const Documents = lazy(() => customerExtras().then(m => ({ default: m.Documents })));
-const NotificationSettings = lazy(() => customerExtras().then(m => ({ default: m.NotificationSettings })));
-const officeExtras = () => import('@/pages/office-extras');
-const OfficeReminders = lazy(() => officeExtras().then(m => ({ default: m.OfficeReminders })));
-const OfficeCatalog = lazy(() => officeExtras().then(m => ({ default: m.OfficeCatalog })));
-const OfficeReports = lazy(() => officeExtras().then(m => ({ default: m.OfficeReports })));
-const companyPages = () => import('@/pages/company');
-const CompanyPage = lazy(() => companyPages().then(m => ({ default: m.CompanyPage })));
-const OfficeCustomers = lazy(() => companyPages().then(m => ({ default: m.OfficeCustomers })));
-const OfficeCustomerFilePage = lazy(() => companyPages().then(m => ({ default: m.OfficeCustomerFilePage })));
 
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-);
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
-const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+export const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 const officeDeniedEvent = 'hbs:office-access-denied';
-const authChangedEvent = 'hbs:auth-changed';
+export const authChangedEvent = 'hbs:auth-changed';
 function isOfficeDenied(error: unknown): boolean {
   const response = error as { status?: number; url?: string } | null;
   if (response?.status !== 403 || typeof response.url !== 'string') return false;
@@ -76,53 +43,14 @@ const queryClient = new QueryClient({
   mutationCache: new MutationCache({ onError: onOfficeError }),
   defaultOptions: { queries: { staleTime: 15_000, retry: (count, error) => !isOfficeDenied(error) && count < 1, refetchOnWindowFocus: true } },
 });
-const OfficeAccessContext = createContext<{ denied: boolean; restore: () => void }>({ denied: false, restore: () => {} });
-function stripBase(path: string): string {
+export const OfficeAccessContext = createContext<{ denied: boolean; restore: () => void }>({ denied: false, restore: () => {} });
+export function stripBase(path: string): string {
   return basePath && path.startsWith(basePath) ? path.slice(basePath.length) || '/' : path;
 }
-const appearance = {
-  theme: 'simple' as const,
-  options: { logoPlacement: 'inside' as const, logoLinkUrl: basePath || '/', logoImageUrl: `${window.location.origin}${basePath}/logo.svg` },
-  variables: { colorPrimary: color.teal, colorForeground: color.ink, colorMutedForeground: color.quiet, colorDanger: color.danger, colorBackground: color.surface, colorInput: color.field, colorInputForeground: color.ink, colorNeutral: color.lineStrong, fontFamily: font.body, borderRadius: '10px' },
-  elements: {
-    rootBox: { width: '100%', display: 'flex', justifyContent: 'center' },
-    cardBox: { width: '100%', maxWidth: '440px', borderRadius: '18px', background: color.surface, border: `1px solid ${color.line}`, boxShadow: '0 20px 70px rgba(23,75,80,.09)', overflow: 'hidden' },
-    card: { boxShadow: 'none', background: 'transparent', border: 'none' },
-    footer: { boxShadow: 'none', background: 'transparent' },
-    headerTitle: { color: color.ink, fontFamily: font.display, fontSize: '24px' },
-    headerSubtitle: { color: color.quiet },
-    socialButtonsBlockButtonText: { color: color.ink },
-    formFieldLabel: { color: color.ink },
-    footerActionLink: { color: color.copper },
-    footerActionText: { color: color.quiet },
-    dividerText: { color: color.quiet },
-    identityPreviewEditButton: { color: color.teal },
-    formFieldSuccessText: { color: color.ok },
-    alertText: { color: color.danger },
-    formButtonPrimary: { backgroundColor: color.teal, color: color.onDark },
-    formFieldInput: { backgroundColor: color.field, color: color.ink, borderColor: color.lineStrong },
-    socialButtonsBlockButton: { backgroundColor: color.surface, borderColor: color.lineStrong },
-    socialButtons: { display: 'none' },
-    dividerRow: { display: 'none' },
-    otpCodeFieldInput: { backgroundColor: color.field, color: color.ink },
-  },
-};
+// The public skeleton: same markup as portal-ui's LoadingBlock, kept here so
+// the entry does not import portal-ui (which pulls in Clerk).
+function LoadingBlock() { return <div className="surface space-y-4 p-6" aria-label="جارٍ تحميل البيانات"><div className="skeleton h-6 w-1/3"/><div className="skeleton h-16 w-full"/><div className="skeleton h-16 w-full"/><div className="skeleton h-16 w-3/4"/></div>; }
 
-function CacheResetOnAuthChange() {
-  const { addListener } = useClerk(); const qc = useQueryClient(); const previous = useRef<string | null | undefined>(undefined);
-  useEffect(() => {
-    const unsubscribe = addListener(({user}) => {
-      const id = user?.id ?? null;
-      if (previous.current !== undefined && previous.current !== id) {
-        qc.clear();
-        window.dispatchEvent(new Event(authChangedEvent));
-      }
-      previous.current = id;
-    });
-    return () => { if (typeof unsubscribe === 'function') unsubscribe(); };
-  }, [addListener,qc]);
-  return null;
-}
 function OfficeAccessProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const [denied, setDenied] = useState(false);
@@ -149,73 +77,16 @@ function OfficeAccessProvider({ children }: { children: ReactNode }) {
   const restore = () => { setDenied(false); lastRole.current = null; };
   return <OfficeAccessContext.Provider value={{ denied, restore }}>{children}</OfficeAccessContext.Provider>;
 }
-// Clerk's script comes from a CDN; when it is blocked or very slow `isLoaded`
-// never turns true. After the delay the screens that wait on it stop spinning
-// and say so, with a reload as the retry (the script is fetched once per load).
-const CLERK_STALL_MS = 8_000;
-function useClerkStalled(isLoaded: boolean): boolean {
-  const [stalled, setStalled] = useState(false);
-  useEffect(() => {
-    if (isLoaded) { setStalled(false); return; }
-    const timer = window.setTimeout(() => setStalled(true), CLERK_STALL_MS);
-    return () => window.clearTimeout(timer);
-  }, [isLoaded]);
-  return stalled && !isLoaded;
-}
-function ClerkStalled() {
-  return <div role="alert" className="surface relative mx-auto w-full max-w-md p-8 text-center">
-    <h2 className="display text-xl">تعذّر تحميل تسجيل الدخول</h2>
-    <p className="muted my-4 text-sm leading-7">تعذّر تحميل تسجيل الدخول. تحقق من الاتصال ثم أعد المحاولة.</p>
-    <button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>إعادة المحاولة</button>
-  </div>;
-}
-// The gate's own waiting state: the skeleton, or the stall notice once Clerk is late.
-function AuthWait({ stalled }: { stalled: boolean }) {
-  return <div dir="rtl" className="mx-auto max-w-2xl p-10">{stalled ? <ClerkStalled/> : <LoadingBlock/>}</div>;
-}
-function RoleGate({ children, staff = false, owner = false, registration = false }: { children: ReactNode; staff?: boolean; owner?: boolean; registration?: boolean }) {
-  const { isLoaded, isSignedIn } = useAuth();
-  const stalled = useClerkStalled(!!isLoaded);
-  const { denied, restore } = useContext(OfficeAccessContext);
-  const me = useGetPortalMe({ query: { enabled: !!isLoaded && !!isSignedIn, queryKey: getGetPortalMeQueryKey(), refetchInterval: 20_000 } });
-  if (!isLoaded) return <AuthWait stalled={stalled}/>;
-  if (!isSignedIn) return <Redirect to="/sign-in"/>;
-  if (staff && (denied || (me.data && me.data.role !== 'staff'))) return <div dir="rtl" role="alert" className="mx-auto max-w-2xl p-10">
-    <div className="surface p-8 text-center"><h1 className="display text-2xl">لم تعد لديك صلاحية الوصول إلى المكتب</h1>
-      <p className="muted my-4 text-sm">أُخفيت بيانات المكتب من هذا التبويب. إذا أُعيدت صلاحيتك، تحقق منها مجددًا.</p>
-      <button className="btn btn-outline" onClick={async () => { try { const result = await me.refetch(); if (result.data?.role === 'staff') restore(); } catch { /* keep the office locked */ } }}>التحقق من الصلاحية</button>
-    </div></div>;
-  if (me.isLoading) return <div dir="rtl" className="mx-auto max-w-2xl p-10"><LoadingBlock/></div>;
-  if (me.isError) return <div dir="rtl" className="mx-auto max-w-2xl p-10"><ErrorBlock retry={()=>me.refetch()}/></div>;
-  if (staff && me.data?.role !== 'staff') return <Redirect to="/dashboard"/>;
-  if (!staff && me.data?.role === 'staff') return <Redirect to="/office"/>;
-  if (owner && me.data?.officeRole !== 'owner') return <Redirect to="/office"/>;
-  if (!staff && me.data?.registrationStatus !== 'approved' && !registration) return <Redirect to="/registration"/>;
-  if (registration && me.data?.registrationStatus === 'approved') return <Redirect to="/dashboard"/>;
-  return <>{children}</>;
-}
-// The landing page never waits for Clerk: visitors see it at once, and only
-// the signed-in redirect depends on the auth script having loaded.
-function HomeRoute() {
-  const { isLoaded, isSignedIn } = useAuth();
-  if (isLoaded && isSignedIn) return <RoleGate><Redirect to="/dashboard"/></RoleGate>;
-  return <Landing/>;
-}
-function AuthPage({kind}:{kind:'sign-in'|'sign-up'}) {
-  const { isLoaded, isSignedIn } = useAuth();
-  const stalled = useClerkStalled(!!isLoaded);
-  if (isSignedIn) return <RoleGate><Redirect to="/dashboard"/></RoleGate>;
-  const title = kind==='sign-in' ? 'تسجيل الدخول' : 'إنشاء حساب';
-  // Clerk's card carries the visible heading; the page keeps its own h1 for assistive tech.
-  return <main dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center gap-7 px-4 py-10"><SceneWindow edge="top"/><h1 className="sr-only">{title}</h1><a href={basePath || '/'} className="display rounded-full bg-night/60 px-5 py-2 text-xl font-semibold text-on-dark no-underline backdrop-blur">HBS / حلول الغد</a>{kind==='sign-up' && <p className="max-w-sm rounded-2xl bg-night/70 px-5 py-3 text-center text-sm leading-7 text-on-dark-2 backdrop-blur">أنشئ حسابًا بالبريد الإلكتروني وتحقق منه، ثم قدّم طلب تسجيل يراجعه المكتب قبل إتاحة خدمات البوابة.</p>}<div dir="rtl" className="w-full max-w-[440px]">{stalled ? <ClerkStalled/> : kind==='sign-in' ? <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /> : <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />}</div><p className="rounded-full bg-night/70 px-4 py-2 text-center text-xs text-on-dark-2 backdrop-blur">تتوفر خدمات العملاء بعد موافقة المكتب على طلب التسجيل.</p></main>;
-}
-function Missing() { return <main dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center p-6 text-center text-on-dark"><SceneWindow edge="top"/><div className="relative rounded-[22px] bg-night/70 px-8 py-10 backdrop-blur"><div className="display text-7xl font-semibold text-copper-light">404</div><h1 className="display mt-5 text-2xl">الصفحة غير موجودة</h1><p className="mt-3 text-sm text-on-dark-2">قد يكون الرابط غير صحيح أو تغيّر مكان الصفحة.</p><a href={basePath || '/'} className="btn btn-light mt-7">العودة للرئيسية</a></div></main>; }
+export function Missing() { return <main dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center p-6 text-center text-on-dark"><SceneWindow edge="top"/><div className="relative rounded-[22px] bg-night/70 px-8 py-10 backdrop-blur"><div className="display text-7xl font-semibold text-copper-light">404</div><h1 className="display mt-5 text-2xl">الصفحة غير موجودة</h1><p className="mt-3 text-sm text-on-dark-2">قد يكون الرابط غير صحيح أو تغيّر مكان الصفحة.</p><a href={basePath || '/'} className="btn btn-light mt-7">العودة للرئيسية</a></div></main>; }
 const isPublicPath = (location: string) => location === '/' || location === '/services' || location.startsWith('/services/') || location === '/trust' || location === '/help' || location === '/privacy' || location === '/terms';
 const isPortalPath = (location: string) => ['/registration', '/dashboard', '/requests', '/inquiries', '/documents', '/settings', '/company', '/office'].some((p) => location === p || location.startsWith(p + '/'));
 const routeTitles: Record<string,string> = {'/':'الرئيسية','/services':'دليل الخدمات','/trust':'الخصوصية والأمان','/help':'المساعدة','/privacy':'سياسة الخصوصية','/terms':'شروط الاستخدام','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم','/office/staff':'فريق المكتب','/office/audit':'سجل التدقيق','/documents':'تنبيهات وثائقي','/settings':'الإشعارات','/office/reminders':'وثائق تنتهي قريبًا','/office/catalog':'الأسعار والمتطلبات','/office/reports':'التقارير','/company':'ملف المنشأة','/office/customers':'ملفات العملاء'};
+const isAuthPath = (location: string) => location.startsWith('/sign-in') || location.startsWith('/sign-up');
 function Routes() {
   const [location]=useLocation();
-  const { isSignedIn } = useAuth();
+  // A session cookie hint stands in for Clerk's isSignedIn on public routes;
+  // it only decides which tree to show, the shell still verifies the session.
+  const isSignedIn = hasSessionHint();
   // One backdrop across public, auth and portal routes; changing the variant
   // preserves the active scene without restarting it on navigation.
   const sceneVariant = location === '/' && !isSignedIn ? 'full'
@@ -255,48 +126,19 @@ function Routes() {
   },[location]);
   // The top window: the first screen (full), the dark band (public pages) or
   // the strip above the working sheet (portal). Footers add bottom windows.
-  return <><CityScene routeKey={location} variant={sceneVariant} /><SceneWindow edge="top" className={`scene-window--top scene-window--${sceneVariant}`} /><ErrorBoundary resetKey={location}><Suspense fallback={<div dir="rtl" className="mx-auto max-w-2xl p-10"><LoadingBlock/></div>}><Switch>
-    <Route path="/" component={HomeRoute}/>
+  // Portal, auth and a signed-in "/" render through the Clerk shell; public
+  // routes and unknown addresses never load it.
+  const portal = isPortalPath(location) || isAuthPath(location) || (location === '/' && isSignedIn);
+  return <><CityScene routeKey={location} variant={sceneVariant} /><SceneWindow edge="top" className={`scene-window--top scene-window--${sceneVariant}`} /><ErrorBoundary resetKey={location}><Suspense fallback={<div dir="rtl" className="mx-auto max-w-2xl p-10"><LoadingBlock/></div>}>{portal ? <PortalShell/> : <Switch>
+    <Route path="/" component={Landing}/>
     <Route path="/services" component={ServicesDirectory}/>
     <Route path="/services/:slug" component={ServiceDetail}/>
     <Route path="/trust" component={TrustPage}/>
     <Route path="/help" component={HelpPage}/>
     <Route path="/privacy" component={PrivacyPage}/>
     <Route path="/terms" component={TermsPage}/>
-    <Route path="/sign-in/*?">{()=><AuthPage kind="sign-in"/>}</Route>
-    <Route path="/sign-up/*?">{()=><AuthPage kind="sign-up"/>}</Route>
-    <Route path="/registration"><RoleGate registration><CustomerRegistration/></RoleGate></Route>
-    <Route path="/dashboard"><RoleGate><Dashboard/></RoleGate></Route>
-    <Route path="/requests/new"><RoleGate><NewRequest/></RoleGate></Route>
-    <Route path="/requests/:id"><RoleGate><RequestDetail/></RoleGate></Route>
-    <Route path="/requests"><RoleGate><Requests/></RoleGate></Route>
-    <Route path="/inquiries"><RoleGate><Inquiries/></RoleGate></Route>
-    <Route path="/documents"><RoleGate><Documents/></RoleGate></Route>
-    <Route path="/company"><RoleGate><CompanyPage/></RoleGate></Route>
-    <Route path="/office/customers/:userId"><RoleGate staff><OfficeCustomerFilePage/></RoleGate></Route>
-    <Route path="/office/customers"><RoleGate staff><OfficeCustomers/></RoleGate></Route>
-    <Route path="/settings"><RoleGate><NotificationSettings/></RoleGate></Route>
-    <Route path="/office/reminders"><RoleGate staff><OfficeReminders/></RoleGate></Route>
-    <Route path="/office/catalog"><RoleGate staff owner><OfficeCatalog/></RoleGate></Route>
-    <Route path="/office/reports"><RoleGate staff owner><OfficeReports/></RoleGate></Route>
-    <Route path="/office/requests"><RoleGate staff><OfficeRequests/></RoleGate></Route>
-    <Route path="/office/registrations"><RoleGate staff><OfficeRegistrations/></RoleGate></Route>
-    <Route path="/office/inquiries"><RoleGate staff><OfficeInquiries/></RoleGate></Route>
-    <Route path="/office/legacy"><RoleGate staff owner><Legacy/></RoleGate></Route>
-    <Route path="/office/staff"><RoleGate staff owner><OfficeStaff/></RoleGate></Route>
-    <Route path="/office/audit"><RoleGate staff owner><OfficeAuditLog/></RoleGate></Route>
-    <Route path="/office"><RoleGate staff><OfficeOverview/></RoleGate></Route>
     <Route component={Missing}/>
-  </Switch></Suspense></ErrorBoundary></>;
+  </Switch>}</Suspense></ErrorBoundary></>;
 }
-function ClerkWithRoutes() {
-  const [,setLocation]=useLocation();
-  return <ClerkProvider publishableKey={clerkPubKey} proxyUrl={clerkProxyUrl} appearance={appearance}
-    signInUrl={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`}
-    localization={{...arSA, formFieldLabel__emailAddress: 'البريد الإلكتروني', formFieldInputPlaceholder__emailAddress: 'أدخل بريدك الإلكتروني'}}
-    routerPush={to=>setLocation(stripBase(to))} routerReplace={to=>setLocation(stripBase(to),{replace:true})}>
-    <QueryClientProvider client={queryClient}><OfficeAccessProvider><CacheResetOnAuthChange/><Routes/></OfficeAccessProvider></QueryClientProvider>
-  </ClerkProvider>;
-}
-function App() { return <WouterRouter base={basePath}><ClerkWithRoutes/></WouterRouter>; }
+function App() { return <WouterRouter base={basePath}><QueryClientProvider client={queryClient}><OfficeAccessProvider><Routes/></OfficeAccessProvider></QueryClientProvider></WouterRouter>; }
 export default App;

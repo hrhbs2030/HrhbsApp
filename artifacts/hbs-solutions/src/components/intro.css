@@ -19,15 +19,17 @@
   animation: intro-drift 40s linear infinite;
 }
 @keyframes intro-drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(72px, 72px, 0); } }
-.intro-orb { position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%; filter: blur(10px); }
+/* The soft edge is in the gradient itself: a filter here would re-blur a
+   60vmax layer on every frame of the drift. */
+.intro-orb { position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%; }
 .intro-orb--a {
   top: -25vmax; inset-inline-end: -20vmax;
-  background: radial-gradient(closest-side, rgb(229 162 123 / .22), transparent);
+  background: radial-gradient(closest-side, rgb(229 162 123 / .22), rgb(229 162 123 / .12) 45%, rgb(229 162 123 / .03) 80%, transparent);
   animation: intro-orb-a 14s ease-in-out infinite alternate;
 }
 .intro-orb--b {
   bottom: -30vmax; inset-inline-start: -20vmax;
-  background: radial-gradient(closest-side, rgb(58 140 146 / .3), transparent);
+  background: radial-gradient(closest-side, rgb(58 140 146 / .3), rgb(58 140 146 / .16) 45%, rgb(58 140 146 / .04) 80%, transparent);
   animation: intro-orb-b 17s ease-in-out infinite alternate;
 }
 @keyframes intro-orb-a { to { transform: translate3d(-8vmax, 6vmax, 0) scale(1.1); } }
@@ -43,6 +45,9 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
   animation: intro-grain 1s steps(5) infinite;
 }
+/* Blended grain repaints the whole screen five times a second; phones and
+   data-saver visitors see the film without it. */
+@media (max-width: 768px), (prefers-reduced-data: reduce) { .intro-grain { display: none; } }
 @keyframes intro-grain { 0%, 100% { transform: translate(0); } 25% { transform: translate(-3%, 2%); } 50% { transform: translate(2%, -2%); } 75% { transform: translate(-1%, 3%); } }
 
 /* ---- scene layout ---- */

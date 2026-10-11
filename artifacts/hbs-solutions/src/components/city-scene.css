@@ -21,7 +21,8 @@
 .cs--footer .cs-caption { opacity: 0; visibility: hidden; }
 /* A transparent, non-interactive window onto the app-level scene. */
 .scene-window { position: absolute; inset: 0; pointer-events: none; visibility: hidden; }
-.cs-scene { position: absolute; inset: 0; opacity: 0; transition: opacity 1.8s var(--ease-in-out-soft); }
+/* Each city is its own paint/layout island, so the fading pair never re-lays out the page. */
+.cs-scene { position: absolute; inset: 0; opacity: 0; transition: opacity 1.8s var(--ease-in-out-soft); contain: layout paint style; }
 .cs-scene[data-active="true"] { opacity: 1; }
 .cs-static-fallback { position: absolute; inset: 0; background: linear-gradient(160deg, #123239 0%, #254849 52%, #ad755e 100%); }
 .cs-retry { position: fixed; z-index: 20; left: 16px; bottom: 16px; max-width: calc(100vw - 32px); padding: 9px 14px; border: 1px solid rgb(255 255 255 / .35); border-radius: 12px; background: #123239; color: #fff; font: inherit; font-size: 13px; cursor: pointer; box-shadow: 0 4px 16px rgb(0 0 0 / .25); }
@@ -45,8 +46,10 @@
 @keyframes cs-drift-2 { from { transform: translate3d(1%, 0, 0); } to { transform: translate3d(-2%, 0, 0); } }
 @keyframes cs-drift-3 { from { transform: translate3d(2%, 0, 0); } to { transform: translate3d(-3.5%, 0, 0); } }
 @keyframes cs-drift-4 { from { transform: translate3d(3.5%, 0, 0) scale(1.02); } to { transform: translate3d(-5.5%, 0, 0) scale(1.02); } }
-/* Each city enters with a short camera push. */
-.cs-scene[data-active="true"] { animation: cs-push 2.4s var(--ease-out-soft) both; }
+/* Each city enters with a short camera push. The fade-in is an animation, not
+   a transition, so a city mounted at the moment of the switch still crossfades. */
+.cs-scene[data-active="true"] { animation: cs-enter 1.8s var(--ease-in-out-soft) both, cs-push 2.4s var(--ease-out-soft) both; }
+@keyframes cs-enter { from { opacity: 0; } to { opacity: 1; } }
 @keyframes cs-push { from { transform: scale(1.06); } to { transform: scale(1); } }
 
 .cs-windows rect { fill: #ffd2a8; opacity: .8; }
@@ -64,6 +67,9 @@
 .cs-grain { position: absolute; inset: -50%; opacity: .09; mix-blend-mode: overlay; pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
   animation: cs-grain 1.2s steps(6) infinite; }
+/* The grain is a blended full-screen layer repainted five times a second:
+   phones and data-saver visitors get the scene without it. */
+@media (max-width: 768px), (prefers-reduced-data: reduce) { .cs-grain { display: none; } }
 @keyframes cs-grain { 0% { transform: translate(0, 0); } 20% { transform: translate(-3%, 2%); } 40% { transform: translate(2%, -3%); } 60% { transform: translate(-2%, -1%); } 80% { transform: translate(3%, 3%); } 100% { transform: translate(0, 0); } }
 /* Legibility veil: darker on the text side (inline start) and under the header. */
 .cs-veil { position: absolute; inset: 0; background:
