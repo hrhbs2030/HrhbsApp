@@ -698,8 +698,12 @@ export const DownloadOfficeServiceAttachmentResponse = zod.unknown()
 /**
  * @summary Get a request owned by the signed-in customer
  */
+export const getServiceRequestPathIdMax = 2147483647;
+
+
+
 export const GetServiceRequestParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(getServiceRequestPathIdMax)
 })
 
 export const getServiceRequestResponseRatingMax = 5;
@@ -744,8 +748,12 @@ export const GetServiceRequestResponse = zod.object({
 /**
  * @summary Status changes of a request owned by the signed-in customer, oldest first
  */
+export const getServiceRequestHistoryPathIdMax = 2147483647;
+
+
+
 export const GetServiceRequestHistoryParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(getServiceRequestHistoryPathIdMax)
 })
 
 export const GetServiceRequestHistoryResponseItem = zod.object({
@@ -920,8 +928,12 @@ export const ListOfficeRegistrationsResponse = zod.array(ListOfficeRegistrations
 /**
  * @summary Staff-only approval or rejection of a pending registration
  */
+export const reviewOfficeRegistrationPathIdMax = 2147483647;
+
+
+
 export const ReviewOfficeRegistrationParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(reviewOfficeRegistrationPathIdMax)
 })
 
 export const reviewOfficeRegistrationBodyReasonMax = 1000;
@@ -951,8 +963,12 @@ export const ReviewOfficeRegistrationResponse = zod.object({
 /**
  * @summary Staff-only update of request progress
  */
+export const updateOfficeServiceRequestPathIdMax = 2147483647;
+
+
+
 export const UpdateOfficeServiceRequestParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(updateOfficeServiceRequestPathIdMax)
 })
 
 export const updateOfficeServiceRequestBodyOfficeNoteMax = 2000;
@@ -1074,8 +1090,12 @@ export const ListOfficeInquiriesResponse = zod.object({
 /**
  * @summary Staff-only answer to an inquiry
  */
+export const answerOfficeInquiryPathIdMax = 2147483647;
+
+
+
 export const AnswerOfficeInquiryParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(answerOfficeInquiryPathIdMax)
 })
 
 export const answerOfficeInquiryBodyAnswerMin = 2;
@@ -1256,7 +1276,7 @@ export const ListOfficeAuditLogResponseItem = zod.object({
   "id": zod.number().int(),
   "actorId": zod.string(),
   "actorEmail": zod.string().email().nullable(),
-  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge', 'registration.approve', 'registration.reject', 'information.review', 'information.publish', 'information.unpublish', 'attachment.extract', 'invoice.issue', 'invoice.mark_paid', 'invoice.cancel', 'invoice.paid_online', 'offer.update', 'reminder.create', 'company.update', 'employee.create', 'employee.update', 'employee.delete', 'employee.reveal', 'license.create', 'license.update', 'license.delete']),
+  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge', 'registration.approve', 'registration.reject', 'information.review', 'information.publish', 'information.unpublish', 'attachment.extract', 'invoice.issue', 'invoice.mark_paid', 'invoice.cancel', 'invoice.paid_online', 'offer.update', 'reminder.create', 'company.update', 'employee.create', 'employee.update', 'employee.delete', 'employee.reveal', 'license.create', 'license.update', 'license.delete', 'employee.import', 'license.import', 'automation.update']),
   "targetType": zod.string(),
   "targetId": zod.string(),
   "details": zod.record(zod.string(), zod.unknown()),
@@ -1354,8 +1374,12 @@ export const SaveOfficeServiceOfferResponse = zod.object({
 /**
  * @summary Rate a completed request owned by the signed-in customer (once)
  */
+export const rateServiceRequestPathIdMax = 2147483647;
+
+
+
 export const RateServiceRequestParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(rateServiceRequestPathIdMax)
 })
 
 export const rateServiceRequestBodyRatingMax = 5;
@@ -1411,8 +1435,12 @@ export const RateServiceRequestResponse = zod.object({
 /**
  * @summary Invoices on a request owned by the signed-in customer
  */
+export const listServiceRequestInvoicesPathIdMax = 2147483647;
+
+
+
 export const ListServiceRequestInvoicesParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(listServiceRequestInvoicesPathIdMax)
 })
 
 export const ListServiceRequestInvoicesResponseItem = zod.object({
@@ -1443,8 +1471,12 @@ export const ListServiceRequestInvoicesResponse = zod.array(ListServiceRequestIn
 /**
  * @summary Open the payment gateway's hosted page for an unpaid invoice of the signed-in customer
  */
+export const startInvoicePaymentPathIdMax = 2147483647;
+
+
+
 export const StartInvoicePaymentParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(startInvoicePaymentPathIdMax)
 })
 
 export const StartInvoicePaymentResponse = zod.object({
@@ -1455,8 +1487,12 @@ export const StartInvoicePaymentResponse = zod.object({
 /**
  * @summary Re-check the payment gateway for an invoice of the signed-in customer
  */
+export const refreshInvoicePaymentPathIdMax = 2147483647;
+
+
+
 export const RefreshInvoicePaymentParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(refreshInvoicePaymentPathIdMax)
 })
 
 export const RefreshInvoicePaymentResponse = zod.object({
@@ -1486,8 +1522,12 @@ export const RefreshInvoicePaymentResponse = zod.object({
 /**
  * @summary Staff-only invoices on a request
  */
+export const listOfficeServiceRequestInvoicesPathIdMax = 2147483647;
+
+
+
 export const ListOfficeServiceRequestInvoicesParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(listOfficeServiceRequestInvoicesPathIdMax)
 })
 
 export const ListOfficeServiceRequestInvoicesResponseItem = zod.object({
@@ -1518,8 +1558,12 @@ export const ListOfficeServiceRequestInvoicesResponse = zod.array(ListOfficeServ
 /**
  * @summary Staff-only issue an invoice on a request
  */
+export const issueOfficeInvoicePathIdMax = 2147483647;
+
+
+
 export const IssueOfficeInvoiceParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(issueOfficeInvoicePathIdMax)
 })
 
 export const issueOfficeInvoiceBodyDescriptionMin = 2;
@@ -1563,8 +1607,12 @@ export const IssueOfficeInvoiceResponse = zod.object({
 /**
  * @summary Staff-only record a manual payment or cancel an unpaid invoice
  */
+export const updateOfficeInvoicePathIdMax = 2147483647;
+
+
+
 export const UpdateOfficeInvoiceParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(updateOfficeInvoicePathIdMax)
 })
 
 export const updateOfficeInvoiceBodyPaymentReferenceMax = 120;
@@ -1650,8 +1698,12 @@ export const CreateReminderResponse = zod.object({
 /**
  * @summary Replace one of the signed-in customer's reminders
  */
+export const updateReminderPathIdMax = 2147483647;
+
+
+
 export const UpdateReminderParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(updateReminderPathIdMax)
 })
 
 export const updateReminderBodyLabelMin = 2;
@@ -1684,8 +1736,12 @@ export const UpdateReminderResponse = zod.object({
 /**
  * @summary Remove one of the signed-in customer's reminders
  */
+export const deleteReminderPathIdMax = 2147483647;
+
+
+
 export const DeleteReminderParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(deleteReminderPathIdMax)
 })
 
 export const DeleteReminderResponse = zod.void()
@@ -1725,8 +1781,12 @@ export const ListOfficeRemindersResponse = zod.array(ListOfficeRemindersResponse
 /**
  * @summary Staff-only add a reminder for the customer who owns the request
  */
+export const createOfficeReminderPathIdMax = 2147483647;
+
+
+
 export const CreateOfficeReminderParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(createOfficeReminderPathIdMax)
 })
 
 export const createOfficeReminderBodyLabelMin = 2;
@@ -1759,8 +1819,12 @@ export const CreateOfficeReminderResponse = zod.object({
 /**
  * @summary Staff-only read an attached document's type, holder and expiry date with AI (audited)
  */
+export const extractOfficeAttachmentDocumentPathAttachmentIdMax = 2147483647;
+
+
+
 export const ExtractOfficeAttachmentDocumentParams = zod.object({
-  "attachmentId": zod.coerce.number().int()
+  "attachmentId": zod.coerce.number().int().min(1).max(extractOfficeAttachmentDocumentPathAttachmentIdMax)
 })
 
 export const extractOfficeAttachmentDocumentResponseLabelMax = 120;
@@ -2029,8 +2093,12 @@ export const CreateEmployeeResponse = zod.object({
 /**
  * @summary Update one of the signed-in customer's employees
  */
+export const updateEmployeePathIdMax = 2147483647;
+
+
+
 export const UpdateEmployeeParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(updateEmployeePathIdMax)
 })
 
 export const updateEmployeeBodyFullNameMin = 2;
@@ -2086,8 +2154,12 @@ export const UpdateEmployeeResponse = zod.object({
 /**
  * @summary Remove one of the signed-in customer's employees
  */
+export const deleteEmployeePathIdMax = 2147483647;
+
+
+
 export const DeleteEmployeeParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(deleteEmployeePathIdMax)
 })
 
 export const DeleteEmployeeResponse = zod.void()
@@ -2096,8 +2168,12 @@ export const DeleteEmployeeResponse = zod.void()
 /**
  * @summary Full identity and passport numbers of one of the signed-in customer's employees
  */
+export const getEmployeeNumbersPathIdMax = 2147483647;
+
+
+
 export const GetEmployeeNumbersParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(getEmployeeNumbersPathIdMax)
 })
 
 export const GetEmployeeNumbersResponse = zod.object({
@@ -2144,8 +2220,12 @@ export const CreateLicenseResponse = zod.object({
 /**
  * @summary Update one of the signed-in customer's licenses
  */
+export const updateLicensePathIdMax = 2147483647;
+
+
+
 export const UpdateLicenseParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(updateLicensePathIdMax)
 })
 
 export const updateLicenseBodyTitleMin = 2;
@@ -2183,8 +2263,12 @@ export const UpdateLicenseResponse = zod.object({
 /**
  * @summary Remove one of the signed-in customer's licenses
  */
+export const deleteLicensePathIdMax = 2147483647;
+
+
+
 export const DeleteLicenseParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(deleteLicensePathIdMax)
 })
 
 export const DeleteLicenseResponse = zod.void()
@@ -2432,11 +2516,13 @@ export const CreateOfficeCustomerEmployeeResponse = zod.object({
  */
 export const updateOfficeCustomerEmployeePathUserIdMax = 120;
 
+export const updateOfficeCustomerEmployeePathIdMax = 2147483647;
+
 
 
 export const UpdateOfficeCustomerEmployeeParams = zod.object({
   "userId": zod.coerce.string().min(1).max(updateOfficeCustomerEmployeePathUserIdMax),
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(updateOfficeCustomerEmployeePathIdMax)
 })
 
 export const updateOfficeCustomerEmployeeBodyFullNameMin = 2;
@@ -2494,11 +2580,13 @@ export const UpdateOfficeCustomerEmployeeResponse = zod.object({
  */
 export const deleteOfficeCustomerEmployeePathUserIdMax = 120;
 
+export const deleteOfficeCustomerEmployeePathIdMax = 2147483647;
+
 
 
 export const DeleteOfficeCustomerEmployeeParams = zod.object({
   "userId": zod.coerce.string().min(1).max(deleteOfficeCustomerEmployeePathUserIdMax),
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(deleteOfficeCustomerEmployeePathIdMax)
 })
 
 export const DeleteOfficeCustomerEmployeeResponse = zod.void()
@@ -2509,11 +2597,13 @@ export const DeleteOfficeCustomerEmployeeResponse = zod.void()
  */
 export const getOfficeCustomerEmployeeNumbersPathUserIdMax = 120;
 
+export const getOfficeCustomerEmployeeNumbersPathIdMax = 2147483647;
+
 
 
 export const GetOfficeCustomerEmployeeNumbersParams = zod.object({
   "userId": zod.coerce.string().min(1).max(getOfficeCustomerEmployeeNumbersPathUserIdMax),
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(getOfficeCustomerEmployeeNumbersPathIdMax)
 })
 
 export const GetOfficeCustomerEmployeeNumbersResponse = zod.object({
@@ -2570,11 +2660,13 @@ export const CreateOfficeCustomerLicenseResponse = zod.object({
  */
 export const updateOfficeCustomerLicensePathUserIdMax = 120;
 
+export const updateOfficeCustomerLicensePathIdMax = 2147483647;
+
 
 
 export const UpdateOfficeCustomerLicenseParams = zod.object({
   "userId": zod.coerce.string().min(1).max(updateOfficeCustomerLicensePathUserIdMax),
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(updateOfficeCustomerLicensePathIdMax)
 })
 
 export const updateOfficeCustomerLicenseBodyTitleMin = 2;
@@ -2614,11 +2706,13 @@ export const UpdateOfficeCustomerLicenseResponse = zod.object({
  */
 export const deleteOfficeCustomerLicensePathUserIdMax = 120;
 
+export const deleteOfficeCustomerLicensePathIdMax = 2147483647;
+
 
 
 export const DeleteOfficeCustomerLicenseParams = zod.object({
   "userId": zod.coerce.string().min(1).max(deleteOfficeCustomerLicensePathUserIdMax),
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(deleteOfficeCustomerLicensePathIdMax)
 })
 
 export const DeleteOfficeCustomerLicenseResponse = zod.void()
@@ -2627,8 +2721,12 @@ export const DeleteOfficeCustomerLicenseResponse = zod.void()
 /**
  * @summary Conversation on a request owned by the signed-in customer, oldest first
  */
+export const listServiceRequestMessagesPathIdMax = 2147483647;
+
+
+
 export const ListServiceRequestMessagesParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(listServiceRequestMessagesPathIdMax)
 })
 
 export const ListServiceRequestMessagesResponseItem = zod.object({
@@ -2643,8 +2741,12 @@ export const ListServiceRequestMessagesResponse = zod.array(ListServiceRequestMe
 /**
  * @summary Send a message to the office on the customer's own request
  */
+export const sendServiceRequestMessagePathIdMax = 2147483647;
+
+
+
 export const SendServiceRequestMessageParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(sendServiceRequestMessagePathIdMax)
 })
 
 export const sendServiceRequestMessageBodyBodyMax = 2000;
@@ -2666,8 +2768,12 @@ export const SendServiceRequestMessageResponse = zod.object({
 /**
  * @summary Staff-only conversation on a request, oldest first
  */
+export const listOfficeServiceRequestMessagesPathIdMax = 2147483647;
+
+
+
 export const ListOfficeServiceRequestMessagesParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(listOfficeServiceRequestMessagesPathIdMax)
 })
 
 export const ListOfficeServiceRequestMessagesResponseItem = zod.object({
@@ -2682,8 +2788,12 @@ export const ListOfficeServiceRequestMessagesResponse = zod.array(ListOfficeServ
 /**
  * @summary Staff-only message to the customer on a request
  */
+export const sendOfficeServiceRequestMessagePathIdMax = 2147483647;
+
+
+
 export const SendOfficeServiceRequestMessageParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number().int().min(1).max(sendOfficeServiceRequestMessagePathIdMax)
 })
 
 export const sendOfficeServiceRequestMessageBodyBodyMax = 2000;
@@ -2699,6 +2809,228 @@ export const SendOfficeServiceRequestMessageResponse = zod.object({
   "authorRole": zod.enum(['customer', 'office']),
   "body": zod.string(),
   "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * All rows are checked first; if any row is invalid nothing is saved and every problem is listed. A row updates the employee with the same ID number, or else the only employee with the same name; otherwise it adds one. Empty cells keep what is stored.
+ * @summary Add or update many employees at once (from a spreadsheet)
+ */
+export const importEmployeesBodyRowsItemFullNameMin = 2;
+export const importEmployeesBodyRowsItemFullNameMax = 120;
+
+export const importEmployeesBodyRowsItemNationalityMax = 60;
+
+export const importEmployeesBodyRowsItemOccupationMax = 100;
+
+export const importEmployeesBodyRowsItemIdNumberMax = 20;
+
+export const importEmployeesBodyRowsItemPassportNumberMax = 20;
+
+export const importEmployeesBodyRowsItemPhoneMax = 24;
+
+export const importEmployeesBodyRowsItemNotesMax = 500;
+
+export const importEmployeesBodyRowsMax = 500;
+
+
+
+export const ImportEmployeesBody = zod.object({
+  "rows": zod.array(zod.object({
+  "fullName": zod.string().min(importEmployeesBodyRowsItemFullNameMin).max(importEmployeesBodyRowsItemFullNameMax),
+  "nationality": zod.string().max(importEmployeesBodyRowsItemNationalityMax).nullish(),
+  "occupation": zod.string().max(importEmployeesBodyRowsItemOccupationMax).nullish(),
+  "idNumber": zod.string().max(importEmployeesBodyRowsItemIdNumberMax).nullish().describe('Omit to keep the stored number; null clears it'),
+  "passportNumber": zod.string().max(importEmployeesBodyRowsItemPassportNumberMax).nullish().describe('Omit to keep the stored number; null clears it'),
+  "iqamaExpiresOn": zod.coerce.date().nullish(),
+  "passportExpiresOn": zod.coerce.date().nullish(),
+  "workPermitExpiresOn": zod.coerce.date().nullish(),
+  "phone": zod.string().max(importEmployeesBodyRowsItemPhoneMax).nullish(),
+  "status": zod.enum(['active', 'left']).optional(),
+  "notes": zod.string().max(importEmployeesBodyRowsItemNotesMax).nullish()
+})).min(1).max(importEmployeesBodyRowsMax)
+})
+
+export const ImportEmployeesResponse = zod.object({
+  "created": zod.number().int(),
+  "updated": zod.number().int(),
+  "problems": zod.array(zod.object({
+  "row": zod.number().int().describe('1-based position in the submitted rows'),
+  "message": zod.string()
+}))
+})
+
+
+/**
+ * Same rules as the employee import. A row updates the license of the same type and number (or the same type and name when there is no number).
+ * @summary Add or update many licenses at once (from a spreadsheet)
+ */
+export const importLicensesBodyRowsItemTitleMin = 2;
+export const importLicensesBodyRowsItemTitleMax = 120;
+
+export const importLicensesBodyRowsItemNumberMax = 40;
+
+export const importLicensesBodyRowsItemNotesMax = 500;
+
+export const importLicensesBodyRowsMax = 500;
+
+
+
+export const ImportLicensesBody = zod.object({
+  "rows": zod.array(zod.object({
+  "kind": zod.enum(['commercial_register', 'municipal', 'civil_defense', 'chamber', 'gosi', 'zakat_vat', 'other']),
+  "title": zod.string().min(importLicensesBodyRowsItemTitleMin).max(importLicensesBodyRowsItemTitleMax),
+  "number": zod.string().max(importLicensesBodyRowsItemNumberMax).nullish(),
+  "issuedOn": zod.coerce.date().nullish(),
+  "expiresOn": zod.coerce.date().nullish(),
+  "notes": zod.string().max(importLicensesBodyRowsItemNotesMax).nullish()
+})).min(1).max(importLicensesBodyRowsMax)
+})
+
+export const ImportLicensesResponse = zod.object({
+  "created": zod.number().int(),
+  "updated": zod.number().int(),
+  "problems": zod.array(zod.object({
+  "row": zod.number().int().describe('1-based position in the submitted rows'),
+  "message": zod.string()
+}))
+})
+
+
+/**
+ * @summary Staff-only spreadsheet import of a customer's employees (audited)
+ */
+export const importOfficeCustomerEmployeesPathUserIdMax = 120;
+
+
+
+export const ImportOfficeCustomerEmployeesParams = zod.object({
+  "userId": zod.coerce.string().min(1).max(importOfficeCustomerEmployeesPathUserIdMax)
+})
+
+export const importOfficeCustomerEmployeesBodyRowsItemFullNameMin = 2;
+export const importOfficeCustomerEmployeesBodyRowsItemFullNameMax = 120;
+
+export const importOfficeCustomerEmployeesBodyRowsItemNationalityMax = 60;
+
+export const importOfficeCustomerEmployeesBodyRowsItemOccupationMax = 100;
+
+export const importOfficeCustomerEmployeesBodyRowsItemIdNumberMax = 20;
+
+export const importOfficeCustomerEmployeesBodyRowsItemPassportNumberMax = 20;
+
+export const importOfficeCustomerEmployeesBodyRowsItemPhoneMax = 24;
+
+export const importOfficeCustomerEmployeesBodyRowsItemNotesMax = 500;
+
+export const importOfficeCustomerEmployeesBodyRowsMax = 500;
+
+
+
+export const ImportOfficeCustomerEmployeesBody = zod.object({
+  "rows": zod.array(zod.object({
+  "fullName": zod.string().min(importOfficeCustomerEmployeesBodyRowsItemFullNameMin).max(importOfficeCustomerEmployeesBodyRowsItemFullNameMax),
+  "nationality": zod.string().max(importOfficeCustomerEmployeesBodyRowsItemNationalityMax).nullish(),
+  "occupation": zod.string().max(importOfficeCustomerEmployeesBodyRowsItemOccupationMax).nullish(),
+  "idNumber": zod.string().max(importOfficeCustomerEmployeesBodyRowsItemIdNumberMax).nullish().describe('Omit to keep the stored number; null clears it'),
+  "passportNumber": zod.string().max(importOfficeCustomerEmployeesBodyRowsItemPassportNumberMax).nullish().describe('Omit to keep the stored number; null clears it'),
+  "iqamaExpiresOn": zod.coerce.date().nullish(),
+  "passportExpiresOn": zod.coerce.date().nullish(),
+  "workPermitExpiresOn": zod.coerce.date().nullish(),
+  "phone": zod.string().max(importOfficeCustomerEmployeesBodyRowsItemPhoneMax).nullish(),
+  "status": zod.enum(['active', 'left']).optional(),
+  "notes": zod.string().max(importOfficeCustomerEmployeesBodyRowsItemNotesMax).nullish()
+})).min(1).max(importOfficeCustomerEmployeesBodyRowsMax)
+})
+
+export const ImportOfficeCustomerEmployeesResponse = zod.object({
+  "created": zod.number().int(),
+  "updated": zod.number().int(),
+  "problems": zod.array(zod.object({
+  "row": zod.number().int().describe('1-based position in the submitted rows'),
+  "message": zod.string()
+}))
+})
+
+
+/**
+ * @summary Staff-only spreadsheet import of a customer's licenses (audited)
+ */
+export const importOfficeCustomerLicensesPathUserIdMax = 120;
+
+
+
+export const ImportOfficeCustomerLicensesParams = zod.object({
+  "userId": zod.coerce.string().min(1).max(importOfficeCustomerLicensesPathUserIdMax)
+})
+
+export const importOfficeCustomerLicensesBodyRowsItemTitleMin = 2;
+export const importOfficeCustomerLicensesBodyRowsItemTitleMax = 120;
+
+export const importOfficeCustomerLicensesBodyRowsItemNumberMax = 40;
+
+export const importOfficeCustomerLicensesBodyRowsItemNotesMax = 500;
+
+export const importOfficeCustomerLicensesBodyRowsMax = 500;
+
+
+
+export const ImportOfficeCustomerLicensesBody = zod.object({
+  "rows": zod.array(zod.object({
+  "kind": zod.enum(['commercial_register', 'municipal', 'civil_defense', 'chamber', 'gosi', 'zakat_vat', 'other']),
+  "title": zod.string().min(importOfficeCustomerLicensesBodyRowsItemTitleMin).max(importOfficeCustomerLicensesBodyRowsItemTitleMax),
+  "number": zod.string().max(importOfficeCustomerLicensesBodyRowsItemNumberMax).nullish(),
+  "issuedOn": zod.coerce.date().nullish(),
+  "expiresOn": zod.coerce.date().nullish(),
+  "notes": zod.string().max(importOfficeCustomerLicensesBodyRowsItemNotesMax).nullish()
+})).min(1).max(importOfficeCustomerLicensesBodyRowsMax)
+})
+
+export const ImportOfficeCustomerLicensesResponse = zod.object({
+  "created": zod.number().int(),
+  "updated": zod.number().int(),
+  "problems": zod.array(zod.object({
+  "row": zod.number().int().describe('1-based position in the submitted rows'),
+  "message": zod.string()
+}))
+})
+
+
+/**
+ * @summary Owner-only automatic assignment and due date for new requests, per category
+ */
+export const ListAssignmentRulesResponseItem = zod.object({
+  "category": zod.enum(['passports', 'labor', 'business', 'other']),
+  "assignee": zod.string().nullable(),
+  "dueDays": zod.number().int().nullable(),
+  "updatedAt": zod.coerce.date().nullable()
+})
+export const ListAssignmentRulesResponse = zod.array(ListAssignmentRulesResponseItem)
+
+
+/**
+ * @summary Owner-only set who new requests in a category go to and their due days (audited)
+ */
+export const SaveAssignmentRuleParams = zod.object({
+  "category": zod.enum(['passports', 'labor', 'business', 'other'])
+})
+
+export const saveAssignmentRuleBodyAssigneeMax = 120;
+
+export const saveAssignmentRuleBodyDueDaysMax = 90;
+
+
+
+export const SaveAssignmentRuleBody = zod.object({
+  "assignee": zod.string().max(saveAssignmentRuleBodyAssigneeMax).nullable(),
+  "dueDays": zod.number().int().min(1).max(saveAssignmentRuleBodyDueDaysMax).nullable()
+})
+
+export const SaveAssignmentRuleResponse = zod.object({
+  "category": zod.enum(['passports', 'labor', 'business', 'other']),
+  "assignee": zod.string().nullable(),
+  "dueDays": zod.number().int().nullable(),
+  "updatedAt": zod.coerce.date().nullable()
 })
 
 

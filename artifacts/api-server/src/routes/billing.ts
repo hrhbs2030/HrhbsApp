@@ -1,6 +1,6 @@
 import { getAuth } from "@clerk/express";
 import { timingSafeEqual } from "node:crypto";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { db, hbsInvoices, hbsServiceRequests, type HbsInvoice, type HbsServiceRequest } from "@workspace/db";
 import {
@@ -17,8 +17,10 @@ import { invoiceReference, requestReference, riyals, vatFor, VAT_RATE_BASIS_POIN
 import {
   createGatewayInvoice, fetchGatewayInvoice, moyasarConfigured, type GatewayInvoice,
 } from "../lib/moyasar";
-import { invoiceIssuedMail, invoicePaidOfficeMail, notify } from "../lib/notify";
+import { closedInvoicePaidMail, invoiceIssuedMail, invoicePaidOfficeMail, notify } from "../lib/notify";
+import { logger } from "../lib/logger";
 import { requireOfficeStaff } from "../lib/office-access";
+import { resumeAfterPayment } from "../lib/automations";
 import { requireApprovedCustomer } from "./portal";
 
 const router: IRouter = Router();
@@ -68,7 +70,18 @@ async function customerInvoice(id: number, userId: string) {
 // Marks an invoice paid only when the gateway itself reports it paid in full,
 // in riyals. Safe to call repeatedly and from several places at once.
 export async function settleFromGateway(row: HbsInvoice, request: HbsServiceRequest, gateway?: GatewayInvoice): Promise<HbsInvoice> {
-  if (row.status !== "issued" || !row.gatewayInvoiceId) return row;
+  if (!row.gatewayInvoiceId) return row;
+  if (row.status !== "issued") {
+    // Paid on the gateway after the office closed the invoice: the money must
+    // not go unnoticed. Logged and emailed so the office can refund or match it.
+    if (gateway && gateway.id === row.gatewayInvoiceId && gateway.status === "paid") {
+      logger.error({ invoiceId: row.id, gatewayInvoiceId: gateway.id, status: row.status }, "Online payment received for a closed invoice");
+      notify(closedInvoicePaidMail(
+        { id: request.id, reference: requestReference(request.id, request.createdAt), service: request.service },
+        invoiceReference(row.id, row.issuedAt), riyals(gateway.amount)));
+    }
+    return row;
+  }
   const remote = gateway ?? await fetchGatewayInvoice(row.gatewayInvoiceId);
   if (remote.id !== row.gatewayInvoiceId || remote.status !== "paid" || remote.amount !== row.totalHalalas || remote.currency !== "SAR") return row;
   const updated = await db.transaction(async tx => {
@@ -84,6 +97,7 @@ export async function settleFromGateway(row: HbsInvoice, request: HbsServiceRequ
     return paid;
   });
   if (!updated) return (await db.select().from(hbsInvoices).where(eq(hbsInvoices.id, row.id)))[0] ?? row;
+  await resumeAfterPayment(request.id);
   notify(invoicePaidOfficeMail({ id: request.id, reference: requestReference(request.id, request.createdAt), service: request.service },
     invoiceReference(updated.id, updated.issuedAt), riyals(updated.totalHalalas)));
   return updated;
@@ -164,11 +178,42 @@ router.post("/payments/moyasar/webhook", async (req, res): Promise<void> => {
     .innerJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
     .where(eq(hbsInvoices.gatewayInvoiceId, gatewayId)).limit(1);
   if (row) {
-    try { await settleFromGateway(row.invoice, row.request); }
+    try { await settleFromGateway(row.invoice, row.request, await fetchGatewayInvoice(gatewayId)); }
     catch (error) { req.log.error({ err: error }, "Webhook payment check failed"); res.status(502).end(); return; }
   }
   res.status(200).end();
 });
+
+// Customers who pay and close the tab before returning, without a webhook,
+// would leave the invoice unpaid here: check recent open payment pages.
+export async function reconcileOnlinePayments(): Promise<number> {
+  if (!moyasarConfigured()) return 0;
+  const rows = await db.select({ invoice: hbsInvoices, request: hbsServiceRequests }).from(hbsInvoices)
+    .innerJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
+    .where(and(eq(hbsInvoices.status, "issued"), isNotNull(hbsInvoices.gatewayInvoiceId),
+      sql`${hbsInvoices.issuedAt} > now() - interval '30 days'`))
+    .orderBy(asc(hbsInvoices.id)).limit(200);
+  let settled = 0;
+  for (const { invoice: row, request } of rows) {
+    try { if ((await settleFromGateway(row, request)).status === "paid") settled++; }
+    catch (err) { logger.warn({ err, invoiceId: row.id }, "Payment reconciliation failed for an invoice"); }
+  }
+  return settled;
+}
+
+export function startPaymentReconciliation() {
+  const schedule = (delay: number) => {
+    setTimeout(async () => {
+      try {
+        const settled = await reconcileOnlinePayments();
+        if (settled) logger.info({ settled }, "Reconciled online payments");
+      } catch (err) {
+        logger.error({ err }, "Payment reconciliation failed");
+      } finally { schedule(30 * 60_000); }
+    }, delay).unref();
+  };
+  schedule(2 * 60_000);
+}
 
 router.get("/office/service-requests/:id/invoices", requireOfficeStaff, async (req, res): Promise<void> => {
   const params = ListOfficeServiceRequestInvoicesParams.safeParse(req.params);
@@ -223,6 +268,24 @@ router.patch("/office/invoices/:id", requireOfficeStaff, async (req, res): Promi
   const body = UpdateOfficeInvoiceBody.safeParse(req.body);
   if (!params.success || !body.success) { res.status(400).json({ error: "Invalid invoice action" }); return; }
   const actorId = getAuth(req).userId!;
+  // An invoice with a payment page may already be paid online: settle it
+  // from the gateway instead of recording a second, manual payment.
+  const [current] = await db.select({ invoice: hbsInvoices, request: hbsServiceRequests }).from(hbsInvoices)
+    .innerJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
+    .where(eq(hbsInvoices.id, params.data.id)).limit(1);
+  if (current?.invoice.status === "issued" && current.invoice.gatewayInvoiceId && moyasarConfigured()) {
+    try {
+      const settled = await settleFromGateway(current.invoice, current.request);
+      if (settled.status === "paid") {
+        res.status(409).json({ error: "This invoice was already paid online." });
+        return;
+      }
+    } catch (error) {
+      req.log.warn({ err: error }, "Could not check the payment gateway");
+      res.status(502).json({ error: "Could not confirm with the payment gateway that this invoice is unpaid. Try again shortly." });
+      return;
+    }
+  }
   const outcome = await db.transaction(async tx => {
     const [found] = await tx.select({ invoice: hbsInvoices, request: hbsServiceRequests }).from(hbsInvoices)
       .innerJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
@@ -232,7 +295,7 @@ router.patch("/office/invoices/:id", requireOfficeStaff, async (req, res): Promi
     const paid = body.data.action === "mark_paid";
     const [row] = await tx.update(hbsInvoices).set(paid
       ? { status: "paid", paymentMethod: "manual", paymentReference: body.data.paymentReference?.trim() || null, paidAt: new Date() }
-      : { status: "cancelled", cancelledAt: new Date() }).where(eq(hbsInvoices.id, found.invoice.id)).returning();
+      : { status: "cancelled", cancelledAt: new Date(), paymentUrl: null }).where(eq(hbsInvoices.id, found.invoice.id)).returning();
     await recordAudit(tx, {
       actorId, action: paid ? "invoice.mark_paid" : "invoice.cancel", targetType: "service_request", targetId: found.request.id,
       details: { invoiceId: row.id, total: row.totalHalalas, ...(row.paymentReference ? { paymentReference: row.paymentReference } : {}) },
@@ -241,6 +304,8 @@ router.patch("/office/invoices/:id", requireOfficeStaff, async (req, res): Promi
   });
   if (outcome === "missing") { res.status(404).json({ error: "Invoice not found" }); return; }
   if (outcome === "closed") { res.status(409).json({ error: "This invoice is already paid or cancelled." }); return; }
+  // Paid or cancelled, the request no longer waits on this invoice.
+  await resumeAfterPayment(outcome.request.id);
   res.json(UpdateOfficeInvoiceResponse.parse(invoice(outcome.row, outcome.request)));
 });
 

@@ -32,3 +32,4 @@ export * from "./hbs-invoices";
 export * from "./hbs-document-reminders";
 export * from "./hbs-customer-settings";
 export * from "./hbs-company";
+export * from "./hbs-assignment-rules";

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import type { ReminderKind } from '@workspace/api-client-react';
 import { daysLabel, daysUntil } from '@/lib/format';
 
@@ -21,8 +21,8 @@ export function ReminderForm({ initial, busy, error, onSubmit, onCancel, submitL
   initial: Draft; busy: boolean; error: string | null; submitLabel: string;
   onSubmit: (draft: Draft) => void; onCancel: () => void;
 }) {
+  // The form keeps its own state; callers remount it (key) for another item.
   const [draft, setDraft] = useState(initial);
-  useEffect(() => setDraft(initial), [initial]);
   function submit(e: FormEvent) { e.preventDefault(); onSubmit({ ...draft, label: draft.label.trim(), note: draft.note.trim() }); }
   return <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
     <label className="form-field">نوع الوثيقة<select className="form-control" value={draft.kind} onChange={e => setDraft({ ...draft, kind: e.target.value as ReminderKind })}>

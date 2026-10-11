@@ -26,6 +26,13 @@
       "reviewed_at": "timestamp with time zone not null",
       "title": "text not null"
     },
+    "hbs_assignment_rules": {
+      "assignee": "text",
+      "category": "text not null",
+      "due_days": "integer",
+      "updated_at": "timestamp with time zone not null",
+      "updated_by": "text not null"
+    },
     "hbs_audit_log": {
       "action": "text not null",
       "actor_id": "text not null",
@@ -222,6 +229,14 @@
     }
   },
   "checks": {
+    "hbs_assignment_rules_category_check": {
+      "table": "hbs_assignment_rules",
+      "definition": "CHECK ((category = ANY (ARRAY['passports'::text, 'labor'::text, 'business'::text, 'other'::text])))"
+    },
+    "hbs_assignment_rules_days_check": {
+      "table": "hbs_assignment_rules",
+      "definition": "CHECK (((due_days IS NULL) OR ((due_days >= 1) AND (due_days <= 90))))"
+    },
     "hbs_company_employees_status_check": {
       "table": "hbs_company_employees",
       "definition": "CHECK ((status = ANY (ARRAY['active'::text, 'left'::text])))"
@@ -291,6 +306,10 @@
     "hbs_approved_information_pkey": {
       "table": "hbs_approved_information",
       "definition": "CREATE UNIQUE INDEX hbs_approved_information_pkey ON public.hbs_approved_information USING btree (id)"
+    },
+    "hbs_assignment_rules_pkey": {
+      "table": "hbs_assignment_rules",
+      "definition": "CREATE UNIQUE INDEX hbs_assignment_rules_pkey ON public.hbs_assignment_rules USING btree (category)"
     },
     "hbs_audit_log_created_idx": {
       "table": "hbs_audit_log",

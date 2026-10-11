@@ -43,6 +43,13 @@
       "when": 1791687380022,
       "tag": "0005_company_file_and_request_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791689523800,
+      "tag": "0006_assignment_rules",
+      "breakpoints": true
     }
   ]
 }

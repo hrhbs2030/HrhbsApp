@@ -1,11 +1,15 @@
 import { clerkClient, getAuth } from "@clerk/express";
 import { desc, eq } from "drizzle-orm";
 import { Router, type IRouter } from "express";
-import { db, hbsAuditLog, hbsOfficeStaff, type HbsOfficeStaffMember } from "@workspace/db";
+import { db, hbsAssignmentRules, hbsAuditLog, hbsOfficeStaff, type HbsOfficeStaffMember } from "@workspace/db";
 import {
   AddOfficeStaffBody,
   AddOfficeStaffResponse,
   ListOfficeAssigneesResponse,
+  ListAssignmentRulesResponse,
+  SaveAssignmentRuleBody,
+  SaveAssignmentRuleParams,
+  SaveAssignmentRuleResponse,
   ListOfficeAuditLogResponse,
   ListOfficeStaffResponse,
   RemoveOfficeStaffParams,
@@ -52,6 +56,39 @@ router.get("/office/assignees", requireOfficeStaff, async (_req, res): Promise<v
     email: record.email ?? ownerEmail,
     role: record.email ? "staff" as const : "owner" as const,
   }))));
+});
+
+const categories = ["passports", "labor", "business", "other"] as const;
+
+router.get("/office/assignment-rules", requireOfficeOwner, async (_req, res): Promise<void> => {
+  const rows = new Map((await db.select().from(hbsAssignmentRules)).map(r => [r.category, r]));
+  res.json(ListAssignmentRulesResponse.parse(categories.map(category => {
+    const row = rows.get(category);
+    return { category, assignee: row?.assignee ?? null, dueDays: row?.dueDays ?? null, updatedAt: row?.updatedAt ?? null };
+  })));
+});
+
+router.put("/office/assignment-rules/:category", requireOfficeOwner, async (req, res): Promise<void> => {
+  const params = SaveAssignmentRuleParams.safeParse(req.params);
+  const body = SaveAssignmentRuleBody.safeParse(req.body);
+  if (!params.success || !body.success) { res.status(400).json({ error: "Invalid rule" }); return; }
+  const assignee = body.data.assignee || null;
+  if (assignee) {
+    const [member] = await db.select({ userId: hbsOfficeStaff.userId }).from(hbsOfficeStaff).where(eq(hbsOfficeStaff.userId, assignee)).limit(1);
+    if (!member) { res.status(400).json({ error: "Choose an office member." }); return; }
+  }
+  const actorId = getAuth(req).userId!;
+  const values = { assignee, dueDays: body.data.dueDays, updatedBy: actorId, updatedAt: new Date() };
+  const row = await db.transaction(async tx => {
+    const [saved] = await tx.insert(hbsAssignmentRules).values({ category: params.data.category, ...values })
+      .onConflictDoUpdate({ target: hbsAssignmentRules.category, set: values }).returning();
+    await recordAudit(tx, {
+      actorId, action: "automation.update", targetType: "assignment_rule", targetId: saved.category,
+      details: { assignee: saved.assignee, dueDays: saved.dueDays },
+    });
+    return saved;
+  });
+  res.json(SaveAssignmentRuleResponse.parse({ category: row.category, assignee: row.assignee, dueDays: row.dueDays, updatedAt: row.updatedAt }));
 });
 
 router.post("/office/staff", requireOfficeOwner, async (req, res): Promise<void> => {

@@ -60,6 +60,9 @@ export const AuditLogEntryAction = {
   licensecreate: 'license.create',
   licenseupdate: 'license.update',
   licensedelete: 'license.delete',
+  employeeimport: 'employee.import',
+  licenseimport: 'license.import',
+  automationupdate: 'automation.update',
 } as const;
 
 export type AuditLogEntryDetails = { [key: string]: unknown };
@@ -1453,6 +1456,68 @@ export interface OfficeCustomerFile {
   licenses: License[];
   requests: OfficeCustomerRequest[];
   reminders: Reminder[];
+}
+
+export interface EmployeeImport {
+  /**
+     * @minItems 1
+     * @maxItems 500
+     */
+  rows: EmployeeInput[];
+}
+
+export interface LicenseImport {
+  /**
+     * @minItems 1
+     * @maxItems 500
+     */
+  rows: LicenseInput[];
+}
+
+export interface ImportProblem {
+  /** 1-based position in the submitted rows */
+  row: number;
+  message: string;
+}
+
+export interface ImportResult {
+  created: number;
+  updated: number;
+  problems: ImportProblem[];
+}
+
+export interface AssignmentRuleInput {
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  assignee: string | null;
+  /**
+     * @minimum 1
+     * @maximum 90
+     * @nullable
+     */
+  dueDays: number | null;
+}
+
+export type AssignmentRuleCategory = typeof AssignmentRuleCategory[keyof typeof AssignmentRuleCategory];
+
+
+export const AssignmentRuleCategory = {
+  passports: 'passports',
+  labor: 'labor',
+  business: 'business',
+  other: 'other',
+} as const;
+
+export interface AssignmentRule {
+  category: AssignmentRuleCategory;
+  /** @nullable */
+  assignee: string | null;
+  /** @nullable */
+  dueDays: number | null;
+  /** @nullable */
+  updatedAt: string | null;
 }
 
 export type ListOfficeServiceRequestsParams = {

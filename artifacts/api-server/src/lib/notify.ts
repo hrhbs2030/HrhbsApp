@@ -220,6 +220,18 @@ export function invoicePaidOfficeMail(request: RequestInfo, invoiceReference: st
   };
 }
 
+export function closedInvoicePaidMail(request: RequestInfo, invoiceReference: string, total: string): Mail | null {
+  const to = officeInbox();
+  if (!to) return null;
+  return {
+    to,
+    subject: `تنبيه: سداد إلكتروني لفاتورة مغلقة ${invoiceReference}`,
+    heading: "وصل سداد إلكتروني لفاتورة ملغاة أو مسددة يدويًا",
+    lines: [`الطلب: ${request.reference} · ${request.service}`, `المبلغ: ${total}`, "راجع السداد في لوحة ميسّر وردّ المبلغ للعميل أو طابقه."],
+    action: { label: "افتح طلبات العملاء", path: "/office/requests" },
+  };
+}
+
 export function assignedMail(to: string | null, request: RequestInfo, dueText: string | null): Mail | null {
   if (!to) return null;
   return {

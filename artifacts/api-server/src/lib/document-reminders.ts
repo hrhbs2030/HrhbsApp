@@ -40,7 +40,13 @@ export async function sendDueReminders(send: typeof notifyCustomer = notifyCusto
     daysLeft: sql<number>`(${hbsDocumentReminders.expiresOn} - ${riyadhToday()})::int`,
     lastReminderDays: hbsDocumentReminders.lastReminderDays,
   }).from(hbsDocumentReminders)
-    .where(sql`${hbsDocumentReminders.expiresOn} between ${riyadhToday()} and ${riyadhToday()} + ${REMINDER_DAYS[0]}::int`)
+    // Only rows whose next reminder is due, soonest first, so a large file
+    // cannot keep already-reminded rows at the front of every sweep.
+    .where(sql`${hbsDocumentReminders.expiresOn} between ${riyadhToday()} and ${riyadhToday()} + ${REMINDER_DAYS[0]}::int
+      and (${hbsDocumentReminders.lastReminderDays} is null or ${hbsDocumentReminders.lastReminderDays} > case
+        when ${hbsDocumentReminders.expiresOn} - ${riyadhToday()} <= 1 then 1
+        when ${hbsDocumentReminders.expiresOn} - ${riyadhToday()} <= 7 then 7 else 30 end)`)
+    .orderBy(hbsDocumentReminders.expiresOn, hbsDocumentReminders.id)
     .limit(BATCH_SIZE * 5);
   let sent = 0;
   for (const row of rows) {

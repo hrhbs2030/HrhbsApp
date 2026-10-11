@@ -41,7 +41,7 @@ export function Documents() {
   return <PortalLayout>
     <PageHeading eyebrow="لا تفوّت موعد تجديد" title="تنبيهات وثائقي" subtitle="نذكّرك قبل انتهاء كل وثيقة بـ30 يومًا ثم 7 أيام ثم يوم واحد. وثائق الموظفين والتراخيص تُضاف من ملف المنشأة، وهنا أي وثيقة أخرى." action={!editing && <button type="button" className="btn btn-primary" onClick={() => { setError(null); setEditing('new'); }}><Plus size={18}/>إضافة وثيقة</button>}/>
     {editing && <div className="surface mb-8 p-5 sm:p-7"><h2 className="display mb-5 text-lg font-semibold">{editing === 'new' ? 'وثيقة جديدة' : 'تعديل الوثيقة'}</h2>
-      <ReminderForm initial={initial} busy={create.isPending || update.isPending} error={error} submitLabel="حفظ" onSubmit={save} onCancel={() => setEditing(null)}/></div>}
+      <ReminderForm key={editing === 'new' ? 'new' : editing.id} initial={initial} busy={create.isPending || update.isPending} error={error} submitLabel="حفظ" onSubmit={save} onCancel={() => setEditing(null)}/></div>}
     {list.isLoading ? <LoadingBlock/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/> : !list.data?.length
       ? <EmptyBlock title="لا توجد وثائق بعد" text="أضف أول وثيقة ليصلك تنبيه بالبريد قبل انتهائها." action="إضافة وثيقة" onAction={() => setEditing('new')}/>
       : <div className="surface overflow-hidden">{list.data.map(item => <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 last:border-0 sm:px-6">

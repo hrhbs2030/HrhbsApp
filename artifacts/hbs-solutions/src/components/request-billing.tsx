@@ -7,7 +7,7 @@ import {
   useRateServiceRequest, useRefreshInvoicePayment, useStartInvoicePayment, useUpdateOfficeInvoice,
   type Invoice,
 } from '@workspace/api-client-react';
-import { formatDate, formatMoney, formatNumber } from '@/lib/format';
+import { formatDate, formatMoney, formatNumber, parseRiyals } from '@/lib/format';
 import './request-billing.css';
 
 const methodNames: Record<string, string> = { manual: 'سداد لدى المكتب', online: 'دفع إلكتروني' };
@@ -99,8 +99,8 @@ export function OfficeInvoices({ requestId, onChanged }: { requestId: number; on
   const [amount, setAmount] = useState('');
   const [awaiting, setAwaiting] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const halalas = Math.round(Number(amount.replace(/[^\d.]/g, '')) * 100);
-  const valid = description.trim().length >= 2 && Number.isFinite(halalas) && halalas >= 100;
+  const halalas = parseRiyals(amount) ?? 0;
+  const valid = description.trim().length >= 2 && halalas >= 100;
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!valid) { setError('اكتب البيان ومبلغًا لا يقل عن ريال واحد.'); return; }
@@ -114,12 +114,17 @@ export function OfficeInvoices({ requestId, onChanged }: { requestId: number; on
   }
   async function act(invoice: Invoice, action: 'mark_paid' | 'cancel') {
     const reference = action === 'mark_paid' ? window.prompt('مرجع السداد (اختياري): رقم التحويل أو الإيصال') : null;
+    // Cancel on the prompt means "do not record the payment".
+    if (action === 'mark_paid' && reference === null) return;
     if (action === 'cancel' && !window.confirm(`إلغاء الفاتورة ${invoice.reference}؟`)) return;
     setError(null);
     try {
       await update.mutateAsync({ id: invoice.id, data: { action, paymentReference: reference?.trim() || null } });
       await qc.invalidateQueries({ queryKey: key });
-    } catch { setError('تعذّر تحديث الفاتورة.'); }
+    } catch (e) {
+      setError((e as { status?: number })?.status === 409 ? 'الفاتورة مسددة أو ملغاة، وقد تكون سُددت إلكترونيًا.' : (e as { status?: number })?.status === 502 ? 'تعذّر التأكد من بوابة الدفع أن الفاتورة غير مسددة. حاول بعد قليل.' : 'تعذّر تحديث الفاتورة.');
+      await qc.invalidateQueries({ queryKey: key });
+    }
   }
   return <section className="rb" aria-labelledby={`rbo-${requestId}`}>
     <div className="rf-head">

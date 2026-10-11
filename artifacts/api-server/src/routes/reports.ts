@@ -62,12 +62,12 @@ router.get("/office/reports", requireOfficeOwner, async (req, res): Promise<void
     db.select({ key: sql<string>`${hbsServiceRequests.rating}::text`, count: sql<number>`count(*)::int` }).from(hbsServiceRequests)
       .where(and(isNotNull(hbsServiceRequests.rating), gte(hbsServiceRequests.ratedAt, since))).groupBy(hbsServiceRequests.rating),
     db.select({
-      total: sql<number>`coalesce(sum(${hbsInvoices.totalHalalas}), 0)::int`,
-      vat: sql<number>`coalesce(sum(${hbsInvoices.vatHalalas}), 0)::int`,
+      total: sql<number>`coalesce(sum(${hbsInvoices.totalHalalas}), 0)::bigint`.mapWith(Number),
+      vat: sql<number>`coalesce(sum(${hbsInvoices.vatHalalas}), 0)::bigint`.mapWith(Number),
       count: sql<number>`count(*)::int`,
     }).from(hbsInvoices).where(and(eq(hbsInvoices.status, "paid"), gte(hbsInvoices.paidAt, since))),
     db.select({
-      total: sql<number>`coalesce(sum(${hbsInvoices.totalHalalas}), 0)::int`,
+      total: sql<number>`coalesce(sum(${hbsInvoices.totalHalalas}), 0)::bigint`.mapWith(Number),
       count: sql<number>`count(*)::int`,
     }).from(hbsInvoices).where(eq(hbsInvoices.status, "issued")),
   ]);
