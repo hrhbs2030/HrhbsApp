@@ -21,6 +21,7 @@ import {
   createSecurityHeaders,
   getAllowedOrigins,
 } from "./middlewares/apiSecurity";
+import { apiNotFound, bodyErrors, requestIdHeader, unhandledError } from "./middlewares/errors";
 
 const app: Express = express();
 const allowedOrigins = getAllowedOrigins();
@@ -49,6 +50,7 @@ app.use(
     },
   }),
 );
+app.use(requestIdHeader);
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use(cors(createCorsOptions(allowedOrigins)));
 app.use("/api", createSecurityHeaders(), ...createApiRateLimits());
@@ -76,23 +78,9 @@ app.use(
 );
 
 app.use("/api", router);
+app.use("/api", apiNotFound);
 
-app.use(
-  (
-    err: unknown,
-    _req: express.Request,
-    res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    const error = err as { type?: string; status?: number };
-    if (error?.type === "entity.too.large" || error?.status === 413) {
-      return res.status(413).json({ error: "حجم الطلب أكبر من الحد المسموح." });
-    }
-    if (error?.type === "entity.parse.failed" || error?.status === 400) {
-      return res.status(400).json({ error: "صيغة الطلب غير صالحة." });
-    }
-    return next(err);
-  },
-);
+app.use(bodyErrors);
+app.use(unhandledError);
 
 export default app;

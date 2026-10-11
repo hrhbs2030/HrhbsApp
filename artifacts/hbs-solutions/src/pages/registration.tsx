@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { AlertCircle, ArrowLeft, Check, CheckCircle2, Clock3, Inbox, Info, RotateCcw, ShieldCheck, UserRoundCheck, X } from 'lucide-react';
 import './registration.css';
 import { LOCALE } from '@/lib/format';
+import { normalizePhone } from '@/lib/phone';
 import { Link } from 'wouter';
 import { PageHeading } from '@/components/portal-ui';
 
@@ -140,9 +141,15 @@ export function RegistrationRequestPage({ email, values, onChange, onSubmit, reg
   </div>;
 
   const rejected = registration?.status === 'rejected';
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!submitting) void onSubmit(values);
+    if (submitting) return;
+    // The number is sent in its canonical form (Arabic digits, +966 and spacing accepted).
+    const contactPhone = normalizePhone(values.contactPhone);
+    if (!contactPhone) { setPhoneError('اكتب رقم جوال صحيحًا (مثال: 05xxxxxxxx)'); document.getElementById('reg-phone')?.focus(); return; }
+    setPhoneError(null);
+    void onSubmit({ ...values, contactPhone });
   };
   return <div className="registration-page" dir="rtl">
     <PageHeading eyebrow="" title={rejected ? 'إعادة تقديم طلب التسجيل' : 'طلب التسجيل'} subtitle={rejected ? 'راجع ملاحظة المكتب، ثم حدّث بياناتك وأعد التقديم.' : 'يراجع المكتب بياناتك قبل تفعيل خدمات البوابة.'} />
@@ -154,7 +161,7 @@ export function RegistrationRequestPage({ email, values, onChange, onSubmit, reg
         <form className="reg-form" onSubmit={submit}>
           <div className="reg-fields">
             <div className="reg-field"><label htmlFor="reg-full-name">الاسم الكامل <span aria-hidden="true">*</span></label><input className="reg-input" id="reg-full-name" name="fullName" type="text" autoComplete="name" required minLength={2} maxLength={120} value={values.fullName} onChange={event => onChange('fullName', event.target.value)} placeholder="الاسم الكامل" disabled={submitting} data-testid="input-registration-full-name" /></div>
-            <div className="reg-field"><label htmlFor="reg-phone">رقم التواصل <span aria-hidden="true">*</span></label><input className="reg-input" id="reg-phone" name="contactPhone" type="tel" autoComplete="tel" inputMode="tel" required minLength={9} maxLength={24} dir="ltr" style={{ textAlign: 'right' }} value={values.contactPhone} onChange={event => onChange('contactPhone', event.target.value)} placeholder="05XXXXXXXX" disabled={submitting} data-testid="input-registration-phone" /></div>
+            <div className="reg-field"><label htmlFor="reg-phone">رقم التواصل <span aria-hidden="true">*</span></label><input className="reg-input" id="reg-phone" name="contactPhone" type="tel" autoComplete="tel" inputMode="tel" required maxLength={24} dir="ltr" style={{ textAlign: 'right' }} value={values.contactPhone} onChange={event => { setPhoneError(null); onChange('contactPhone', event.target.value); }} placeholder="05XXXXXXXX" disabled={submitting} aria-invalid={!!phoneError} aria-describedby={phoneError ? 'reg-phone-error' : undefined} data-testid="input-registration-phone" />{phoneError && <p id="reg-phone-error" className="reg-help" role="alert" style={{ color: 'var(--color-danger)' }}>{phoneError}</p>}</div>
             <div className="reg-field reg-field-wide"><label htmlFor="reg-email">البريد الإلكتروني</label><input className="reg-input" id="reg-email" name="email" type="email" autoComplete="email" dir="ltr" style={{ textAlign: 'right' }} value={email} readOnly aria-describedby="reg-email-help" data-testid="input-registration-email" /><p className="reg-help" id="reg-email-help">مرتبط بحسابك ولا يُعدَّل من هنا. إن كان غير صحيح، صحّحه من إعدادات حسابك قبل الإرسال.</p></div>
             <div className="reg-field reg-field-wide"><label htmlFor="reg-note">ملاحظة للمكتب <span className="reg-optional">(اختياري)</span></label><textarea className="reg-input" id="reg-note" name="note" maxLength={1000} value={values.note} onChange={event => onChange('note', event.target.value)} placeholder="أي معلومة تساعد المكتب في مراجعة طلبك" disabled={submitting} data-testid="input-registration-note" /></div>
           </div>

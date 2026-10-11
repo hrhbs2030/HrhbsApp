@@ -1,6 +1,6 @@
 import { getAuth } from "@clerk/express";
 import { timingSafeEqual } from "node:crypto";
-import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { db, hbsInvoices, hbsServiceRequests, type HbsInvoice, type HbsServiceRequest } from "@workspace/db";
 import {
@@ -112,6 +112,11 @@ router.get("/service-requests/:id/invoices", requireApprovedCustomer, async (req
   res.json(ListServiceRequestInvoicesResponse.parse(await invoicesOf(request)));
 });
 
+// How long one request may hold the invoice while it creates the hosted
+// page. The gateway calls time out at 15 s, so a claim older than this was
+// left by a crashed request and may be taken over.
+const GATEWAY_CLAIM_MS = 60_000;
+
 router.post("/invoices/:id/pay", requireApprovedCustomer, async (req, res): Promise<void> => {
   const params = StartInvoicePaymentParams.safeParse(req.params);
   if (!params.success) { res.status(404).json({ error: "Invoice not found" }); return; }
@@ -119,30 +124,65 @@ router.post("/invoices/:id/pay", requireApprovedCustomer, async (req, res): Prom
   const found = await customerInvoice(params.data.id, getAuth(req).userId!);
   if (!found) { res.status(404).json({ error: "Invoice not found" }); return; }
   const { request } = found;
+  const closed = () => { res.status(409).json({ error: "This invoice is already paid or cancelled." }); };
+  const busy = () => { res.status(409).json({ error: "The payment page is being prepared. Try again in a moment." }); };
   try {
-    // One hosted page per invoice: the row stays locked while it is created,
-    // so two clicks cannot open two pages that could both be paid.
-    const outcome = await db.transaction(async tx => {
-      const [row] = await tx.select().from(hbsInvoices).where(eq(hbsInvoices.id, found.invoice.id)).for("update");
-      if (row.status !== "issued") return { row, url: null };
-      if (row.gatewayInvoiceId) {
-        const existing = await fetchGatewayInvoice(row.gatewayInvoiceId);
-        if (existing.status === "paid") return { row, url: null, existing };
-        if (existing.status === "initiated" && row.paymentUrl) return { row, url: row.paymentUrl };
+    // One hosted page per invoice. No row lock is held while the gateway is
+    // called: the row is claimed with a timestamp, the page is created, and
+    // the result is stored only where the claim is still this request's.
+    let row = found.invoice;
+    if (row.status !== "issued") { closed(); return; }
+    if (row.gatewayInvoiceId) {
+      const existing = await fetchGatewayInvoice(row.gatewayInvoiceId);
+      if (existing.status === "paid") { await settleFromGateway(row, request, existing); closed(); return; }
+      if (existing.status === "initiated" && row.paymentUrl) { res.json(StartInvoicePaymentResponse.parse({ url: row.paymentUrl })); return; }
+      // The page at the gateway expired or was closed: a new one replaces it.
+    }
+    const claimedAt = new Date();
+    const [claimed] = await db.update(hbsInvoices).set({ gatewayClaimedAt: claimedAt }).where(and(
+      eq(hbsInvoices.id, row.id), eq(hbsInvoices.status, "issued"),
+      sql`${hbsInvoices.gatewayInvoiceId} is not distinct from ${row.gatewayInvoiceId}`,
+      or(isNull(hbsInvoices.gatewayClaimedAt), lt(hbsInvoices.gatewayClaimedAt, new Date(claimedAt.getTime() - GATEWAY_CLAIM_MS))),
+    )).returning();
+    if (!claimed) {
+      // Someone else got there first: closed, a page just stored, or still being created.
+      [row] = await db.select().from(hbsInvoices).where(eq(hbsInvoices.id, row.id));
+      if (row.status !== "issued") { closed(); return; }
+      if (row.gatewayInvoiceId !== found.invoice.gatewayInvoiceId && row.paymentUrl) {
+        res.json(StartInvoicePaymentResponse.parse({ url: row.paymentUrl })); return;
       }
-      const created = await createGatewayInvoice({
-        amount: row.totalHalalas,
-        description: `${invoiceReference(row.id, row.issuedAt)} · ${row.description}`.slice(0, 250),
-        successUrl: `${siteUrl()}/requests/${request.id}?invoice=${row.id}`,
+      busy(); return;
+    }
+    let created: GatewayInvoice;
+    try {
+      created = await createGatewayInvoice({
+        amount: claimed.totalHalalas,
+        description: `${invoiceReference(claimed.id, claimed.issuedAt)} · ${claimed.description}`.slice(0, 250),
+        successUrl: `${siteUrl()}/requests/${request.id}?invoice=${claimed.id}`,
         backUrl: `${siteUrl()}/requests/${request.id}`,
-        metadata: { invoice_id: String(row.id), request_id: String(request.id) },
+        metadata: { invoice_id: String(claimed.id), request_id: String(request.id) },
       });
-      await tx.update(hbsInvoices).set({ gatewayInvoiceId: created.id, paymentUrl: created.url }).where(eq(hbsInvoices.id, row.id));
-      return { row, url: created.url };
-    });
-    if ("existing" in outcome && outcome.existing) await settleFromGateway(outcome.row, request, outcome.existing);
-    if (!outcome.url) { res.status(409).json({ error: "This invoice is already paid or cancelled." }); return; }
-    res.json(StartInvoicePaymentResponse.parse({ url: outcome.url }));
+    } catch (error) {
+      await db.update(hbsInvoices).set({ gatewayClaimedAt: null })
+        .where(and(eq(hbsInvoices.id, claimed.id), eq(hbsInvoices.gatewayClaimedAt, claimedAt)));
+      throw error;
+    }
+    const [stored] = await db.update(hbsInvoices).set({ gatewayInvoiceId: created.id, paymentUrl: created.url, gatewayClaimedAt: null })
+      .where(and(eq(hbsInvoices.id, claimed.id), eq(hbsInvoices.gatewayClaimedAt, claimedAt))).returning();
+    if (!stored) {
+      // The claim was taken over after 60 s or the invoice was closed: the
+      // page just created must not stay open with nothing tracking it.
+      req.log.warn({ invoiceId: claimed.id, gatewayInvoiceId: created.id }, "Payment page created after the claim was lost; closing it");
+      cancelGatewayInvoice(created.id).catch((error: unknown) =>
+        req.log.warn({ err: error, invoiceId: claimed.id }, "Could not close the payment page"));
+      [row] = await db.select().from(hbsInvoices).where(eq(hbsInvoices.id, claimed.id));
+      if (row.status === "issued" && row.gatewayInvoiceId && row.paymentUrl) {
+        res.json(StartInvoicePaymentResponse.parse({ url: row.paymentUrl })); return;
+      }
+      if (row.status !== "issued") { closed(); return; }
+      busy(); return;
+    }
+    res.json(StartInvoicePaymentResponse.parse({ url: created.url }));
   } catch (error) {
     req.log.error({ err: error }, "Could not start online payment");
     res.status(502).json({ error: "Could not open the payment page. Try again shortly." });

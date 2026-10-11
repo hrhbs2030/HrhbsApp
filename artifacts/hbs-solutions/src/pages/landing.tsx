@@ -1,9 +1,9 @@
-import { Fragment, useEffect, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ArrowLeft, BookUser, BriefcaseBusiness, Building2, FileText, Search, ShieldCheck, Shapes, Hash, History, PlayCircle } from 'lucide-react';
 import { SiteFooter, SiteHeader } from '@/components/site-chrome';
 import { IntroSequence, useIntroState } from '@/components/intro';
-import { RequestObject, StageRail, stageLabels } from '@/components/request-object';
+import { RequestObject, StageRail, type StageFrame } from '@/components/request-object';
 import { AssistantShowcase, DashboardPreview } from '@/components/landing-previews';
 import { HowFilm } from '@/components/how-film';
 import { categories, services, type ServiceCategory } from '@/content/services';
@@ -29,33 +29,38 @@ const headline = [
   { words: ['تعرف', 'أين', 'وصلت', 'معاملتك.'], accent: true },
 ];
 
-// Plays the hero request through its stages once, then rests on the last
-// stage. No endless loop competing with reading.
+// Plays the hero request through its milestones once, pausing at «بانتظار
+// العميل» on the way, then rests on the last one. No endless loop competing
+// with reading. Picking a station on the rail jumps straight to that milestone.
+const heroFrames: StageFrame[] = [{ stage: 0 }, { stage: 1 }, { stage: 1, pause: 'waiting_on_customer' }, { stage: 2 }, { stage: 3 }];
 function useHeroStage(start: boolean, reduced: boolean) {
-  const [stage, setStage] = useState(reduced ? 3 : 0);
-  const [interacted, setInteracted] = useState(false);
+  const lastFrame = heroFrames.length - 1;
+  const [frame, setFrame] = useState(reduced ? lastFrame : 0);
+  const [picked, setPicked] = useState<StageFrame | null>(null);
   useEffect(() => {
-    if (!start || reduced || interacted) return;
-    if (stage >= 3) return;
-    const timer = window.setTimeout(() => setStage((s) => s + 1), stage === 0 ? 1400 : 1100);
+    if (!start || reduced || picked || frame >= lastFrame) return;
+    const timer = window.setTimeout(() => setFrame((f) => f + 1), frame === 0 ? 1400 : 1100);
     return () => window.clearTimeout(timer);
-  }, [start, reduced, interacted, stage]);
-  return { stage, select: (index: number) => { setInteracted(true); setStage(index); } };
+  }, [start, reduced, picked, frame, lastFrame]);
+  return { ...(picked ?? heroFrames[frame]), select: (index: number) => setPicked({ stage: index }) };
 }
 
-function ServiceSearch() {
+// `compact` is the phone version shown in the service-areas section, where
+// the long placeholder would be cut off.
+function ServiceSearch({ compact = false }: { compact?: boolean }) {
   const [, navigate] = useLocation();
   const [query, setQuery] = useState('');
+  const id = useId();
   function submit(event: FormEvent) {
     event.preventDefault();
     const q = query.trim();
     navigate(q ? `/services?q=${encodeURIComponent(q)}` : '/services');
   }
   return (
-    <form className="lp-search" role="search" onSubmit={submit}>
-      <label htmlFor="hero-search" className="sr-only">ابحث عن خدمة</label>
+    <form className={`lp-search ${compact ? 'lp-search--light' : ''}`} role="search" onSubmit={submit}>
+      <label htmlFor={id} className="sr-only">ابحث عن خدمة</label>
       <Search size={19} strokeWidth={ICON} aria-hidden="true" />
-      <input id="hero-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ابحث: تجديد إقامة، نقل خدمات، سجل تجاري…" autoComplete="off" />
+      <input id={id} type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={compact ? 'ابحث عن خدمة…' : 'ابحث: تجديد إقامة، نقل خدمات، سجل تجاري…'} autoComplete="off" />
       <button type="submit" className="btn btn-accent btn-sm">بحث</button>
     </form>
   );
@@ -66,6 +71,9 @@ export default function Landing() {
   const reduced = useReducedMotion();
   const rootRef = useRevealOnScroll<HTMLDivElement>();
   const hero = useHeroStage(!intro.playing, reduced);
+  // The film returns focus to whichever replay button is visible (hero on desktop, journey section on phones).
+  const replayHero = useRef<HTMLButtonElement>(null);
+  const replayHow = useRef<HTMLButtonElement>(null);
   let wordIndex = 0;
 
   // Landing is lazy-loaded: the browser's initial hash scroll can happen
@@ -84,7 +92,7 @@ export default function Landing() {
 
   return (
     <div className="hbs-landing site" dir="rtl" ref={rootRef} data-intro={intro.playing ? 'playing' : 'done'}>
-      {intro.playing && <IntroSequence onDone={intro.finish} />}
+      {intro.playing && <IntroSequence onDone={intro.finish} pageRef={rootRef} focusRef={[replayHero, replayHow]} />}
       <a className="site-skip" href="#main">تخطَّ إلى المحتوى</a>
       <SiteHeader tone="dark" />
 
@@ -110,17 +118,18 @@ export default function Landing() {
               <p className="lp-hero-lead lp-enter">الجوازات والإقامة، العمل والموارد البشرية، تأسيس الشركات والتراخيص: أرسل طلبك إلى المكتب، واحصل على رقم مرجعي، وتابع كل خطوة من حسابك.</p>
               <div className="lp-hero-actions lp-enter">
                 <Link href="/sign-up" className="btn btn-light lp-btn-lg">قدّم طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
-                <Link href="/services" className="btn btn-ghost-dark lp-btn-lg">تصفّح دليل الخدمات</Link>
+                <Link href="/services" className="btn btn-ghost-dark lp-btn-lg lp-hero-secondary">تصفّح دليل الخدمات</Link>
               </div>
-              <div className="lp-enter lp-search-wrap"><ServiceSearch /></div>
-              <button type="button" className="intro-replay lp-enter" onClick={intro.replay}>
+              {/* On phones the search moves below the fold, into the service areas. */}
+              <div className="lp-enter lp-search-wrap lp-search-wrap--hero"><ServiceSearch /></div>
+              <button type="button" className="intro-replay lp-enter lp-replay--hero" onClick={intro.replay} ref={replayHero}>
                 <PlayCircle size={18} strokeWidth={ICON} aria-hidden="true" /> شاهد جولة سريعة في النظام
               </button>
             </div>
             <div className="lp-hero-visual lp-enter-visual">
-              <RequestObject stage={hero.stage} tilt caption="مثال" />
+              <RequestObject stage={hero.stage} pause={hero.pause} tilt caption="مثال" />
               <div className="lp-hero-rail">
-                <StageRail stage={hero.stage} onSelect={hero.select} />
+                <StageRail stage={hero.stage} pause={hero.pause} onSelect={hero.select} />
               </div>
             </div>
           </div>
@@ -133,6 +142,7 @@ export default function Landing() {
               <h2 id="categories-title" className="lp-heading">بماذا يخدمك المكتب؟</h2>
               <Link href="/services" className="lp-arrow-link">كل الخدمات <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
             </div>
+            <div className="lp-search-wrap lp-search-wrap--mobile reveal"><ServiceSearch compact /></div>
             <ul className="lp-category-grid">
               {categories.map((category, index) => {
                 const Icon = categoryIcons[category.id];
@@ -157,6 +167,9 @@ export default function Landing() {
           <div className="site-wrap">
             <div className="lp-journey-head reveal">
               <h2 id="journey-title" className="lp-heading lp-heading--dark">كيف تعمل البوابة</h2>
+              <button type="button" className="intro-replay lp-replay--how" onClick={intro.replay} ref={replayHow}>
+                <PlayCircle size={18} strokeWidth={ICON} aria-hidden="true" /> شاهد الجولة السريعة
+              </button>
             </div>
             <div className="lp-film reveal"><HowFilm /></div>
             <ol className="lp-chapters">

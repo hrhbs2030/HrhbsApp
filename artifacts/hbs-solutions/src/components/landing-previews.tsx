@@ -1,26 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'wouter';
-import { ArrowLeft, Bell, Building2, Check, FileText, Inbox, LayoutDashboard, MessageSquareText, ReceiptText, Sparkles, UserRound } from 'lucide-react';
+import { ArrowLeft, Bell, Building2, Check, CreditCard, FileText, Inbox, LayoutDashboard, MessageSquareText, PauseCircle, ReceiptText, Sparkles, UserRound } from 'lucide-react';
 import { LogoMark } from '@/components/brand/logo';
-import { stageLabels } from '@/components/request-object';
+import { milestoneLabels, milestones, pauses, type PauseKey } from '@/content/milestones';
 import { assistantExamples, assistantName } from '@/content/site';
 import { prefersReducedMotion } from '@/lib/motion';
 import './landing-previews.css';
 
 const ICON = 1.75;
 
-// Illustrative data only; unavailable portal capabilities are labeled as such.
-const demoRequests = [
-  { ref: 'HBS-2026-00041', title: 'تأسيس شركة', area: 'تأسيس الشركات والتراخيص', stage: 2, updated: 'اليوم' },
+// Illustrative data only. `stage` is a milestone index (content/milestones.ts);
+// a `pause` holds the request at the review milestone with its own badge.
+type DemoRequest = { ref: string; title: string; area: string; stage: number; pause?: PauseKey; updated: string };
+const demoRequests: DemoRequest[] = [
+  { ref: 'HBS-2026-00041', title: 'تأسيس شركة', area: 'تأسيس الشركات والتراخيص', stage: 1, pause: 'waiting_on_customer', updated: 'اليوم' },
   { ref: 'HBS-2026-00037', title: 'إدارة المنصات الحكومية', area: 'دعم الأعمال', stage: 1, updated: 'أمس' },
   { ref: 'HBS-2026-00029', title: 'إنهاء معاملات منشأة', area: 'دعم الأعمال', stage: 3, updated: '8 سبتمبر' },
 ];
-const stageTone = ['info', 'info', 'warn', 'ok'] as const;
+const stageTone = ['info', 'info', 'info', 'ok'] as const;
+const statusOf = (r: DemoRequest) => r.pause ? pauses[r.pause].label : milestoneLabels[r.stage];
+const toneOf = (r: DemoRequest) => r.pause ? 'warn' : stageTone[r.stage];
 
 export function DashboardPreview() {
   const [selected, setSelected] = useState(0);
   const current = demoRequests[selected];
-  const waiting = demoRequests.find((r) => r.stage === 2);
+  const waiting = demoRequests.find((r) => r.pause === 'waiting_on_customer');
 
   return (
     <figure className="dp" aria-label="معاينة توضيحية للوحة العميل ببيانات غير حقيقية">
@@ -68,7 +72,7 @@ export function DashboardPreview() {
                         <strong>{r.title}</strong>
                         <small dir="ltr">{r.ref}</small>
                       </span>
-                      <span className={`dp-pill dp-pill--${stageTone[r.stage]}`}>{stageLabels[r.stage]}</span>
+                      <span className={`dp-pill dp-pill--${toneOf(r)}`}>{statusOf(r)}</span>
                     </button>
                   </li>
                 ))}
@@ -80,10 +84,11 @@ export function DashboardPreview() {
               <h3 className="dp-card-title">{current.title}</h3>
               <p className="dp-detail-area">{current.area} · آخر تحديث {current.updated}</p>
               <ol className="dp-track">
-                {stageLabels.map((label, index) => (
+                {milestoneLabels.map((label, index) => (
                   <li key={label} data-state={index < current.stage ? 'done' : index === current.stage ? 'current' : 'next'}>
-                    <span aria-hidden="true">{index < current.stage || (index === 3 && current.stage === 3) ? <Check size={10} strokeWidth={3} /> : null}</span>
+                    <span aria-hidden="true">{index < current.stage || (index === milestones.length - 1 && current.stage === index) ? <Check size={10} strokeWidth={3} /> : null}</span>
                     {label}
+                    {current.pause && index === current.stage && <em className="dp-pause"><PauseCircle size={12} strokeWidth={2.2} aria-hidden="true" />{pauses[current.pause].label}</em>}
                   </li>
                 ))}
               </ol>
@@ -109,8 +114,13 @@ export function DashboardPreview() {
 
             <section className="dp-card dp-mini" aria-label="الفواتير (مثال)">
               <h3 className="dp-card-title"><ReceiptText size={16} strokeWidth={ICON} aria-hidden="true" />الفواتير</h3>
-              <div className="dp-ghost" aria-hidden="true"><i /><i /><i /></div>
-              <p className="dp-soon">غير متاحة في البوابة حاليًا.</p>
+              <div className="dp-invoice">
+                <span className="dp-invoice-main"><strong dir="ltr">INV-2026-00012</strong><small>أتعاب الخدمة · {current.title}</small></span>
+                <span className="dp-invoice-amount nums" dir="ltr">230.00 ر.س</span>
+                <span className="dp-pill dp-pill--warn">غير مسددة</span>
+                <button type="button" className="dp-pay" disabled aria-disabled="true" title="مثال توضيحي"><CreditCard size={14} strokeWidth={ICON} aria-hidden="true" />ادفع الآن</button>
+              </div>
+              <p className="dp-soon">تسدّد الفاتورة إلكترونيًا من صفحة الطلب، أو في المكتب.</p>
             </section>
           </div>
         </div>

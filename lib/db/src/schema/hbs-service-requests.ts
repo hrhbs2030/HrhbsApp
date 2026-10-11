@@ -31,6 +31,10 @@ export const hbsServiceRequests = pgTable("hbs_service_requests", {
   index("hbs_service_requests_user_idx").on(table.userId),
   index("hbs_service_requests_assigned_idx").on(table.assignedTo),
   uniqueIndex("hbs_service_requests_user_client_request_idx").on(table.userId, table.clientRequestId),
+  // The office list: filtered by status, sorted by newest or by oldest update; overdue work by due date.
+  index("hbs_service_requests_status_updated_idx").on(table.status, table.updatedAt.desc()),
+  index("hbs_service_requests_created_idx").on(table.createdAt.desc(), table.id.desc()),
+  index("hbs_service_requests_open_due_idx").on(table.dueAt).where(sql`${table.status} <> 'completed'`),
   check("hbs_service_requests_category_check", sql`${table.category} in ('passports', 'labor', 'business', 'other')`),
   check("hbs_service_requests_status_check", sql`${table.status} in ('received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed')`),
   check("hbs_service_requests_rating_check", sql`${table.rating} is null or ${table.rating} between 1 and 5`),

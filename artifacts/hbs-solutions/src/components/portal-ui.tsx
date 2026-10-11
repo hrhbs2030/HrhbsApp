@@ -4,13 +4,15 @@ import { useClerk, useUser } from '@clerk/react';
 import { Archive, ArrowLeft, ArrowUpLeft, BarChart3, BellRing, Building2, Check, Contact, CircleHelp, ClipboardList, FileClock, History, Home, Inbox, LogOut, Menu, Plus, Settings, Tags, UserRoundCheck, UsersRound, X } from 'lucide-react';
 import { getGetPortalMeQueryKey, useGetPortalMe, type Inquiry, type ServiceRequest, type ServiceRequestStatus } from '@workspace/api-client-react';
 import { daysLabel, formatDate, formatNumber } from '@/lib/format';
+import { milestoneIndex, milestoneKeys, milestones, pauses, stageLabel, stageNote } from '@/content/milestones';
 import { ReplyBadge, SubjectChip } from './request-conversation';
 import { Logo, LogoMark } from './brand/logo';
 import { PrintFrame } from './brand/print';
 import './portal-ui.css';
 
 export const categoryNames: Record<string, string> = { passports: 'الجوازات والإقامة', labor: 'الموارد البشرية والعمل', business: 'تأسيس الشركات والتراخيص', other: 'دعم الأعمال' };
-export const statusNames: Record<string, string> = { received: 'تم الاستلام', reviewing: 'قيد المراجعة', waiting_on_customer: 'بانتظار العميل', submitted_to_authority: 'تم الرفع للجهة', awaiting_payment: 'بانتظار السداد', completed: 'مكتملة', open: 'مفتوح', answered: 'تم الرد', issued: 'غير مسددة', paid: 'مسددة', cancelled: 'ملغاة' };
+// Request stages come from content/milestones.ts (shared with the public site); the rest are inquiry and invoice states.
+export const statusNames: Record<string, string> = { ...Object.fromEntries([...milestones, ...Object.values(pauses)].map((s) => [s.key, s.label])), open: 'مفتوح', answered: 'تم الرد', issued: 'غير مسددة', paid: 'مسددة', cancelled: 'ملغاة' };
 export const statusOptions: ServiceRequestStatus[] = ['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed'];
 export const dateText = (value: string | null | undefined) => formatDate(value);
 
@@ -79,35 +81,22 @@ export function StaleBadge({ updatedAt }: { updatedAt: string }) {
   return <span className="inline-flex items-center whitespace-nowrap rounded-md bg-warn-soft px-2 py-0.5 text-xs font-bold text-warn">بلا تحديث منذ {daysLabel(days)}</span>;
 }
 
-const stageNotes: Record<ServiceRequestStatus, string> = {
-  received: 'وصل طلبك إلى المكتب وحصل على رقم مرجعي.',
-  reviewing: 'يعمل المكتب على طلبك الآن.',
-  waiting_on_customer: 'يحتاج المكتب معلومة أو مستندًا منك لإكمال الطلب.',
-  submitted_to_authority: 'رفع المكتب طلبك إلى الجهة المختصة ويتابعه.',
-  awaiting_payment: 'طلبك بانتظار سداد الفاتورة. تجدها أدناه.',
-  completed: 'اكتمل طلبك، ويبقى في سجل طلباتك.',
-};
-
-// The track shows four milestones. Waiting on the customer or on payment
-// pauses the request at the review milestone with its own label and note.
-const milestones: ServiceRequestStatus[] = ['received', 'reviewing', 'submitted_to_authority', 'completed'];
-const milestoneOf = (status: ServiceRequestStatus): ServiceRequestStatus =>
-  status === 'waiting_on_customer' || status === 'awaiting_payment' ? 'reviewing' : status;
-
 // The request's journey through the four stages. The fill animates in once
 // when the page opens; the current stage gets one soft pulse (not a loop).
 // Only dates the API really has are shown: sending date and last update.
 export function StatusTrack({ status, createdAt, updatedAt }: { status: ServiceRequestStatus; createdAt?: string; updatedAt?: string }) {
-  const current = milestones.indexOf(milestoneOf(status));
+  // Waiting on the customer or on payment pauses the request at the review
+  // milestone with its own label and note (see content/milestones.ts).
+  const current = milestoneIndex(status);
   const done = status === 'completed';
-  return <ol className="timeline" aria-label="مراحل الطلب" style={{ ['--tl-progress' as string]: current / (milestones.length - 1) }}>
-    {milestones.map((step, index) => {
+  return <ol className="timeline" aria-label="مراحل الطلب" style={{ ['--tl-progress' as string]: current / (milestoneKeys.length - 1) }}>
+    {milestoneKeys.map((step, index) => {
       const state = index < current || (done && index === current) ? 'done' : index === current ? 'current' : 'next';
       return <li key={step} data-state={state} aria-current={index === current ? 'step' : undefined} style={{ ['--i' as string]: index }}>
         <span className="timeline-node" aria-hidden="true">{state === 'done' ? <Check size={13} strokeWidth={3}/> : null}</span>
         <div className="timeline-body">
-          <span className="timeline-label">{index === current ? statusNames[status] : statusNames[step]}</span>
-          {index === current && <span className="timeline-note">{stageNotes[status]}</span>}
+          <span className="timeline-label">{index === current ? stageLabel(status) : stageLabel(step)}</span>
+          {index === current && <span className="timeline-note">{stageNote(status)}</span>}
           {index === 0 && createdAt && <span className="timeline-date">أُرسل في {dateText(createdAt)}</span>}
           {index === current && index > 0 && updatedAt && <span className="timeline-date">آخر تحديث {dateText(updatedAt)}</span>}
         </div>
@@ -121,9 +110,9 @@ export function Pager({ page, pageSize, total, onPage }: { page: number; pageSiz
   if (pages <= 1) return null;
   const number = formatNumber;
   return <nav className="mt-4 flex items-center justify-between gap-3 text-xs" aria-label="التنقل بين الصفحات">
-    <button type="button" className="btn btn-outline !min-h-10 !px-4" disabled={page <= 1} onClick={() => onPage(page - 1)}>السابقة</button>
+    <button type="button" className="btn btn-outline !min-h-11 !px-4" disabled={page <= 1} onClick={() => onPage(page - 1)}>السابقة</button>
     <span className="muted">صفحة {number(page)} من {number(pages)}، {number(total)} نتيجة</span>
-    <button type="button" className="btn btn-outline !min-h-10 !px-4" disabled={page >= pages} onClick={() => onPage(page + 1)}>التالية</button>
+    <button type="button" className="btn btn-outline !min-h-11 !px-4" disabled={page >= pages} onClick={() => onPage(page + 1)}>التالية</button>
   </nav>;
 }
 

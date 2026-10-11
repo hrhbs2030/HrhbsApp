@@ -10,10 +10,10 @@ import { createServer } from 'vite';
 const apiNames = [
   'useGetOfficeSummary', 'useListOfficeServiceRequests', 'useUpdateOfficeServiceRequest',
   'useListOfficeInquiries', 'useAnswerOfficeInquiry', 'useListOfficeStaff',
-  'useAddOfficeStaff', 'useRemoveOfficeStaff', 'useListOfficeAuditLog', 'useListOfficeAssignees',
+  'useAddOfficeStaff', 'useRemoveOfficeStaff', 'useListOfficeAuditLog', 'useListOfficeAssignees', 'useListOfficeServiceRequestInvoices',
 ];
 const keys = [
-  'getGetOfficeSummaryQueryKey', 'getListOfficeServiceRequestsQueryKey',
+  'getGetOfficeSummaryQueryKey', 'getListOfficeServiceRequestsQueryKey', 'getListOfficeServiceRequestInvoicesQueryKey',
   'getListOfficeInquiriesQueryKey', 'getListOfficeStaffQueryKey', 'getListOfficeAuditLogQueryKey', 'getListOfficeAssigneesQueryKey',
 ];
 const uiNames = [
@@ -76,6 +76,7 @@ const inquiry = (id) => ({
 function setup() {
   const calls = { requests: [], inquiries: [], updates: [], answers: [], add: [], remove: [], invalidated: [] };
   const state = {
+    invoices: [],
     requests: params => ({ items: [request(params.page)], total: params.q || params.status || params.category ? 1 : 41, page: params.page, pageSize: 20 }),
     inquiries: params => ({ items: [inquiry(params.page)], total: params.q ? 1 : 41, page: params.page, pageSize: 20 }),
     staff: [
@@ -120,6 +121,7 @@ function setup() {
       useRemoveOfficeStaff: () => mutation(async input => { calls.remove.push(input); }),
       useListOfficeAuditLog: () => query(state.audit),
       useListOfficeAssignees: () => query(state.staff.map(({ userId, email, role }) => ({ userId, email, role }))),
+      useListOfficeServiceRequestInvoices: () => query(state.invoices),
     },
   };
   return { calls, state };
@@ -176,6 +178,39 @@ test('requests use the paged API envelope, preserve filter inputs, reset paginat
   assert.equal(calls.requests.at(-1).assignee, 'me');
   await act(async () => tree.unmount());
 });
+
+test('the editor offers only allowed next statuses, blocks completion over an unpaid invoice and shows the API refusal', async () => {
+  const { calls, state } = setup();
+  const current = { ...request(1), status: 'reviewing' };
+  state.requests = params => ({ items: [current], total: 1, page: params.page, pageSize: 20 });
+  state.invoices = [{ id: 7, status: 'issued' }];
+  const tree = await mount(OfficeRequests);
+  await click(nodes(tree, 'button').find(n => text(n).includes('خدمة 1')));
+  const editorStatus = nodes(tree, 'select')[4];
+  assert.deepEqual(editorStatus.findAllByType('option').map(o => o.props.value),
+    ['reviewing', 'waiting_on_customer', 'awaiting_payment', 'submitted_to_authority', 'completed'], 'current status first, then its allowed moves');
+  await change(editorStatus, 'completed');
+  assert.match(text(nodes(tree, 'form')[0]), /توجد فاتورة غير مسددة؛ لا يمكن الإكمال قبل تسويتها\./);
+  assert.equal(nodes(tree, 'form')[0].findByProps({ type: 'submit' }).props.disabled, true);
+  await submit(nodes(tree, 'form')[0]);
+  assert.equal(calls.updates.length, 0, 'the save is not attempted');
+  // With invoices settled the API still has the last word; its text is shown as is.
+  state.invoices = [{ id: 7, status: 'paid' }];
+  const refusal = Object.assign(new Error('refused'), { status: 409, data: { error: 'لا يمكن نقل الطلب من قيد المراجعة إلى مكتملة.' } });
+  globalThis.__office.hooks.useUpdateOfficeServiceRequest = () => mutationFailingWith(refusal);
+  await act(async () => tree.update(React.createElement(OfficeRequests)));
+  assert.equal(nodes(tree, 'form')[0].findByProps({ type: 'submit' }).props.disabled, false);
+  await submit(nodes(tree, 'form')[0]);
+  assert.match(text(nodes(tree, 'form')[0]), /لا يمكن نقل الطلب من قيد المراجعة إلى مكتملة\./);
+  assert.ok(!text(nodes(tree, 'form')[0]).includes('مراجعة النسخة الجديدة'), 'a rule refusal is not a version conflict');
+  // The version check's 409 still shows the conflict notice.
+  globalThis.__office.hooks.useUpdateOfficeServiceRequest = () => mutationFailingWith(Object.assign(new Error('stale'), { status: 409, data: { error: 'This request changed since you opened it. Refresh and review the latest version.' } }));
+  await act(async () => tree.update(React.createElement(OfficeRequests)));
+  await submit(nodes(tree, 'form')[0]);
+  assert.match(text(nodes(tree, 'form')[0]), /تغيّر هذا الطلب منذ فتحه/);
+  await act(async () => tree.unmount());
+});
+const mutationFailingWith = error => ({ isPending: false, isError: false, mutateAsync: async () => { throw error; }, reset() {} });
 
 test('inquiries filter and paginate the API items, then submit a trimmed reply', async () => {
   const { calls } = setup();

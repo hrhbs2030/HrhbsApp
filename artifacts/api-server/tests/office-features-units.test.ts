@@ -4,6 +4,8 @@ import { dueThreshold } from "../src/lib/document-reminders";
 import { parseExtraction } from "../src/lib/document-extraction";
 import { vatFor } from "../src/lib/money";
 import { saudiMobile, whatsappText } from "../src/lib/whatsapp";
+import { normalizePhone, phoneSearchDigits } from "../src/lib/phone";
+import { allowedNext, canTransition, needsInvoicesSettled, transitionError } from "../src/lib/request-status";
 import { planEmployees, planLicenses } from "../src/lib/company-import";
 
 test("Saudi mobile numbers are normalised for WhatsApp", () => {
@@ -13,6 +15,41 @@ test("Saudi mobile numbers are normalised for WhatsApp", () => {
   for (const input of ["0112345678", "12345", "+1 555 123 4567", "05512345678", "abc"]) {
     assert.equal(saudiMobile(input), null, input);
   }
+});
+
+test("phone numbers are stored in one spelling", () => {
+  for (const input of ["0551234567", "551234567", "9665 5123 4567", "+966 55 123 4567", "00966-55-123-4567", "(055) 123-4567", "٠٥٥١٢٣٤٥٦٧", "۰۵۵۱۲۳۴۵۶۷", "+٩٦٦٥٥١٢٣٤٥٦٧"]) {
+    assert.equal(normalizePhone(input), "0551234567", input);
+  }
+  assert.equal(normalizePhone("+1 (555) 123-4567"), "+15551234567");
+  assert.equal(normalizePhone("0044 20 7946 0958"), "+442079460958");
+  assert.equal(normalizePhone("+٢٠١٠٠١٢٣٤٥٦٧"), "+201001234567");
+  for (const input of ["", "abc", "12345", "0112345678", "05512345678", "+0551234567", "+1234567", "+1234567890123456", "055-123-45x7"]) {
+    assert.equal(normalizePhone(input), null, JSON.stringify(input));
+  }
+  // Search compares digits in the local form, whole numbers or a typed prefix.
+  assert.equal(phoneSearchDigits("+966 55 123 4567"), "0551234567");
+  assert.equal(phoneSearchDigits("٠٥٥١٢"), "05512");
+  assert.equal(phoneSearchDigits("+96655"), "055");
+  assert.equal(phoneSearchDigits("abc"), null);
+  assert.equal(phoneSearchDigits("50%"), null);
+  assert.equal(phoneSearchDigits("HBS-2026-00041"), null);
+  assert.equal(phoneSearchDigits("055"), null);
+});
+
+test("request status transitions", () => {
+  assert.deepEqual(allowedNext("received"), ["reviewing", "waiting_on_customer", "awaiting_payment"]);
+  assert.deepEqual(allowedNext("completed"), ["reviewing"]);
+  assert.deepEqual(allowedNext("unknown"), []);
+  assert.ok(canTransition("reviewing", "reviewing"), "same status is a no-op");
+  assert.ok(canTransition("awaiting_payment", "submitted_to_authority"));
+  assert.ok(!canTransition("received", "completed"));
+  assert.ok(!canTransition("completed", "received"));
+  assert.ok(needsInvoicesSettled("reviewing", "completed"));
+  assert.ok(needsInvoicesSettled("awaiting_payment", "reviewing"));
+  assert.ok(!needsInvoicesSettled("awaiting_payment", "awaiting_payment"));
+  assert.ok(!needsInvoicesSettled("submitted_to_authority", "reviewing"));
+  assert.equal(transitionError("completed", "received"), "لا يمكن نقل الطلب من مكتملة إلى تم الاستلام.");
 });
 
 test("WhatsApp text has no line breaks and fits a template variable", () => {

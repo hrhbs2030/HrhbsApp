@@ -11,6 +11,7 @@ import { CompanyFileView, customerCompanyApi, officeCompanyApi } from '@/compone
 import { ExpiryBadge, reminderKindNames } from '@/components/reminder-ui';
 import { SubjectChip } from '@/components/request-conversation';
 import { formatCalendarDate, formatNumber } from '@/lib/format';
+import { normalizePhone } from '@/lib/phone';
 
 export function CompanyPage() {
   const qc = useQueryClient();
@@ -24,7 +25,9 @@ export function CompanyPage() {
 
 export function OfficeCustomers() {
   const [search, setSearch] = useState('');
-  const q = useDebouncedValue(search.trim());
+  const typed = useDebouncedValue(search.trim());
+  // A phone typed with Arabic digits or +966 is searched in its stored form.
+  const q = normalizePhone(typed) ?? typed;
   const params = q ? { q } : {};
   const list = useListOfficeCustomers(params, { query: { queryKey: getListOfficeCustomersQueryKey(params) } });
   return <PortalLayout staff>

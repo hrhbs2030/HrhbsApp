@@ -18,7 +18,7 @@ import {
 import { riyadhToday } from "../lib/document-reminders";
 import { planEmployees, planLicenses, type Problem } from "../lib/company-import";
 import { requestReference } from "../lib/money";
-import { officeCustomer } from "../lib/office-search";
+import { officeCustomer, phoneMatches } from "../lib/office-search";
 import { requireOfficeStaff } from "../lib/office-access";
 import { hasCustomerApproval, requireApprovedCustomer } from "./portal";
 import { ImportEmployeesResponse } from "@workspace/api-zod";
@@ -287,7 +287,7 @@ router.get("/office/customers", requireOfficeStaff, async (req, res): Promise<vo
   const match = q ? sql`and (position(lower(${q}) in lower(coalesce(r.full_name, ''))) > 0
       or position(lower(${q}) in lower(coalesce(r.email, ''))) > 0
       or position(lower(${q}) in lower(coalesce(c.name, ''))) > 0
-      or position(${q} in coalesce(r.contact_phone, '')) > 0)` : sql``;
+      or ${phoneMatches(sql`r.contact_phone`, q) ?? sql`false`})` : sql``;
   const result = await db.execute<{
     user_id: string; full_name: string | null; email: string | null; contact_phone: string | null; company_name: string | null;
     employees: number; licenses: number; active_requests: number; expiring: number; last_activity: Date | null;

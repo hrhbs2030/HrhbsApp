@@ -16,6 +16,8 @@ export const hbsInquiries = pgTable("hbs_inquiries", {
   answeredAt: timestamp("answered_at", { withTimezone: true }),
 }, (table) => [
   index("hbs_inquiries_user_idx").on(table.userId),
+  index("hbs_inquiries_linked_request_idx").on(table.linkedServiceRequestId),
+  index("hbs_inquiries_status_idx").on(table.status),
   check("hbs_inquiries_status_check", sql`${table.status} in ('open', 'answered')`),
 ]);
 

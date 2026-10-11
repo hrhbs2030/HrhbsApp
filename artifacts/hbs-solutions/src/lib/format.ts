@@ -44,11 +44,20 @@ export function formatCalendarDate(value: string | null | undefined): string {
   return formatDate(new Date(`${value.slice(0, 10)}T12:00:00`));
 }
 
-// Whole days from today (local) to a YYYY-MM-DD date; negative when past.
+// Today's date (YYYY-MM-DD) in Riyadh, where the office works and where expiry
+// dates are meant. A traveller's or a mis-set device clock must not shift
+// "expires today" by a day. en-CA formats as YYYY-MM-DD.
+const riyadhDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit' });
+export function riyadhToday(): string {
+  return riyadhDate.format(new Date(Date.now()));
+}
+
+// Whole days from today (Riyadh) to a YYYY-MM-DD date; negative when past.
+// Both dates are placed on the UTC axis so the difference is exact days.
 export function daysUntil(value: string): number {
   const [y, m, d] = value.slice(0, 10).split('-').map(Number);
-  const today = new Date();
-  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) / 86_400_000);
+  const [ty, tm, td] = riyadhToday().split('-').map(Number);
+  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86_400_000);
 }
 
 // Riyals typed by a person ("150", "150.5", "١٥٠٫٥", "1,500") to halalas.

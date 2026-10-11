@@ -1,14 +1,14 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useParams, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, CircleAlert, CircleCheck, CircleHelp, Link2, Plus, Send } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CircleAlert, CircleCheck, Link2, MessagesSquare, Paperclip, Plus, Send } from 'lucide-react';
 import { getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, getListInquiriesQueryKey, getGetServiceRequestQueryKey, getGetServiceRequestHistoryQueryKey, useGetServiceRequestHistory, useGetPortalSummary, useListServiceRequests, useGetServiceRequest, useListInquiries, useCreateInquiry, type Inquiry, type Reminder } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock, RequestRow, Status, StatusTrack, dateText, categoryNames, statusNames } from '@/components/portal-ui';
 import { CustomerAssistant } from '@/components/customer-assistant';
 import { PrintButton } from '@/components/brand/print';
 import { LOCALE, daysUntil, formatCalendarDate, formatDateTime, formatMoney } from '@/lib/format';
 import { ExpiryBadge, reminderKindNames } from '@/components/reminder-ui';
-import { RequestConversation, SubjectChip } from '@/components/request-conversation';
+import { RequestConversation, SubjectChip, focusComposer } from '@/components/request-conversation';
 import { RequestFiles } from '@/components/request-files';
 import { CustomerInvoices, RatingPanel } from '@/components/request-billing';
 
@@ -140,16 +140,21 @@ function BackLink({ href, children }: { href: string; children: ReactNode }) {
 
 export function RequestDetail() {
   const {id} = useParams<{id:string}>(); const parsed = Number(id); const search = new URLSearchParams(useSearch()); const justSent = search.get('sent') === '1'; const returnedInvoiceId = Number(search.get('invoice')) || null; const q = useGetServiceRequest(parsed,{query:{enabled:Number.isInteger(parsed)&&parsed>0,queryKey:getGetServiceRequestQueryKey(parsed),refetchInterval:30000}});
+  // Arriving at /requests/:id#messages (from an email, say) lands in the composer.
+  const open = !!q.data && q.data.status !== 'completed';
+  useEffect(() => { if (open && window.location.hash === '#messages') requestAnimationFrame(() => focusComposer(parsed)); }, [open, parsed]);
+  const scrollToDocuments = () => document.getElementById('documents')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   return <PortalLayout><div className="max-w-[860px]"><BackLink href="/requests">طلباتي</BackLink>
     {!Number.isInteger(parsed)||parsed<=0 ? <EmptyBlock title="الطلب غير متاح" text="تحقق من رابط الطلب وحاول مرة أخرى."/> : q.isLoading ? <LoadingBlock/> : q.error?.status === 404 ? <EmptyBlock title="الطلب غير متاح" text="هذا الطلب غير موجود في حسابك."/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : q.data && <>
       {justSent && <div role="status" className="rise mb-6 flex items-start gap-3 rounded-2xl border border-sage-2 bg-ok-soft p-4 text-ok sm:p-5"><CircleCheck className="mt-0.5 shrink-0" size={22}/><div><strong className="block text-ink">تم إرسال طلبك إلى المكتب</strong><span className="text-sm leading-7">الرقم المرجعي <span dir="ltr" className="nums font-bold">{q.data.reference}</span>. تابع حالته من هذه الصفحة.</span></div></div>}
-      <PageHeading eyebrow={`طلب رقم ${q.data.reference}`} title={q.data.service} action={<div className="flex flex-wrap gap-2"><PrintButton label="طباعة الطلب"/><Link href={`/inquiries?request=${q.data.id}`} className="btn btn-outline"><CircleHelp size={17}/>استفسر عن الطلب</Link></div>}/>
+      {/* One channel per request: the conversation below. Questions unrelated to a request go through the Inquiries page. */}
+      <PageHeading eyebrow={`طلب رقم ${q.data.reference}`} title={q.data.service} action={<div className="flex flex-wrap gap-2"><PrintButton label="طباعة الطلب"/>{q.data.status !== 'completed' && <button type="button" className="btn btn-primary" onClick={() => focusComposer(q.data!.id)}><MessagesSquare size={17}/>ردّ على المكتب</button>}</div>}/>
       <div className="surface overflow-hidden">
         <section aria-label="مراحل الطلب" className="px-5 py-6 sm:px-8">
           <StatusTrack status={q.data.status} createdAt={q.data.createdAt} updatedAt={q.data.updatedAt}/>
           {q.data.status==='waiting_on_customer'&&<div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warn-line bg-warn-soft px-4 py-3 text-sm text-warn"><span className="flex min-w-0 flex-1 items-start gap-2 leading-7"><CircleAlert className="mt-1 shrink-0" size={16}/>{q.data.customerMessage
-            ? <span><strong className="block">المكتب يحتاج منك:</strong><span className="whitespace-pre-line break-words">{q.data.customerMessage}</span><span className="mt-1 block text-xs">أرفق المطلوب في «المستندات» أدناه، أو ردّ باستفسار.</span></span>
-            : 'استفسر من المكتب عمّا يلزم لإكمال الطلب.'}</span><Link href={`/inquiries?request=${q.data.id}`} className="inline-flex min-h-11 items-center gap-1 text-xs font-bold text-warn underline sm:min-h-0">أرسل استفسارًا<ArrowLeft size={14}/></Link></div>}
+            ? <span><strong className="block">المكتب يحتاج منك:</strong><span className="whitespace-pre-line break-words">{q.data.customerMessage}</span><span className="mt-1 block text-xs">أرفق المطلوب في «المستندات» أدناه، أو ردّ على المكتب في المحادثة.</span></span>
+            : 'اسأل المكتب في المحادثة عمّا يلزم لإكمال الطلب.'}</span><span className="flex flex-wrap gap-2"><button type="button" className="btn btn-primary btn-sm" onClick={() => focusComposer(q.data!.id)}><MessagesSquare size={15}/>ردّ على المكتب</button><button type="button" className="btn btn-outline btn-sm !text-warn" onClick={scrollToDocuments}><Paperclip size={15}/>أرفق المستندات</button></span></div>}
           <StatusHistory id={q.data.id} updatedAt={q.data.updatedAt}/>
         </section>
         <dl className="m-0 grid gap-x-8 gap-y-5 border-t border-line bg-paper px-5 py-6 sm:grid-cols-3 sm:px-8">
@@ -157,7 +162,7 @@ export function RequestDetail() {
           <Info label="مجال الخدمة" value={categoryNames[q.data.category]}/><Info label="رقم التواصل" value={q.data.contactPhone} ltr/><Info label="آخر تحديث" value={dateText(q.data.updatedAt)}/>
         </dl>
         <div className="border-t border-line px-5 py-6 sm:px-8"><h2 className="mb-2 text-xs font-bold text-subtle">تفاصيل الطلب</h2><p className="whitespace-pre-wrap text-sm leading-8">{q.data.description}</p></div>
-        <div className="border-t border-line px-5 py-6 sm:px-8"><RequestFiles scope="customer" requestId={q.data.id} attachments={q.data.attachments} canUpload={q.data.status !== 'completed'} onChanged={() => q.refetch()}/></div>
+        <div id="documents" className="scroll-mt-24 border-t border-line px-5 py-6 sm:px-8"><RequestFiles scope="customer" requestId={q.data.id} attachments={q.data.attachments} canUpload={q.data.status !== 'completed'} onChanged={() => q.refetch()}/></div>
         <InvoicesSlot requestId={q.data.id} returnedInvoiceId={returnedInvoiceId}/>
         <div className="border-t border-line px-5 py-6 sm:px-8"><RequestConversation requestId={q.data.id} scope="customer" closed={q.data.status === 'completed'}/></div>
         {q.data.status === 'completed' && <div className="border-t border-line px-5 py-6 sm:px-8"><RatingPanel requestId={q.data.id} rating={q.data.rating} comment={q.data.ratingComment} onRated={() => q.refetch()}/></div>}
@@ -186,9 +191,11 @@ function StatusHistory({ id, updatedAt }: { id: number; updatedAt: string }) {
 
 function Info({label,value,ltr=false}:{label:string;value:string;ltr?:boolean}) { return <div className="min-w-0"><dt className="mb-1 text-xs font-bold text-subtle">{label}</dt><dd className="m-0 font-semibold" dir={ltr?'ltr':undefined} style={ltr?{textAlign:'right'}:undefined}>{value}</dd></div>; }
 
+// General questions. Anything about one request belongs in that request's
+// conversation, so nothing pre-links a request here any more; the optional
+// link stays for people who want the office to see a request's details.
 export function Inquiries() {
-  const requestFromLink = Number(new URLSearchParams(useSearch()).get('request')) || null;
-  const q=useListInquiries({query:{queryKey:getListInquiriesQueryKey(),refetchInterval:30000}}); const requests=useListServiceRequests({query:{queryKey:getListServiceRequestsQueryKey(),refetchInterval:30000}}); const qc=useQueryClient(); const mutation=useCreateInquiry(); const [subject,setSubject]=useState(''); const [message,setMessage]=useState(''); const [linkedServiceRequestId,setLinkedServiceRequestId]=useState(requestFromLink ? String(requestFromLink) : ''); const [showForm,setShowForm]=useState(Boolean(requestFromLink));
+  const q=useListInquiries({query:{queryKey:getListInquiriesQueryKey(),refetchInterval:30000}}); const requests=useListServiceRequests({query:{queryKey:getListServiceRequestsQueryKey(),refetchInterval:30000}}); const qc=useQueryClient(); const mutation=useCreateInquiry(); const [subject,setSubject]=useState(''); const [message,setMessage]=useState(''); const [linkedServiceRequestId,setLinkedServiceRequestId]=useState(''); const [showForm,setShowForm]=useState(false);
   async function submit(e:FormEvent) { e.preventDefault(); try { await mutation.mutateAsync({data:{subject:subject.trim(),message:message.trim(),linkedServiceRequestId:linkedServiceRequestId?Number(linkedServiceRequestId):null}}); setSubject('');setMessage('');setLinkedServiceRequestId('');setShowForm(false); await Promise.all([qc.invalidateQueries({queryKey:getListInquiriesQueryKey()}),qc.invalidateQueries({queryKey:getGetPortalSummaryQueryKey()})]); } catch { /* error shown */ } }
   function openForm() { setShowForm(true); requestAnimationFrame(() => document.getElementById('inquiry-subject')?.focus()); }
   return <PortalLayout><PageHeading eyebrow="تواصل مع المكتب" title="استفساراتي" action={!showForm && <button type="button" onClick={openForm} className="btn btn-primary"><Plus size={18}/>استفسار جديد</button>}/>

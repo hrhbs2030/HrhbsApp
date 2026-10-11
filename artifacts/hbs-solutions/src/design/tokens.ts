@@ -7,7 +7,7 @@ export const color = {
   surface: '#fcfaf4',
   field: '#fffcf6',
   line: '#e4e0d4',
-  lineStrong: '#c9d0c7',
+  lineStrong: '#84918a',
   ink: '#173e42',
   teal: '#174b50',
   copper: '#a3502f',

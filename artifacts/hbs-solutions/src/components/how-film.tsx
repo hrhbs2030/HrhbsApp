@@ -3,6 +3,8 @@ import { Pause, Play, RotateCcw } from 'lucide-react';
 import { blocks, Palm, Skyline, Stars, Windows } from '@/components/city-scenes/kit';
 import { Defs, Person, Storefront, type Pose } from '@/components/city-scenes/people';
 import { StageRail } from '@/components/request-object';
+import { milestones, pauses, type PauseKey } from '@/content/milestones';
+import { formatNumber } from '@/lib/format';
 import { useReducedMotion } from '@/lib/motion';
 import './how-film.css';
 
@@ -10,18 +12,32 @@ import './how-film.css';
 // a service to completion. Motion is CSS only (transform/opacity); each scene
 // remounts so its animations start fresh, and the progress bar of the current
 // scene decides when to move on, so pausing stops everything together.
-// Data shown is illustrative (the reference number is an example).
+// Data shown is illustrative (the reference number is an example). Stage
+// names come from content/milestones.ts, the same list the portal shows.
 
 const P = 'hf';
 const REF = 'HBS-2026-00041';
+const [received, reviewing, submitted, completed] = milestones.map((m) => m.label);
+const waiting = pauses.waiting_on_customer.label;
 
-type Scene = { title: string; text: string; seconds: number; rail: number | null; pose: Pose };
+// `lines` are what the characters say, in order, with the second each line
+// appears: the SVG bubbles read them, and under 720px they double as an HTML
+// subtitle strip (the SVG text is too small to read on a phone).
+type Line = { text: string; at: number; who?: 'office' | 'status' };
+type Scene = { title: string; text: string; seconds: number; rail: number | null; pause?: PauseKey; pose: Pose; lines: Line[] };
 const scenes: Scene[] = [
-  { title: 'اختر الخدمة', text: 'تبحث في دليل الخدمات وتختار ما تحتاجه، ثم تكتب تفاصيل طلبك وتراجعها.', seconds: 4.4, rail: null, pose: 'phone' },
-  { title: 'أرسل الطلب', text: 'يصل الطلب إلى المكتب فورًا برقم مرجعي، وحالته «تم الاستلام».', seconds: 4.4, rail: 0, pose: 'talk' },
-  { title: 'المكتب يراجع', text: 'يعمل فريق المكتب على طلبك، وتتحدّث الحالة في حسابك أولًا بأول.', seconds: 4.4, rail: 1, pose: 'phone' },
-  { title: 'عند الحاجة إليك', text: 'إن احتاج المكتب مستندًا يصلك تنبيه، فترفعه من صفحة الطلب نفسها.', seconds: 5.2, rail: 2, pose: 'phone' },
-  { title: 'اكتمل الطلب', text: 'تصبح الحالة «مكتملة» ويصلك بريد بذلك، ويبقى الطلب في سجلك.', seconds: 4.6, rail: 3, pose: 'talk' },
+  { title: 'اختر الخدمة', text: 'تبحث في دليل الخدمات وتختار ما تحتاجه، ثم تكتب تفاصيل طلبك وتراجعها.', seconds: 4.4, rail: null, pose: 'phone',
+    lines: [{ text: 'أختار الخدمة من الدليل', at: 0.3 }] },
+  { title: 'أرسل الطلب', text: `يصل الطلب إلى المكتب فورًا برقم مرجعي، وحالته «${received}».`, seconds: 4.4, rail: 0, pose: 'talk',
+    lines: [{ text: 'أرسلت الطلب', at: 0.1 }, { text: `${REF} · ${received}`, at: 2.1, who: 'status' }] },
+  { title: 'المكتب يراجع', text: 'يعمل فريق المكتب على طلبك، وتتحدّث الحالة في حسابك أولًا بأول.', seconds: 4.4, rail: 1, pose: 'phone',
+    lines: [{ text: 'نراجع طلبك الآن', at: 0.5, who: 'office' }, { text: `الحالة: ${reviewing}`, at: 2.2, who: 'status' }] },
+  { title: 'عند الحاجة إليك', text: `إن احتاج المكتب مستندًا تصبح الحالة «${waiting}» ويصلك تنبيه، فترفعه من صفحة الطلب نفسها.`, seconds: 5.2, rail: 1, pause: 'waiting_on_customer', pose: 'phone',
+    lines: [{ text: 'المكتب يحتاج صورة الإقامة', at: 1.4 }, { text: 'وصل المستند', at: 4.3, who: 'status' }] },
+  { title: 'رُفع للجهة', text: `يرفع المكتب طلبك إلى الجهة المختصة ويتابعه، والحالة «${submitted}».`, seconds: 4.4, rail: 2, pose: 'talk',
+    lines: [{ text: 'رفعنا طلبك للجهة المختصة', at: 0.4, who: 'office' }, { text: `الحالة: ${submitted}`, at: 2.3, who: 'status' }] },
+  { title: 'اكتمل الطلب', text: `تصبح الحالة «${completed}» ويصلك بريد بذلك، ويبقى الطلب في سجلك.`, seconds: 4.6, rail: 3, pose: 'talk',
+    lines: [{ text: 'وصلني بريد: اكتمل طلبك', at: 2.7 }] },
 ];
 
 // Office and client positions in the 960 × 540 stage.
@@ -93,6 +109,7 @@ function Check({ size = 30 }: { size?: number }) {
 function SceneLayer({ index }: { index: number }) {
   const bubbleX = CLIENT.x - 10;
   const bubbleY = 238;
+  const L = scenes[index].lines;
   switch (index) {
     case 0:
       return <g>
@@ -115,14 +132,14 @@ function SceneLayer({ index }: { index: number }) {
             </g>
           </g>
         </g>
-        <Bubble x={bubbleX + 40} y={bubbleY} text="أختار الخدمة من الدليل" delay={0.3} tail="left" />
+        <Bubble x={bubbleX + 40} y={bubbleY} text={L[0].text} delay={L[0].at} tail="left" />
       </g>;
     case 1:
       return <g>
-        <Bubble x={bubbleX + 30} y={bubbleY} text="أرسلت الطلب" delay={0.1} tail="left" />
+        <Bubble x={bubbleX + 30} y={bubbleY} text={L[0].text} delay={L[0].at} tail="left" />
         <g transform="translate(700 330)"><g className="hf-fly hf-fly--to-office"><Doc /></g></g>
         <rect x="282" y="351" width="86" height="100" fill="#ffd9a8" className="hf-flash" style={{ animationDelay: '1.9s' }} />
-        <Badge x={OFFICE.x} y={232} text={`${REF} · تم الاستلام`} delay={2.1} />
+        <Badge x={OFFICE.x} y={232} text={L[1].text} delay={L[1].at} />
       </g>;
     case 2:
       return <g>
@@ -131,9 +148,9 @@ function SceneLayer({ index }: { index: number }) {
           <circle r="15" fill="#bfeee6" fillOpacity=".25" stroke="#0e2629" strokeWidth="4" />
           <path d="M11 11 L22 22" stroke="#0e2629" strokeWidth="6" strokeLinecap="round" />
         </g></g>
-        <Bubble x={OFFICE.x - 20} y={250} text="نراجع طلبك الآن" delay={0.5} tail="left" />
+        <Bubble x={OFFICE.x - 20} y={250} text={L[0].text} delay={L[0].at} tail="left" />
         <g transform="translate(750 342)"><circle r="16" fill="none" stroke="#8fd0c6" strokeWidth="2.5" className="hf-ping" style={{ animationDelay: '1.9s' }} /></g>
-        <Bubble x={bubbleX + 40} y={bubbleY} text="الحالة: قيد المراجعة" delay={2.2} tail="left" tone="copper" />
+        <Bubble x={bubbleX + 40} y={bubbleY} text={L[1].text} delay={L[1].at} tail="left" tone="copper" />
       </g>;
     case 3:
       return <g>
@@ -141,16 +158,24 @@ function SceneLayer({ index }: { index: number }) {
           <circle r="22" fill="#3b2d0c" stroke="#ecd08a" strokeWidth="2" />
           <path d="M-8 5 Q-8 -9 0 -10 Q8 -9 8 5 L10 7 H-10Z M-3 9 Q0 13 3 9" fill="#ecd08a" />
         </g></g>
-        <Bubble x={bubbleX + 50} y={bubbleY} text="المكتب يحتاج صورة الإقامة" delay={1.4} tail="left" />
+        <Bubble x={bubbleX + 50} y={bubbleY} text={L[0].text} delay={L[0].at} tail="left" />
         <g transform="translate(700 336)"><g className="hf-fly hf-fly--to-office" style={{ animationDelay: '2.6s' }}><Doc kind="image" /></g></g>
         <rect x="282" y="351" width="86" height="100" fill="#ffd9a8" className="hf-flash" style={{ animationDelay: '4.2s' }} />
-        <Badge x={OFFICE.x} y={232} text="وصل المستند" delay={4.3} />
+        <Badge x={OFFICE.x} y={232} text={L[1].text} delay={L[1].at} />
+      </g>;
+    case 4:
+      // The file leaves the office upward, towards the authority off-stage.
+      return <g>
+        <g transform={`translate(${OFFICE.x} 300)`}><g className="hf-fly hf-fly--up" style={{ animationDelay: '.2s' }}><Doc /></g></g>
+        <Bubble x={OFFICE.x - 10} y={250} text={L[0].text} delay={L[0].at} tail="left" />
+        <g transform="translate(750 342)"><circle r="16" fill="none" stroke="#8fd0c6" strokeWidth="2.5" className="hf-ping" style={{ animationDelay: '2s' }} /></g>
+        <Bubble x={bubbleX + 40} y={bubbleY} text={L[1].text} delay={L[1].at} tail="left" tone="copper" />
       </g>;
     default:
       return <g>
         <g transform={`translate(${OFFICE.x} 222)`}><g className="hf-pop hf-pop--big" style={{ animationDelay: '.3s' }}><Check size={32} /></g></g>
         <g transform="translate(300 300)"><g className="hf-fly hf-fly--to-client" style={{ animationDelay: '1.2s' }}><Envelope /></g></g>
-        <Bubble x={bubbleX + 40} y={bubbleY} text="وصلني بريد: اكتمل طلبك" delay={2.7} tail="left" />
+        <Bubble x={bubbleX + 40} y={bubbleY} text={L[0].text} delay={L[0].at} tail="left" />
         {[[-70, -30], [60, -44], [-40, 40], [70, 30]].map(([dx, dy], i) => (
           <circle key={i} cx={OFFICE.x + dx} cy={222 + dy} r="3" fill="#e5a27b" className="hf-spark" style={{ animationDelay: `${0.5 + i * .08}s` }} />
         ))}
@@ -239,13 +264,19 @@ export function HowFilm() {
         <div className="hf-top">
           {current.rail === null
             ? <span className="hf-pre">قبل الإرسال</span>
-            : <StageRail stage={current.rail} />}
+            : <StageRail stage={current.rail} pause={current.pause} />}
+        </div>
+        {/* Phone-size subtitles: the same lines as the bubbles, in readable HTML. */}
+        <div className="hf-subs" aria-hidden="true" key={`subs-${run}-${scene}`}>
+          {current.lines.map((line) => (
+            <span key={line.text} className={`hf-sub${line.who ? ` hf-sub--${line.who}` : ''}`} style={{ animationDelay: `${line.at}s` }}>{line.text}</span>
+          ))}
         </div>
         <span className="hf-tag">مشهد توضيحي</span>
       </div>
 
       <figcaption className="hf-caption" aria-live="polite">
-        <span className="hf-step">{scene + 1} / {scenes.length}</span>
+        <span className="hf-step nums" dir="ltr">{formatNumber(scene + 1)} / {formatNumber(scenes.length)}</span>
         <strong>{current.title}</strong>
         <span>{current.text}</span>
       </figcaption>

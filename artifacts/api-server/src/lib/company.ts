@@ -3,6 +3,7 @@ import {
   db, hbsCompanies, hbsCompanyEmployees, hbsCompanyLicenses, hbsDocumentReminders,
   type HbsCompany, type HbsCompanyEmployee, type HbsCompanyLicense,
 } from "@workspace/db";
+import { normalizePhone } from "./phone";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -24,6 +25,16 @@ export const licenseKindLabels: Record<string, string> = {
 const clean = (value: string | null | undefined) => {
   const text = value?.replace(/\s+/g, " ").trim();
   return text ? text : null;
+};
+
+// Phones are stored in one spelling (05XXXXXXXX or +<code><number>), the
+// same as the customer's registration, so the office finds them by search.
+const phone = (value: unknown, field: string) => {
+  const text = clean(value as string | null);
+  if (!text) return null;
+  const normalized = normalizePhone(text);
+  if (!normalized) throw new InputError(`${field} غير صحيح؛ اكتبه بالصيغة 05XXXXXXXX أو مع رمز الدولة.`);
+  return normalized;
 };
 
 // Saudi national ID (starts with 1) or iqama number (starts with 2): 10 digits.
@@ -67,7 +78,7 @@ export function companyValues(body: Record<string, unknown>) {
     address: clean(body.address as string),
     activity: clean(body.activity as string),
     contactName: clean(body.contactName as string),
-    contactPhone: clean(body.contactPhone as string),
+    contactPhone: phone(body.contactPhone, "رقم التواصل"),
     notes: clean(body.notes as string),
   };
 }
@@ -89,7 +100,7 @@ export function employeeValues(body: Record<string, unknown>) {
     iqamaExpiresOn: calendarDate(body.iqamaExpiresOn, "تاريخ انتهاء الإقامة") ?? null,
     passportExpiresOn: calendarDate(body.passportExpiresOn, "تاريخ انتهاء الجواز") ?? null,
     workPermitExpiresOn: calendarDate(body.workPermitExpiresOn, "تاريخ انتهاء رخصة العمل") ?? null,
-    phone: clean(body.phone as string),
+    phone: phone(body.phone, "رقم الجوال"),
     status: body.status === "left" ? "left" as const : "active" as const,
     notes: clean(body.notes as string),
   };

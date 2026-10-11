@@ -3,8 +3,9 @@ import { Link, useLocation } from 'wouter';
 import { ArrowLeft, Menu, X } from 'lucide-react';
 import { Brand } from '@/components/portal-ui';
 import { cityInfo, cityOrder } from '@/components/city-scene';
-import { SceneWindow, useSceneWindows } from '@/components/scene-window';
+import { SceneWindow } from '@/components/scene-window';
 import { ContactList } from '@/components/contact-card';
+import { contact } from '@/content/contact';
 import './site-chrome.css';
 
 const ICON = 1.75;
@@ -80,9 +81,11 @@ function navigateHash(event: MouseEvent<HTMLAnchorElement>, href: string) {
   }
 }
 
+// The skyline behind the footer rotates through three cities; that line is
+// decorative. The office itself is in one city (content/contact.ts), named
+// next to its address so the two never contradict each other.
+const servedCities = cityOrder.map((key) => cityInfo[key].name).join(' · ');
 export function SiteFooter() {
-  const { city } = useSceneWindows();
-  const place = cityInfo[cityOrder[city] ?? 'riyadh'];
   return (
     <footer className="site-footer">
       <SceneWindow edge="bottom" />
@@ -112,6 +115,7 @@ export function SiteFooter() {
             <div className="site-footer-contact">
               <h2>تواصل معنا</h2>
               <ContactList tone="dark" />
+              <p className="site-footer-office">مكتبنا في <strong>{contact.city}</strong></p>
             </div>
           </nav>
         </div>
@@ -121,10 +125,9 @@ export function SiteFooter() {
             <Link href="/privacy">سياسة الخصوصية</Link>
             <Link href="/terms">شروط الاستخدام</Link>
           </div>
-          <p className="site-footer-city" aria-hidden="true" key={place.name}>
-            <span className="site-footer-city-dot" />
-            <strong>{place.name}</strong>
-            <span>{place.region}</span>
+          <p className="site-footer-city">
+            <span className="site-footer-city-dot" aria-hidden="true" />
+            <span>نخدم عملاءنا في المملكة: <strong>{servedCities}</strong></span>
           </p>
         </div>
       </div>

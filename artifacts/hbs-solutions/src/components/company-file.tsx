@@ -12,7 +12,9 @@ import {
 } from '@workspace/api-client-react';
 import { ExcelImport } from '@/components/excel-import';
 import { ExpiryBadge } from '@/components/reminder-ui';
+import { ConfirmDialog } from '@/components/request-billing';
 import { daysUntil, formatCalendarDate, formatNumber } from '@/lib/format';
+import { normalizePhone } from '@/lib/phone';
 import './company-file.css';
 
 // The company file, shared by the customer's page and the office's customer
@@ -85,6 +87,9 @@ function Field({ label, children, wide = false, hint }: { label: string; childre
   return <label className={`form-field ${wide ? 'md:col-span-2' : ''}`}>{label}{children}{hint && <small className="muted font-normal">{hint}</small>}</label>;
 }
 const text = (v: string) => v.trim() || null;
+const PHONE_ERROR = 'اكتب رقم جوال صحيحًا (مثال: 05xxxxxxxx)';
+// Optional phone fields: empty clears, anything typed must normalise.
+const phoneValue = (v: string): string | null | false => v.trim() ? (normalizePhone(v) ?? false) : null;
 
 // ---- company ---------------------------------------------------------------------
 
@@ -96,9 +101,12 @@ function CompanyForm({ company, api, onSaved, onCancel }: { company: Company | n
   useEffect(() => setV(company ? Object.fromEntries(Object.keys(blank).map(k => [k, (company as unknown as Record<string, unknown>)[k] ?? ''])) as typeof blank : blank), [company?.updatedAt]);
   const set = (k: keyof typeof blank) => (e: { target: { value: string } }) => setV({ ...v, [k]: e.target.value });
   async function submit(e: FormEvent) {
-    e.preventDefault(); setBusy(true); setError(null);
+    e.preventDefault(); setError(null);
+    const contactPhone = phoneValue(v.contactPhone);
+    if (contactPhone === false) { setError(PHONE_ERROR); return; }
+    setBusy(true);
     try {
-      await api.saveCompany({ name: v.name.trim(), crNumber: text(v.crNumber), unifiedNumber: text(v.unifiedNumber), vatNumber: text(v.vatNumber), city: text(v.city), address: text(v.address), activity: text(v.activity), contactName: text(v.contactName), contactPhone: text(v.contactPhone), notes: text(v.notes) });
+      await api.saveCompany({ name: v.name.trim(), crNumber: text(v.crNumber), unifiedNumber: text(v.unifiedNumber), vatNumber: text(v.vatNumber), city: text(v.city), address: text(v.address), activity: text(v.activity), contactName: text(v.contactName), contactPhone, notes: text(v.notes) });
       onSaved();
     } catch { setError('تحقق من الاسم والأرقام (أرقام فقط) وحاول مجددًا.'); } finally { setBusy(false); }
   }
@@ -154,12 +162,15 @@ function EmployeeForm({ employee, api, onDone }: { employee: Employee | null; ap
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof EmployeeDraft) => (e: { target: { value: string } }) => setV({ ...v, [k]: e.target.value });
   async function submit(e: FormEvent) {
-    e.preventDefault(); setBusy(true); setError(null);
+    e.preventDefault(); setError(null);
+    const phone = phoneValue(v.phone);
+    if (phone === false) { setError(PHONE_ERROR); return; }
+    setBusy(true);
     // A blank number field keeps the stored number; only typed or cleared numbers are sent.
     const data: EmployeeInput = {
       fullName: v.fullName.trim(), nationality: text(v.nationality), occupation: text(v.occupation),
       iqamaExpiresOn: v.iqamaExpiresOn || null, passportExpiresOn: v.passportExpiresOn || null, workPermitExpiresOn: v.workPermitExpiresOn || null,
-      phone: text(v.phone), status: v.status, notes: text(v.notes),
+      phone, status: v.status, notes: text(v.notes),
       ...(v.idNumber.trim() ? { idNumber: v.idNumber.trim() } : v.clearId ? { idNumber: null } : !employee ? { idNumber: null } : {}),
       ...(v.passportNumber.trim() ? { passportNumber: v.passportNumber.trim() } : v.clearPassport ? { passportNumber: null } : !employee ? { passportNumber: null } : {}),
     };
@@ -217,9 +228,11 @@ function EmployeesSection({ employees, api, office, onChanged }: { employees: Em
     .filter(e => filter !== 'expiring' || ((n => n && daysUntil(n.date) <= 60)(nearestEmployeeExpiry(e))))
     .filter(e => !search.trim() || [e.fullName, e.nationality, e.occupation].some(x => x?.includes(search.trim())));
   const counts = { active: employees.filter(e => e.status === 'active').length, expiring: employees.filter(e => e.status === 'active' && ((n => n && daysUntil(n.date) <= 60)(nearestEmployeeExpiry(e)))).length, left: employees.filter(e => e.status === 'left').length };
+  const [removing, setRemoving] = useState<Employee | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   async function remove(e: Employee) {
-    if (!window.confirm(`حذف «${e.fullName}» من ملف المنشأة؟ تُحذف تنبيهاته أيضًا.`)) return;
-    try { await api.deleteEmployee(e.id); } catch { window.alert('تعذّر حذف الموظف. حدّث الصفحة وحاول مجددًا.'); }
+    setRemoving(null); setRemoveError(null);
+    try { await api.deleteEmployee(e.id); } catch { setRemoveError('تعذّر حذف الموظف. حدّث الصفحة وحاول مجددًا.'); }
     onChanged();
   }
   return <section className="surface overflow-hidden" aria-labelledby="cf-employees">
@@ -243,10 +256,13 @@ function EmployeesSection({ employees, api, office, onChanged }: { employees: Em
           </div>
           <div className="flex shrink-0 items-start gap-1">
             <button type="button" className="rf-btn" onClick={() => setEditing(e)} aria-label={`تعديل ${e.fullName}`}><Pencil size={16}/></button>
-            <button type="button" className="rf-btn" onClick={() => remove(e)} aria-label={`حذف ${e.fullName}`}><Trash2 size={16}/></button>
+            <button type="button" className="rf-btn" onClick={() => setRemoving(e)} aria-label={`حذف ${e.fullName}`}><Trash2 size={16}/></button>
           </div>
         </li>;
       })}</ul>}
+    {removeError && <p role="alert" className="px-6 pb-5 text-sm text-danger">{removeError}</p>}
+    <ConfirmDialog open={!!removing} onOpenChange={o => { if (!o) setRemoving(null); }} danger confirmLabel="حذف"
+      title={`حذف «${removing?.fullName ?? ''}» من ملف المنشأة؟`} description="تُحذف تنبيهات وثائقه أيضًا، ولا يمكن التراجع." onConfirm={() => removing && remove(removing)}/>
   </section>;
 }
 
@@ -276,9 +292,11 @@ function LicenseForm({ license, api, onDone }: { license: License | null; api: C
 
 function LicensesSection({ licenses, api, office, onChanged }: { licenses: License[]; api: CompanyApi; office: boolean; onChanged: () => void }) {
   const [editing, setEditing] = useState<License | 'new' | null>(null);
+  const [removing, setRemoving] = useState<License | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   async function remove(l: License) {
-    if (!window.confirm(`حذف «${l.title}»؟`)) return;
-    try { await api.deleteLicense(l.id); } catch { window.alert('تعذّر حذف الترخيص. حدّث الصفحة وحاول مجددًا.'); }
+    setRemoving(null); setRemoveError(null);
+    try { await api.deleteLicense(l.id); } catch { setRemoveError('تعذّر حذف الترخيص. حدّث الصفحة وحاول مجددًا.'); }
     onChanged();
   }
   return <section className="surface overflow-hidden" aria-labelledby="cf-licenses">
@@ -294,9 +312,12 @@ function LicensesSection({ licenses, api, office, onChanged }: { licenses: Licen
         </div>
         <div className="flex shrink-0 items-start gap-1">
           <button type="button" className="rf-btn" onClick={() => setEditing(l)} aria-label={`تعديل ${l.title}`}><Pencil size={16}/></button>
-          <button type="button" className="rf-btn" onClick={() => remove(l)} aria-label={`حذف ${l.title}`}><Trash2 size={16}/></button>
+          <button type="button" className="rf-btn" onClick={() => setRemoving(l)} aria-label={`حذف ${l.title}`}><Trash2 size={16}/></button>
         </div>
       </li>)}</ul>}
+    {removeError && <p role="alert" className="px-6 pb-5 text-sm text-danger">{removeError}</p>}
+    <ConfirmDialog open={!!removing} onOpenChange={o => { if (!o) setRemoving(null); }} danger confirmLabel="حذف"
+      title={`حذف «${removing?.title ?? ''}»؟`} description="يُحذف الترخيص وتنبيه انتهائه من الملف." onConfirm={() => removing && remove(removing)}/>
   </section>;
 }
 

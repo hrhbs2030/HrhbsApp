@@ -59,9 +59,18 @@ export async function sendDueReminders(send: typeof notifyCustomer = notifyCusto
       .returning();
     if (!claimed) continue;
     const kindLabel = reminderKindLabels[claimed.kind] ?? reminderKindLabels.other;
-    await send(claimed.userId, to => reminderMail(to, {
-      kindLabel, label: claimed.label, expiresText: expiresText(claimed.expiresOn), days: row.daysLeft,
-    }));
+    try {
+      await send(claimed.userId, to => reminderMail(to, {
+        kindLabel, label: claimed.label, expiresText: expiresText(claimed.expiresOn), days: row.daysLeft,
+      }));
+    } catch (err) {
+      // Not sent: give the claim back so the next sweep tries again, unless
+      // another instance has already moved the reminder on since.
+      await db.update(hbsDocumentReminders).set({ lastReminderDays: row.lastReminderDays })
+        .where(and(eq(hbsDocumentReminders.id, claimed.id), eq(hbsDocumentReminders.lastReminderDays, threshold)));
+      logger.warn({ err, reminderId: claimed.id }, "Document reminder was not sent; it will be retried");
+      continue;
+    }
     sent++;
     if (sent >= BATCH_SIZE) break;
   }

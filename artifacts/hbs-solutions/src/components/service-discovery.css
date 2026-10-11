@@ -28,10 +28,15 @@
 .discovery-arrow-next:hover { background: #efb18d; }
 .discovery-progress { height: 3px; flex: 1; overflow: hidden; border-radius: 999px; background: rgb(246 239 227 / .2); direction: ltr; }
 .discovery-progress span { display: block; width: 100%; height: 100%; transform-origin: left; border-radius: inherit; background: var(--color-copper-light); transition: transform var(--duration-enter) var(--ease-out-soft); }
-.discovery-dot-row { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 13px; max-width: 100%; overflow: auto; scrollbar-width: none; }
+.discovery-dot-row { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 2px; margin-top: 9px; max-width: 100%; overflow: auto; scrollbar-width: none; }
 .discovery-dot-row::-webkit-scrollbar { display: none; }
-.discovery-dot { width: 12px; height: 12px; flex: none; padding: 0; border: 0; border-radius: 50%; background: rgb(246 239 227 / .26); transition: width var(--duration-hover) ease, border-radius var(--duration-hover) ease, background var(--duration-hover) ease; }
-.discovery-dot.is-active { width: 27px; border-radius: 999px; background: var(--color-copper-light); }
+/* 24px hit area; the visible dot is the ::before. */
+.discovery-dot { position: relative; display: grid; place-items: center; width: 24px; height: 24px; flex: none; padding: 0; border: 0; border-radius: 999px; background: transparent; transition: width var(--duration-hover) ease; }
+.discovery-dot::before { content: ""; display: block; width: 10px; height: 10px; border-radius: 999px; background: rgb(246 239 227 / .3); transition: width var(--duration-hover) ease, background var(--duration-hover) ease; }
+.discovery-dot:hover::before { background: rgb(246 239 227 / .55); }
+.discovery-dot.is-active { width: 36px; }
+.discovery-dot.is-active::before { width: 26px; background: var(--color-copper-light); }
+.discovery-dot:focus-visible { outline: 2px solid var(--color-copper-light); outline-offset: 2px; }
 .discovery-guide { min-height: 372px; padding: 24px 26px 20px; border: 1px solid var(--color-line); border-radius: var(--radius-panel); background: var(--color-surface); box-shadow: var(--shadow-card); }
 .discovery-guide-top { display: flex; align-items: center; gap: 12px; }
 .discovery-guide-icon { display: grid; place-items: center; width: 42px; height: 42px; flex: none; border-radius: 13px; background: var(--color-sage); color: var(--color-teal); }
@@ -102,6 +107,10 @@
   .discovery-choice-grid { grid-template-columns: minmax(0, 1fr); }
   .discovery-choice { min-height: 56px; }
   .discovery-no-match { align-items: flex-start; flex-direction: column; }
+}
+@media (pointer: coarse) {
+  .discovery-arrow { width: 44px; height: 44px; }
+  .discovery-reset, .discovery-back, .discovery-show-all, .discovery-platform-choices button, .discovery-guide-actions .btn, .discovery-no-match .btn { min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .discovery-slide, .discovery-question { animation: none; }

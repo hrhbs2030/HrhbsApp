@@ -2,15 +2,41 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import { useQueryClient } from '@tanstack/react-query';
 import { CreditCard, Printer, ReceiptText, Star } from 'lucide-react';
 import {
-  getListOfficeServiceRequestInvoicesQueryKey, getListServiceRequestInvoicesQueryKey,
+  getGetServiceRequestQueryKey, getListOfficeServiceRequestInvoicesQueryKey, getListServiceRequestInvoicesQueryKey, getListServiceRequestsQueryKey,
   useIssueOfficeInvoice, useListOfficeServiceRequestInvoices, useListServiceRequestInvoices,
   useRateServiceRequest, useRefreshInvoicePayment, useStartInvoicePayment, useUpdateOfficeInvoice,
   type Invoice,
 } from '@workspace/api-client-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { formatDate, formatMoney, formatNumber, parseRiyals } from '@/lib/format';
 import './request-billing.css';
 
 const methodNames: Record<string, string> = { manual: 'سداد لدى المكتب', online: 'دفع إلكتروني' };
+
+// In-page confirmation instead of window.confirm: browsers may suppress native
+// dialogs, they ignore the page's direction and fonts, and they block polling.
+// Shared with the company file and reminders, which have the same deletes.
+export function ConfirmDialog({ open, onOpenChange, title, description, confirmLabel, danger = false, busy = false, onConfirm, children }: {
+  open: boolean; onOpenChange: (open: boolean) => void; title: string; description?: string; confirmLabel: string;
+  danger?: boolean; busy?: boolean; onConfirm: () => void; children?: ReactNode;
+}) {
+  return <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialogContent dir="rtl" className="rb-dialog">
+      <AlertDialogHeader className="text-right sm:text-right">
+        <AlertDialogTitle className="display text-lg font-semibold text-ink">{title}</AlertDialogTitle>
+        {description ? <AlertDialogDescription className="text-sm leading-7 text-quiet">{description}</AlertDialogDescription> : <AlertDialogDescription className="sr-only">{title}</AlertDialogDescription>}
+      </AlertDialogHeader>
+      {children}
+      <AlertDialogFooter className="gap-2 sm:justify-start sm:space-x-0">
+        {/* The project's own button shapes; the primitives' default classes are reset by `rb-dialog`. */}
+        <AlertDialogAction className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`} disabled={busy} onClick={e => { e.preventDefault(); onConfirm(); }}>{confirmLabel}</AlertDialogAction>
+        <AlertDialogCancel className="btn btn-outline" disabled={busy}>إلغاء</AlertDialogCancel>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>;
+}
 
 function InvoiceStatus({ status }: { status: Invoice['status'] }) {
   const names = { issued: 'غير مسددة', paid: 'مسددة', cancelled: 'ملغاة' } as const;
@@ -114,15 +140,19 @@ export function OfficeInvoices({ requestId, onChanged }: { requestId: number; on
       onChanged();
     } catch { setError('تعذّر إصدار الفاتورة. حاول مجددًا.'); }
   }
+  // The confirmation dialog in progress: which invoice, which action, and the
+  // optional payment reference typed for "mark paid".
+  const [pending, setPending] = useState<{ invoice: Invoice; action: 'mark_paid' | 'cancel' } | null>(null);
+  const [reference, setReference] = useState('');
+  function ask(invoice: Invoice, action: 'mark_paid' | 'cancel') { setReference(''); setPending({ invoice, action }); }
   async function act(invoice: Invoice, action: 'mark_paid' | 'cancel') {
-    const reference = action === 'mark_paid' ? window.prompt('مرجع السداد (اختياري): رقم التحويل أو الإيصال') : null;
-    // Cancel on the prompt means "do not record the payment".
-    if (action === 'mark_paid' && reference === null) return;
-    if (action === 'cancel' && !window.confirm(`إلغاء الفاتورة ${invoice.reference}؟`)) return;
+    setPending(null);
     setError(null);
     try {
-      await update.mutateAsync({ id: invoice.id, data: { action, paymentReference: reference?.trim() || null } });
+      await update.mutateAsync({ id: invoice.id, data: { action, paymentReference: action === 'mark_paid' ? reference.trim() || null : null } });
       await qc.invalidateQueries({ queryKey: key });
+      // A paid or cancelled invoice changes the request's standing in the office lists and summary.
+      onChanged();
     } catch (e) {
       setError((e as { status?: number })?.status === 409 ? 'الفاتورة مسددة أو ملغاة، وقد تكون سُددت إلكترونيًا.' : (e as { status?: number })?.status === 502 ? 'تعذّر التأكد من بوابة الدفع أن الفاتورة غير مسددة. حاول بعد قليل.' : 'تعذّر تحديث الفاتورة.');
       await qc.invalidateQueries({ queryKey: key });
@@ -142,23 +172,36 @@ export function OfficeInvoices({ requestId, onChanged }: { requestId: number; on
     </form>}
     {list.data?.length ? <ul className="rb-list">{list.data.map(invoice => <InvoiceRow key={invoice.id} invoice={invoice}>
       {invoice.status === 'issued' && <>
-        <button type="button" className="btn btn-outline btn-sm" disabled={update.isPending} onClick={() => act(invoice, 'mark_paid')}>تسجيل السداد</button>
-        <button type="button" className="rf-btn rf-btn--danger" disabled={update.isPending} onClick={() => act(invoice, 'cancel')}>إلغاء</button>
+        <button type="button" className="btn btn-outline btn-sm" disabled={update.isPending} onClick={() => ask(invoice, 'mark_paid')}>تسجيل السداد</button>
+        <button type="button" className="rf-btn rf-btn--danger" disabled={update.isPending} onClick={() => ask(invoice, 'cancel')}>إلغاء</button>
       </>}
     </InvoiceRow>)}</ul> : !open && <p className="rf-empty">لا توجد فواتير على هذا الطلب.</p>}
     {error && <p role="alert" className="rf-errors">{error}</p>}
+    <ConfirmDialog open={pending?.action === 'mark_paid'} onOpenChange={o => { if (!o) setPending(null); }} busy={update.isPending}
+      title={`تسجيل سداد الفاتورة ${pending?.invoice.reference ?? ''}`} description={pending ? `الإجمالي ${formatMoney(pending.invoice.total)}. يظهر السداد للعميل فورًا.` : undefined}
+      confirmLabel="تسجيل السداد" onConfirm={() => pending && act(pending.invoice, 'mark_paid')}>
+      <label className="form-field">رقم المرجع (اختياري)<input className="form-control" dir="ltr" value={reference} onChange={e => setReference(e.target.value)} maxLength={120} placeholder="رقم التحويل أو الإيصال" autoFocus/></label>
+    </ConfirmDialog>
+    <ConfirmDialog open={pending?.action === 'cancel'} onOpenChange={o => { if (!o) setPending(null); }} busy={update.isPending} danger
+      title={`إلغاء الفاتورة ${pending?.invoice.reference ?? ''}؟`} description="تظهر الفاتورة للعميل بحالة «ملغاة» ولا يمكن سدادها بعد ذلك."
+      confirmLabel="إلغاء الفاتورة" onConfirm={() => pending && act(pending.invoice, 'cancel')}/>
   </section>;
 }
 
 export function RatingPanel({ requestId, rating, comment, onRated }: { requestId: number; rating: number | null; comment: string | null; onRated: () => void }) {
+  const qc = useQueryClient();
   const mutation = useRateServiceRequest();
   const [value, setValue] = useState(0);
   const [text, setText] = useState('');
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!value) return;
-    try { await mutation.mutateAsync({ id: requestId, data: { rating: value, comment: text.trim() || null } }); onRated(); }
-    catch { /* error shown below */ }
+    try {
+      await mutation.mutateAsync({ id: requestId, data: { rating: value, comment: text.trim() || null } });
+      // The detail page shows the stored rating; the list rows carry it too.
+      await Promise.all([qc.invalidateQueries({ queryKey: getGetServiceRequestQueryKey(requestId) }), qc.invalidateQueries({ queryKey: getListServiceRequestsQueryKey() })]);
+      onRated();
+    } catch { /* error shown below */ }
   }
   const stars = (current: number, interactive: boolean) => <div className="rb-stars" role={interactive ? 'radiogroup' : undefined} aria-label="التقييم">
     {[1, 2, 3, 4, 5].map(n => interactive

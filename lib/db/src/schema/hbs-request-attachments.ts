@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { index, integer, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -17,6 +18,8 @@ export const hbsRequestAttachments = pgTable("hbs_request_attachments", {
   index("hbs_request_attachments_request_idx").on(table.requestId),
   index("hbs_request_attachments_user_idx").on(table.userId),
   uniqueIndex("hbs_request_attachments_path_unique").on(table.objectPath),
+  // The hourly sweep looks only at expired reservations never attached to a request.
+  index("hbs_request_attachments_pending_expiry_idx").on(table.expiresAt).where(sql`${table.requestId} is null`),
 ]);
 
 export const insertHbsRequestAttachmentSchema = createInsertSchema(hbsRequestAttachments).omit({

@@ -12,6 +12,7 @@
 .hf-top { position: absolute; inset: 14px 18% auto; display: flex; justify-content: center; pointer-events: none; }
 .hf-top .rail { width: 100%; padding: 10px 18px 8px; border-radius: 16px; background: rgb(8 26 28 / .72); backdrop-filter: blur(6px); }
 .hf-pre { padding: 6px 16px; border-radius: 999px; background: rgb(8 26 28 / .72); color: var(--color-on-dark-2); font-size: 13.5px; font-weight: 600; }
+.hf-subs { display: none; }
 .hf-tag { position: absolute; inset-inline-start: 14px; bottom: 12px; padding: 3px 10px; border-radius: 999px; background: rgb(8 26 28 / .6); color: var(--color-on-dark-2); font-size: 12px; }
 
 /* Shared motions. Every animation keeps its end state (fill both). */
@@ -31,6 +32,13 @@
 .hf-fly { opacity: 0; animation: 1.5s var(--ease-in-out-soft) both; }
 .hf-fly--to-office { animation-name: hf-to-office; animation-delay: .3s; }
 .hf-fly--to-client { animation-name: hf-to-client; animation-delay: .3s; }
+.hf-fly--up { animation-name: hf-up; animation-duration: 1.7s; }
+@keyframes hf-up {
+  0% { opacity: 0; transform: translate(0, 40px) scale(.6); }
+  15% { opacity: 1; transform: translate(0, 0) scale(1); }
+  60% { transform: translate(-30px, -120px) scale(.95) rotate(-6deg); }
+  100% { opacity: 0; transform: translate(-60px, -260px) scale(.6) rotate(-10deg); }
+}
 @keyframes hf-to-office {
   0% { opacity: 0; transform: translate(0, 0) scale(.6); }
   12% { opacity: 1; transform: translate(-20px, -30px) scale(1); }
@@ -66,7 +74,7 @@
 .hf-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
 .hf-play { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid rgb(255 255 255 / .18); background: rgb(255 255 255 / .06); color: var(--color-on-dark); font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer; transition: background-color var(--duration-hover, .15s) ease; }
 .hf-play:hover { background: rgb(255 255 255 / .12); }
-.hf-chapters { flex: 1; min-width: 280px; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.hf-chapters { flex: 1; min-width: 280px; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
 .hf-chapters button { width: 100%; display: grid; gap: 8px; padding: 8px 2px; border: 0; background: none; color: var(--color-on-dark-2); font: inherit; font-size: 13px; text-align: start; cursor: pointer; }
 .hf-chapters button[aria-current] { color: var(--color-on-dark); font-weight: 700; }
 .hf-bar { position: relative; display: block; height: 4px; overflow: hidden; border-radius: 4px; background: rgb(255 255 255 / .14); }
@@ -78,9 +86,18 @@
 
 @media (max-width: 720px) {
   .hf-stage { border-radius: 16px; }
-  .hf-top { inset: 8px 4% auto; }
-  .hf-top .rail { padding: 6px 10px 4px; transform: scale(.86); transform-origin: 50% 0; }
+  .hf-top { inset: 8px 3% auto; }
+  .hf-top .rail { padding: 8px 6px 6px; }
+  .hf-top .rail-static { font-size: 11px; gap: 6px; }
+  .hf-top .rail-node { width: 16px; height: 16px; }
+  .hf-top .rail-line { top: 8px; }
+  /* Subtitle strip: ≥14px HTML text over the bottom of the stage. */
+  .hf-subs { position: absolute; inset: auto 10px 36px; display: grid; justify-items: start; gap: 6px; pointer-events: none; }
+  .hf-sub { max-width: 100%; padding: 6px 12px; border-radius: 14px 14px 14px 4px; background: #f6efe3; color: #173e42; font-size: 14px; font-weight: 700; line-height: 1.6; box-shadow: 0 8px 20px -10px rgb(0 0 0 / .7); animation: hf-pop .5s var(--ease-out-soft) both; transform-origin: 100% 100%; }
+  .hf-sub--office { justify-self: end; border-radius: 14px 14px 4px 14px; background: #e5a27b; color: #173e42; transform-origin: 0 100%; }
+  .hf-sub--status { justify-self: center; border-radius: 999px; background: #10292c; color: #8fd0c6; border: 1px solid rgb(143 208 198 / .5); }
   .hf-label { display: none; }
+  .hf-chapters button { min-height: 44px; align-content: center; }
   .hf-chapters { min-width: 0; }
   .hf-caption { font-size: 15px; }
   .hf-caption strong { font-size: 18px; }

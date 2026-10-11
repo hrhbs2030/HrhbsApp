@@ -37,6 +37,12 @@
   .site-nav, .site-actions { display: none; }
   .site-menu-toggle { display: grid; }
 }
+/* Touch: every nav link and the header button reach 44px. */
+@media (pointer: coarse) {
+  .site-nav a, .site-text-link, .site-mobile-nav > a, .site-footer-links li a, .site-footer-legal a { min-height: 44px; }
+  .site-text-link { display: inline-flex; align-items: center; }
+  .site-actions .btn-sm { min-height: 44px; }
+}
 @media (max-width: 767px) {
   .site-wrap { width: min(100% - 32px, 1280px); }
   .site-header-inner { min-height: 68px; }
@@ -71,10 +77,12 @@
 .site-footer-bottom { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding-top: 30px; font-size: 13px; }
 /* A woven Sadu band takes the place of the footer rule. */
 .site-footer-bottom::before { content: ""; position: absolute; inset: 0 0 auto; height: 15px; background: var(--sadu-band-dark) repeat-x center / 42px 15px; opacity: .42; pointer-events: none; }
-.site-footer-city { display: inline-flex; align-items: baseline; gap: 8px; margin: 0; color: var(--color-on-dark-2); animation: site-city var(--duration-reveal) var(--ease-out-soft) both; }
-.site-footer-city strong { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--color-on-dark); }
-.site-footer-city-dot { align-self: center; width: 6px; height: 6px; border-radius: 50%; background: var(--color-copper-light); box-shadow: 0 0 0 4px rgb(229 162 123 / .18); }
-@keyframes site-city { from { opacity: 0; transform: translateY(6px); } }
+.site-footer-office { margin: 8px 0 0; font-size: 13px; color: var(--color-on-dark-2); }
+.site-footer-office strong { font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--color-on-dark); }
+/* Static caption for the rotating skyline; the office city is named above, next to the address. */
+.site-footer-city { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--color-on-dark-2); }
+.site-footer-city strong { font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--color-on-dark); }
+.site-footer-city-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--color-copper-light); box-shadow: 0 0 0 4px rgb(229 162 123 / .18); }
 @media (max-width: 767px) {
   .site-footer { min-height: max(70vh, 520px); min-height: max(70svh, 520px); }
   .site-footer-main { flex-direction: column; align-items: flex-start; gap: 28px; }

@@ -6,6 +6,7 @@ import {
   getGetOfficeSummaryQueryKey, getListOfficeServiceRequestsQueryKey, getListOfficeInquiriesQueryKey, getListOfficeAssigneesQueryKey,
   useGetOfficeSummary, useListOfficeServiceRequests, useUpdateOfficeServiceRequest, useListOfficeAssignees,
   useListOfficeReminders, getListOfficeRemindersQueryKey,
+  useListOfficeServiceRequestInvoices, getListOfficeServiceRequestInvoicesQueryKey,
   useListOfficeInquiries, useAnswerOfficeInquiry,
   type InquiryStatus, type OfficeServiceRequestCategory, type OfficeServiceRequestStatus,
   type OfficeServiceRequest, type OfficeInquiry, type ServiceRequestUpdateStatus, type OfficeAssignee, type ServiceAttachment,
@@ -21,6 +22,7 @@ import { ExtractReminder } from '@/components/office-request-extras';
 import { RequestConversation, ReplyBadge, SubjectChip } from '@/components/request-conversation';
 import { ExpiryBadge, reminderKindNames } from '@/components/reminder-ui';
 import { formatCalendarDate } from '@/lib/format';
+import { statusChoices } from '@/lib/request-status';
 
 const pageSize = 20;
 type RequestSort = 'newest' | 'oldest_update' | 'due_soon';
@@ -183,7 +185,16 @@ export function OfficeRequests() {
 function RequestEditor({ request }: { request: OfficeServiceRequest }) {
   const qc = useQueryClient();
   const mutation = useUpdateOfficeServiceRequest();
+  // Every change here moves the request in the inbox lists and the overview
+  // counters (new, overdue, awaiting reply), so both are refreshed together.
+  const refreshOffice = () => Promise.all([
+    qc.invalidateQueries({ queryKey: getListOfficeServiceRequestsQueryKey() }),
+    qc.invalidateQueries({ queryKey: getGetOfficeSummaryQueryKey() }),
+  ]);
+  // Same key as the invoice panel below, so this is the cached list, not a second request.
+  const invoices = useListOfficeServiceRequestInvoices(request.id, { query: { queryKey: getListOfficeServiceRequestInvoicesQueryKey(request.id) } });
   const [status, setStatus] = useState<ServiceRequestUpdateStatus>(request.status);
+  const [rejected, setRejected] = useState<string | null>(null);
   const [officeNote, setOfficeNote] = useState(request.officeNote ?? '');
   const [customerMessage, setCustomerMessage] = useState(request.customerMessage ?? '');
   const [assignedTo, setAssignedTo] = useState(request.assignedTo ?? '');
@@ -202,8 +213,13 @@ function RequestEditor({ request }: { request: OfficeServiceRequest }) {
     setVersion(request.updatedAt);
     setConflict(false);
     setSaved(false);
+    setRejected(null);
   }, [request.id]);
   const changedSinceOpened = request.updatedAt !== version;
+  // Completing, or leaving "awaiting payment", with an unpaid invoice is refused
+  // by the API (needsInvoicesSettled); say so before the save instead of after.
+  const hasUnpaid = !!invoices.data?.some(i => i.status === 'issued');
+  const unpaidBlocksMove = hasUnpaid && status !== request.status && (status === 'completed' || request.status === 'awaiting_payment');
   function reviewLatest() {
     setStatus(request.status);
     setOfficeNote(request.officeNote ?? '');
@@ -213,12 +229,13 @@ function RequestEditor({ request }: { request: OfficeServiceRequest }) {
     setVersion(request.updatedAt);
     setConflict(false);
     setSaved(false);
+    setRejected(null);
     mutation.reset();
   }
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (changedSinceOpened || conflict) return;
-    setSaved(false);
+    if (changedSinceOpened || conflict || unpaidBlocksMove) return;
+    setSaved(false); setRejected(null);
     try {
       const updated = await mutation.mutateAsync({ id: request.id, data: {
         expectedUpdatedAt: version,
@@ -229,14 +246,16 @@ function RequestEditor({ request }: { request: OfficeServiceRequest }) {
         ...(due !== dateInput(request.dueAt) ? { dueAt: dueFromInput(due) } : {}),
       } });
       setVersion(updated.updatedAt);
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: getListOfficeServiceRequestsQueryKey() }),
-        qc.invalidateQueries({ queryKey: getGetOfficeSummaryQueryKey() }),
-      ]);
+      await refreshOffice();
       setSaved(true);
     } catch (error) {
-      if ((error as { status?: number })?.status === 409) {
-        setConflict(true);
+      const failure = error as { status?: number; data?: { error?: string } | null };
+      if (failure?.status === 409) {
+        // 409 is either the version check (fixed English text, shown as the
+        // conflict notice) or a rule the API enforces, whose Arabic text is
+        // shown as is: a move not allowed from this status, an unpaid invoice.
+        const reason = failure.data?.error;
+        if (reason && !/^This request changed/.test(reason)) setRejected(reason); else setConflict(true);
         await qc.invalidateQueries({ queryKey: getListOfficeServiceRequestsQueryKey() });
       }
     }
@@ -252,13 +271,15 @@ function RequestEditor({ request }: { request: OfficeServiceRequest }) {
       </div>}
       <div className="grid grid-cols-2 gap-3 text-xs"><div><span className="muted block">المجال</span><strong>{categoryNames[request.category]}</strong></div><div><span className="muted block">تاريخ الإرسال</span><strong>{dateText(request.createdAt)}</strong></div><div className="col-span-2"><span className="muted block">رقم التواصل</span><strong dir="ltr" className="inline-block">{request.contactPhone}</strong></div></div>
       <div className="border-t border-line pt-4"><div className="mb-2 text-xs font-bold text-subtle">تفاصيل العميل</div><p className="max-h-44 overflow-y-auto whitespace-pre-wrap text-sm leading-7">{request.description}</p></div>
-      <div className="border-t border-line pt-4"><RequestFiles key={request.id} scope="office" requestId={request.id} attachments={request.attachments} canUpload onChanged={() => qc.invalidateQueries({ queryKey: getListOfficeServiceRequestsQueryKey() })} onExtract={setExtracting}/></div>
+      <div className="border-t border-line pt-4"><RequestFiles key={request.id} scope="office" requestId={request.id} attachments={request.attachments} canUpload onChanged={refreshOffice} onExtract={setExtracting}/></div>
       {extracting && <ExtractReminder requestId={request.id} file={extracting} onClose={() => setExtracting(null)}/>}
       <div className="border-t border-line pt-4"><RequestConversation requestId={request.id} scope="office"/></div>
-      <div className="border-t border-line pt-4"><OfficeInvoices requestId={request.id} onChanged={() => qc.invalidateQueries({ queryKey: getListOfficeServiceRequestsQueryKey() })}/></div>
+      <div className="border-t border-line pt-4"><OfficeInvoices requestId={request.id} onChanged={refreshOffice}/></div>
       {request.rating && <div className="border-t border-line pt-4 text-sm"><span className="muted block text-xs">تقييم العميل</span><strong className="text-copper">{'★'.repeat(request.rating)}{'☆'.repeat(5 - request.rating)}</strong>{request.ratingComment && <p className="mt-1 whitespace-pre-wrap leading-7">«{request.ratingComment}»</p>}</div>}
       <form onSubmit={submit} className="space-y-4 border-t border-line pt-5">
-        <label className="form-field">تحديث الحالة<select className="form-control" value={status} onChange={e => setStatus(e.target.value as ServiceRequestUpdateStatus)}>{statusOptions.map(s => <option value={s} key={s}>{statusNames[s]}</option>)}</select></label>
+        {/* Only the moves allowed from the current status; the API refuses the rest. */}
+        <label className="form-field">تحديث الحالة<select className="form-control" value={status} onChange={e => { setStatus(e.target.value as ServiceRequestUpdateStatus); setRejected(null); }}>{statusChoices(request.status, status).map(s => <option value={s} key={s}>{statusNames[s]}</option>)}</select></label>
+        {unpaidBlocksMove && <p role="alert" className="rounded-lg bg-warn-soft px-3 py-2 text-xs font-bold text-warn">{status === 'completed' ? 'توجد فاتورة غير مسددة؛ لا يمكن الإكمال قبل تسويتها.' : 'توجد فاتورة غير مسددة؛ لا يمكن نقل الطلب قبل تسويتها.'}</p>}
         <div className="grid grid-cols-2 gap-3">
           <label className="form-field">المسؤول<select className="form-control" value={assignedTo} onChange={e => setAssignedTo(e.target.value)}><option value="">غير مسند</option>{assignedTo && !members.data?.some(m => m.userId === assignedTo) && <option value={assignedTo}>عضو سابق</option>}{members.data?.map(m => <option key={m.userId} value={m.userId}>{m.email ?? m.userId}</option>)}</select></label>
           <label className="form-field">موعد الإنجاز<input className="form-control" type="date" dir="ltr" value={due} onChange={e => setDue(e.target.value)}/></label>
@@ -266,9 +287,9 @@ function RequestEditor({ request }: { request: OfficeServiceRequest }) {
         {isOverdue({ status: request.status, dueAt: request.dueAt }) && <p className="text-xs font-bold text-danger">تجاوز الطلب موعد إنجازه.</p>}
         {status === 'waiting_on_customer' && <label className="form-field">ما يحتاجه المكتب من العميل<textarea className="form-control !min-h-24" value={customerMessage} onChange={e => setCustomerMessage(e.target.value)} maxLength={2000} minLength={2} required placeholder="وضّح للعميل ما يلزم لإكمال الطلب..."/><small className="muted font-normal">تظهر هذه الرسالة للعميل في طلبه.</small></label>}
         <label className="form-field">ملاحظة المكتب الداخلية<textarea className="form-control !min-h-28" value={officeNote} onChange={e => setOfficeNote(e.target.value)} maxLength={2000} placeholder="ملاحظة داخلية للفريق..."/><small className="muted font-normal">هذه الملاحظة داخلية ولا تُعرض للعميل في البوابة.</small></label>
-        {(conflict || changedSinceOpened) ? <div role="alert" className="text-xs text-danger">تغيّر هذا الطلب منذ فتحه. راجع النسخة الجديدة قبل الحفظ. <button type="button" className="underline" onClick={reviewLatest} disabled={request.updatedAt === version}>مراجعة النسخة الجديدة</button></div> : mutation.isError && <p role="alert" className="text-xs text-danger">تعذّر حفظ التحديث. حاول مجددًا.</p>}
+        {(conflict || changedSinceOpened) ? <div role="alert" className="text-xs text-danger">تغيّر هذا الطلب منذ فتحه. راجع النسخة الجديدة قبل الحفظ. <button type="button" className="underline" onClick={reviewLatest} disabled={request.updatedAt === version}>مراجعة النسخة الجديدة</button></div> : rejected ? <p role="alert" className="text-xs text-danger">{rejected}</p> : mutation.isError && <p role="alert" className="text-xs text-danger">تعذّر حفظ التحديث. حاول مجددًا.</p>}
         {saved && <p role="status" className="text-xs font-bold text-ok">تم حفظ التحديث.</p>}
-        <button type="submit" disabled={mutation.isPending || conflict || changedSinceOpened} className="btn btn-primary w-full">{mutation.isPending ? 'جارٍ الحفظ...' : 'حفظ التحديث'}<Save size={16}/></button>
+        <button type="submit" disabled={mutation.isPending || conflict || changedSinceOpened || unpaidBlocksMove} className="btn btn-primary w-full">{mutation.isPending ? 'جارٍ الحفظ...' : 'حفظ التحديث'}<Save size={16}/></button>
       </form>
     </div>
   </div>;

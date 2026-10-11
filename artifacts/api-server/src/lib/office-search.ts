@@ -1,3 +1,6 @@
+import { sql, type AnyColumn, type SQL } from "drizzle-orm";
+import { phoneSearchDigits } from "./phone";
+
 export const OFFICE_PAGE_SIZE = 25;
 
 // A request counts as stalled when it is not completed and nobody has
@@ -24,4 +27,13 @@ export type OfficeCustomer = { fullName: string; email: string } | null;
 
 export function officeCustomer(fullName: string | null, email: string | null): OfficeCustomer {
   return fullName && email ? { fullName, email } : null;
+}
+
+// A phone column matches when the typed digits appear in the stored digits,
+// both read in the local Saudi form, so the spelling of either side (spaces,
+// +966, Arabic digits) does not matter. Nothing to compare gives undefined.
+export function phoneMatches(column: AnyColumn | SQL, text: string): SQL | undefined {
+  const digits = phoneSearchDigits(text);
+  if (!digits) return undefined;
+  return sql`position(${digits} in regexp_replace(regexp_replace(coalesce(${column}, ''), '\\D', '', 'g'), '^(00)?966(?=5)', '0')) > 0`;
 }

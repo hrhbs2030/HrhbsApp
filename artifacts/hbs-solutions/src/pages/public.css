@@ -86,8 +86,9 @@
 }
 @media (max-width: 600px) {
   .pub-service-grid { grid-template-columns: minmax(0, 1fr); }
-  .pub-chips { min-width: 0; flex-wrap: nowrap; overflow-x: auto; margin-inline: -16px; padding-inline: 16px; scrollbar-width: none; }
-  .pub-chips button { flex: none; }
+  /* Area chips wrap on phones: every option is visible, nothing is cut off. */
+  .pub-chips { gap: 6px; }
+  .pub-chips button { padding-inline: 14px; font-size: 13.5px; }
 }
 
 /* Public page titles sit over the city scene, above the paper content. */
@@ -163,9 +164,6 @@
   .pub-service-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .pub-service-card { padding: 18px 18px 20px; }
   .pub-service-arrow { inset-inline-end: 18px; top: 20px; }
-  .pub-chips { flex-wrap: nowrap; overflow-x: auto; margin-inline: -16px; padding-inline: 16px; scrollbar-width: none; }
-  .pub-chips::-webkit-scrollbar { display: none; }
-  .pub-chips button { flex: none; }
   .pub-steps { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .pub-steps li { grid-template-columns: 28px minmax(0, 1fr); column-gap: 12px; row-gap: 2px; padding: 14px; }
   .pub-step-num { grid-row: span 2; margin: 0; }

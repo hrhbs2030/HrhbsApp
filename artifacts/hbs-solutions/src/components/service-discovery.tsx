@@ -2,7 +2,11 @@ import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { ArrowLeft, ArrowRight, Check, Compass, Search, Sparkles } from 'lucide-react';
 import { categories, categoryById, platforms, searchServices, services, type ServiceCategory } from '@/content/services';
+import { formatNumber } from '@/lib/format';
 import './service-discovery.css';
+
+// Counters use the product locale (Latin digits), like the carousel and the portal.
+const ofThree = (n: number) => `${formatNumber(n)} / ${formatNumber(3)}`;
 
 const iconSize = 18;
 
@@ -68,12 +72,12 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
       <div className="discovery-layout">
         <section className="discovery-carousel" aria-label="تصفّح الخدمات">
           <div className="discovery-carousel-head">
-            <div><span className="discovery-kicker">تصفّح الدليل</span><span className="discovery-total">{slide + 1} / {services.length}</span></div>
+            <div><span className="discovery-kicker">تصفّح الدليل</span><span className="discovery-total">{formatNumber(slide + 1)} / {formatNumber(services.length)}</span></div>
             <span className="discovery-mini-label">الخدمة التالية على بعد خطوة</span>
           </div>
           <div className="discovery-slide" aria-live="polite" key={currentService.slug}>
             <div className="discovery-slide-meta">
-              <span className="discovery-number">{String(slide + 1).padStart(2, '0')}</span>
+              <span className="discovery-number">{formatNumber(slide + 1).padStart(2, '0')}</span>
               <span>{categoryById[currentService.category].name}</span>
               {currentService.platform && <span className="discovery-platform">{currentService.platform}</span>}
             </div>
@@ -102,13 +106,13 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
             <div><p className="discovery-kicker">دليل تفاعلي</p><h3 id="guide-title" className="display">نبحثها معك</h3></div>
             <button type="button" className="discovery-reset" onClick={resetGuide} data-testid="button-guide-reset">إعادة البدء</button>
           </div>
-          <div className="discovery-stepper" aria-label={`الخطوة ${Math.min(step + 1, 3)} من 3`}>
+          <div className="discovery-stepper" aria-label={`الخطوة ${formatNumber(Math.min(step + 1, 3))} من ${formatNumber(3)}`}>
             {[0, 1, 2].map((index) => <span key={index} className={step >= index ? 'is-current' : ''} />)}
           </div>
           <div className="discovery-guide-content" key={`${step}-${category ?? ''}`}>
             {step === 0 && (
               <div className="discovery-question">
-                <span className="discovery-question-count">١ / ٣</span>
+                <span className="discovery-question-count" dir="ltr">{ofThree(1)}</span>
                 <h4>في أي مجال معاملتك؟</h4>
                 <p>اختيار المجال يساعدنا على تضييق الخيارات.</p>
                 <div className="discovery-choice-grid">
@@ -119,7 +123,7 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
             )}
             {step === 1 && category && (
               <div className="discovery-question">
-                <span className="discovery-question-count">٢ / ٣</span>
+                <span className="discovery-question-count" dir="ltr">{ofThree(2)}</span>
                 <h4>هل تعرف المنصة المرتبطة؟</h4>
                 <p>هذه خطوة اختيارية، ويمكنك المتابعة دون تحديد منصة.</p>
                 <div className="discovery-platform-choices">
@@ -131,7 +135,7 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
             )}
             {step === 2 && (
               <div className="discovery-question">
-                <span className="discovery-question-count">٣ / ٣</span>
+                <span className="discovery-question-count" dir="ltr">{ofThree(3)}</span>
                 <h4>صف المعاملة بكلماتك</h4>
                 <p>{category ? `اكتب كلمة أو جملة قصيرة، أو اعرض كل خدمات المجال${platform ? ` على ${platform}` : ''}.` : 'اكتب كلمة تصف معاملتك لنبحث في جميع المجالات.'}</p>
                 <label className="discovery-description">
@@ -148,12 +152,12 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
             {step === 3 && (
               <div className="discovery-question discovery-match-view">
                 <span className="discovery-question-count"><Check size={14} aria-hidden="true" /> اقتراحات من الدليل</span>
-                <h4>{matches.length ? `وجدنا ${matches.length} نتيجة قد تناسبك` : 'لم نجد تطابقًا واضحًا'}</h4>
+                <h4>{matches.length ? `وجدنا ${formatNumber(matches.length)} نتيجة قد تناسبك` : 'لم نجد تطابقًا واضحًا'}</h4>
                 <p className="discovery-disclaimer">هذه اقتراحات بحسب الكلمات والمجال، وليست قرارًا رسميًا بالأهلية أو إمكانية التنفيذ. يراجع المكتب تفاصيل طلبك.</p>
                 {matches.length ? (
                   <div className="discovery-match-list" data-testid="status-guide-matches">
                     {matches.slice(0, 4).map((service) => <ServiceLinkCard key={service.slug} {...service} />)}
-                    {matches.length > 4 && <button type="button" className="discovery-show-all" onClick={() => onViewAllMatches({ query: description, category, platform })} data-testid="button-guide-view-all">عرض كل النتائج ({matches.length}) <ArrowLeft size={15} aria-hidden="true" /></button>}
+                    {matches.length > 4 && <button type="button" className="discovery-show-all" onClick={() => onViewAllMatches({ query: description, category, platform })} data-testid="button-guide-view-all">عرض كل النتائج ({formatNumber(matches.length)}) <ArrowLeft size={15} aria-hidden="true" /></button>}
                   </div>
                 ) : (
                   <div className="discovery-no-match" data-testid="status-guide-no-match">

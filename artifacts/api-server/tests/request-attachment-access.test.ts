@@ -90,7 +90,7 @@ async function reserve(base: string, user: string) {
 function requestBody(attachmentIds: number[]) {
   return {
     category: "business", service: "Document review",
-    description: "Please review the attached documents.", contactPhone: "0000000000",
+    description: "Please review the attached documents.", contactPhone: "0500000000",
     clientRequestId: randomUUID(), attachmentIds,
   };
 }
@@ -123,7 +123,7 @@ test("only the owner or verified office staff can download a submitted attachmen
     const base = `http://127.0.0.1:${address.port}`;
     await db.insert(hbsServiceRequests).values(users.map(userId => ({
       userId, category: "other" as const, service: "Approval fixture",
-      description: "Existing activity grants customer access.", contactPhone: "0000000000",
+      description: "Existing activity grants customer access.", contactPhone: "0500000000",
     })));
     await db.insert(hbsOfficeStaff).values([
       { userId: ownerId },
