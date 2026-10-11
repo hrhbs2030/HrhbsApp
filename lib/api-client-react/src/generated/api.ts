@@ -37,6 +37,12 @@ import type {
   Company,
   CompanyFile,
   CompanyInput,
+  CompanyMember,
+  CompanyMemberInviteInput,
+  CompanyMemberUpdate,
+  CompanyMembership,
+  CompanySubscriptionResult,
+  CompanySubscriptionUpdate,
   CustomerAIAnswer,
   CustomerAIQuestion,
   Employee,
@@ -66,6 +72,7 @@ import type {
   ListOfficeInquiriesParams,
   ListOfficeRemindersParams,
   ListOfficeServiceRequestsParams,
+  ListOfficeSubscriptionsParams,
   LookupCommercialRegisterParams,
   LookupOfficeCommercialRegisterParams,
   OfficeAssignee,
@@ -80,8 +87,13 @@ import type {
   OfficeServiceRequestPage,
   OfficeStaffInput,
   OfficeStaffMember,
+  OfficeSubscription,
+  OfficeSubscriptionPage,
+  OfficeSubscriptionUpdate,
   OfficeSummary,
   PaymentStart,
+  Plan,
+  PlanInput,
   PortalRegistration,
   PortalRegistrationResult,
   PortalSettings,
@@ -95,6 +107,7 @@ import type {
   RegistrationReview,
   Reminder,
   ReminderInput,
+  RequestEmployeeUpdate,
   RequestMessage,
   RequestMessageInput,
   ServiceOffer,
@@ -102,7 +115,11 @@ import type {
   ServiceRequest,
   ServiceRequestInput,
   ServiceRequestStatusEvent,
-  ServiceRequestUpdate
+  ServiceRequestUpdate,
+  StartSubscriptionInput,
+  Subscription,
+  WhatsappWebhookPayload,
+  WhatsappWebhookVerifyParams
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -8453,4 +8470,1583 @@ export function useLookupOfficeCommercialRegister<TData = Awaited<ReturnType<typ
 
 
 
+
+export const getListCompanyMembersUrl = () => {
+
+
+
+
+  return `/api/company/members`
+}
+
+/**
+ * @summary The signed-in customer's company members, owner first
+ */
+export const listCompanyMembers = async ( options?: Parameters<typeof customFetch>[1]): Promise<CompanyMember[]> => {
+
+  return customFetch<CompanyMember[]>(getListCompanyMembersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCompanyMembersQueryKey = () => {
+    return [
+    `/api/company/members`
+    ] as const;
+    }
+
+
+export const getListCompanyMembersQueryOptions = <TData = Awaited<ReturnType<typeof listCompanyMembers>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCompanyMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCompanyMembersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCompanyMembers>>> = ({ signal }) => listCompanyMembers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCompanyMembers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCompanyMembersQueryResult = NonNullable<Awaited<ReturnType<typeof listCompanyMembers>>>
+export type ListCompanyMembersQueryError = ErrorType<void>
+
+
+/**
+ * @summary The signed-in customer's company members, owner first
+ */
+
+export function useListCompanyMembers<TData = Awaited<ReturnType<typeof listCompanyMembers>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCompanyMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCompanyMembersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getInviteCompanyMemberUrl = () => {
+
+
+
+
+  return `/api/company/members`
+}
+
+/**
+ * @summary Owner-only invite a person by email
+ */
+export const inviteCompanyMember = async (companyMemberInviteInput: CompanyMemberInviteInput, options?: Parameters<typeof customFetch>[1]): Promise<CompanyMember> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CompanyMember>(getInviteCompanyMemberUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(companyMemberInviteInput)
+  }
+);}
+
+
+
+
+
+export const getInviteCompanyMemberMutationKey = () => ['inviteCompanyMember'] as const;
+
+export const getInviteCompanyMemberMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof inviteCompanyMember>>, TError,InviteCompanyMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof inviteCompanyMember>>, TError,InviteCompanyMemberMutationVariables, TContext> => {
+
+const mutationKey = getInviteCompanyMemberMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof inviteCompanyMember>>, InviteCompanyMemberMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  inviteCompanyMember(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InviteCompanyMemberMutationResult = NonNullable<Awaited<ReturnType<typeof inviteCompanyMember>>>
+    export type InviteCompanyMemberMutationBody = BodyType<CompanyMemberInviteInput>
+    export type InviteCompanyMemberMutationError = ErrorType<void>
+    export type InviteCompanyMemberMutationVariables = {data: BodyType<CompanyMemberInviteInput>}
+
+    /**
+ * @summary Owner-only invite a person by email
+ */
+export const useInviteCompanyMember = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof inviteCompanyMember>>, TError,InviteCompanyMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof inviteCompanyMember>>,
+        TError,
+        InviteCompanyMemberMutationVariables,
+        TContext
+      > => {
+      return useMutation(getInviteCompanyMemberMutationOptions(options));
+    }
+
+export const getUpdateCompanyMemberUrl = (id: number,) => {
+
+
+
+
+  return `/api/company/members/${id}`
+}
+
+/**
+ * @summary Owner-only change a member's role
+ */
+export const updateCompanyMember = async (id: number,
+    companyMemberUpdate: CompanyMemberUpdate, options?: Parameters<typeof customFetch>[1]): Promise<CompanyMember> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CompanyMember>(getUpdateCompanyMemberUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(companyMemberUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCompanyMemberMutationKey = () => ['updateCompanyMember'] as const;
+
+export const getUpdateCompanyMemberMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCompanyMember>>, TError,UpdateCompanyMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCompanyMember>>, TError,UpdateCompanyMemberMutationVariables, TContext> => {
+
+const mutationKey = getUpdateCompanyMemberMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCompanyMember>>, UpdateCompanyMemberMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCompanyMember(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCompanyMemberMutationResult = NonNullable<Awaited<ReturnType<typeof updateCompanyMember>>>
+    export type UpdateCompanyMemberMutationBody = BodyType<CompanyMemberUpdate>
+    export type UpdateCompanyMemberMutationError = ErrorType<void>
+    export type UpdateCompanyMemberMutationVariables = {id: number;data: BodyType<CompanyMemberUpdate>}
+
+    /**
+ * @summary Owner-only change a member's role
+ */
+export const useUpdateCompanyMember = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCompanyMember>>, TError,UpdateCompanyMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCompanyMember>>,
+        TError,
+        UpdateCompanyMemberMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateCompanyMemberMutationOptions(options));
+    }
+
+export const getRemoveCompanyMemberUrl = (id: number,) => {
+
+
+
+
+  return `/api/company/members/${id}`
+}
+
+/**
+ * @summary Owner-only remove a member or withdraw an invitation
+ */
+export const removeCompanyMember = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRemoveCompanyMemberUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemoveCompanyMemberMutationKey = () => ['removeCompanyMember'] as const;
+
+export const getRemoveCompanyMemberMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeCompanyMember>>, TError,RemoveCompanyMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeCompanyMember>>, TError,RemoveCompanyMemberMutationVariables, TContext> => {
+
+const mutationKey = getRemoveCompanyMemberMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeCompanyMember>>, RemoveCompanyMemberMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  removeCompanyMember(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveCompanyMemberMutationResult = NonNullable<Awaited<ReturnType<typeof removeCompanyMember>>>
+
+    export type RemoveCompanyMemberMutationError = ErrorType<void>
+    export type RemoveCompanyMemberMutationVariables = {id: number}
+
+    /**
+ * @summary Owner-only remove a member or withdraw an invitation
+ */
+export const useRemoveCompanyMember = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeCompanyMember>>, TError,RemoveCompanyMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeCompanyMember>>,
+        TError,
+        RemoveCompanyMemberMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRemoveCompanyMemberMutationOptions(options));
+    }
+
+export const getGetCompanyMembershipUrl = () => {
+
+
+
+
+  return `/api/company/membership`
+}
+
+/**
+ * @summary The signed-in user's role in the company they own or were accepted into
+ */
+export const getCompanyMembership = async ( options?: Parameters<typeof customFetch>[1]): Promise<CompanyMembership> => {
+
+  return customFetch<CompanyMembership>(getGetCompanyMembershipUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCompanyMembershipQueryKey = () => {
+    return [
+    `/api/company/membership`
+    ] as const;
+    }
+
+
+export const getGetCompanyMembershipQueryOptions = <TData = Awaited<ReturnType<typeof getCompanyMembership>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCompanyMembership>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCompanyMembershipQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCompanyMembership>>> = ({ signal }) => getCompanyMembership({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCompanyMembership>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCompanyMembershipQueryResult = NonNullable<Awaited<ReturnType<typeof getCompanyMembership>>>
+export type GetCompanyMembershipQueryError = ErrorType<void>
+
+
+/**
+ * @summary The signed-in user's role in the company they own or were accepted into
+ */
+
+export function useGetCompanyMembership<TData = Awaited<ReturnType<typeof getCompanyMembership>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCompanyMembership>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCompanyMembershipQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListOfficeCustomerMembersUrl = (userId: string,) => {
+
+
+
+
+  return `/api/office/customers/${userId}/members`
+}
+
+/**
+ * @summary Staff-only members of a customer's company, owner first
+ */
+export const listOfficeCustomerMembers = async (userId: string, options?: Parameters<typeof customFetch>[1]): Promise<CompanyMember[]> => {
+
+  return customFetch<CompanyMember[]>(getListOfficeCustomerMembersUrl(userId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeCustomerMembersQueryKey = (userId: string,) => {
+    return [
+    `/api/office/customers/${userId}/members`
+    ] as const;
+    }
+
+
+export const getListOfficeCustomerMembersQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeCustomerMembers>>, TError = ErrorType<void>>(userId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeCustomerMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeCustomerMembersQueryKey(userId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeCustomerMembers>>> = ({ signal }) => listOfficeCustomerMembers(userId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: userId !== null && userId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeCustomerMembers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeCustomerMembersQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeCustomerMembers>>>
+export type ListOfficeCustomerMembersQueryError = ErrorType<void>
+
+
+/**
+ * @summary Staff-only members of a customer's company, owner first
+ */
+
+export function useListOfficeCustomerMembers<TData = Awaited<ReturnType<typeof listOfficeCustomerMembers>>, TError = ErrorType<void>>(
+ userId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeCustomerMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeCustomerMembersQueryOptions(userId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateOfficeRequestEmployeeUrl = (id: number,
+    employeeId: number,) => {
+
+
+
+
+  return `/api/office/service-requests/${id}/employees/${employeeId}`
+}
+
+/**
+ * @summary Staff-only update one employee's progress on a bulk request
+ */
+export const updateOfficeRequestEmployee = async (id: number,
+    employeeId: number,
+    requestEmployeeUpdate: RequestEmployeeUpdate, options?: Parameters<typeof customFetch>[1]): Promise<OfficeServiceRequest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OfficeServiceRequest>(getUpdateOfficeRequestEmployeeUrl(id,employeeId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(requestEmployeeUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateOfficeRequestEmployeeMutationKey = () => ['updateOfficeRequestEmployee'] as const;
+
+export const getUpdateOfficeRequestEmployeeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficeRequestEmployee>>, TError,UpdateOfficeRequestEmployeeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateOfficeRequestEmployee>>, TError,UpdateOfficeRequestEmployeeMutationVariables, TContext> => {
+
+const mutationKey = getUpdateOfficeRequestEmployeeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOfficeRequestEmployee>>, UpdateOfficeRequestEmployeeMutationVariables> = (props) => {
+          const {id,employeeId,data} = props ?? {};
+
+          return  updateOfficeRequestEmployee(id,employeeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateOfficeRequestEmployeeMutationResult = NonNullable<Awaited<ReturnType<typeof updateOfficeRequestEmployee>>>
+    export type UpdateOfficeRequestEmployeeMutationBody = BodyType<RequestEmployeeUpdate>
+    export type UpdateOfficeRequestEmployeeMutationError = ErrorType<void>
+    export type UpdateOfficeRequestEmployeeMutationVariables = {id: number;employeeId: number;data: BodyType<RequestEmployeeUpdate>}
+
+    /**
+ * @summary Staff-only update one employee's progress on a bulk request
+ */
+export const useUpdateOfficeRequestEmployee = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficeRequestEmployee>>, TError,UpdateOfficeRequestEmployeeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateOfficeRequestEmployee>>,
+        TError,
+        UpdateOfficeRequestEmployeeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateOfficeRequestEmployeeMutationOptions(options));
+    }
+
+export const getListPlansUrl = () => {
+
+
+
+
+  return `/api/plans`
+}
+
+/**
+ * @summary Published subscription plans
+ */
+export const listPlans = async ( options?: Parameters<typeof customFetch>[1]): Promise<Plan[]> => {
+
+  return customFetch<Plan[]>(getListPlansUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPlansQueryKey = () => {
+    return [
+    `/api/plans`
+    ] as const;
+    }
+
+
+export const getListPlansQueryOptions = <TData = Awaited<ReturnType<typeof listPlans>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPlansQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPlans>>> = ({ signal }) => listPlans({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPlans>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPlansQueryResult = NonNullable<Awaited<ReturnType<typeof listPlans>>>
+export type ListPlansQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Published subscription plans
+ */
+
+export function useListPlans<TData = Awaited<ReturnType<typeof listPlans>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPlansQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListOfficePlansUrl = () => {
+
+
+
+
+  return `/api/office/plans`
+}
+
+/**
+ * @summary Owner-only list of all plans, including inactive ones
+ */
+export const listOfficePlans = async ( options?: Parameters<typeof customFetch>[1]): Promise<Plan[]> => {
+
+  return customFetch<Plan[]>(getListOfficePlansUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficePlansQueryKey = () => {
+    return [
+    `/api/office/plans`
+    ] as const;
+    }
+
+
+export const getListOfficePlansQueryOptions = <TData = Awaited<ReturnType<typeof listOfficePlans>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficePlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficePlansQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficePlans>>> = ({ signal }) => listOfficePlans({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficePlans>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficePlansQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficePlans>>>
+export type ListOfficePlansQueryError = ErrorType<void>
+
+
+/**
+ * @summary Owner-only list of all plans, including inactive ones
+ */
+
+export function useListOfficePlans<TData = Awaited<ReturnType<typeof listOfficePlans>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficePlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficePlansQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateOfficePlanUrl = () => {
+
+
+
+
+  return `/api/office/plans`
+}
+
+/**
+ * @summary Owner-only create a plan
+ */
+export const createOfficePlan = async (planInput: PlanInput, options?: Parameters<typeof customFetch>[1]): Promise<Plan> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Plan>(getCreateOfficePlanUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(planInput)
+  }
+);}
+
+
+
+
+
+export const getCreateOfficePlanMutationKey = () => ['createOfficePlan'] as const;
+
+export const getCreateOfficePlanMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOfficePlan>>, TError,CreateOfficePlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createOfficePlan>>, TError,CreateOfficePlanMutationVariables, TContext> => {
+
+const mutationKey = getCreateOfficePlanMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createOfficePlan>>, CreateOfficePlanMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createOfficePlan(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateOfficePlanMutationResult = NonNullable<Awaited<ReturnType<typeof createOfficePlan>>>
+    export type CreateOfficePlanMutationBody = BodyType<PlanInput>
+    export type CreateOfficePlanMutationError = ErrorType<void>
+    export type CreateOfficePlanMutationVariables = {data: BodyType<PlanInput>}
+
+    /**
+ * @summary Owner-only create a plan
+ */
+export const useCreateOfficePlan = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOfficePlan>>, TError,CreateOfficePlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createOfficePlan>>,
+        TError,
+        CreateOfficePlanMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateOfficePlanMutationOptions(options));
+    }
+
+export const getUpdateOfficePlanUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/plans/${id}`
+}
+
+/**
+ * @summary Owner-only update a plan; existing subscriptions keep their plan
+ */
+export const updateOfficePlan = async (id: number,
+    planInput: PlanInput, options?: Parameters<typeof customFetch>[1]): Promise<Plan> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Plan>(getUpdateOfficePlanUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(planInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateOfficePlanMutationKey = () => ['updateOfficePlan'] as const;
+
+export const getUpdateOfficePlanMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficePlan>>, TError,UpdateOfficePlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateOfficePlan>>, TError,UpdateOfficePlanMutationVariables, TContext> => {
+
+const mutationKey = getUpdateOfficePlanMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOfficePlan>>, UpdateOfficePlanMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateOfficePlan(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateOfficePlanMutationResult = NonNullable<Awaited<ReturnType<typeof updateOfficePlan>>>
+    export type UpdateOfficePlanMutationBody = BodyType<PlanInput>
+    export type UpdateOfficePlanMutationError = ErrorType<void>
+    export type UpdateOfficePlanMutationVariables = {id: number;data: BodyType<PlanInput>}
+
+    /**
+ * @summary Owner-only update a plan; existing subscriptions keep their plan
+ */
+export const useUpdateOfficePlan = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficePlan>>, TError,UpdateOfficePlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateOfficePlan>>,
+        TError,
+        UpdateOfficePlanMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateOfficePlanMutationOptions(options));
+    }
+
+export const getListOfficeSubscriptionsUrl = (params?: ListOfficeSubscriptionsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/office/subscriptions?${stringifiedParams}` : `/api/office/subscriptions`
+}
+
+/**
+ * @summary Owner-only paginated subscriptions
+ */
+export const listOfficeSubscriptions = async (params?: ListOfficeSubscriptionsParams, options?: Parameters<typeof customFetch>[1]): Promise<OfficeSubscriptionPage> => {
+
+  return customFetch<OfficeSubscriptionPage>(getListOfficeSubscriptionsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeSubscriptionsQueryKey = (params?: ListOfficeSubscriptionsParams,) => {
+    return [
+    `/api/office/subscriptions`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListOfficeSubscriptionsQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeSubscriptions>>, TError = ErrorType<void>>(params?: ListOfficeSubscriptionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeSubscriptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeSubscriptionsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeSubscriptions>>> = ({ signal }) => listOfficeSubscriptions(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeSubscriptions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeSubscriptionsQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeSubscriptions>>>
+export type ListOfficeSubscriptionsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Owner-only paginated subscriptions
+ */
+
+export function useListOfficeSubscriptions<TData = Awaited<ReturnType<typeof listOfficeSubscriptions>>, TError = ErrorType<void>>(
+ params?: ListOfficeSubscriptionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeSubscriptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeSubscriptionsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateOfficeSubscriptionUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/subscriptions/${id}`
+}
+
+/**
+ * @summary Owner-only cancel a subscription or change its automatic renewal requests
+ */
+export const updateOfficeSubscription = async (id: number,
+    officeSubscriptionUpdate: OfficeSubscriptionUpdate, options?: Parameters<typeof customFetch>[1]): Promise<OfficeSubscription> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OfficeSubscription>(getUpdateOfficeSubscriptionUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(officeSubscriptionUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateOfficeSubscriptionMutationKey = () => ['updateOfficeSubscription'] as const;
+
+export const getUpdateOfficeSubscriptionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficeSubscription>>, TError,UpdateOfficeSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateOfficeSubscription>>, TError,UpdateOfficeSubscriptionMutationVariables, TContext> => {
+
+const mutationKey = getUpdateOfficeSubscriptionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOfficeSubscription>>, UpdateOfficeSubscriptionMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateOfficeSubscription(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateOfficeSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof updateOfficeSubscription>>>
+    export type UpdateOfficeSubscriptionMutationBody = BodyType<OfficeSubscriptionUpdate>
+    export type UpdateOfficeSubscriptionMutationError = ErrorType<void>
+    export type UpdateOfficeSubscriptionMutationVariables = {id: number;data: BodyType<OfficeSubscriptionUpdate>}
+
+    /**
+ * @summary Owner-only cancel a subscription or change its automatic renewal requests
+ */
+export const useUpdateOfficeSubscription = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficeSubscription>>, TError,UpdateOfficeSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateOfficeSubscription>>,
+        TError,
+        UpdateOfficeSubscriptionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateOfficeSubscriptionMutationOptions(options));
+    }
+
+export const getGetCompanySubscriptionUrl = () => {
+
+
+
+
+  return `/api/company/subscription`
+}
+
+/**
+ * @summary The signed-in company owner's current subscription, if any
+ */
+export const getCompanySubscription = async ( options?: Parameters<typeof customFetch>[1]): Promise<CompanySubscriptionResult> => {
+
+  return customFetch<CompanySubscriptionResult>(getGetCompanySubscriptionUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCompanySubscriptionQueryKey = () => {
+    return [
+    `/api/company/subscription`
+    ] as const;
+    }
+
+
+export const getGetCompanySubscriptionQueryOptions = <TData = Awaited<ReturnType<typeof getCompanySubscription>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCompanySubscription>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCompanySubscriptionQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCompanySubscription>>> = ({ signal }) => getCompanySubscription({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCompanySubscription>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCompanySubscriptionQueryResult = NonNullable<Awaited<ReturnType<typeof getCompanySubscription>>>
+export type GetCompanySubscriptionQueryError = ErrorType<void>
+
+
+/**
+ * @summary The signed-in company owner's current subscription, if any
+ */
+
+export function useGetCompanySubscription<TData = Awaited<ReturnType<typeof getCompanySubscription>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCompanySubscription>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCompanySubscriptionQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStartCompanySubscriptionUrl = () => {
+
+
+
+
+  return `/api/company/subscription`
+}
+
+/**
+ * @summary Owner-only subscribe to a plan; the first invoice is issued at once
+ */
+export const startCompanySubscription = async (startSubscriptionInput: StartSubscriptionInput, options?: Parameters<typeof customFetch>[1]): Promise<Subscription> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Subscription>(getStartCompanySubscriptionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(startSubscriptionInput)
+  }
+);}
+
+
+
+
+
+export const getStartCompanySubscriptionMutationKey = () => ['startCompanySubscription'] as const;
+
+export const getStartCompanySubscriptionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startCompanySubscription>>, TError,StartCompanySubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startCompanySubscription>>, TError,StartCompanySubscriptionMutationVariables, TContext> => {
+
+const mutationKey = getStartCompanySubscriptionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startCompanySubscription>>, StartCompanySubscriptionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  startCompanySubscription(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartCompanySubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof startCompanySubscription>>>
+    export type StartCompanySubscriptionMutationBody = BodyType<StartSubscriptionInput>
+    export type StartCompanySubscriptionMutationError = ErrorType<void>
+    export type StartCompanySubscriptionMutationVariables = {data: BodyType<StartSubscriptionInput>}
+
+    /**
+ * @summary Owner-only subscribe to a plan; the first invoice is issued at once
+ */
+export const useStartCompanySubscription = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startCompanySubscription>>, TError,StartCompanySubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startCompanySubscription>>,
+        TError,
+        StartCompanySubscriptionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getStartCompanySubscriptionMutationOptions(options));
+    }
+
+export const getUpdateCompanySubscriptionUrl = () => {
+
+
+
+
+  return `/api/company/subscription`
+}
+
+/**
+ * @summary Owner-only cancel the subscription or change its automatic renewal requests
+ */
+export const updateCompanySubscription = async (companySubscriptionUpdate: CompanySubscriptionUpdate, options?: Parameters<typeof customFetch>[1]): Promise<Subscription> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Subscription>(getUpdateCompanySubscriptionUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(companySubscriptionUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCompanySubscriptionMutationKey = () => ['updateCompanySubscription'] as const;
+
+export const getUpdateCompanySubscriptionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCompanySubscription>>, TError,UpdateCompanySubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCompanySubscription>>, TError,UpdateCompanySubscriptionMutationVariables, TContext> => {
+
+const mutationKey = getUpdateCompanySubscriptionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCompanySubscription>>, UpdateCompanySubscriptionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateCompanySubscription(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCompanySubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof updateCompanySubscription>>>
+    export type UpdateCompanySubscriptionMutationBody = BodyType<CompanySubscriptionUpdate>
+    export type UpdateCompanySubscriptionMutationError = ErrorType<void>
+    export type UpdateCompanySubscriptionMutationVariables = {data: BodyType<CompanySubscriptionUpdate>}
+
+    /**
+ * @summary Owner-only cancel the subscription or change its automatic renewal requests
+ */
+export const useUpdateCompanySubscription = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCompanySubscription>>, TError,UpdateCompanySubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCompanySubscription>>,
+        TError,
+        UpdateCompanySubscriptionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateCompanySubscriptionMutationOptions(options));
+    }
+
+export const getListCompanyInvoicesUrl = () => {
+
+
+
+
+  return `/api/company/invoices`
+}
+
+/**
+ * @summary All invoices of the signed-in customer, newest first, including subscription invoices
+ */
+export const listCompanyInvoices = async ( options?: Parameters<typeof customFetch>[1]): Promise<Invoice[]> => {
+
+  return customFetch<Invoice[]>(getListCompanyInvoicesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCompanyInvoicesQueryKey = () => {
+    return [
+    `/api/company/invoices`
+    ] as const;
+    }
+
+
+export const getListCompanyInvoicesQueryOptions = <TData = Awaited<ReturnType<typeof listCompanyInvoices>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCompanyInvoices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCompanyInvoicesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCompanyInvoices>>> = ({ signal }) => listCompanyInvoices({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCompanyInvoices>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCompanyInvoicesQueryResult = NonNullable<Awaited<ReturnType<typeof listCompanyInvoices>>>
+export type ListCompanyInvoicesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary All invoices of the signed-in customer, newest first, including subscription invoices
+ */
+
+export function useListCompanyInvoices<TData = Awaited<ReturnType<typeof listCompanyInvoices>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCompanyInvoices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCompanyInvoicesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getWhatsappWebhookVerifyUrl = (params: WhatsappWebhookVerifyParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/webhooks/whatsapp?${stringifiedParams}` : `/api/webhooks/whatsapp`
+}
+
+/**
+ * @summary Meta's one-time verification of the WhatsApp webhook address
+ */
+export const whatsappWebhookVerify = async (params: WhatsappWebhookVerifyParams, options?: Parameters<typeof customFetch>[1]): Promise<string> => {
+
+  return customFetch<string>(getWhatsappWebhookVerifyUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getWhatsappWebhookVerifyQueryKey = (params?: WhatsappWebhookVerifyParams,) => {
+    return [
+    `/api/webhooks/whatsapp`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getWhatsappWebhookVerifyQueryOptions = <TData = Awaited<ReturnType<typeof whatsappWebhookVerify>>, TError = ErrorType<void>>(params: WhatsappWebhookVerifyParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof whatsappWebhookVerify>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getWhatsappWebhookVerifyQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof whatsappWebhookVerify>>> = ({ signal }) => whatsappWebhookVerify(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof whatsappWebhookVerify>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type WhatsappWebhookVerifyQueryResult = NonNullable<Awaited<ReturnType<typeof whatsappWebhookVerify>>>
+export type WhatsappWebhookVerifyQueryError = ErrorType<void>
+
+
+/**
+ * @summary Meta's one-time verification of the WhatsApp webhook address
+ */
+
+export function useWhatsappWebhookVerify<TData = Awaited<ReturnType<typeof whatsappWebhookVerify>>, TError = ErrorType<void>>(
+ params: WhatsappWebhookVerifyParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof whatsappWebhookVerify>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getWhatsappWebhookVerifyQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getWhatsappWebhookUrl = () => {
+
+
+
+
+  return `/api/webhooks/whatsapp`
+}
+
+/**
+ * @summary Inbound WhatsApp messages and status updates from Meta (signature checked against the raw body)
+ */
+export const whatsappWebhook = async (whatsappWebhookPayload: WhatsappWebhookPayload, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getWhatsappWebhookUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(whatsappWebhookPayload)
+  }
+);}
+
+
+
+
+
+export const getWhatsappWebhookMutationKey = () => ['whatsappWebhook'] as const;
+
+export const getWhatsappWebhookMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof whatsappWebhook>>, TError,WhatsappWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof whatsappWebhook>>, TError,WhatsappWebhookMutationVariables, TContext> => {
+
+const mutationKey = getWhatsappWebhookMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof whatsappWebhook>>, WhatsappWebhookMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  whatsappWebhook(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type WhatsappWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof whatsappWebhook>>>
+    export type WhatsappWebhookMutationBody = BodyType<WhatsappWebhookPayload>
+    export type WhatsappWebhookMutationError = ErrorType<void>
+    export type WhatsappWebhookMutationVariables = {data: BodyType<WhatsappWebhookPayload>}
+
+    /**
+ * @summary Inbound WhatsApp messages and status updates from Meta (signature checked against the raw body)
+ */
+export const useWhatsappWebhook = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof whatsappWebhook>>, TError,WhatsappWebhookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof whatsappWebhook>>,
+        TError,
+        WhatsappWebhookMutationVariables,
+        TContext
+      > => {
+      return useMutation(getWhatsappWebhookMutationOptions(options));
+    }
 

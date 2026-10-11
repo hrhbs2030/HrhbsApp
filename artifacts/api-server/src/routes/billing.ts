@@ -2,7 +2,7 @@ import { getAuth } from "@clerk/express";
 import { timingSafeEqual } from "node:crypto";
 import { and, asc, desc, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
-import { db, hbsInvoices, hbsServiceRequests, type HbsInvoice, type HbsServiceRequest } from "@workspace/db";
+import { db, hbsInvoices, hbsServiceRequests, hbsSubscriptions, type HbsInvoice, type HbsServiceRequest } from "@workspace/db";
 import {
   IssueOfficeInvoiceBody, IssueOfficeInvoiceParams, IssueOfficeInvoiceResponse,
   ListOfficeServiceRequestInvoicesParams, ListOfficeServiceRequestInvoicesResponse,
@@ -21,6 +21,7 @@ import { closedInvoicePaidMail, invoiceIssuedMail, invoicePaidOfficeMail, notify
 import { logger } from "../lib/logger";
 import { requireOfficeStaff } from "../lib/office-access";
 import { resumeAfterPayment } from "../lib/automations";
+import { onSubscriptionInvoicePaid } from "../lib/subscriptions";
 import { requireApprovedCustomer } from "./portal";
 
 const router: IRouter = Router();
@@ -31,13 +32,17 @@ function seller() {
   return { name: process.env.HBS_LEGAL_NAME?.trim() || "HBS حلول الغد", vatNumber: process.env.HBS_VAT_NUMBER?.trim() || null };
 }
 
-function invoice(row: HbsInvoice, request: Pick<HbsServiceRequest, "id" | "createdAt">) {
+// A subscription invoice has no request: requestId/requestReference are null.
+export function invoice(row: HbsInvoice, request: Pick<HbsServiceRequest, "id" | "createdAt"> | null) {
   return {
     id: row.id,
     reference: invoiceReference(row.id, row.issuedAt),
-    requestId: request.id,
-    requestReference: requestReference(request.id, request.createdAt),
+    requestId: request?.id ?? null,
+    requestReference: request ? requestReference(request.id, request.createdAt) : null,
+    subscriptionId: row.subscriptionId,
     description: row.description,
+    quantity: row.quantity,
+    unitAmount: row.unitAmountHalalas,
     amount: row.amountHalalas,
     vatRateBasisPoints: row.vatRateBasisPoints,
     vat: row.vatHalalas,
@@ -59,26 +64,34 @@ async function invoicesOf(request: HbsServiceRequest) {
   return rows.map(row => invoice(row, request));
 }
 
-// The customer's invoice with its request, or nothing for another customer's.
+// The customer's invoice with its request (null for a subscription invoice),
+// or nothing for another customer's. The customer owns it through the
+// request, or through the subscription (hbs_subscriptions.user_id).
 async function customerInvoice(id: number, userId: string) {
   const [row] = await db.select({ invoice: hbsInvoices, request: hbsServiceRequests }).from(hbsInvoices)
-    .innerJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
-    .where(and(eq(hbsInvoices.id, id), eq(hbsServiceRequests.userId, userId))).limit(1);
+    .leftJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
+    .leftJoin(hbsSubscriptions, eq(hbsInvoices.subscriptionId, hbsSubscriptions.id))
+    .where(and(eq(hbsInvoices.id, id), or(eq(hbsServiceRequests.userId, userId), eq(hbsSubscriptions.userId, userId)))).limit(1);
   return row ?? null;
+}
+
+// What the mails name for an invoice: its request, or the subscription.
+function subjectInfo(row: HbsInvoice, request: HbsServiceRequest | null) {
+  return request
+    ? { id: request.id, reference: requestReference(request.id, request.createdAt), service: request.service }
+    : { id: 0, reference: `اشتراك #${row.subscriptionId}`, service: "الاشتراك الشهري" };
 }
 
 // Marks an invoice paid only when the gateway itself reports it paid in full,
 // in riyals. Safe to call repeatedly and from several places at once.
-export async function settleFromGateway(row: HbsInvoice, request: HbsServiceRequest, gateway?: GatewayInvoice): Promise<HbsInvoice> {
+export async function settleFromGateway(row: HbsInvoice, request: HbsServiceRequest | null, gateway?: GatewayInvoice): Promise<HbsInvoice> {
   if (!row.gatewayInvoiceId) return row;
   if (row.status !== "issued") {
     // Paid on the gateway after the office closed the invoice: the money must
     // not go unnoticed. Logged and emailed so the office can refund or match it.
     if (gateway && gateway.id === row.gatewayInvoiceId && gateway.status === "paid") {
       logger.error({ invoiceId: row.id, gatewayInvoiceId: gateway.id, status: row.status }, "Online payment received for a closed invoice");
-      notify(closedInvoicePaidMail(
-        { id: request.id, reference: requestReference(request.id, request.createdAt), service: request.service },
-        invoiceReference(row.id, row.issuedAt), riyals(gateway.amount)));
+      notify(closedInvoicePaidMail(subjectInfo(row, request), invoiceReference(row.id, row.issuedAt), riyals(gateway.amount)));
     }
     return row;
   }
@@ -90,17 +103,33 @@ export async function settleFromGateway(row: HbsInvoice, request: HbsServiceRequ
     }).where(and(eq(hbsInvoices.id, row.id), eq(hbsInvoices.status, "issued"))).returning();
     if (paid) {
       await recordAudit(tx, {
-        actorId: GATEWAY_ACTOR, action: "invoice.paid_online", targetType: "service_request", targetId: request.id,
+        actorId: GATEWAY_ACTOR, action: "invoice.paid_online", ...auditTarget(row, request),
         details: { invoiceId: paid.id, total: paid.totalHalalas, gatewayInvoiceId: remote.id },
       });
     }
     return paid;
   });
   if (!updated) return (await db.select().from(hbsInvoices).where(eq(hbsInvoices.id, row.id)))[0] ?? row;
-  await resumeAfterPayment(request.id);
-  notify(invoicePaidOfficeMail({ id: request.id, reference: requestReference(request.id, request.createdAt), service: request.service },
-    invoiceReference(updated.id, updated.issuedAt), riyals(updated.totalHalalas)));
+  // A paid request invoice resumes the request; a paid subscription invoice
+  // reactivates a past-due subscription without waiting for the daily sweep.
+  if (request) await resumeAfterPayment(request.id);
+  else await onSubscriptionInvoicePaid(updated);
+  notify(invoicePaidOfficeMail(subjectInfo(row, request), invoiceReference(updated.id, updated.issuedAt), riyals(updated.totalHalalas)));
   return updated;
+}
+
+// Invoice audits are filed under the request, or the subscription.
+function auditTarget(row: HbsInvoice, request: Pick<HbsServiceRequest, "id"> | null) {
+  return request
+    ? { targetType: "service_request", targetId: request.id }
+    : { targetType: "subscription", targetId: row.subscriptionId ?? 0 };
+}
+
+// Where the customer lands after the payment page: the request's page, or
+// the company page for a subscription invoice (it refreshes the invoice
+// named by ?invoice= there).
+export function paymentReturnPath(request: Pick<HbsServiceRequest, "id"> | null) {
+  return request ? `/requests/${request.id}` : "/company";
 }
 
 router.get("/service-requests/:id/invoices", requireApprovedCustomer, async (req, res): Promise<void> => {
@@ -161,9 +190,9 @@ router.post("/invoices/:id/pay", requireApprovedCustomer, async (req, res): Prom
       created = await createGatewayInvoice({
         amount: claimed.totalHalalas,
         description: `${invoiceReference(claimed.id, claimed.issuedAt)} · ${claimed.description}`.slice(0, 250),
-        successUrl: `${siteUrl()}/requests/${request.id}?invoice=${claimed.id}`,
-        backUrl: `${siteUrl()}/requests/${request.id}`,
-        metadata: { invoice_id: String(claimed.id), request_id: String(request.id) },
+        successUrl: `${siteUrl()}${paymentReturnPath(request)}?invoice=${claimed.id}`,
+        backUrl: `${siteUrl()}${paymentReturnPath(request)}`,
+        metadata: { invoice_id: String(claimed.id), ...(request ? { request_id: String(request.id) } : { subscription_id: String(claimed.subscriptionId) }) },
       });
     } catch (error) {
       await db.update(hbsInvoices).set({ gatewayClaimedAt: null })
@@ -220,7 +249,7 @@ router.post("/payments/moyasar/webhook", async (req, res): Promise<void> => {
   const gatewayId = typeof body.data?.invoice_id === "string" ? body.data.invoice_id : null;
   if (!gatewayId) { res.status(200).end(); return; }
   const [row] = await db.select({ invoice: hbsInvoices, request: hbsServiceRequests }).from(hbsInvoices)
-    .innerJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
+    .leftJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
     .where(eq(hbsInvoices.gatewayInvoiceId, gatewayId)).limit(1);
   if (row) {
     try { await settleFromGateway(row.invoice, row.request, await fetchGatewayInvoice(gatewayId)); }
@@ -234,7 +263,7 @@ router.post("/payments/moyasar/webhook", async (req, res): Promise<void> => {
 export async function reconcileOnlinePayments(): Promise<number> {
   if (!moyasarConfigured()) return 0;
   const rows = await db.select({ invoice: hbsInvoices, request: hbsServiceRequests }).from(hbsInvoices)
-    .innerJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
+    .leftJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
     .where(and(eq(hbsInvoices.status, "issued"), isNotNull(hbsInvoices.gatewayInvoiceId),
       sql`${hbsInvoices.issuedAt} > now() - interval '30 days'`))
     // Newest first: a backlog of stale pages must not keep the latest payments unchecked.
@@ -263,17 +292,24 @@ export function startPaymentReconciliation() {
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+// Largest amount before VAT an invoice may carry (halalas), as in the contract.
+export const MAX_INVOICE_AMOUNT = 100_000_000;
+
 // Inserts an invoice with VAT computed now and records who issued it. The
 // caller holds the request locked; the audit actor may differ from issuedBy
-// when an accepted quote issues the invoice on the office's behalf.
+// when an accepted quote issues the invoice on the office's behalf. With a
+// unit amount the amount is unitAmount × quantity (bulk requests).
 export async function issueInvoice(
   tx: Tx, request: Pick<HbsServiceRequest, "id">,
-  input: { description: string; amount: number; issuedBy: string }, actorId: string,
+  input: { description: string; amount: number; quantity?: number; unitAmount?: number | null; issuedBy: string }, actorId: string,
 ): Promise<HbsInvoice> {
-  const vat = vatFor(input.amount);
+  const quantity = input.quantity ?? 1;
+  const unitAmount = input.unitAmount ?? null;
+  const amount = unitAmount === null ? input.amount : unitAmount * quantity;
+  const vat = vatFor(amount);
   const [row] = await tx.insert(hbsInvoices).values({
-    requestId: request.id, description: input.description, amountHalalas: input.amount,
-    vatRateBasisPoints: VAT_RATE_BASIS_POINTS, vatHalalas: vat, totalHalalas: input.amount + vat, issuedBy: input.issuedBy,
+    requestId: request.id, description: input.description, quantity, unitAmountHalalas: unitAmount, amountHalalas: amount,
+    vatRateBasisPoints: VAT_RATE_BASIS_POINTS, vatHalalas: vat, totalHalalas: amount + vat, issuedBy: input.issuedBy,
   }).returning();
   await recordAudit(tx, {
     actorId, action: "invoice.issue", targetType: "service_request", targetId: request.id,
@@ -299,10 +335,17 @@ router.post("/office/service-requests/:id/invoices", requireOfficeStaff, async (
     return;
   }
   const actorId = getAuth(req).userId!;
+  // A unit amount prices each of `quantity` units (employees on a bulk
+  // request); the total before VAT must stay within the contract's bound.
+  const { quantity, unitAmount = null } = body.data;
+  if (unitAmount !== null && unitAmount * quantity > MAX_INVOICE_AMOUNT) {
+    res.status(400).json({ error: "المبلغ الإجمالي يتجاوز الحد المسموح (مليون ريال)." });
+    return;
+  }
   const result = await db.transaction(async tx => {
     const [request] = await tx.select().from(hbsServiceRequests).where(eq(hbsServiceRequests.id, params.data.id)).for("update");
     if (!request) return null;
-    const row = await issueInvoice(tx, request, { description, amount: body.data.amount, issuedBy: actorId }, actorId);
+    const row = await issueInvoice(tx, request, { description, amount: body.data.amount, quantity, unitAmount, issuedBy: actorId }, actorId);
     let current = request;
     if (body.data.markAwaitingPayment && request.status !== "completed" && request.status !== "awaiting_payment") {
       [current] = await tx.update(hbsServiceRequests).set({ status: "awaiting_payment", customerMessage: null, updatedAt: new Date() })
@@ -330,7 +373,7 @@ router.patch("/office/invoices/:id", requireOfficeStaff, async (req, res): Promi
   // An invoice with a payment page may already be paid online: settle it
   // from the gateway instead of recording a second, manual payment.
   const [current] = await db.select({ invoice: hbsInvoices, request: hbsServiceRequests }).from(hbsInvoices)
-    .innerJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
+    .leftJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
     .where(eq(hbsInvoices.id, params.data.id)).limit(1);
   if (current?.invoice.status === "issued" && current.invoice.gatewayInvoiceId && moyasarConfigured()) {
     try {
@@ -347,7 +390,7 @@ router.patch("/office/invoices/:id", requireOfficeStaff, async (req, res): Promi
   }
   const outcome = await db.transaction(async tx => {
     const [found] = await tx.select({ invoice: hbsInvoices, request: hbsServiceRequests }).from(hbsInvoices)
-      .innerJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
+      .leftJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
       .where(eq(hbsInvoices.id, params.data.id)).for("update", { of: hbsInvoices });
     if (!found) return "missing" as const;
     if (found.invoice.status !== "issued") return "closed" as const;
@@ -356,7 +399,7 @@ router.patch("/office/invoices/:id", requireOfficeStaff, async (req, res): Promi
       ? { status: "paid", paymentMethod: "manual", paymentReference: body.data.paymentReference?.trim() || null, paidAt: new Date() }
       : { status: "cancelled", cancelledAt: new Date(), paymentUrl: null }).where(eq(hbsInvoices.id, found.invoice.id)).returning();
     await recordAudit(tx, {
-      actorId, action: paid ? "invoice.mark_paid" : "invoice.cancel", targetType: "service_request", targetId: found.request.id,
+      actorId, action: paid ? "invoice.mark_paid" : "invoice.cancel", ...auditTarget(row, found.request),
       details: { invoiceId: row.id, total: row.totalHalalas, ...(row.paymentReference ? { paymentReference: row.paymentReference } : {}) },
     });
     return { row, request: found.request };
@@ -364,7 +407,8 @@ router.patch("/office/invoices/:id", requireOfficeStaff, async (req, res): Promi
   if (outcome === "missing") { res.status(404).json({ error: "Invoice not found" }); return; }
   if (outcome === "closed") { res.status(409).json({ error: "This invoice is already paid or cancelled." }); return; }
   // Paid or cancelled, the request no longer waits on this invoice.
-  await resumeAfterPayment(outcome.request.id);
+  if (outcome.request) await resumeAfterPayment(outcome.request.id);
+  else if (outcome.row.status === "paid") await onSubscriptionInvoicePaid(outcome.row);
   res.json(UpdateOfficeInvoiceResponse.parse(invoice(outcome.row, outcome.request)));
   // An open payment page would still take the customer's money: close it.
   // A payment that slips in first is still caught by the webhook.

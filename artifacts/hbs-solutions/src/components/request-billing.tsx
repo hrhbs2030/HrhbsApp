@@ -11,6 +11,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { formatDate, formatMoney, formatNumber, parseRiyals } from '@/lib/format';
+import { BulkInvoiceFields, bulkInvoiceBody, emptyBulkInvoice, type BulkInvoiceDraft } from '@/components/office-request-extras';
 import { contact } from '@/content/contact';
 import './request-billing.css';
 
@@ -45,7 +46,7 @@ function InvoiceStatus({ status }: { status: Invoice['status'] }) {
 }
 
 // A simplified tax invoice that prints on its own page.
-function printInvoice(invoice: Invoice) {
+export function printInvoice(invoice: Invoice) {
   const win = window.open('', '_blank');
   if (!win) return;
   const esc = (v: string) => v.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -53,7 +54,7 @@ function printInvoice(invoice: Invoice) {
   win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(invoice.reference)}</title>
 <style>body{font-family:Tahoma,Arial,sans-serif;margin:40px;color:#173e42}h1{font-size:22px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:24px}td,th{border:1px solid #d9d4c5;padding:10px;text-align:right}th{background:#f6f4ed}.muted{color:#5d706a;font-size:13px}.total td{font-weight:bold}</style></head><body>
 <h1>فاتورة ضريبية مبسطة</h1><div class="muted">${esc(invoice.seller.name)}${invoice.seller.vatNumber ? ` · الرقم الضريبي ${esc(invoice.seller.vatNumber)}` : ''}</div>
-<p>رقم الفاتورة: <b dir="ltr">${esc(invoice.reference)}</b><br>تاريخ الإصدار: ${esc(formatDate(invoice.issuedAt))}<br>الطلب: <span dir="ltr">${esc(invoice.requestReference)}</span></p>
+<p>رقم الفاتورة: <b dir="ltr">${esc(invoice.reference)}</b><br>تاريخ الإصدار: ${esc(formatDate(invoice.issuedAt))}<br>${invoice.requestReference === null ? 'اشتراك' : `الطلب: <span dir="ltr">${esc(invoice.requestReference)}</span>`}${invoice.quantity > 1 && invoice.unitAmount !== null ? `<br>الكمية: ${esc(formatNumber(invoice.quantity))} × ${esc(formatMoney(invoice.unitAmount))}` : ''}</p>
 <table><tr><th>البيان</th><th>المبلغ</th></tr><tr><td>${esc(invoice.description)}</td><td>${esc(formatMoney(invoice.amount))}</td></tr>
 <tr><td>ضريبة القيمة المضافة (${rate}%)</td><td>${esc(formatMoney(invoice.vat))}</td></tr>
 <tr class="total"><td>الإجمالي شامل الضريبة</td><td>${esc(formatMoney(invoice.total))}</td></tr></table>
@@ -62,13 +63,13 @@ function printInvoice(invoice: Invoice) {
   win.document.close();
 }
 
-function InvoiceRow({ invoice, children }: { invoice: Invoice; children?: ReactNode }) {
+export function InvoiceRow({ invoice, children }: { invoice: Invoice; children?: ReactNode }) {
   return <li className="rb-row">
     <div className="rb-main">
       <div className="rb-line"><strong>{invoice.description}</strong><InvoiceStatus status={invoice.status}/></div>
       <div className="rb-meta"><span dir="ltr" className="nums">{invoice.reference}</span><span>{formatDate(invoice.issuedAt)}</span>
         {invoice.paymentMethod && invoice.status === 'paid' && <span>{methodNames[invoice.paymentMethod]}{invoice.paymentReference ? ` · ${invoice.paymentReference}` : ''}</span>}</div>
-      <div className="rb-amounts"><span>المبلغ {formatMoney(invoice.amount)}</span><span>الضريبة {formatMoney(invoice.vat)}</span><strong>الإجمالي {formatMoney(invoice.total)}</strong></div>
+      <div className="rb-amounts">{invoice.quantity > 1 && invoice.unitAmount !== null && <span>{formatNumber(invoice.quantity)} × {formatMoney(invoice.unitAmount)}</span>}<span>المبلغ {formatMoney(invoice.amount)}</span><span>الضريبة {formatMoney(invoice.vat)}</span><strong>الإجمالي {formatMoney(invoice.total)}</strong></div>
     </div>
     <div className="rb-actions">
       <button type="button" className="rf-btn" onClick={() => printInvoice(invoice)} aria-label={`طباعة ${invoice.reference}`} title="طباعة الفاتورة"><Printer size={17}/></button>
@@ -77,22 +78,28 @@ function InvoiceRow({ invoice, children }: { invoice: Invoice; children?: ReactN
   </li>;
 }
 
-export function CustomerInvoices({ requestId, returnedInvoiceId }: { requestId: number; returnedInvoiceId: number | null }) {
-  const qc = useQueryClient();
-  const list = useListServiceRequestInvoices(requestId, { query: { queryKey: getListServiceRequestInvoicesQueryKey(requestId), refetchInterval: 30_000 } });
-  const pay = useStartInvoicePayment();
+// Back from the gateway's payment page (`?invoice=N` on the request page or
+// the company page): ask the server to confirm with the gateway once, then
+// let the caller refresh whatever lists show the invoice.
+export function useRefreshReturnedInvoice(returnedInvoiceId: number | null, onDone: () => Promise<unknown> | void) {
   const refresh = useRefreshInvoicePayment();
   const checked = useRef(false);
-  const [error, setError] = useState<string | null>(null);
-  // Back from the payment page: ask the server to confirm with the gateway.
   useEffect(() => {
     if (!returnedInvoiceId || checked.current) return;
     checked.current = true;
-    refresh.mutateAsync({ id: returnedInvoiceId })
-      .then(() => qc.invalidateQueries({ queryKey: getListServiceRequestInvoicesQueryKey(requestId) }))
-      .catch(() => { /* the list still shows the stored status */ });
+    refresh.mutateAsync({ id: returnedInvoiceId }).then(() => onDone()).catch(() => { /* the list still shows the stored status */ });
   }, [returnedInvoiceId]);
-  async function startPayment(invoice: Invoice) {
+  return refresh.isPending;
+}
+
+// "Pay now" for any payable invoice, on a request or on a subscription. The
+// gateway is the only place the site ever sends the person to; on failure the
+// caller refetches (`onChanged`) because the invoice may have changed meanwhile.
+export function PayInvoiceButton({ invoice, onChanged }: { invoice: Invoice; onChanged?: () => Promise<unknown> | void }) {
+  const pay = useStartInvoicePayment();
+  const [error, setError] = useState<string | null>(null);
+  if (!invoice.canPayOnline) return null;
+  async function startPayment() {
     setError(null);
     try {
       const { url } = await pay.mutateAsync({ id: invoice.id });
@@ -102,22 +109,30 @@ export function CustomerInvoices({ requestId, returnedInvoiceId }: { requestId: 
     } catch (e) {
       const status = (e as { status?: number })?.status;
       setError(status === 409 ? 'هذه الفاتورة مسددة أو ملغاة.' : status === 503 ? 'الدفع الإلكتروني غير متاح حاليًا. تواصل مع المكتب للسداد.' : 'تعذّر فتح صفحة الدفع. حاول بعد قليل.');
-      await qc.invalidateQueries({ queryKey: getListServiceRequestInvoicesQueryKey(requestId) });
+      await onChanged?.();
     }
   }
+  return <>
+    <button type="button" className="btn btn-primary btn-sm" disabled={pay.isPending} onClick={startPayment}><CreditCard size={15}/>{pay.isPending ? 'جارٍ الفتح…' : 'ادفع الآن'}</button>
+    {error && <span role="alert" className="rb-pay-error">{error}</span>}
+  </>;
+}
+
+export function CustomerInvoices({ requestId, returnedInvoiceId }: { requestId: number; returnedInvoiceId: number | null }) {
+  const qc = useQueryClient();
+  const list = useListServiceRequestInvoices(requestId, { query: { queryKey: getListServiceRequestInvoicesQueryKey(requestId), refetchInterval: 30_000 } });
+  const refresh = () => qc.invalidateQueries({ queryKey: getListServiceRequestInvoicesQueryKey(requestId) });
+  const checking = useRefreshReturnedInvoice(returnedInvoiceId, refresh);
   if (!list.data?.length) return null;
   return <section className="rb" aria-labelledby={`rb-${requestId}`}>
     <h2 id={`rb-${requestId}`} className="rf-title"><ReceiptText size={16} aria-hidden="true"/>الفواتير</h2>
-    <ul className="rb-list">{list.data.map(invoice => <InvoiceRow key={invoice.id} invoice={invoice}>
-      {invoice.canPayOnline && <button type="button" className="btn btn-primary btn-sm" disabled={pay.isPending} onClick={() => startPayment(invoice)}><CreditCard size={15}/>ادفع الآن</button>}
-    </InvoiceRow>)}</ul>
-    {refresh.isPending && <p role="status" className="rb-note">جارٍ التحقق من الدفع…</p>}
-    {error && <p role="alert" className="rf-errors">{error}</p>}
+    <ul className="rb-list">{list.data.map(invoice => <InvoiceRow key={invoice.id} invoice={invoice}><PayInvoiceButton invoice={invoice} onChanged={refresh}/></InvoiceRow>)}</ul>
+    {checking && <p role="status" className="rb-note">جارٍ التحقق من الدفع…</p>}
     {list.data.some(i => i.status === 'issued' && !i.canPayOnline) && <p className="rb-note">للسداد تواصل مع المكتب، ويظهر السداد هنا عند تسجيله.</p>}
   </section>;
 }
 
-export function OfficeInvoices({ requestId, onChanged }: { requestId: number; onChanged: () => void }) {
+export function OfficeInvoices({ requestId, onChanged, employeesCount = 0 }: { requestId: number; onChanged: () => void; employeesCount?: number }) {
   const qc = useQueryClient();
   const key = getListOfficeServiceRequestInvoicesQueryKey(requestId);
   const list = useListOfficeServiceRequestInvoices(requestId, { query: { queryKey: key } });
@@ -127,16 +142,22 @@ export function OfficeInvoices({ requestId, onChanged }: { requestId: number; on
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [awaiting, setAwaiting] = useState(true);
+  const [bulk, setBulk] = useState<BulkInvoiceDraft>(emptyBulkInvoice);
   const [error, setError] = useState<string | null>(null);
   const halalas = parseRiyals(amount) ?? 0;
-  const valid = description.trim().length >= 2 && halalas >= 100;
+  // A bulk invoice (quantity × unit price) replaces the single amount field.
+  const extra = bulkInvoiceBody(bulk);
+  const isBulk = extra !== null && 'quantity' in extra;
+  const valid = description.trim().length >= 2 && (isBulk || halalas >= 100);
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (extra === null) { setError('اكتب كمية صحيحة وسعر وحدة لا يقل عن ريال واحد.'); return; }
     if (!valid) { setError('اكتب البيان ومبلغًا لا يقل عن ريال واحد.'); return; }
     setError(null);
     try {
-      await issue.mutateAsync({ id: requestId, data: { description: description.trim(), amount: halalas, markAwaitingPayment: awaiting } });
-      setOpen(false); setDescription(''); setAmount('');
+      const amountHalalas = isBulk ? extra.quantity * extra.unitAmount : halalas;
+      await issue.mutateAsync({ id: requestId, data: { description: description.trim(), amount: amountHalalas, ...extra, markAwaitingPayment: awaiting } });
+      setOpen(false); setDescription(''); setAmount(''); setBulk(emptyBulkInvoice);
       await qc.invalidateQueries({ queryKey: key });
       onChanged();
     } catch { setError('تعذّر إصدار الفاتورة. حاول مجددًا.'); }
@@ -166,8 +187,9 @@ export function OfficeInvoices({ requestId, onChanged }: { requestId: number; on
     </div>
     {open && <form onSubmit={submit} className="rb-form">
       <label className="form-field">البيان<input className="form-control" value={description} onChange={e => setDescription(e.target.value)} maxLength={300} placeholder="مثال: أتعاب تجديد الإقامة"/></label>
-      <label className="form-field">المبلغ قبل الضريبة (ر.س)<input className="form-control" dir="ltr" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00"/>
-        {valid && <small className="muted font-normal">الإجمالي شامل ضريبة 15%: {formatMoney(halalas + Math.round(halalas * 0.15))}</small>}</label>
+      {!isBulk && <label className="form-field">المبلغ قبل الضريبة (ر.س)<input className="form-control" dir="ltr" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00"/>
+        {valid && <small className="muted font-normal">الإجمالي شامل ضريبة 15%: {formatMoney(halalas + Math.round(halalas * 0.15))}</small>}</label>}
+      {employeesCount > 1 && <BulkInvoiceFields value={bulk} onChange={setBulk} defaultQuantity={employeesCount}/>}
       <label className="rb-check"><input type="checkbox" checked={awaiting} onChange={e => setAwaiting(e.target.checked)}/>غيّر حالة الطلب إلى «بانتظار السداد»</label>
       <div className="flex gap-2"><button type="submit" className="btn btn-primary btn-sm" disabled={issue.isPending}>{issue.isPending ? 'جارٍ الإصدار…' : 'إصدار وإرسال للعميل'}</button><button type="button" className="btn btn-outline btn-sm" onClick={() => setOpen(false)}>إلغاء</button></div>
     </form>}

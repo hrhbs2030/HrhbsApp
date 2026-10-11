@@ -1,13 +1,20 @@
 import { sql } from "drizzle-orm";
 import { check, index, integer, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { hbsServiceRequests } from "./hbs-service-requests";
+import { hbsSubscriptions } from "./hbs-subscriptions";
 
-// Office invoices on a service request. Amounts are in halalas. VAT is
-// computed when the invoice is issued and never recalculated.
+// Office invoices on a service request or on a subscription (exactly one of
+// the two). Amounts are in halalas. VAT is computed when the invoice is
+// issued and never recalculated.
 export const hbsInvoices = pgTable("hbs_invoices", {
   id: serial("id").primaryKey(),
-  requestId: integer("request_id").notNull().references(() => hbsServiceRequests.id),
+  requestId: integer("request_id").references(() => hbsServiceRequests.id),
+  subscriptionId: integer("subscription_id").references(() => hbsSubscriptions.id),
   description: text("description").notNull(),
+  // amount = unit_amount × quantity when a unit amount is given (bulk
+  // requests); otherwise amount is entered directly and quantity is 1.
+  quantity: integer("quantity").notNull().default(1),
+  unitAmountHalalas: integer("unit_amount_halalas"),
   amountHalalas: integer("amount_halalas").notNull(),
   vatRateBasisPoints: integer("vat_rate_basis_points").notNull(),
   vatHalalas: integer("vat_halalas").notNull(),
@@ -30,12 +37,15 @@ export const hbsInvoices = pgTable("hbs_invoices", {
   reminderCount: integer("reminder_count").notNull().default(0),
 }, (table) => [
   index("hbs_invoices_request_idx").on(table.requestId),
+  index("hbs_invoices_subscription_idx").on(table.subscriptionId),
   // Open invoices by date: reports, reconciliation and the customer's summary.
   index("hbs_invoices_status_issued_idx").on(table.status, table.issuedAt),
   uniqueIndex("hbs_invoices_gateway_unique").on(table.gatewayInvoiceId),
   check("hbs_invoices_status_check", sql`${table.status} in ('issued', 'paid', 'cancelled')`),
   check("hbs_invoices_method_check", sql`${table.paymentMethod} is null or ${table.paymentMethod} in ('manual', 'online')`),
   check("hbs_invoices_amount_check", sql`${table.amountHalalas} > 0 and ${table.vatHalalas} >= 0 and ${table.totalHalalas} = ${table.amountHalalas} + ${table.vatHalalas}`),
+  check("hbs_invoices_quantity_check", sql`${table.quantity} between 1 and 500 and (${table.unitAmountHalalas} is null or ${table.unitAmountHalalas} > 0)`),
+  check("hbs_invoices_subject_check", sql`${table.requestId} is not null or ${table.subscriptionId} is not null`),
 ]);
 
 export type HbsInvoice = typeof hbsInvoices.$inferSelect;

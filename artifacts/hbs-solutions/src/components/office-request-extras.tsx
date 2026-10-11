@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { FileSignature, ListChecks, Plus, ScanText, Trash2 } from 'lucide-react';
+import { FileSignature, ListChecks, Plus, Save, ScanText, Trash2, UsersRound } from 'lucide-react';
 import {
   getListOfficeServiceRequestMessagesQueryKey, linkOfficeAttachmentToChecklist, useCreateOfficeReminder, useExtractOfficeAttachmentDocument,
-  useListOfficeServiceRequestMessages, useSaveOfficeChecklist, useSendOfficeQuote,
-  type ChecklistItem, type RequestQuote, type ServiceAttachment,
+  useListOfficeServiceRequestMessages, useSaveOfficeChecklist, useSendOfficeQuote, useUpdateOfficeRequestEmployee,
+  type ChecklistItem, type RequestEmployee, type RequestEmployeeStatus, type RequestQuote, type ServiceAttachment,
 } from '@workspace/api-client-react';
 import { ReminderForm, emptyDraft, type Draft } from '@/components/reminder-ui';
-import { formatDateTime, formatMoney, parseRiyals } from '@/lib/format';
+import { formatDateTime, formatMoney, formatNumber, parseRiyals } from '@/lib/format';
 import './office-request-extras.css';
 
 // Office: read a customer's document with AI, check the result, then save it
@@ -187,4 +187,97 @@ export function ChecklistEditor({ requestId, checklist, attachments, onChanged }
     {error && <p role="alert" className="rf-errors">{error}</p>}
     {saved && <p role="status" className="text-xs font-bold text-ok">حُفظت القائمة وتظهر للعميل.</p>}
   </section>;
+}
+
+// ---- employees on a bulk request ------------------------------------------------------
+
+export const employeeStatusNames: Record<RequestEmployeeStatus, string> = { pending: 'بانتظار البدء', in_progress: 'قيد التنفيذ', done: 'مكتمل', blocked: 'متعثّر' };
+const employeeStatuses = Object.keys(employeeStatusNames) as RequestEmployeeStatus[];
+export const employeeProgress = (employees: RequestEmployee[]) => `${formatNumber(employees.filter(e => e.itemStatus === 'done').length)}/${formatNumber(employees.length)} مكتمل`;
+type EmployeeDraft = { itemStatus?: RequestEmployeeStatus; note?: string };
+// The body for one row: the status always, the note only when it was edited
+// (omitted means "keep" on the API; an emptied note is sent as null).
+export function employeeUpdateBody(employee: RequestEmployee, draft: EmployeeDraft): { itemStatus: RequestEmployeeStatus; note?: string | null } {
+  return { itemStatus: draft.itemStatus ?? employee.itemStatus, ...(draft.note !== undefined && draft.note.trim() !== (employee.note ?? '') ? { note: draft.note.trim() || null } : {}) };
+}
+
+// Office: one row per employee covered by a bulk request, each with its own
+// progress and note, saved row by row. Only rows with unsaved edits differ from
+// the request; the rest follow the list as it refreshes. The compact form
+// (side editor) keeps the status and shows the note read-only.
+export function RequestEmployees({ requestId, employees, compact = false, onChanged }: { requestId: number; employees: RequestEmployee[]; compact?: boolean; onChanged: () => void | Promise<unknown> }) {
+  const update = useUpdateOfficeRequestEmployee();
+  const [drafts, setDrafts] = useState<Record<number, EmployeeDraft>>({});
+  const [saving, setSaving] = useState<number | null>(null);
+  const [errors, setErrors] = useState<Record<number, string>>({});
+  const [filter, setFilter] = useState<RequestEmployeeStatus | ''>('');
+  useEffect(() => { setDrafts({}); setErrors({}); setFilter(''); }, [requestId]);
+  const edit = (id: number, change: EmployeeDraft) => setDrafts(d => ({ ...d, [id]: { ...d[id], ...change } }));
+  async function save(employee: RequestEmployee) {
+    const draft = drafts[employee.employeeId] ?? {};
+    setSaving(employee.employeeId); setErrors(({ [employee.employeeId]: _, ...rest }) => rest);
+    try {
+      await update.mutateAsync({ id: requestId, employeeId: employee.employeeId, data: employeeUpdateBody(employee, draft) });
+      setDrafts(({ [employee.employeeId]: _, ...rest }) => rest);
+      await onChanged();
+    } catch (err) {
+      setErrors(e => ({ ...e, [employee.employeeId]: (err as { status?: number })?.status === 404 ? 'لم يعد هذا الموظف على الطلب.' : 'تعذّر الحفظ. حاول مجددًا.' }));
+    } finally { setSaving(null); }
+  }
+  const shown = filter ? employees.filter(e => e.itemStatus === filter) : employees;
+  const done = employees.filter(e => e.itemStatus === 'done').length;
+  return <section className={`oe ${compact ? 'oe-compact' : ''}`} aria-labelledby={`oe-${requestId}`}>
+    <div className="rf-head">
+      <h2 id={`oe-${requestId}`} className="rf-title"><UsersRound size={16} aria-hidden="true"/>الموظفون على الطلب<span className="rf-count">{formatNumber(employees.length)}</span></h2>
+      <span className="oe-progress nums" role="status">{employeeProgress(employees)}</span>
+    </div>
+    <div className="oe-bar" aria-hidden="true"><span style={{ width: `${employees.length ? (done / employees.length) * 100 : 0}%` }}/></div>
+    {!compact && employees.length > 5 && <label className="oe-filter"><span className="sr-only">تصفية حسب الحالة</span><select className="form-control" value={filter} onChange={e => setFilter(e.target.value as RequestEmployeeStatus | '')}><option value="">كل الحالات</option>{employeeStatuses.map(s => <option key={s} value={s}>{employeeStatusNames[s]}</option>)}</select></label>}
+    {employees.length === 0 ? <p className="rf-empty">لا يشمل هذا الطلب موظفين.</p> : <ul className="oe-list">{shown.map(employee => {
+      const draft = drafts[employee.employeeId] ?? {};
+      const status = draft.itemStatus ?? employee.itemStatus;
+      const note = draft.note ?? employee.note ?? '';
+      const dirty = status !== employee.itemStatus || (draft.note !== undefined && draft.note.trim() !== (employee.note ?? ''));
+      return <li key={employee.employeeId} className={`oe-row oe-${status}`}>
+        <span className="oe-name"><strong>{employee.fullName}</strong>{compact && employee.note && <small>{employee.note}</small>}</span>
+        <label className="oe-status"><span className="sr-only">حالة {employee.fullName}</span><select className="form-control" value={status} onChange={e => edit(employee.employeeId, { itemStatus: e.target.value as RequestEmployeeStatus })}>{employeeStatuses.map(s => <option key={s} value={s}>{employeeStatusNames[s]}</option>)}</select></label>
+        {!compact && <label className="oe-note"><span className="sr-only">ملاحظة عن {employee.fullName}</span><input className="form-control" value={note} maxLength={500} placeholder="ملاحظة (اختياري)" onChange={e => edit(employee.employeeId, { note: e.target.value })}/></label>}
+        <button type="button" className={`btn btn-sm ${dirty ? 'btn-primary' : 'btn-outline'}`} disabled={!dirty || saving === employee.employeeId} onClick={() => save(employee)} aria-label={`حفظ ${employee.fullName}`}><Save size={14}/>{saving === employee.employeeId ? 'جارٍ الحفظ…' : 'حفظ'}</button>
+        {errors[employee.employeeId] && <p role="alert" className="oe-error">{errors[employee.employeeId]}</p>}
+      </li>;
+    })}</ul>}
+    {filter && shown.length === 0 && <p className="rf-empty">لا يوجد موظفون بهذه الحالة.</p>}
+  </section>;
+}
+
+// ---- invoice quantity ---------------------------------------------------------------
+
+// The office invoice form's quantity fields, kept apart from the form itself:
+// a bulk request (many employees) is billed per unit, a single one as before.
+export type BulkInvoiceDraft = { quantity: string; unitAmount: string };
+export const emptyBulkInvoice: BulkInvoiceDraft = { quantity: '', unitAmount: '' };
+const parseQuantity = (text: string) => { const n = parseRiyals(text); return n !== null && n % 100 === 0 && n >= 100 && n <= 50_000 ? n / 100 : null; };
+// What the issue body gets from the fields: nothing for a single invoice
+// (quantity blank or 1, the amount field rules), `quantity` + `unitAmount` for a
+// bulk one (the API computes amount = unitAmount × quantity), null when the
+// typed values are not usable. The parent spreads the result into the body.
+export function bulkInvoiceBody(draft: BulkInvoiceDraft): { quantity: number; unitAmount: number } | Record<string, never> | null {
+  if (!draft.quantity.trim() || draft.quantity.trim() === '1') return {};
+  const quantity = parseQuantity(draft.quantity);
+  const unitAmount = parseRiyals(draft.unitAmount);
+  return quantity === null || quantity < 1 || quantity > 500 || unitAmount === null || unitAmount < 100 ? null : { quantity, unitAmount };
+}
+export function BulkInvoiceFields({ value, onChange, defaultQuantity }: { value: BulkInvoiceDraft; onChange: (value: BulkInvoiceDraft) => void; defaultQuantity?: number }) {
+  const body = bulkInvoiceBody(value);
+  const bulk = body && 'quantity' in body ? body : null;
+  return <div className="obi">
+    <div className="obi-grid">
+      <label className="form-field">الكمية<input className="form-control" dir="ltr" inputMode="numeric" value={value.quantity} onChange={e => onChange({ ...value, quantity: e.target.value })} placeholder={defaultQuantity && defaultQuantity > 1 ? String(defaultQuantity) : '1'}/>
+        {defaultQuantity && defaultQuantity > 1 && !value.quantity.trim() ? <button type="button" className="obi-fill" onClick={() => onChange({ ...value, quantity: String(defaultQuantity) })}>عدد الموظفين على الطلب: {formatNumber(defaultQuantity)}</button> : null}</label>
+      <label className="form-field">سعر الوحدة قبل الضريبة (ر.س)<input className="form-control" dir="ltr" inputMode="decimal" value={value.unitAmount} onChange={e => onChange({ ...value, unitAmount: e.target.value })} placeholder="0.00" disabled={!value.quantity.trim() || value.quantity.trim() === '1'}/></label>
+    </div>
+    {bulk ? <p className="obi-total">{formatNumber(bulk.quantity)} × {formatMoney(bulk.unitAmount)} = <strong>{formatMoney(bulk.quantity * bulk.unitAmount)}</strong> قبل الضريبة · شامل ضريبة 15%: {formatMoney(bulk.quantity * bulk.unitAmount + Math.round(bulk.quantity * bulk.unitAmount * 0.15))}</p>
+      : body === null ? <p role="alert" className="obi-error">اكتب كمية صحيحة (1-500) وسعرًا للوحدة لا يقل عن ريال واحد.</p>
+      : <p className="muted text-xs">اترك الكمية فارغة لفاتورة بمبلغ واحد؛ لأكثر من وحدة يُحسب المبلغ من سعر الوحدة.</p>}
+  </div>;
 }

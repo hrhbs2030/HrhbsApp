@@ -13,6 +13,9 @@ import companyRouter from "./company";
 import quotesRouter from "./quotes";
 import checklistRouter from "./checklist";
 import wathqRouter from "./wathq";
+import companyMembersRouter from "./company-members";
+import subscriptionsRouter from "./subscriptions";
+import whatsappWebhookRouter from "./whatsapp-webhook";
 import { requireOfficeStaff } from "../lib/office-access";
 
 const router: IRouter = Router();
@@ -32,5 +35,8 @@ router.use(companyRouter);
 router.use(quotesRouter);
 router.use(checklistRouter);
 router.use(wathqRouter);
+router.use(companyMembersRouter);
+router.use(subscriptionsRouter);
+router.use(whatsappWebhookRouter);
 
 export default router;

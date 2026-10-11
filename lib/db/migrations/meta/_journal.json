@@ -64,6 +64,13 @@
       "when": 1791700989028,
       "tag": "0008_quotes_checklist_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791702825030,
+      "tag": "0009_subscriptions_members_bulk_whatsapp",
+      "breakpoints": true
     }
   ]
 }

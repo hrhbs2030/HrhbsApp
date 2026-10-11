@@ -5,6 +5,7 @@ import { ensureRequestTrackingGuide } from "./lib/portal-usage-information";
 import { startDocumentReminders } from "./lib/document-reminders";
 import { startPaymentReconciliation } from "./routes/billing";
 import { startInvoiceReminders } from "./lib/invoice-reminders";
+import { startSubscriptionRenewals } from "./lib/subscriptions";
 
 const rawPort = process.env["PORT"];
 
@@ -31,6 +32,7 @@ ensureRequestTrackingGuide().then(() => app.listen(port, (err) => {
   startDocumentReminders();
   startPaymentReconciliation();
   startInvoiceReminders();
+  startSubscriptionRenewals();
 })).catch(err => {
   logger.error({ err }, "Failed to initialize portal usage information");
   process.exitCode = 1;

@@ -28,6 +28,8 @@ const dbCommands = [
   'test:company-file',
   'test:automations',
   'test:package-c',
+  'test:package-d-members',
+  'test:package-d-subscriptions',
 ];
 const discovered = Object.entries(scripts)
   .filter(([name, command]) => name === 'test:db' || /run-db-test\.mjs|run-tests\.mjs api-db/.test(command))

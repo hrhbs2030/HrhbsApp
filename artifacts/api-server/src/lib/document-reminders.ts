@@ -1,8 +1,16 @@
-import { and, eq, isNull, or, gt, sql } from "drizzle-orm";
-import { db, hbsDocumentReminders } from "@workspace/db";
+import { and, desc, eq, isNull, or, gt, sql } from "drizzle-orm";
+import {
+  db, hbsCompanies, hbsDocumentReminders, hbsRegistrationRequests, hbsRequestEmployees, hbsServiceRequests,
+  type HbsDocumentReminder, type HbsServiceRequest,
+} from "@workspace/db";
+import { recordAudit } from "./audit";
+import { AUTOMATION_ACTOR, applyAssignmentRule } from "./automations";
+import { checklistForService } from "./checklist";
 import { notifyCustomerNow } from "./customer-contact";
 import { logger } from "./logger";
-import { reminderMail } from "./notify";
+import { requestReference } from "./money";
+import { notify, officeNewRequestMail, reminderMail, type Mail } from "./notify";
+import { SUBSCRIPTION_AUDIT, autoRenewalCovered } from "./subscriptions";
 
 // Reminders go out 30, 7 and 1 day before a document expires, by the date in
 // Riyadh. Each reminder row remembers the last one sent, so a restart or a
@@ -34,6 +42,84 @@ function expiresText(date: string): string {
   return new Intl.DateTimeFormat("ar-SA-u-ca-gregory", { dateStyle: "long", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
 }
 
+// ---- automatic renewal requests -------------------------------------------------
+
+// The service a subscribed company's expiring employee document is renewed
+// through: the same mapping the customer's "request renewal" link uses
+// (artifacts/hbs-solutions/src/pages/customer.tsx). Licenses are not covered.
+export const AUTO_RENEWAL_SERVICES: Record<string, { slug: string; category: string; service: string }> = {
+  iqama: { slug: "iqama-renewal", category: "passports", service: "تجديد الإقامة" },
+  passport: { slug: "passport-info-update", category: "passports", service: "تحديث بيانات الجواز" },
+  work_permit: { slug: "work-permit", category: "labor", service: "إصدار أو تجديد رخصة العمل" },
+};
+export const AUTO_RENEWAL_DESCRIPTION = "تجديد تلقائي ضمن الاشتراك";
+
+// One request per reminder and expiry date, whatever the sweep does later.
+export const autoRenewalClientRequestId = (reminder: Pick<HbsDocumentReminder, "id" | "expiresOn">) =>
+  `auto-renew:${reminder.id}:${reminder.expiresOn}`;
+
+// The number the office calls back on: the registration, else the company
+// file, else the customer's latest request.
+async function contactPhoneOf(userId: string): Promise<string | null> {
+  const [registration] = await db.select({ phone: hbsRegistrationRequests.contactPhone }).from(hbsRegistrationRequests)
+    .where(eq(hbsRegistrationRequests.userId, userId)).limit(1);
+  if (registration?.phone) return registration.phone;
+  const [company] = await db.select({ phone: hbsCompanies.contactPhone }).from(hbsCompanies).where(eq(hbsCompanies.userId, userId)).limit(1);
+  if (company?.phone) return company.phone;
+  const [request] = await db.select({ phone: hbsServiceRequests.contactPhone }).from(hbsServiceRequests)
+    .where(eq(hbsServiceRequests.userId, userId)).orderBy(desc(hbsServiceRequests.createdAt), desc(hbsServiceRequests.id)).limit(1);
+  return request?.phone ?? null;
+}
+
+// Opens the renewal request for an employee document whose reminder just
+// fired, when the company's subscription covers it. Returns the request
+// created, or null when nothing was (not covered, not an employee document,
+// or already opened for this expiry).
+export async function openAutoRenewalRequest(reminder: HbsDocumentReminder): Promise<HbsServiceRequest | null> {
+  const target = AUTO_RENEWAL_SERVICES[reminder.kind];
+  if (!target || !reminder.employeeId) return null;
+  if (!(await autoRenewalCovered(reminder.userId))) return null;
+  const contactPhone = await contactPhoneOf(reminder.userId);
+  if (!contactPhone) {
+    logger.warn({ reminderId: reminder.id }, "No contact phone on file; automatic renewal request not opened");
+    return null;
+  }
+  const employeeId = reminder.employeeId;
+  const kindLabel = reminderKindLabels[reminder.kind] ?? reminderKindLabels.other;
+  const created = await db.transaction(async tx => {
+    const [row] = await tx.insert(hbsServiceRequests).values({
+      userId: reminder.userId, category: target.category, service: target.service,
+      description: `${AUTO_RENEWAL_DESCRIPTION}: ${kindLabel} «${reminder.label}» تنتهي في ${expiresText(reminder.expiresOn)}.`,
+      contactPhone, clientRequestId: autoRenewalClientRequestId(reminder), employeeId,
+      documentChecklist: await checklistForService(tx, target.slug, target.service),
+    }).onConflictDoNothing({ target: [hbsServiceRequests.userId, hbsServiceRequests.clientRequestId] }).returning();
+    if (!row) return null;
+    await tx.insert(hbsRequestEmployees).values({ requestId: row.id, employeeId });
+    await recordAudit(tx, {
+      actorId: AUTOMATION_ACTOR, action: SUBSCRIPTION_AUDIT.autoRenew, targetType: "service_request", targetId: row.id,
+      details: { reminderId: reminder.id, kind: reminder.kind, employeeId, expiresOn: reminder.expiresOn, userId: reminder.userId },
+    });
+    return applyAssignmentRule(tx, row);
+  });
+  if (created) {
+    notify(officeNewRequestMail({
+      id: created.id, reference: requestReference(created.id, created.createdAt), service: created.service, category: created.category,
+    }));
+  }
+  return created;
+}
+
+// The reminder email, telling the customer the request is already open
+// when it is.
+export function withAutoRenewal(mail: Mail | null, request: HbsServiceRequest | null): Mail | null {
+  if (!mail || !request) return mail;
+  return {
+    ...mail,
+    lines: [mail.lines[0], `فتح المكتب طلب التجديد تلقائيًا ضمن اشتراكك (${requestReference(request.id, request.createdAt)})، وستصلك تحديثاته من صفحة الطلب.`],
+    action: { label: "افتح طلب التجديد", path: `/requests/${request.id}` },
+  };
+}
+
 export async function sendDueReminders(send: typeof notifyCustomerNow = notifyCustomerNow): Promise<number> {
   const rows = await db.select({
     id: hbsDocumentReminders.id,
@@ -59,10 +145,21 @@ export async function sendDueReminders(send: typeof notifyCustomerNow = notifyCu
       .returning();
     if (!claimed) continue;
     const kindLabel = reminderKindLabels[claimed.kind] ?? reminderKindLabels.other;
+    // The first reminder for this expiry (normally the 30-day one) opens the
+    // renewal request for subscribed companies; a failure there must not
+    // stop the reminder itself.
+    let autoRequest: HbsServiceRequest | null = null;
+    if (row.lastReminderDays === null) {
+      try {
+        autoRequest = await openAutoRenewalRequest(claimed);
+      } catch (err) {
+        logger.error({ err, reminderId: claimed.id }, "Automatic renewal request failed");
+      }
+    }
     try {
-      await send(claimed.userId, to => reminderMail(to, {
+      await send(claimed.userId, to => withAutoRenewal(reminderMail(to, {
         kindLabel, label: claimed.label, expiresText: expiresText(claimed.expiresOn), days: row.daysLeft,
-      }));
+      }), autoRequest));
     } catch (err) {
       // Not sent: give the claim back so the next sweep tries again, unless
       // another instance has already moved the reminder on since.

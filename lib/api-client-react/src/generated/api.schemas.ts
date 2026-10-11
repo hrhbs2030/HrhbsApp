@@ -67,6 +67,15 @@ export const AuditLogEntryAction = {
   service_requestquote_accept: 'service_request.quote_accept',
   service_requestquote_decline: 'service_request.quote_decline',
   service_requestchecklist: 'service_request.checklist',
+  companymember_invite: 'company.member_invite',
+  companymember_update: 'company.member_update',
+  companymember_remove: 'company.member_remove',
+  service_requestemployee_item: 'service_request.employee_item',
+  plancreate: 'plan.create',
+  planupdate: 'plan.update',
+  subscriptionstart: 'subscription.start',
+  subscriptionupdate: 'subscription.update',
+  service_requestauto_renew: 'service_request.auto_renew',
 } as const;
 
 export type AuditLogEntryDetails = { [key: string]: unknown };
@@ -478,6 +487,24 @@ export interface RequestLastMessage {
   at: string;
 }
 
+export type RequestEmployeeStatus = typeof RequestEmployeeStatus[keyof typeof RequestEmployeeStatus];
+
+
+export const RequestEmployeeStatus = {
+  pending: 'pending',
+  in_progress: 'in_progress',
+  done: 'done',
+  blocked: 'blocked',
+} as const;
+
+export interface RequestEmployee {
+  employeeId: number;
+  fullName: string;
+  itemStatus: RequestEmployeeStatus;
+  /** @nullable */
+  note: string | null;
+}
+
 export interface ServiceRequest {
   id: number;
   reference: string;
@@ -507,6 +534,8 @@ export interface ServiceRequest {
   lastMessage: RequestLastMessage | null;
   quote: RequestQuote | null;
   checklist: ChecklistItem[];
+  /** Employees covered by a bulk request, each with its own progress; empty for single requests */
+  employees: RequestEmployee[];
 }
 
 export type ServiceRequestStatusEventStatus = typeof ServiceRequestStatusEventStatus[keyof typeof ServiceRequestStatusEventStatus];
@@ -592,6 +621,8 @@ export interface OfficeServiceRequest {
   userId: string;
   quote: RequestQuote | null;
   checklist: ChecklistItem[];
+  /** Employees covered by a bulk request, each with its own progress; empty for single requests */
+  employees: RequestEmployee[];
 }
 
 export interface OfficeServiceRequestPage {
@@ -695,6 +726,12 @@ export interface ServiceRequestInput {
      * @nullable
      */
   employeeId?: number | null;
+  /**
+     * Employees of the customer's company file for a bulk request, tracked one by one; may be combined with employeeId
+     * @maxItems 50
+     * @items.minimum 1
+     */
+  employeeIds?: number[];
   /**
      * A license in the customer's company file
      * @minimum 1
@@ -1063,9 +1100,29 @@ export const InvoicePaymentMethod = {
 export interface Invoice {
   id: number;
   reference: string;
-  requestId: number;
-  requestReference: string;
+  /**
+     * Null for a subscription invoice
+     * @nullable
+     */
+  requestId: number | null;
+  /** @nullable */
+  requestReference: string | null;
+  /**
+     * Null for a request invoice
+     * @nullable
+     */
+  subscriptionId: number | null;
   description: string;
+  /**
+     * Number of units billed; 1 unless a unit amount was given
+     * @minimum 1
+     */
+  quantity: number;
+  /**
+     * Halalas per unit before VAT, when the amount was computed from a quantity
+     * @nullable
+     */
+  unitAmount: number | null;
   /** Halalas before VAT */
   amount: number;
   /** 1500 means 15% */
@@ -1093,11 +1150,23 @@ export interface InvoiceInput {
      */
   description: string;
   /**
-     * Halalas before VAT
+     * Halalas before VAT; ignored when unitAmount is given
      * @minimum 100
      * @maximum 100000000
      */
   amount: number;
+  /**
+     * Units billed, for example employees on a bulk request
+     * @minimum 1
+     * @maximum 500
+     */
+  quantity?: number;
+  /**
+     * Halalas per unit before VAT; when given, amount = unitAmount x quantity
+     * @minimum 100
+     * @maximum 100000000
+     */
+  unitAmount?: number;
   /** Also move the request to awaiting payment */
   markAwaitingPayment?: boolean;
 }
@@ -1175,6 +1244,11 @@ export interface PortalSettings {
   whatsappPhone: string | null;
   /** Whether the office has WhatsApp messages turned on */
   whatsappAvailable: boolean;
+  /**
+     * When the customer last wrote to the office on WhatsApp
+     * @nullable
+     */
+  lastInboundAt: string | null;
 }
 
 export interface PortalSettingsInput {
@@ -1639,6 +1713,219 @@ export interface AssignmentRule {
   updatedAt: string | null;
 }
 
+export type CompanyRole = typeof CompanyRole[keyof typeof CompanyRole];
+
+
+export const CompanyRole = {
+  owner: 'owner',
+  hr: 'hr',
+  finance: 'finance',
+  viewer: 'viewer',
+} as const;
+
+export interface CompanyMember {
+  /** 0 for the implicit owner row */
+  id: number;
+  email: string;
+  role: CompanyRole;
+  /**
+     * Set once the invited person signed in; the owner's own user ID for the owner row
+     * @nullable
+     */
+  memberUserId: string | null;
+  invitedAt: string;
+  /** @nullable */
+  acceptedAt: string | null;
+}
+
+export type CompanyMemberInviteInputRole = typeof CompanyMemberInviteInputRole[keyof typeof CompanyMemberInviteInputRole];
+
+
+export const CompanyMemberInviteInputRole = {
+  hr: 'hr',
+  finance: 'finance',
+  viewer: 'viewer',
+} as const;
+
+export interface CompanyMemberInviteInput {
+  /** @maxLength 254 */
+  email: string;
+  role: CompanyMemberInviteInputRole;
+}
+
+export type CompanyMemberUpdateRole = typeof CompanyMemberUpdateRole[keyof typeof CompanyMemberUpdateRole];
+
+
+export const CompanyMemberUpdateRole = {
+  hr: 'hr',
+  finance: 'finance',
+  viewer: 'viewer',
+} as const;
+
+export interface CompanyMemberUpdate {
+  role: CompanyMemberUpdateRole;
+}
+
+export interface CompanyMembership {
+  role: CompanyRole;
+  /** The owner's user ID, which identifies the company */
+  companyUserId: string;
+  /** @nullable */
+  companyName: string | null;
+}
+
+export interface RequestEmployeeUpdate {
+  itemStatus: RequestEmployeeStatus;
+  /**
+     * Omit to keep; null to clear
+     * @maxLength 500
+     * @nullable
+     */
+  note?: string | null;
+}
+
+export interface Plan {
+  id: number;
+  slug: string;
+  name: string;
+  description: string;
+  /** Halalas per month before VAT */
+  price: number;
+  /** Halalas per month */
+  vat: number;
+  /** Halalas per month including VAT */
+  total: number;
+  /**
+     * Null for unlimited
+     * @nullable
+     */
+  employeeCap: number | null;
+  /**
+     * Null for unlimited
+     * @nullable
+     */
+  requestsPerMonth: number | null;
+  /** Whether the plan covers automatic renewal requests from expiry reminders */
+  autoRenewals: boolean;
+  active: boolean;
+  sort: number;
+}
+
+export interface PlanInput {
+  /** @pattern ^[a-z0-9-]{2,60}$ */
+  slug: string;
+  /**
+     * @minLength 2
+     * @maxLength 120
+     */
+  name: string;
+  /** @maxLength 2000 */
+  description: string;
+  /**
+     * Halalas per month before VAT
+     * @minimum 100
+     * @maximum 100000000
+     */
+  price: number;
+  /**
+     * @minimum 1
+     * @maximum 100000
+     * @nullable
+     */
+  employeeCap?: number | null;
+  /**
+     * @minimum 1
+     * @maximum 100000
+     * @nullable
+     */
+  requestsPerMonth?: number | null;
+  autoRenewals?: boolean;
+  active?: boolean;
+  /**
+     * @minimum 0
+     * @maximum 1000
+     */
+  sort?: number;
+}
+
+export type SubscriptionStatus = typeof SubscriptionStatus[keyof typeof SubscriptionStatus];
+
+
+export const SubscriptionStatus = {
+  active: 'active',
+  past_due: 'past_due',
+  cancelled: 'cancelled',
+} as const;
+
+export interface Subscription {
+  id: number;
+  plan: Plan;
+  status: SubscriptionStatus;
+  startsAt: string;
+  /** When the next monthly invoice is issued */
+  renewsAt: string;
+  /** @nullable */
+  cancelledAt: string | null;
+  /** Whether expiring documents open renewal requests automatically */
+  autoRenewRequests: boolean;
+  latestInvoice: Invoice | null;
+}
+
+export type OfficeSubscription = Subscription & ({
+  /** The subscribing company owner's user ID */
+  userId: string;
+  /** @nullable */
+  companyName: string | null;
+  /** @nullable */
+  customerName: string | null;
+});
+
+export interface OfficeSubscriptionPage {
+  items: OfficeSubscription[];
+  /** @minimum 0 */
+  total: number;
+}
+
+/**
+ * Only cancellation is allowed
+ */
+export type OfficeSubscriptionUpdateStatus = typeof OfficeSubscriptionUpdateStatus[keyof typeof OfficeSubscriptionUpdateStatus];
+
+
+export const OfficeSubscriptionUpdateStatus = {
+  cancelled: 'cancelled',
+} as const;
+
+export interface OfficeSubscriptionUpdate {
+  /** Only cancellation is allowed */
+  status?: OfficeSubscriptionUpdateStatus;
+  autoRenewRequests?: boolean;
+}
+
+export interface CompanySubscriptionResult {
+  subscription: Subscription | null;
+}
+
+export interface StartSubscriptionInput {
+  /**
+     * @minimum 1
+     * @maximum 2147483647
+     */
+  planId: number;
+  autoRenewRequests?: boolean;
+}
+
+export interface CompanySubscriptionUpdate {
+  autoRenewRequests?: boolean;
+  /** Cancel at once; renewals stop and the plan ends at renewsAt */
+  cancel?: true;
+}
+
+/**
+ * Meta's WhatsApp Business webhook body, passed through as sent
+ */
+export interface WhatsappWebhookPayload { [key: string]: unknown }
+
 export type ListOfficeServiceRequestsParams = {
 /**
  * 1-based page; defaults to 1
@@ -1793,4 +2080,41 @@ export type LookupOfficeCommercialRegisterParams = {
  */
 number: string;
 };
+
+export type ListOfficeSubscriptionsParams = {
+/**
+ * 1-based page; defaults to 1
+ * @minimum 1
+ * @maximum 1000000
+ */
+page?: number;
+/**
+ * Defaults to 20; capped at 100
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+status?: SubscriptionStatus;
+};
+
+export type WhatsappWebhookVerifyParams = {
+'hub.mode': WhatsappWebhookVerifyHubMode;
+/**
+ * @minLength 1
+ * @maxLength 200
+ */
+'hub.verify_token': string;
+/**
+ * @minLength 1
+ * @maxLength 200
+ */
+'hub.challenge': string;
+};
+
+export type WhatsappWebhookVerifyHubMode = typeof WhatsappWebhookVerifyHubMode[keyof typeof WhatsappWebhookVerifyHubMode];
+
+
+export const WhatsappWebhookVerifyHubMode = {
+  subscribe: 'subscribe',
+} as const;
 

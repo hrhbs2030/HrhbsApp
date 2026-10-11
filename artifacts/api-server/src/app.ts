@@ -66,6 +66,10 @@ app.use(
 app.use("/api/office/legacy", express.json({ limit: "6mb" }));
 // Spreadsheet imports send up to 500 rows at once.
 app.use(/^\/api\/(company|office\/customers\/[^/]+)\/(employees|licenses)\/import$/, express.json({ limit: "1mb" }));
+// Meta signs WhatsApp webhook deliveries over the exact request bytes
+// (X-Hub-Signature-256), so this path keeps the raw body; the handler
+// verifies the HMAC and parses the JSON itself (routes/whatsapp-webhook.ts).
+app.use("/api/webhooks/whatsapp", express.raw({ type: "application/json", limit: "1mb" }));
 app.use(express.json());
 
 app.use(

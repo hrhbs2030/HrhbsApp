@@ -1,0 +1,29 @@
+/* Company page: the members tab and the subscription tab. The file tab reuses company-file.css. */
+.cp-role { display: flex; align-items: center; gap: 8px; margin: -8px 0 20px; padding: 10px 14px; border-radius: 12px; background: var(--color-sage); color: var(--color-teal); font-size: 13.5px; }
+.cp-invite { display: grid; gap: 12px; align-items: end; padding: 16px 20px; border-bottom: 1px solid var(--color-line); background: var(--color-paper); }
+@media (min-width: 640px) { .cp-invite { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; } }
+.cp-invite .btn { min-height: 49px; }
+.cp-email { unicode-bidi: isolate; overflow-wrap: anywhere; }
+.cp-role-tag { padding: 2px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: var(--color-sunk); color: var(--color-quiet); }
+.cp-role-tag.is-owner { background: var(--color-teal); color: var(--color-on-dark); }
+.cp-role-tag.is-hr { background: var(--color-info-soft); color: var(--color-info); }
+.cp-role-tag.is-finance { background: var(--color-copper-soft); color: var(--color-copper); }
+.cp-state { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+.cp-state.is-accepted { color: var(--color-ok); }
+.cp-state.is-pending { color: var(--color-warn); }
+.cp-role-select { width: auto; min-height: 40px !important; padding-block: 4px; font-size: 13px; }
+.cp-plans { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+@media (min-width: 720px) { .cp-plans { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); } }
+.cp-plan { display: grid; gap: 12px; align-content: start; padding: 18px; border-radius: 14px; border: 1.5px solid var(--color-line); background: var(--color-field); }
+.cp-plan .btn { margin-top: auto; }
+.cp-price { display: grid; gap: 2px; }
+.cp-plan-facts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.cp-plan-facts li { padding: 4px 10px; border-radius: 10px; background: var(--color-sunk); font-size: 12.5px; }
+.cp-sub-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px 24px; }
+.cp-sub-facts { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; }
+.cp-sub-facts dt { font-size: 12px; font-weight: 700; color: var(--color-subtle); }
+.cp-sub-facts dd { margin: 2px 0 0; font-weight: 600; }
+.cp-toggle { display: flex; gap: 12px; align-items: flex-start; margin-top: 18px; padding: 12px 14px; border-radius: 12px; background: var(--color-paper); font-size: 14px; cursor: pointer; }
+.cp-toggle input { margin-top: 5px; width: 18px; height: 18px; flex: none; }
+.cp-invoices { border: 0; border-radius: 0; }
+@media print { .cp-invite, .cp-role-select, .cp-toggle { display: none; } }

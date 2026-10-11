@@ -37,6 +37,12 @@ export interface ServiceRequestInput {
      */
   employeeId?: number | null;
   /**
+     * Employees of the customer's company file for a bulk request, tracked one by one; may be combined with employeeId
+     * @maxItems 50
+     * @items.minimum 1
+     */
+  employeeIds?: number[];
+  /**
      * A license in the customer's company file
      * @minimum 1
      * @nullable

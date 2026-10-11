@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useParams, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, CircleAlert, CircleCheck, CreditCard, FileClock, FileSignature, Link2, MessageSquareText, MessagesSquare, Paperclip, Plus, Send, UserRoundCheck } from 'lucide-react';
-import { getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, getListInquiriesQueryKey, getGetServiceRequestQueryKey, getGetServiceRequestHistoryQueryKey, getListServiceRequestInvoicesQueryKey, useGetServiceRequestHistory, useGetPortalSummary, useListServiceRequests, useGetServiceRequest, useListInquiries, useCreateInquiry, useAcceptQuote, useDeclineQuote, type Inquiry, type PortalSummary, type Reminder, type RequestQuote } from '@workspace/api-client-react';
+import { ArrowLeft, ArrowRight, CalendarClock, CircleAlert, CircleCheck, CreditCard, FileClock, FileSignature, Link2, MessageSquareText, MessagesSquare, Paperclip, Plus, Send, UserRoundCheck, UsersRound } from 'lucide-react';
+import { getGetCompanySubscriptionQueryKey, getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, getListInquiriesQueryKey, getGetServiceRequestQueryKey, getGetServiceRequestHistoryQueryKey, getListServiceRequestInvoicesQueryKey, useGetCompanySubscription, useGetServiceRequestHistory, useGetPortalSummary, useListServiceRequests, useGetServiceRequest, useListInquiries, useCreateInquiry, useAcceptQuote, useDeclineQuote, type Inquiry, type PortalSummary, type Reminder, type RequestEmployee, type RequestEmployeeStatus, type RequestQuote, type Subscription } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock, RequestRow, Status, StatusTrack, dateText, categoryNames, statusNames } from '@/components/portal-ui';
 import { CustomerAssistant } from '@/components/customer-assistant';
 import { PrintButton } from '@/components/brand/print';
@@ -53,14 +53,14 @@ function InquiryLine({ inquiry }: { inquiry: Inquiry }) {
   </Link>;
 }
 
-const taskIcons: Record<TaskKind, typeof CircleAlert> = { quote: FileSignature, request: MessagesSquare, invoice: CreditCard, document: FileClock, registration: UserRoundCheck };
+const taskIcons: Record<TaskKind, typeof CircleAlert> = { quote: FileSignature, request: MessagesSquare, invoice: CreditCard, subscription: CalendarClock, document: FileClock, registration: UserRoundCheck };
 // Everything that waits on the customer, as links: a price quote to accept, a
 // request needing a reply or a document, an unpaid invoice, a document to
 // renew. Built from the requests list and the summary the page already loads.
-function NeedsYou({ summary }: { summary: PortalSummary | undefined }) {
+function NeedsYou({ summary, subscription }: { summary: PortalSummary | undefined; subscription: Subscription | null | undefined }) {
   const q = useListServiceRequests({query:{queryKey:getListServiceRequestsQueryKey(),refetchInterval:30000}});
   if (!q.data && !summary) return null;
-  const tasks = customerTasks({ requests: q.data, summary });
+  const tasks = customerTasks({ requests: q.data, summary, subscription });
   if (!tasks.length) return <p className="flex items-center gap-2 rounded-2xl border border-sage-2 bg-ok-soft px-5 py-4 text-sm font-bold text-ok" role="status"><CircleCheck size={18} aria-hidden="true"/>لا شيء مطلوب منك الآن.</p>;
   return <section aria-labelledby="needs-you-title" className="rounded-2xl border border-warn-line bg-warn-soft p-4 sm:p-5">
     <div className="flex items-center gap-3 px-1"><CircleAlert className="shrink-0 text-warn" size={20} aria-hidden="true"/><h2 id="needs-you-title" className="font-bold text-warn">مطلوب منك الآن <span className="nums font-normal">({count(tasks.length)})</span></h2></div>
@@ -77,9 +77,12 @@ function NeedsYou({ summary }: { summary: PortalSummary | undefined }) {
 export function Dashboard() {
   const q = useGetPortalSummary({query:{queryKey:getGetPortalSummaryQueryKey(),refetchInterval:30000}});
   const d = q.data;
+  // Only company accounts can hold a subscription; for anyone else (or until
+  // the server has it) the call fails quietly and the task list ignores it.
+  const sub = useGetCompanySubscription({ query: { queryKey: getGetCompanySubscriptionQueryKey(), enabled: !!d?.hasCompany, retry: false } });
   return <PortalLayout><PageHeading eyebrow="" title="نظرة عامة" action={<Link href="/requests/new" className="btn btn-primary"><Plus size={18}/>طلب خدمة جديد</Link>}/>
     <div className="space-y-8">
-      <NeedsYou summary={d}/>
+      <NeedsYou summary={d} subscription={sub.data?.subscription}/>
       {q.isLoading ? <LoadingBlock/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : d && <>
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <Tile label="طلبات قيد المتابعة" value={count(d.activeRequests)} href="/requests" accent/>
@@ -174,6 +177,7 @@ export function RequestDetail() {
           <Info label="مجال الخدمة" value={categoryNames[q.data.category]}/><Info label="رقم التواصل" value={q.data.contactPhone} ltr/><Info label="آخر تحديث" value={dateText(q.data.updatedAt)}/>
         </dl>
         <div className="border-t border-line px-5 py-6 sm:px-8"><h2 className="mb-2 text-xs font-bold text-subtle">تفاصيل الطلب</h2><p className="whitespace-pre-wrap text-sm leading-8">{q.data.description}</p></div>
+        {(q.data.employees?.length ?? 0) > 0 && <RequestEmployees employees={q.data.employees}/>}
         <div id="documents" className="scroll-mt-24 border-t border-line px-5 py-6 sm:px-8"><RequestFiles scope="customer" requestId={q.data.id} attachments={q.data.attachments} checklist={q.data.checklist} canUpload={q.data.status !== 'completed'} onChanged={() => q.refetch()}/></div>
         <InvoicesSlot requestId={q.data.id} returnedInvoiceId={returnedInvoiceId}/>
         <div className="border-t border-line px-5 py-6 sm:px-8"><RequestConversation requestId={q.data.id} scope="customer" closed={q.data.status === 'completed'}/></div>
@@ -214,6 +218,20 @@ function QuoteCard({ requestId, quote }: { requestId: number; quote: RequestQuot
       <button type="button" className="btn btn-outline" disabled={busy} onClick={() => setNoting(true)}><MessageSquareText size={17} aria-hidden="true"/>لديّ ملاحظة</button>
     </div>}
     {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
+  </section>;
+}
+
+// A bulk request lists its employees, each with the office's progress on them.
+export const requestEmployeeStatusNames: Record<RequestEmployeeStatus, string> = { pending: 'قيد الانتظار', in_progress: 'جارٍ', done: 'مكتمل', blocked: 'متوقف' };
+const requestEmployeePill: Record<RequestEmployeeStatus, string> = { pending: 'received', in_progress: 'reviewing', done: 'completed', blocked: 'waiting_on_customer' };
+function RequestEmployees({ employees }: { employees: RequestEmployee[] }) {
+  const done = employees.filter(e => e.itemStatus === 'done').length;
+  return <section aria-labelledby="req-employees" className="border-t border-line px-5 py-6 sm:px-8">
+    <h2 id="req-employees" className="mb-3 flex items-center gap-2 text-xs font-bold text-subtle"><UsersRound size={15} aria-hidden="true"/>الموظفون في هذا الطلب <span className="nums font-normal">({count(done)}/{count(employees.length)} مكتمل)</span></h2>
+    <ul className="m-0 list-none divide-y divide-line overflow-hidden rounded-xl border border-line p-0">{employees.map(e => <li key={e.employeeId} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-sm">
+      <span className="min-w-0 flex-1"><strong>{e.fullName}</strong>{e.note && <span className="mt-0.5 block text-xs leading-6 text-quiet">{e.note}</span>}</span>
+      <span className={`pill pill-${requestEmployeePill[e.itemStatus]}`}><span className="h-1.5 w-1.5 rounded-full bg-current"/>{requestEmployeeStatusNames[e.itemStatus]}</span>
+    </li>)}</ul>
   </section>;
 }
 

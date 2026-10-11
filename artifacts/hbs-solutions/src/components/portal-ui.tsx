@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useClerk, useUser } from '@clerk/react';
-import { Archive, ArrowLeft, ArrowUpLeft, BarChart3, BellRing, Building2, Check, Contact, CircleHelp, ClipboardList, FileClock, History, Home, Inbox, LogOut, Menu, Plus, Settings, Tags, UserRoundCheck, UsersRound, X } from 'lucide-react';
+import { Archive, ArrowLeft, ArrowUpLeft, BarChart3, BellRing, Building2, Check, Contact, CircleHelp, ClipboardList, CreditCard, FileClock, History, Home, Inbox, LogOut, Menu, Package, Plus, Settings, Tags, UserRoundCheck, UsersRound, X } from 'lucide-react';
 import { getGetPortalMeQueryKey, useGetPortalMe, type Inquiry, type ServiceRequest, type ServiceRequestStatus } from '@workspace/api-client-react';
 import { daysLabel, formatDate, formatNumber } from '@/lib/format';
 import { milestoneIndex, milestoneKeys, milestones, pauses, stageLabel, stageNote } from '@/content/milestones';
@@ -40,7 +40,7 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
   const me = useGetPortalMe({ query: { queryKey: getGetPortalMeQueryKey(), enabled: staff } });
   const owner = staff && me.data?.officeRole === 'owner';
   useEffect(() => setMenuOpen(false), [location]);
-  const ownerLinks = owner ? [{ href: '/office/reports', label: 'التقارير', icon: BarChart3 }, { href: '/office/catalog', label: 'الأسعار والمتطلبات', icon: Tags }, { href: '/office/legacy', label: 'الأرشيف القديم', icon: Archive }, { href: '/office/staff', label: 'فريق المكتب', icon: UsersRound }, { href: '/office/audit', label: 'سجل التدقيق', icon: History }] : [];
+  const ownerLinks = owner ? [{ href: '/office/reports', label: 'التقارير', icon: BarChart3 }, { href: '/office/catalog', label: 'الأسعار والمتطلبات', icon: Tags }, { href: '/office/plans', label: 'الباقات', icon: Package }, { href: '/office/subscriptions', label: 'الاشتراكات', icon: CreditCard }, { href: '/office/legacy', label: 'الأرشيف القديم', icon: Archive }, { href: '/office/staff', label: 'فريق المكتب', icon: UsersRound }, { href: '/office/audit', label: 'سجل التدقيق', icon: History }] : [];
   const links = staff ? [{ href: '/office', label: 'نظرة عامة', icon: Home }, { href: '/office/registrations', label: 'طلبات التسجيل', icon: UserRoundCheck }, { href: '/office/requests', label: 'طلبات العملاء', icon: ClipboardList }, { href: '/office/inquiries', label: 'الاستفسارات', icon: CircleHelp }, { href: '/office/customers', label: 'ملفات العملاء', icon: Contact }, { href: '/office/reminders', label: 'وثائق تنتهي قريبًا', icon: FileClock }, ...ownerLinks] : registrationOnly ? [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }] : [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }, { href: '/dashboard', label: 'نظرة عامة', icon: Home }, { href: '/requests', label: 'طلباتي', icon: ClipboardList }, { href: '/inquiries', label: 'استفساراتي', icon: CircleHelp }, { href: '/company', label: 'ملف المنشأة', icon: Building2 }, { href: '/documents', label: 'تنبيهات وثائقي', icon: BellRing }, { href: '/settings', label: 'الإشعارات', icon: Settings }];
   const current = links.find(({ href }) => location === href) ?? links.filter(({ href }) => location.startsWith(href + '/')).sort((a, b) => b.href.length - a.href.length)[0];
   return <div className="relative z-[1] min-h-[100dvh] lg:flex" dir="rtl">

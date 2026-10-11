@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
-import { customerTasks, documentLink, pendingQuote } from '../src/lib/tasks';
+import { SUBSCRIPTION_LINK, customerTasks, documentLink, pendingQuote } from '../src/lib/tasks';
 
 const realNow = Date.now;
 afterEach(() => { Date.now = realNow; });
@@ -73,4 +73,26 @@ test('a pending quote comes first and a pending registration last', () => {
   const tasks = customerTasks({ requests: [request(4, { status: 'waiting_on_customer' }), quoted], registrationStatus: 'pending' });
   assert.deepEqual(tasks.map(t => [t.kind, t.href]), [['quote', '/requests/1#quote'], ['request', '/requests/4#messages'], ['registration', '/registration']]);
   assert.equal(tasks[0].title, 'راجع عرض السعر');
+});
+
+const subscription = (status: string, extra: Record<string, unknown> = {}) => ({
+  id: 3, status, startsAt: date, renewsAt: '2026-04-01T12:00:00.000Z', cancelledAt: null, autoRenewRequests: true, latestInvoice: null,
+  plan: { id: 1, slug: 'basic', name: 'الأساسية', description: '', price: 10000, vat: 1500, total: 11500, employeeCap: 10, requestsPerMonth: 5, autoRenewals: true, active: true, sort: 0 },
+  ...extra,
+}) as never;
+
+test('a past-due subscription is a task on the company page; an active or cancelled one is not', () => {
+  freeze();
+  const invoice = { id: 9, requestId: null, subscriptionId: 3, requestReference: null, description: 'اشتراك شهر 3', total: 11500, status: 'issued' };
+  const tasks = customerTasks({ requests: [request(1, { status: 'waiting_on_customer' })], subscription: subscription('past_due', { latestInvoice: invoice }), summary: summary({ expiringSoon: [reminder(1, '2026-03-12')] }) });
+  assert.deepEqual(tasks.map(t => [t.kind, t.href]), [['request', '/requests/1#messages'], ['subscription', SUBSCRIPTION_LINK], ['document', '/documents']], 'after invoices, before documents');
+  assert.equal(tasks[1].title, 'سدّد فاتورة الاشتراك');
+  assert.match(tasks[1].reason, /الأساسية/); assert.match(tasks[1].reason, /115\.00/);
+  assert.deepEqual(customerTasks({ subscription: subscription('active') }), []);
+  assert.deepEqual(customerTasks({ subscription: subscription('cancelled') }), []);
+  assert.deepEqual(customerTasks({ subscription: null }), []);
+  // A loaded subscription invoice has no request page to go to.
+  const [task] = customerTasks({ invoices: [invoice as never] });
+  assert.equal(task.href, SUBSCRIPTION_LINK);
+  assert.match(task.reason, /اشتراك شهر 3 \(اشتراك\)/);
 });

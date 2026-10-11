@@ -88,7 +88,18 @@
       "updated_at": "timestamp with time zone not null",
       "user_id": "text not null"
     },
+    "hbs_company_members": {
+      "accepted_at": "timestamp with time zone",
+      "company_user_id": "text not null",
+      "email": "text not null",
+      "id": "integer not null",
+      "invited_at": "timestamp with time zone not null",
+      "invited_by": "text not null",
+      "member_user_id": "text",
+      "role": "text not null"
+    },
     "hbs_customer_settings": {
+      "last_inbound_at": "timestamp with time zone",
       "updated_at": "timestamp with time zone not null",
       "user_id": "text not null",
       "whatsapp_opt_in": "boolean not null",
@@ -132,11 +143,14 @@
       "payment_method": "text",
       "payment_reference": "text",
       "payment_url": "text",
+      "quantity": "integer not null",
       "reminded_at": "timestamp with time zone",
       "reminder_count": "integer not null",
-      "request_id": "integer not null",
+      "request_id": "integer",
       "status": "text not null",
+      "subscription_id": "integer",
       "total_halalas": "integer not null",
+      "unit_amount_halalas": "integer",
       "vat_halalas": "integer not null",
       "vat_rate_basis_points": "integer not null"
     },
@@ -159,6 +173,20 @@
       "created_at": "timestamp with time zone not null",
       "email": "text",
       "user_id": "text not null"
+    },
+    "hbs_plans": {
+      "active": "boolean not null",
+      "auto_renewals": "boolean not null",
+      "created_at": "timestamp with time zone not null",
+      "description": "text not null",
+      "employee_cap": "integer",
+      "id": "integer not null",
+      "name": "text not null",
+      "price_halalas": "integer not null",
+      "requests_per_month": "integer",
+      "slug": "text not null",
+      "sort": "integer not null",
+      "updated_at": "timestamp with time zone not null"
     },
     "hbs_registration_requests": {
       "contact_phone": "text not null",
@@ -184,6 +212,13 @@
       "request_id": "integer",
       "size": "integer not null",
       "user_id": "text not null"
+    },
+    "hbs_request_employees": {
+      "employee_id": "integer not null",
+      "item_status": "text not null",
+      "note": "text",
+      "request_id": "integer not null",
+      "updated_at": "timestamp with time zone not null"
     },
     "hbs_request_messages": {
       "author_id": "text not null",
@@ -231,6 +266,27 @@
       "updated_at": "timestamp with time zone not null",
       "user_id": "text not null"
     },
+    "hbs_subscriptions": {
+      "auto_renew_requests": "boolean not null",
+      "cancelled_at": "timestamp with time zone",
+      "created_at": "timestamp with time zone not null",
+      "id": "integer not null",
+      "plan_id": "integer not null",
+      "renews_at": "timestamp with time zone not null",
+      "starts_at": "timestamp with time zone not null",
+      "status": "text not null",
+      "updated_at": "timestamp with time zone not null",
+      "user_id": "text not null"
+    },
+    "hbs_whatsapp_inbound": {
+      "body": "text not null",
+      "from_phone": "text not null",
+      "handled": "text not null",
+      "received_at": "timestamp with time zone not null",
+      "request_id": "integer",
+      "user_id": "text",
+      "wa_message_id": "text not null"
+    },
     "messages": {
       "content": "text not null",
       "conversation_id": "integer not null",
@@ -256,6 +312,10 @@
       "table": "hbs_company_licenses",
       "definition": "CHECK ((kind = ANY (ARRAY['commercial_register'::text, 'municipal'::text, 'civil_defense'::text, 'chamber'::text, 'gosi'::text, 'zakat_vat'::text, 'other'::text])))"
     },
+    "hbs_company_members_role_check": {
+      "table": "hbs_company_members",
+      "definition": "CHECK ((role = ANY (ARRAY['hr'::text, 'finance'::text, 'viewer'::text])))"
+    },
     "hbs_document_reminders_kind_check": {
       "table": "hbs_document_reminders",
       "definition": "CHECK ((kind = ANY (ARRAY['iqama'::text, 'passport'::text, 'commercial_register'::text, 'work_permit'::text, 'other'::text])))"
@@ -272,13 +332,29 @@
       "table": "hbs_invoices",
       "definition": "CHECK (((payment_method IS NULL) OR (payment_method = ANY (ARRAY['manual'::text, 'online'::text]))))"
     },
+    "hbs_invoices_quantity_check": {
+      "table": "hbs_invoices",
+      "definition": "CHECK ((((quantity >= 1) AND (quantity <= 500)) AND ((unit_amount_halalas IS NULL) OR (unit_amount_halalas > 0))))"
+    },
     "hbs_invoices_status_check": {
       "table": "hbs_invoices",
       "definition": "CHECK ((status = ANY (ARRAY['issued'::text, 'paid'::text, 'cancelled'::text])))"
     },
+    "hbs_invoices_subject_check": {
+      "table": "hbs_invoices",
+      "definition": "CHECK (((request_id IS NOT NULL) OR (subscription_id IS NOT NULL)))"
+    },
+    "hbs_plans_price_check": {
+      "table": "hbs_plans",
+      "definition": "CHECK ((price_halalas >= 0))"
+    },
     "hbs_registration_requests_status_check": {
       "table": "hbs_registration_requests",
       "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))"
+    },
+    "hbs_request_employees_status_check": {
+      "table": "hbs_request_employees",
+      "definition": "CHECK ((item_status = ANY (ARRAY['pending'::text, 'in_progress'::text, 'done'::text, 'blocked'::text])))"
     },
     "hbs_request_messages_role_check": {
       "table": "hbs_request_messages",
@@ -307,6 +383,14 @@
     "hbs_service_requests_status_check": {
       "table": "hbs_service_requests",
       "definition": "CHECK ((status = ANY (ARRAY['received'::text, 'reviewing'::text, 'waiting_on_customer'::text, 'submitted_to_authority'::text, 'awaiting_payment'::text, 'completed'::text])))"
+    },
+    "hbs_subscriptions_status_check": {
+      "table": "hbs_subscriptions",
+      "definition": "CHECK ((status = ANY (ARRAY['active'::text, 'past_due'::text, 'cancelled'::text])))"
+    },
+    "hbs_whatsapp_inbound_handled_check": {
+      "table": "hbs_whatsapp_inbound",
+      "definition": "CHECK ((handled = ANY (ARRAY['request_message'::text, 'inquiry'::text, 'unmatched'::text, 'ignored'::text])))"
     }
   },
   "indexes": {
@@ -357,6 +441,18 @@
     "hbs_company_licenses_user_idx": {
       "table": "hbs_company_licenses",
       "definition": "CREATE INDEX hbs_company_licenses_user_idx ON public.hbs_company_licenses USING btree (user_id)"
+    },
+    "hbs_company_members_company_email_unique": {
+      "table": "hbs_company_members",
+      "definition": "CREATE UNIQUE INDEX hbs_company_members_company_email_unique ON public.hbs_company_members USING btree (company_user_id, email)"
+    },
+    "hbs_company_members_member_idx": {
+      "table": "hbs_company_members",
+      "definition": "CREATE INDEX hbs_company_members_member_idx ON public.hbs_company_members USING btree (member_user_id)"
+    },
+    "hbs_company_members_pkey": {
+      "table": "hbs_company_members",
+      "definition": "CREATE UNIQUE INDEX hbs_company_members_pkey ON public.hbs_company_members USING btree (id)"
     },
     "hbs_customer_settings_pkey": {
       "table": "hbs_customer_settings",
@@ -414,6 +510,10 @@
       "table": "hbs_invoices",
       "definition": "CREATE INDEX hbs_invoices_status_issued_idx ON public.hbs_invoices USING btree (status, issued_at)"
     },
+    "hbs_invoices_subscription_idx": {
+      "table": "hbs_invoices",
+      "definition": "CREATE INDEX hbs_invoices_subscription_idx ON public.hbs_invoices USING btree (subscription_id)"
+    },
     "hbs_legacy_imports_date_idx": {
       "table": "hbs_legacy_imports",
       "definition": "CREATE INDEX hbs_legacy_imports_date_idx ON public.hbs_legacy_imports USING btree (imported_at)"
@@ -442,6 +542,14 @@
       "table": "hbs_office_staff",
       "definition": "CREATE UNIQUE INDEX hbs_office_staff_pkey ON public.hbs_office_staff USING btree (user_id)"
     },
+    "hbs_plans_pkey": {
+      "table": "hbs_plans",
+      "definition": "CREATE UNIQUE INDEX hbs_plans_pkey ON public.hbs_plans USING btree (id)"
+    },
+    "hbs_plans_slug_unique": {
+      "table": "hbs_plans",
+      "definition": "CREATE UNIQUE INDEX hbs_plans_slug_unique ON public.hbs_plans USING btree (slug)"
+    },
     "hbs_registration_requests_pkey": {
       "table": "hbs_registration_requests",
       "definition": "CREATE UNIQUE INDEX hbs_registration_requests_pkey ON public.hbs_registration_requests USING btree (id)"
@@ -469,6 +577,14 @@
     "hbs_request_attachments_user_idx": {
       "table": "hbs_request_attachments",
       "definition": "CREATE INDEX hbs_request_attachments_user_idx ON public.hbs_request_attachments USING btree (user_id)"
+    },
+    "hbs_request_employees_employee_idx": {
+      "table": "hbs_request_employees",
+      "definition": "CREATE INDEX hbs_request_employees_employee_idx ON public.hbs_request_employees USING btree (employee_id)"
+    },
+    "hbs_request_employees_pk": {
+      "table": "hbs_request_employees",
+      "definition": "CREATE UNIQUE INDEX hbs_request_employees_pk ON public.hbs_request_employees USING btree (request_id, employee_id)"
     },
     "hbs_request_messages_pkey": {
       "table": "hbs_request_messages",
@@ -509,6 +625,30 @@
     "hbs_service_requests_user_idx": {
       "table": "hbs_service_requests",
       "definition": "CREATE INDEX hbs_service_requests_user_idx ON public.hbs_service_requests USING btree (user_id)"
+    },
+    "hbs_subscriptions_pkey": {
+      "table": "hbs_subscriptions",
+      "definition": "CREATE UNIQUE INDEX hbs_subscriptions_pkey ON public.hbs_subscriptions USING btree (id)"
+    },
+    "hbs_subscriptions_renews_idx": {
+      "table": "hbs_subscriptions",
+      "definition": "CREATE INDEX hbs_subscriptions_renews_idx ON public.hbs_subscriptions USING btree (renews_at) WHERE (status = 'active'::text)"
+    },
+    "hbs_subscriptions_user_idx": {
+      "table": "hbs_subscriptions",
+      "definition": "CREATE INDEX hbs_subscriptions_user_idx ON public.hbs_subscriptions USING btree (user_id)"
+    },
+    "hbs_subscriptions_user_open_unique": {
+      "table": "hbs_subscriptions",
+      "definition": "CREATE UNIQUE INDEX hbs_subscriptions_user_open_unique ON public.hbs_subscriptions USING btree (user_id) WHERE (status = ANY (ARRAY['active'::text, 'past_due'::text]))"
+    },
+    "hbs_whatsapp_inbound_pkey": {
+      "table": "hbs_whatsapp_inbound",
+      "definition": "CREATE UNIQUE INDEX hbs_whatsapp_inbound_pkey ON public.hbs_whatsapp_inbound USING btree (wa_message_id)"
+    },
+    "hbs_whatsapp_inbound_user_idx": {
+      "table": "hbs_whatsapp_inbound",
+      "definition": "CREATE INDEX hbs_whatsapp_inbound_user_idx ON public.hbs_whatsapp_inbound USING btree (user_id, received_at)"
     },
     "messages_pkey": {
       "table": "messages",
