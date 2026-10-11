@@ -39,6 +39,13 @@ const TermsPage = lazy(() => legalPages().then(m => ({ default: m.TermsPage })))
 const officeAdminPages = () => import('@/pages/office-admin');
 const OfficeStaff = lazy(() => officeAdminPages().then(m => ({ default: m.OfficeStaff })));
 const OfficeAuditLog = lazy(() => officeAdminPages().then(m => ({ default: m.OfficeAuditLog })));
+const customerExtras = () => import('@/pages/customer-extras');
+const Documents = lazy(() => customerExtras().then(m => ({ default: m.Documents })));
+const NotificationSettings = lazy(() => customerExtras().then(m => ({ default: m.NotificationSettings })));
+const officeExtras = () => import('@/pages/office-extras');
+const OfficeReminders = lazy(() => officeExtras().then(m => ({ default: m.OfficeReminders })));
+const OfficeCatalog = lazy(() => officeExtras().then(m => ({ default: m.OfficeCatalog })));
+const OfficeReports = lazy(() => officeExtras().then(m => ({ default: m.OfficeReports })));
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -170,8 +177,8 @@ function AuthPage({kind}:{kind:'sign-in'|'sign-up'}) {
 }
 function Missing() { return <main dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center p-6 text-center text-on-dark"><SceneWindow edge="top"/><div className="relative rounded-[22px] bg-night/70 px-8 py-10 backdrop-blur"><div className="display text-7xl font-semibold text-copper-light">404</div><h1 className="display mt-5 text-2xl">الصفحة غير موجودة</h1><p className="mt-3 text-sm text-on-dark-2">قد يكون الرابط غير صحيح أو تغيّر مكان الصفحة.</p><a href={basePath || '/'} className="btn btn-light mt-7">العودة للرئيسية</a></div></main>; }
 const isPublicPath = (location: string) => location === '/' || location === '/services' || location.startsWith('/services/') || location === '/trust' || location === '/help' || location === '/privacy' || location === '/terms';
-const isPortalPath = (location: string) => ['/registration', '/dashboard', '/requests', '/inquiries', '/office'].some((p) => location === p || location.startsWith(p + '/'));
-const routeTitles: Record<string,string> = {'/':'الرئيسية','/services':'دليل الخدمات','/trust':'الخصوصية والأمان','/help':'المساعدة','/privacy':'سياسة الخصوصية','/terms':'شروط الاستخدام','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم','/office/staff':'فريق المكتب','/office/audit':'سجل التدقيق'};
+const isPortalPath = (location: string) => ['/registration', '/dashboard', '/requests', '/inquiries', '/documents', '/settings', '/office'].some((p) => location === p || location.startsWith(p + '/'));
+const routeTitles: Record<string,string> = {'/':'الرئيسية','/services':'دليل الخدمات','/trust':'الخصوصية والأمان','/help':'المساعدة','/privacy':'سياسة الخصوصية','/terms':'شروط الاستخدام','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم','/office/staff':'فريق المكتب','/office/audit':'سجل التدقيق','/documents':'تنبيهات وثائقي','/settings':'الإشعارات','/office/reminders':'وثائق تنتهي قريبًا','/office/catalog':'الأسعار والمتطلبات','/office/reports':'التقارير'};
 function Routes() {
   const [location]=useLocation();
   const { isSignedIn } = useAuth();
@@ -230,6 +237,11 @@ function Routes() {
     <Route path="/requests/:id"><RoleGate><RequestDetail/></RoleGate></Route>
     <Route path="/requests"><RoleGate><Requests/></RoleGate></Route>
     <Route path="/inquiries"><RoleGate><Inquiries/></RoleGate></Route>
+    <Route path="/documents"><RoleGate><Documents/></RoleGate></Route>
+    <Route path="/settings"><RoleGate><NotificationSettings/></RoleGate></Route>
+    <Route path="/office/reminders"><RoleGate staff><OfficeReminders/></RoleGate></Route>
+    <Route path="/office/catalog"><RoleGate staff owner><OfficeCatalog/></RoleGate></Route>
+    <Route path="/office/reports"><RoleGate staff owner><OfficeReports/></RoleGate></Route>
     <Route path="/office/requests"><RoleGate staff><OfficeRequests/></RoleGate></Route>
     <Route path="/office/registrations"><RoleGate staff><OfficeRegistrations/></RoleGate></Route>
     <Route path="/office/inquiries"><RoleGate staff><OfficeInquiries/></RoleGate></Route>

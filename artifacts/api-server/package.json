@@ -26,7 +26,9 @@
     "test:office-admin": "node ../../scripts/run-db-test.mjs tests/office-admin.test.ts",
     "test:office-staff-management": "HBS_OFFICE_EMAIL=office-staff-test-owner@example.invalid node ../../scripts/run-db-test.mjs tests/office-staff-management.test.ts",
     "test:office-revocation": "HBS_OFFICE_EMAIL=revocation-test-owner@example.invalid node ../../scripts/run-db-test.mjs tests/office-revocation-routes.test.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:office-features": "HBS_OFFICE_EMAIL=office-features-owner@example.invalid node ../../scripts/run-db-test.mjs tests/office-features.test.ts",
+    "test:office-features-units": "tsx --test tests/office-features-units.test.ts"
   },
   "dependencies": {
     "@clerk/express": "^2.1.72",

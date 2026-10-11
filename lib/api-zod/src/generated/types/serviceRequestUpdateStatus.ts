@@ -13,5 +13,7 @@ export const ServiceRequestUpdateStatus = {
   received: 'received',
   reviewing: 'reviewing',
   waiting_on_customer: 'waiting_on_customer',
+  submitted_to_authority: 'submitted_to_authority',
+  awaiting_payment: 'awaiting_payment',
   completed: 'completed',
 } as const;

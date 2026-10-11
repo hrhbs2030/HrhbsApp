@@ -1,6 +1,6 @@
 import { clerkClient, getAuth } from "@clerk/express";
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, inArray, isNotNull, or, sql, type AnyColumn, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { Router, type IRouter, type Request, type RequestHandler } from "express";
 import {
   db,
@@ -11,6 +11,9 @@ import {
   hbsRegistrationRequests,
   hbsServiceRequests,
   hbsRequestAttachments,
+  hbsCustomerSettings,
+  hbsDocumentReminders,
+  hbsOfficeStaff,
   type HbsInquiry,
   type HbsRegistrationRequest,
   type HbsServiceRequest,
@@ -44,6 +47,12 @@ import {
   GetServiceRequestHistoryResponse,
   GetServiceRequestParams,
   GetServiceRequestResponse,
+  GetPortalSettingsResponse,
+  RateServiceRequestBody,
+  RateServiceRequestParams,
+  RateServiceRequestResponse,
+  SavePortalSettingsBody,
+  SavePortalSettingsResponse,
   ListInquiriesResponse,
   ListOfficeInquiriesResponse,
   ListOfficeInquiriesQueryParams,
@@ -67,6 +76,7 @@ import {
 } from "@workspace/api-zod";
 import { recordAudit } from "../lib/audit";
 import {
+  assignedMail,
   customerNewFileMail,
   inquiryAnsweredMail,
   notify,
@@ -78,10 +88,14 @@ import {
   statusChangedMail,
 } from "../lib/notify";
 import { statusHistory } from "../lib/request-history";
+import { notifyCustomer } from "../lib/customer-contact";
+import { saudiMobile, whatsappConfigured } from "../lib/whatsapp";
+import { riyadhToday } from "../lib/document-reminders";
 import { inspectLegacyBackup, legacyKinds, type LegacyKind } from "../lib/legacy-backup";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { officeCustomer, type OfficeCustomer } from "../lib/office-search";
 import {
+  approvedOfficeEmail,
   getOfficeRole,
   requireOfficeOwner, requireOfficeStaff,
 } from "../lib/office-access";
@@ -239,6 +253,9 @@ function publicRequest(record: HbsServiceRequest, attachments: ReturnType<typeof
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     attachments,
+    rating: record.rating,
+    ratingComment: record.ratingComment,
+    ratedAt: record.ratedAt,
   };
 }
 
@@ -250,24 +267,10 @@ function officeRequest(
   return {
     ...publicRequest(record, attachments),
     officeNote: record.officeNote,
+    assignedTo: record.assignedTo,
+    dueAt: record.dueAt,
     ...(customer !== undefined ? { customer } : {}),
   };
-}
-
-// The address the customer registered with, for notifications.
-// Runs after the response is sent, so a lookup failure only skips the email.
-async function customerEmail(userId: string): Promise<string | null> {
-  try {
-    const [registration] = await db.select({ email: hbsRegistrationRequests.email })
-      .from(hbsRegistrationRequests).where(eq(hbsRegistrationRequests.userId, userId)).limit(1);
-    if (registration?.email) return registration.email;
-    // Customers from before registration existed: their verified sign-in email.
-    const user = await clerkClient.users.getUser(userId);
-    const primary = user.emailAddresses.find(e => e.id === user.primaryEmailAddressId);
-    return primary?.verification?.status === "verified" ? primary.emailAddress : null;
-  } catch {
-    return null;
-  }
 }
 
 async function customerOf(userId: string): Promise<OfficeCustomer> {
@@ -740,7 +743,7 @@ async function attachToRequest(req: Request, res: import("express").Response, of
   void Promise.allSettled(moved.map(async path => (await storage.getObjectEntityFile(path)).delete()));
   const info = { id: request.id, reference: publicRequest(request).reference, service: request.service };
   const names = finalized.map(({ row }) => row.name).join("، ");
-  if (office) notify(customerNewFileMail(await customerEmail(request.userId), info));
+  if (office) void notifyCustomer(request.userId, to => customerNewFileMail(to, info));
   else notify(officeNewFileMail(info, names));
 }
 
@@ -923,17 +926,82 @@ router.patch("/office/registrations/:id", requireOfficeStaff, async (req, res): 
   notify(registrationDecisionMail(record.email, record.status === "approved"));
 });
 
-router.get("/office/summary", requireOfficeStaff, async (_req, res): Promise<void> => {
-  const [[requests], [inquiries]] = await Promise.all([
+// An office member's address: their staff email, or the owner's approved email.
+async function staffEmail(userId: string): Promise<string | null> {
+  const [member] = await db.select({ email: hbsOfficeStaff.email }).from(hbsOfficeStaff)
+    .where(eq(hbsOfficeStaff.userId, userId)).limit(1);
+  if (!member) return null;
+  return member.email ?? approvedOfficeEmail();
+}
+
+router.post("/service-requests/:id/rating", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
+  const params = RateServiceRequestParams.safeParse(req.params);
+  const body = RateServiceRequestBody.safeParse(req.body);
+  if (!params.success || params.data.id < 1 || !body.success) {
+    res.status(400).json({ error: "Choose a rating from 1 to 5." });
+    return;
+  }
+  const userId = getAuth(req).userId!;
+  const [record] = await db.update(hbsServiceRequests).set({
+    rating: body.data.rating,
+    ratingComment: body.data.comment?.trim() || null,
+    ratedAt: new Date(),
+  }).where(and(
+    eq(hbsServiceRequests.id, params.data.id), eq(hbsServiceRequests.userId, userId),
+    eq(hbsServiceRequests.status, "completed"), isNull(hbsServiceRequests.rating),
+  )).returning();
+  if (!record) {
+    const [existing] = await db.select({ id: hbsServiceRequests.id }).from(hbsServiceRequests)
+      .where(and(eq(hbsServiceRequests.id, params.data.id), eq(hbsServiceRequests.userId, userId))).limit(1);
+    if (!existing) res.status(404).json({ error: "Request not found" });
+    else res.status(409).json({ error: "Only a completed request can be rated, once." });
+    return;
+  }
+  const attached = await attachmentsFor([record.id]);
+  res.json(RateServiceRequestResponse.parse(publicRequest(record, attached.get(record.id))));
+});
+
+router.get("/portal/settings", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
+  const [settings] = await db.select().from(hbsCustomerSettings)
+    .where(eq(hbsCustomerSettings.userId, getAuth(req).userId!)).limit(1);
+  res.json(GetPortalSettingsResponse.parse({
+    whatsappOptIn: settings?.whatsappOptIn ?? false,
+    whatsappPhone: settings?.whatsappPhone ?? null,
+    whatsappAvailable: whatsappConfigured(),
+  }));
+});
+
+router.put("/portal/settings", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
+  const body = SavePortalSettingsBody.safeParse(req.body);
+  const phone = body.success && body.data.whatsappPhone?.trim() ? body.data.whatsappPhone.trim() : null;
+  if (!body.success || (phone && !saudiMobile(phone)) || (body.data.whatsappOptIn && !phone)) {
+    res.status(400).json({ error: "Enter a Saudi mobile number (05XXXXXXXX) to receive WhatsApp messages." });
+    return;
+  }
+  const values = { whatsappOptIn: body.data.whatsappOptIn, whatsappPhone: phone, updatedAt: new Date() };
+  const [settings] = await db.insert(hbsCustomerSettings).values({ userId: getAuth(req).userId!, ...values })
+    .onConflictDoUpdate({ target: hbsCustomerSettings.userId, set: values }).returning();
+  res.json(SavePortalSettingsResponse.parse({
+    whatsappOptIn: settings.whatsappOptIn, whatsappPhone: settings.whatsappPhone, whatsappAvailable: whatsappConfigured(),
+  }));
+});
+
+router.get("/office/summary", requireOfficeStaff, async (req, res): Promise<void> => {
+  const userId = getAuth(req).userId!;
+  const [[requests], [inquiries], [documents]] = await Promise.all([
     db.select({
       total: sql<number>`count(*)::int`,
       received: sql<number>`count(*) filter (where status = 'received')::int`,
       active: sql<number>`count(*) filter (where status <> 'completed')::int`,
       stale: sql<number>`count(*) filter (where status <> 'completed' and updated_at <= now() - interval '3 days')::int`,
+      mine: sql<number>`count(*) filter (where status <> 'completed' and assigned_to = ${userId})::int`,
+      overdue: sql<number>`count(*) filter (where status <> 'completed' and due_at < now())::int`,
     }).from(hbsServiceRequests),
     db.select({
       open: sql<number>`count(*) filter (where status = 'open')::int`,
     }).from(hbsInquiries),
+    db.select({ expiring: sql<number>`count(*)::int` }).from(hbsDocumentReminders)
+      .where(sql`${hbsDocumentReminders.expiresOn} between ${riyadhToday()} and ${riyadhToday()} + 30`),
   ]);
   res.json(GetOfficeSummaryResponse.parse({
     totalRequests: requests.total,
@@ -941,6 +1009,9 @@ router.get("/office/summary", requireOfficeStaff, async (_req, res): Promise<voi
     activeRequests: requests.active,
     staleRequests: requests.stale,
     openInquiries: inquiries.open,
+    myRequests: requests.mine,
+    overdueRequests: requests.overdue,
+    expiringDocuments: documents.expiring,
   }));
 });
 
@@ -953,6 +1024,9 @@ function customerMatches(userId: AnyColumn, text: string) {
   return sql`exists (select 1 from ${hbsRegistrationRequests} r where r.user_id = ${userId}
     and (position(lower(${text}) in lower(r.full_name)) > 0 or position(lower(${text}) in lower(r.email)) > 0))`;
 }
+function overdueFilter() {
+  return sql`${hbsServiceRequests.status} <> 'completed' and ${hbsServiceRequests.dueAt} < now()`;
+}
 function requestReference() {
   return sql`concat('HBS-', extract(year from ${hbsServiceRequests.createdAt})::int, '-', lpad(${hbsServiceRequests.id}::text, 5, '0'))`;
 }
@@ -960,10 +1034,15 @@ function requestReference() {
 router.get("/office/service-requests", requireOfficeStaff, async (req, res): Promise<void> => {
   const parsed = ListOfficeServiceRequestsQueryParams.safeParse(req.query);
   if (!parsed.success) { res.status(400).json({ error: "Invalid request filters" }); return; }
-  const { page = 1, pageSize = 20, q, status, category, sort = "newest" } = parsed.data;
+  const { page = 1, pageSize = 20, q, status, category, sort = "newest", assignee } = parsed.data;
+  // The generated schema coerces any non-empty string to true; only "true" filters.
+  const overdue = req.query.overdue === "true";
   const filter = and(
     status ? eq(hbsServiceRequests.status, status) : undefined,
     category ? eq(hbsServiceRequests.category, category) : undefined,
+    assignee === "unassigned" ? isNull(hbsServiceRequests.assignedTo)
+      : assignee ? eq(hbsServiceRequests.assignedTo, assignee === "me" ? getAuth(req).userId! : assignee) : undefined,
+    overdue ? overdueFilter() : undefined,
     q ? or(contains(hbsServiceRequests.service, q), contains(hbsServiceRequests.description, q),
       contains(hbsServiceRequests.contactPhone, q), contains(requestReference(), q),
       customerMatches(hbsServiceRequests.userId, q)) : undefined,
@@ -973,7 +1052,9 @@ router.get("/office/service-requests", requireOfficeStaff, async (req, res): Pro
     db.select().from(hbsServiceRequests).where(filter)
       .orderBy(...(sort === "oldest_update"
         ? [asc(hbsServiceRequests.updatedAt), asc(hbsServiceRequests.id)]
-        : [desc(hbsServiceRequests.createdAt), desc(hbsServiceRequests.id)]))
+        : sort === "due_soon"
+          ? [sql`${hbsServiceRequests.dueAt} asc nulls last`, asc(hbsServiceRequests.id)]
+          : [desc(hbsServiceRequests.createdAt), desc(hbsServiceRequests.id)]))
       .limit(pageSize).offset((page - 1) * pageSize),
   ]);
   const attached = await attachmentsFor(records.map(r => r.id));
@@ -998,20 +1079,35 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
     res.status(400).json({ error: "Explain to the customer what is needed." });
     return;
   }
+  const { assignedTo, dueAt } = parsed.data;
+  if (assignedTo) {
+    const [member] = await db.select({ userId: hbsOfficeStaff.userId }).from(hbsOfficeStaff)
+      .where(eq(hbsOfficeStaff.userId, assignedTo)).limit(1);
+    if (!member) {
+      res.status(400).json({ error: "The request can only be assigned to an office member." });
+      return;
+    }
+  }
   const updatedAt = new Date(Math.max(Date.now(), parsed.data.expectedUpdatedAt.getTime() + 1));
   let previousStatus: string | null = null;
+  let previousAssignee: string | null = null;
   let stale = false;
   const record = await db.transaction(async tx => {
     const [previous] = await tx.select({
       status: hbsServiceRequests.status,
       officeNote: hbsServiceRequests.officeNote,
+      assignedTo: hbsServiceRequests.assignedTo,
+      dueAt: hbsServiceRequests.dueAt,
     }).from(hbsServiceRequests)
       .where(eq(hbsServiceRequests.id, params.data.id)).for("update");
     if (!previous) return undefined;
     previousStatus = previous.status;
+    previousAssignee = previous.assignedTo;
     const [updated] = await tx.update(hbsServiceRequests).set({
       status: parsed.data.status,
       ...(parsed.data.officeNote !== undefined ? { officeNote: parsed.data.officeNote } : {}),
+      ...(assignedTo !== undefined ? { assignedTo } : {}),
+      ...(dueAt !== undefined ? { dueAt } : {}),
       customerMessage: parsed.data.status === "waiting_on_customer" ? customerMessage : null,
       updatedAt,
     }).where(and(
@@ -1031,6 +1127,8 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
         fromStatus: previous.status,
         toStatus: updated.status,
         noteChanged: (previous.officeNote ?? null) !== (updated.officeNote ?? null),
+        ...(previous.assignedTo !== updated.assignedTo ? { fromAssignee: previous.assignedTo, toAssignee: updated.assignedTo } : {}),
+        ...((previous.dueAt?.getTime() ?? null) !== (updated.dueAt?.getTime() ?? null) ? { dueAt: updated.dueAt } : {}),
       },
     });
     return updated;
@@ -1048,10 +1146,13 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
   const response = officeRequest(record, attached.get(record.id), customer);
   UpdateOfficeServiceRequestResponse.parse(response);
   res.json(response);
+  const info = { id: record.id, reference: publicRequest(record).reference, service: record.service };
   if (previousStatus !== record.status) {
-    notify(statusChangedMail(await customerEmail(record.userId),
-      { id: record.id, reference: publicRequest(record).reference, service: record.service }, record.status,
-      record.customerMessage));
+    void notifyCustomer(record.userId, to => statusChangedMail(to, info, record.status, record.customerMessage));
+  }
+  if (record.assignedTo && record.assignedTo !== previousAssignee && record.assignedTo !== getAuth(req).userId) {
+    notify(assignedMail(await staffEmail(record.assignedTo), info,
+      record.dueAt ? new Intl.DateTimeFormat("ar-SA-u-ca-gregory", { dateStyle: "long", timeZone: "Asia/Riyadh" }).format(record.dueAt) : null));
   }
 });
 
@@ -1118,7 +1219,7 @@ router.patch("/office/inquiries/:id", requireOfficeStaff, async (req, res): Prom
   const response = officeInquiry(record, linkedRequest, await customerOf(record.userId));
   AnswerOfficeInquiryResponse.parse(response);
   res.json(response);
-  if (firstAnswer) notify(inquiryAnsweredMail(await customerEmail(record.userId), record.subject));
+  if (firstAnswer) void notifyCustomer(record.userId, to => inquiryAnsweredMail(to, record.subject));
 });
 
 router.post("/office/legacy/preview", requireOfficeOwner, async (req, res): Promise<void> => {

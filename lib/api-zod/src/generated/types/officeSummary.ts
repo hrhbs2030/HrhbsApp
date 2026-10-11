@@ -7,6 +7,12 @@
  */
 
 export interface OfficeSummary {
+  /** Open requests assigned to the signed-in member */
+  myRequests: number;
+  /** Open requests past their due date */
+  overdueRequests: number;
+  /** Customer documents expiring in the next 30 days */
+  expiringDocuments: number;
   totalRequests: number;
   newRequests: number;
   activeRequests: number;

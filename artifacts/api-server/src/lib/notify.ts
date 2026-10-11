@@ -26,6 +26,8 @@ const statusLabels: Record<string, string> = {
   received: "تم الاستلام",
   reviewing: "قيد المراجعة",
   waiting_on_customer: "بانتظار العميل",
+  submitted_to_authority: "تم الرفع للجهة المختصة",
+  awaiting_payment: "بانتظار السداد",
   completed: "مكتملة",
 };
 const categoryLabels: Record<string, string> = {
@@ -114,7 +116,9 @@ export function statusChangedMail(to: string | null, request: RequestInfo, statu
     waiting_on_customer: { heading: "المكتب يحتاج ردّك", line: officeMessage
       ? `يحتاج المكتب منك لإكمال طلبك ${service}: ${officeMessage}`
       : `يحتاج المكتب معلومة منك لإكمال طلبك ${service}. افتح الطلب واستفسر من المكتب عمّا يلزم.` },
-    completed: { heading: "اكتمل طلبك", line: `اكتمل طلبك ${service}، وتجد تفاصيله في سجلك.` },
+    submitted_to_authority: { heading: "رُفع طلبك للجهة المختصة", line: `رفع المكتب طلبك ${service} إلى الجهة المختصة، ونتابعه حتى يكتمل.` },
+    awaiting_payment: { heading: "طلبك بانتظار السداد", line: `طلبك ${service} بانتظار سداد الفاتورة. تجدها في صفحة الطلب.` },
+    completed: { heading: "اكتمل طلبك", line: `اكتمل طلبك ${service}، وتجد تفاصيله في سجلك. يسعدنا أن تقيّم الخدمة من صفحة الطلب.` },
   };
   const copy = byStatus[status];
   if (!copy) return null;
@@ -190,6 +194,52 @@ export function officeNewFileMail(request: RequestInfo, fileNames: string): Mail
     heading: "أرفق العميل مستندًا",
     lines: [`الطلب: ${request.reference} · ${request.service}`, `الملفات: ${fileNames}`],
     action: { label: "افتح طلبات العملاء", path: "/office/requests" },
+  };
+}
+
+export function invoiceIssuedMail(to: string | null, request: RequestInfo, invoiceReference: string, total: string): Mail | null {
+  if (!to) return null;
+  return {
+    to,
+    subject: `فاتورة جديدة على طلبك ${request.reference}`,
+    heading: "أصدر المكتب فاتورة على طلبك",
+    lines: [`الطلب: «${request.service}»`, `رقم الفاتورة: ${invoiceReference} · الإجمالي شامل الضريبة: ${total}`],
+    action: { label: "اعرض الفاتورة", path: `/requests/${request.id}` },
+  };
+}
+
+export function invoicePaidOfficeMail(request: RequestInfo, invoiceReference: string, total: string): Mail | null {
+  const to = officeInbox();
+  if (!to) return null;
+  return {
+    to,
+    subject: `سُددت الفاتورة ${invoiceReference}`,
+    heading: "سدّد العميل فاتورة إلكترونيًا",
+    lines: [`الطلب: ${request.reference} · ${request.service}`, `المبلغ: ${total}`],
+    action: { label: "افتح طلبات العملاء", path: "/office/requests" },
+  };
+}
+
+export function assignedMail(to: string | null, request: RequestInfo, dueText: string | null): Mail | null {
+  if (!to) return null;
+  return {
+    to,
+    subject: `أُسند إليك الطلب ${request.reference}`,
+    heading: "طلب جديد في مسؤوليتك",
+    lines: [`الطلب: ${request.reference} · ${request.service}`, ...(dueText ? [`موعد الإنجاز: ${dueText}`] : [])],
+    action: { label: "افتح طلباتي", path: "/office/requests?assignee=me" },
+  };
+}
+
+export function reminderMail(to: string | null, reminder: { kindLabel: string; label: string; expiresText: string; days: number }): Mail | null {
+  if (!to) return null;
+  const when = reminder.days <= 1 ? "غدًا أو اليوم" : `خلال ${reminder.days} يومًا`;
+  return {
+    to,
+    subject: `تنبيه: ${reminder.kindLabel} تنتهي ${when}`,
+    heading: `${reminder.kindLabel} تقترب من الانتهاء`,
+    lines: [`${reminder.kindLabel} «${reminder.label}» تنتهي في ${reminder.expiresText}.`, "يسعد المكتب بإنجاز التجديد عنك. أرسل طلب تجديد من حسابك."],
+    action: { label: "اطلب التجديد", path: "/requests/new" },
   };
 }
 

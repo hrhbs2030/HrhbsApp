@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useClerk, useUser } from '@clerk/react';
-import { Archive, ArrowLeft, ArrowUpLeft, Check, CircleHelp, ClipboardList, History, Home, Inbox, LogOut, Menu, Plus, UserRoundCheck, UsersRound, X } from 'lucide-react';
+import { Archive, ArrowLeft, ArrowUpLeft, BarChart3, BellRing, Check, CircleHelp, ClipboardList, FileClock, History, Home, Inbox, LogOut, Menu, Plus, Settings, Tags, UserRoundCheck, UsersRound, X } from 'lucide-react';
 import { getGetPortalMeQueryKey, useGetPortalMe, type Inquiry, type ServiceRequest, type ServiceRequestStatus } from '@workspace/api-client-react';
 import { daysLabel, formatDate, formatNumber } from '@/lib/format';
 import { Logo, LogoMark } from './brand/logo';
@@ -9,8 +9,8 @@ import { PrintFrame } from './brand/print';
 import './portal-ui.css';
 
 export const categoryNames: Record<string, string> = { passports: 'الجوازات والإقامة', labor: 'الموارد البشرية والعمل', business: 'تأسيس الشركات والتراخيص', other: 'دعم الأعمال' };
-export const statusNames: Record<string, string> = { received: 'تم الاستلام', reviewing: 'قيد المراجعة', waiting_on_customer: 'بانتظار العميل', completed: 'مكتملة', open: 'مفتوح', answered: 'تم الرد' };
-export const statusOptions: ServiceRequestStatus[] = ['received', 'reviewing', 'waiting_on_customer', 'completed'];
+export const statusNames: Record<string, string> = { received: 'تم الاستلام', reviewing: 'قيد المراجعة', waiting_on_customer: 'بانتظار العميل', submitted_to_authority: 'تم الرفع للجهة', awaiting_payment: 'بانتظار السداد', completed: 'مكتملة', open: 'مفتوح', answered: 'تم الرد', issued: 'غير مسددة', paid: 'مسددة', cancelled: 'ملغاة' };
+export const statusOptions: ServiceRequestStatus[] = ['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed'];
 export const dateText = (value: string | null | undefined) => formatDate(value);
 
 export function Brand({ light = false }: { light?: boolean }) {
@@ -37,8 +37,8 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
   const me = useGetPortalMe({ query: { queryKey: getGetPortalMeQueryKey(), enabled: staff } });
   const owner = staff && me.data?.officeRole === 'owner';
   useEffect(() => setMenuOpen(false), [location]);
-  const ownerLinks = owner ? [{ href: '/office/legacy', label: 'الأرشيف القديم', icon: Archive }, { href: '/office/staff', label: 'فريق المكتب', icon: UsersRound }, { href: '/office/audit', label: 'سجل التدقيق', icon: History }] : [];
-  const links = staff ? [{ href: '/office', label: 'نظرة عامة', icon: Home }, { href: '/office/registrations', label: 'طلبات التسجيل', icon: UserRoundCheck }, { href: '/office/requests', label: 'طلبات العملاء', icon: ClipboardList }, { href: '/office/inquiries', label: 'الاستفسارات', icon: CircleHelp }, ...ownerLinks] : registrationOnly ? [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }] : [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }, { href: '/dashboard', label: 'نظرة عامة', icon: Home }, { href: '/requests', label: 'طلباتي', icon: ClipboardList }, { href: '/inquiries', label: 'استفساراتي', icon: CircleHelp }];
+  const ownerLinks = owner ? [{ href: '/office/reports', label: 'التقارير', icon: BarChart3 }, { href: '/office/catalog', label: 'الأسعار والمتطلبات', icon: Tags }, { href: '/office/legacy', label: 'الأرشيف القديم', icon: Archive }, { href: '/office/staff', label: 'فريق المكتب', icon: UsersRound }, { href: '/office/audit', label: 'سجل التدقيق', icon: History }] : [];
+  const links = staff ? [{ href: '/office', label: 'نظرة عامة', icon: Home }, { href: '/office/registrations', label: 'طلبات التسجيل', icon: UserRoundCheck }, { href: '/office/requests', label: 'طلبات العملاء', icon: ClipboardList }, { href: '/office/inquiries', label: 'الاستفسارات', icon: CircleHelp }, { href: '/office/reminders', label: 'وثائق تنتهي قريبًا', icon: FileClock }, ...ownerLinks] : registrationOnly ? [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }] : [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }, { href: '/dashboard', label: 'نظرة عامة', icon: Home }, { href: '/requests', label: 'طلباتي', icon: ClipboardList }, { href: '/inquiries', label: 'استفساراتي', icon: CircleHelp }, { href: '/documents', label: 'تنبيهات وثائقي', icon: BellRing }, { href: '/settings', label: 'الإشعارات', icon: Settings }];
   const current = links.find(({ href }) => location === href) ?? links.filter(({ href }) => location.startsWith(href + '/')).sort((a, b) => b.href.length - a.href.length)[0];
   return <div className="relative z-[1] min-h-[100dvh] lg:flex" dir="rtl">
     <aside className={`${menuOpen ? 'translate-x-0' : 'translate-x-full'} fixed inset-y-0 right-0 z-50 flex w-[270px] flex-col bg-ink px-5 py-7 text-on-dark transition-transform duration-300 lg:sticky lg:top-0 lg:h-[100dvh] lg:translate-x-0`}>
@@ -82,23 +82,31 @@ const stageNotes: Record<ServiceRequestStatus, string> = {
   received: 'وصل طلبك إلى المكتب وحصل على رقم مرجعي.',
   reviewing: 'يعمل المكتب على طلبك الآن.',
   waiting_on_customer: 'يحتاج المكتب معلومة أو مستندًا منك لإكمال الطلب.',
+  submitted_to_authority: 'رفع المكتب طلبك إلى الجهة المختصة ويتابعه.',
+  awaiting_payment: 'طلبك بانتظار سداد الفاتورة. تجدها أدناه.',
   completed: 'اكتمل طلبك، ويبقى في سجل طلباتك.',
 };
+
+// The track shows four milestones. Waiting on the customer or on payment
+// pauses the request at the review milestone with its own label and note.
+const milestones: ServiceRequestStatus[] = ['received', 'reviewing', 'submitted_to_authority', 'completed'];
+const milestoneOf = (status: ServiceRequestStatus): ServiceRequestStatus =>
+  status === 'waiting_on_customer' || status === 'awaiting_payment' ? 'reviewing' : status;
 
 // The request's journey through the four stages. The fill animates in once
 // when the page opens; the current stage gets one soft pulse (not a loop).
 // Only dates the API really has are shown: sending date and last update.
 export function StatusTrack({ status, createdAt, updatedAt }: { status: ServiceRequestStatus; createdAt?: string; updatedAt?: string }) {
-  const current = statusOptions.indexOf(status);
+  const current = milestones.indexOf(milestoneOf(status));
   const done = status === 'completed';
-  return <ol className="timeline" aria-label="مراحل الطلب" style={{ ['--tl-progress' as string]: current / (statusOptions.length - 1) }}>
-    {statusOptions.map((step, index) => {
+  return <ol className="timeline" aria-label="مراحل الطلب" style={{ ['--tl-progress' as string]: current / (milestones.length - 1) }}>
+    {milestones.map((step, index) => {
       const state = index < current || (done && index === current) ? 'done' : index === current ? 'current' : 'next';
       return <li key={step} data-state={state} aria-current={index === current ? 'step' : undefined} style={{ ['--i' as string]: index }}>
         <span className="timeline-node" aria-hidden="true">{state === 'done' ? <Check size={13} strokeWidth={3}/> : null}</span>
         <div className="timeline-body">
-          <span className="timeline-label">{statusNames[step]}</span>
-          {index === current && <span className="timeline-note">{stageNotes[step]}</span>}
+          <span className="timeline-label">{index === current ? statusNames[status] : statusNames[step]}</span>
+          {index === current && <span className="timeline-note">{stageNotes[status]}</span>}
           {index === 0 && createdAt && <span className="timeline-date">أُرسل في {dateText(createdAt)}</span>}
           {index === current && index > 0 && updatedAt && <span className="timeline-date">آخر تحديث {dateText(updatedAt)}</span>}
         </div>

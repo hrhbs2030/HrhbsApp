@@ -24,4 +24,14 @@ export interface ServiceRequest {
   createdAt: Date;
   updatedAt: Date;
   attachments: ServiceAttachment[];
+  /**
+     * @minimum 1
+     * @maximum 5
+     * @nullable
+     */
+  rating: number | null;
+  /** @nullable */
+  ratingComment: string | null;
+  /** @nullable */
+  ratedAt: Date | null;
 }

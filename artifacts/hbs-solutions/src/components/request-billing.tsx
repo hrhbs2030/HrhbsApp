@@ -1,0 +1,171 @@
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { CreditCard, Printer, ReceiptText, Star } from 'lucide-react';
+import {
+  getListOfficeServiceRequestInvoicesQueryKey, getListServiceRequestInvoicesQueryKey,
+  useIssueOfficeInvoice, useListOfficeServiceRequestInvoices, useListServiceRequestInvoices,
+  useRateServiceRequest, useRefreshInvoicePayment, useStartInvoicePayment, useUpdateOfficeInvoice,
+  type Invoice,
+} from '@workspace/api-client-react';
+import { formatDate, formatMoney, formatNumber } from '@/lib/format';
+import './request-billing.css';
+
+const methodNames: Record<string, string> = { manual: 'سداد لدى المكتب', online: 'دفع إلكتروني' };
+
+function InvoiceStatus({ status }: { status: Invoice['status'] }) {
+  const names = { issued: 'غير مسددة', paid: 'مسددة', cancelled: 'ملغاة' } as const;
+  return <span className={`pill pill-${status}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{names[status]}</span>;
+}
+
+// A simplified tax invoice that prints on its own page.
+function printInvoice(invoice: Invoice) {
+  const win = window.open('', '_blank');
+  if (!win) return;
+  const esc = (v: string) => v.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+  const rate = formatNumber(invoice.vatRateBasisPoints / 100);
+  win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(invoice.reference)}</title>
+<style>body{font-family:Tahoma,Arial,sans-serif;margin:40px;color:#173e42}h1{font-size:22px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:24px}td,th{border:1px solid #d9d4c5;padding:10px;text-align:right}th{background:#f6f4ed}.muted{color:#5d706a;font-size:13px}.total td{font-weight:bold}</style></head><body>
+<h1>فاتورة ضريبية مبسطة</h1><div class="muted">${esc(invoice.seller.name)}${invoice.seller.vatNumber ? ` · الرقم الضريبي ${esc(invoice.seller.vatNumber)}` : ''}</div>
+<p>رقم الفاتورة: <b dir="ltr">${esc(invoice.reference)}</b><br>تاريخ الإصدار: ${esc(formatDate(invoice.issuedAt))}<br>الطلب: <span dir="ltr">${esc(invoice.requestReference)}</span></p>
+<table><tr><th>البيان</th><th>المبلغ</th></tr><tr><td>${esc(invoice.description)}</td><td>${esc(formatMoney(invoice.amount))}</td></tr>
+<tr><td>ضريبة القيمة المضافة (${rate}%)</td><td>${esc(formatMoney(invoice.vat))}</td></tr>
+<tr class="total"><td>الإجمالي شامل الضريبة</td><td>${esc(formatMoney(invoice.total))}</td></tr></table>
+<p class="muted">الحالة: ${invoice.status === 'paid' ? `مسددة في ${esc(formatDate(invoice.paidAt))}` : invoice.status === 'cancelled' ? 'ملغاة' : 'غير مسددة'}</p>
+<script>window.onload=()=>window.print()</script></body></html>`);
+  win.document.close();
+}
+
+function InvoiceRow({ invoice, children }: { invoice: Invoice; children?: ReactNode }) {
+  return <li className="rb-row">
+    <div className="rb-main">
+      <div className="rb-line"><strong>{invoice.description}</strong><InvoiceStatus status={invoice.status}/></div>
+      <div className="rb-meta"><span dir="ltr" className="nums">{invoice.reference}</span><span>{formatDate(invoice.issuedAt)}</span>
+        {invoice.paymentMethod && invoice.status === 'paid' && <span>{methodNames[invoice.paymentMethod]}{invoice.paymentReference ? ` · ${invoice.paymentReference}` : ''}</span>}</div>
+      <div className="rb-amounts"><span>المبلغ {formatMoney(invoice.amount)}</span><span>الضريبة {formatMoney(invoice.vat)}</span><strong>الإجمالي {formatMoney(invoice.total)}</strong></div>
+    </div>
+    <div className="rb-actions">
+      <button type="button" className="rf-btn" onClick={() => printInvoice(invoice)} aria-label={`طباعة ${invoice.reference}`} title="طباعة الفاتورة"><Printer size={17}/></button>
+      {children}
+    </div>
+  </li>;
+}
+
+export function CustomerInvoices({ requestId, returnedInvoiceId }: { requestId: number; returnedInvoiceId: number | null }) {
+  const qc = useQueryClient();
+  const list = useListServiceRequestInvoices(requestId, { query: { queryKey: getListServiceRequestInvoicesQueryKey(requestId), refetchInterval: 30_000 } });
+  const pay = useStartInvoicePayment();
+  const refresh = useRefreshInvoicePayment();
+  const checked = useRef(false);
+  const [error, setError] = useState<string | null>(null);
+  // Back from the payment page: ask the server to confirm with the gateway.
+  useEffect(() => {
+    if (!returnedInvoiceId || checked.current) return;
+    checked.current = true;
+    refresh.mutateAsync({ id: returnedInvoiceId })
+      .then(() => qc.invalidateQueries({ queryKey: getListServiceRequestInvoicesQueryKey(requestId) }))
+      .catch(() => { /* the list still shows the stored status */ });
+  }, [returnedInvoiceId]);
+  async function startPayment(invoice: Invoice) {
+    setError(null);
+    try {
+      const { url } = await pay.mutateAsync({ id: invoice.id });
+      window.location.assign(url);
+    } catch (e) {
+      const status = (e as { status?: number })?.status;
+      setError(status === 409 ? 'هذه الفاتورة مسددة أو ملغاة.' : status === 503 ? 'الدفع الإلكتروني غير متاح حاليًا. تواصل مع المكتب للسداد.' : 'تعذّر فتح صفحة الدفع. حاول بعد قليل.');
+      await qc.invalidateQueries({ queryKey: getListServiceRequestInvoicesQueryKey(requestId) });
+    }
+  }
+  if (!list.data?.length) return null;
+  return <section className="rb" aria-labelledby={`rb-${requestId}`}>
+    <h2 id={`rb-${requestId}`} className="rf-title"><ReceiptText size={16} aria-hidden="true"/>الفواتير</h2>
+    <ul className="rb-list">{list.data.map(invoice => <InvoiceRow key={invoice.id} invoice={invoice}>
+      {invoice.canPayOnline && <button type="button" className="btn btn-primary btn-sm" disabled={pay.isPending} onClick={() => startPayment(invoice)}><CreditCard size={15}/>ادفع الآن</button>}
+    </InvoiceRow>)}</ul>
+    {refresh.isPending && <p role="status" className="rb-note">جارٍ التحقق من الدفع…</p>}
+    {error && <p role="alert" className="rf-errors">{error}</p>}
+    {list.data.some(i => i.status === 'issued' && !i.canPayOnline) && <p className="rb-note">للسداد تواصل مع المكتب، ويظهر السداد هنا عند تسجيله.</p>}
+  </section>;
+}
+
+export function OfficeInvoices({ requestId, onChanged }: { requestId: number; onChanged: () => void }) {
+  const qc = useQueryClient();
+  const key = getListOfficeServiceRequestInvoicesQueryKey(requestId);
+  const list = useListOfficeServiceRequestInvoices(requestId, { query: { queryKey: key } });
+  const issue = useIssueOfficeInvoice();
+  const update = useUpdateOfficeInvoice();
+  const [open, setOpen] = useState(false);
+  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState('');
+  const [awaiting, setAwaiting] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const halalas = Math.round(Number(amount.replace(/[^\d.]/g, '')) * 100);
+  const valid = description.trim().length >= 2 && Number.isFinite(halalas) && halalas >= 100;
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!valid) { setError('اكتب البيان ومبلغًا لا يقل عن ريال واحد.'); return; }
+    setError(null);
+    try {
+      await issue.mutateAsync({ id: requestId, data: { description: description.trim(), amount: halalas, markAwaitingPayment: awaiting } });
+      setOpen(false); setDescription(''); setAmount('');
+      await qc.invalidateQueries({ queryKey: key });
+      onChanged();
+    } catch { setError('تعذّر إصدار الفاتورة. حاول مجددًا.'); }
+  }
+  async function act(invoice: Invoice, action: 'mark_paid' | 'cancel') {
+    const reference = action === 'mark_paid' ? window.prompt('مرجع السداد (اختياري): رقم التحويل أو الإيصال') : null;
+    if (action === 'cancel' && !window.confirm(`إلغاء الفاتورة ${invoice.reference}؟`)) return;
+    setError(null);
+    try {
+      await update.mutateAsync({ id: invoice.id, data: { action, paymentReference: reference?.trim() || null } });
+      await qc.invalidateQueries({ queryKey: key });
+    } catch { setError('تعذّر تحديث الفاتورة.'); }
+  }
+  return <section className="rb" aria-labelledby={`rbo-${requestId}`}>
+    <div className="rf-head">
+      <h2 id={`rbo-${requestId}`} className="rf-title"><ReceiptText size={16} aria-hidden="true"/>الفواتير</h2>
+      {!open && <button type="button" className="btn btn-outline btn-sm" onClick={() => setOpen(true)}>إصدار فاتورة</button>}
+    </div>
+    {open && <form onSubmit={submit} className="rb-form">
+      <label className="form-field">البيان<input className="form-control" value={description} onChange={e => setDescription(e.target.value)} maxLength={300} placeholder="مثال: أتعاب تجديد الإقامة"/></label>
+      <label className="form-field">المبلغ قبل الضريبة (ر.س)<input className="form-control" dir="ltr" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00"/>
+        {valid && <small className="muted font-normal">الإجمالي شامل ضريبة 15%: {formatMoney(halalas + Math.round(halalas * 0.15))}</small>}</label>
+      <label className="rb-check"><input type="checkbox" checked={awaiting} onChange={e => setAwaiting(e.target.checked)}/>غيّر حالة الطلب إلى «بانتظار السداد»</label>
+      <div className="flex gap-2"><button type="submit" className="btn btn-primary btn-sm" disabled={issue.isPending}>{issue.isPending ? 'جارٍ الإصدار…' : 'إصدار وإرسال للعميل'}</button><button type="button" className="btn btn-outline btn-sm" onClick={() => setOpen(false)}>إلغاء</button></div>
+    </form>}
+    {list.data?.length ? <ul className="rb-list">{list.data.map(invoice => <InvoiceRow key={invoice.id} invoice={invoice}>
+      {invoice.status === 'issued' && <>
+        <button type="button" className="btn btn-outline btn-sm" disabled={update.isPending} onClick={() => act(invoice, 'mark_paid')}>تسجيل السداد</button>
+        <button type="button" className="rf-btn rf-btn--danger" disabled={update.isPending} onClick={() => act(invoice, 'cancel')}>إلغاء</button>
+      </>}
+    </InvoiceRow>)}</ul> : !open && <p className="rf-empty">لا توجد فواتير على هذا الطلب.</p>}
+    {error && <p role="alert" className="rf-errors">{error}</p>}
+  </section>;
+}
+
+export function RatingPanel({ requestId, rating, comment, onRated }: { requestId: number; rating: number | null; comment: string | null; onRated: () => void }) {
+  const mutation = useRateServiceRequest();
+  const [value, setValue] = useState(0);
+  const [text, setText] = useState('');
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!value) return;
+    try { await mutation.mutateAsync({ id: requestId, data: { rating: value, comment: text.trim() || null } }); onRated(); }
+    catch { /* error shown below */ }
+  }
+  const stars = (current: number, interactive: boolean) => <div className="rb-stars" role={interactive ? 'radiogroup' : undefined} aria-label="التقييم">
+    {[1, 2, 3, 4, 5].map(n => interactive
+      ? <button key={n} type="button" role="radio" aria-checked={value === n} aria-label={`${n} من 5`} onClick={() => setValue(n)}><Star size={26} fill={n <= value ? 'currentColor' : 'none'}/></button>
+      : <Star key={n} size={20} fill={n <= current ? 'currentColor' : 'none'} aria-hidden="true"/>)}
+  </div>;
+  if (rating) return <section className="rb rb-rated" aria-label="تقييمك">
+    <h2 className="rf-title">تقييمك للخدمة</h2>{stars(rating, false)}{comment && <p className="rb-note">«{comment}»</p>}<p className="rb-note">شكرًا لك، يصل تقييمك إلى إدارة المكتب.</p>
+  </section>;
+  return <form onSubmit={submit} className="rb" aria-label="قيّم الخدمة">
+    <h2 className="rf-title">كيف كانت تجربتك؟</h2>
+    {stars(value, true)}
+    <label className="form-field">ملاحظة (اختياري)<textarea className="form-control !min-h-20" value={text} onChange={e => setText(e.target.value)} maxLength={1000} placeholder="ما الذي أعجبك أو يمكن تحسينه؟"/></label>
+    {mutation.isError && <p role="alert" className="rf-errors">تعذّر حفظ التقييم. حاول مجددًا.</p>}
+    <button type="submit" className="btn btn-primary btn-sm" disabled={!value || mutation.isPending}>{mutation.isPending ? 'جارٍ الإرسال…' : 'إرسال التقييم'}</button>
+  </form>;
+}

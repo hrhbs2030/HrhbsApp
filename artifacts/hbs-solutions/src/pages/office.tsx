@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ClipboardList, Clock3, MessageSquareText, Save, Search } from 'lucide-react';
+import { AlarmClock, ArrowLeft, ClipboardList, Clock3, FileClock, MessageSquareText, Save, Search, UserRound } from 'lucide-react';
 import {
-  getGetOfficeSummaryQueryKey, getListOfficeServiceRequestsQueryKey, getListOfficeInquiriesQueryKey,
-  useGetOfficeSummary, useListOfficeServiceRequests, useUpdateOfficeServiceRequest,
+  getGetOfficeSummaryQueryKey, getListOfficeServiceRequestsQueryKey, getListOfficeInquiriesQueryKey, getListOfficeAssigneesQueryKey,
+  useGetOfficeSummary, useListOfficeServiceRequests, useUpdateOfficeServiceRequest, useListOfficeAssignees,
   useListOfficeInquiries, useAnswerOfficeInquiry,
   type InquiryStatus, type OfficeServiceRequestCategory, type OfficeServiceRequestStatus,
-  type OfficeServiceRequest, type OfficeInquiry, type ServiceRequestUpdateStatus,
+  type OfficeServiceRequest, type OfficeInquiry, type ServiceRequestUpdateStatus, type OfficeAssignee, type ServiceAttachment,
 } from '@workspace/api-client-react';
 import {
   PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock, Pager, STALE_AFTER_DAYS, StaleBadge,
@@ -15,10 +15,26 @@ import {
 } from '@/components/portal-ui';
 import { LOCALE } from '@/lib/format';
 import { RequestFiles } from '@/components/request-files';
+import { OfficeInvoices } from '@/components/request-billing';
+import { ExtractReminder } from '@/components/office-request-extras';
 
 const pageSize = 20;
-type RequestSort = 'newest' | 'oldest_update';
-const requestSorts: Record<RequestSort, string> = { newest: 'الأحدث إرسالًا', oldest_update: 'الأقدم تحديثًا' };
+type RequestSort = 'newest' | 'oldest_update' | 'due_soon';
+const requestSorts: Record<RequestSort, string> = { newest: 'الأحدث إرسالًا', oldest_update: 'الأقدم تحديثًا', due_soon: 'الأقرب موعدًا' };
+const isOverdue = (r: { status: string; dueAt?: string | null }) => r.status !== 'completed' && !!r.dueAt && new Date(r.dueAt).getTime() < Date.now();
+const memberName = (members: OfficeAssignee[] | undefined, userId: string | null | undefined) =>
+  !userId ? null : members?.find(m => m.userId === userId)?.email ?? 'عضو سابق';
+// <input type="date"> value from an API timestamp, in local time.
+const dateInput = (value: string | null | undefined) => {
+  if (!value) return '';
+  const d = new Date(value);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+// Due at the end of the chosen day, local time.
+const dueFromInput = (value: string) => value ? new Date(`${value}T23:59:00`).toISOString() : null;
+function useAssignees() {
+  return useListOfficeAssignees({ query: { queryKey: getListOfficeAssigneesQueryKey(), staleTime: 300_000 } });
+}
 const count = (value: number) => new Intl.NumberFormat(LOCALE).format(value);
 
 export function OfficeOverview() {
@@ -40,6 +56,13 @@ export function OfficeOverview() {
             ? <Link key={label} href={href} className={`group ${classes} transition-colors hover:border-line-strong`}>{body}</Link>
             : <div key={label} className={classes}>{body}</div>;
         })}</div>
+        <div className="grid gap-3 sm:grid-cols-3">{([
+          ['طلبات مسندة إليّ', summary.data.myRequests, '/office/requests?assignee=me', UserRound, false],
+          ['طلبات متأخرة عن موعدها', summary.data.overdueRequests, '/office/requests?overdue=true', AlarmClock, summary.data.overdueRequests > 0],
+          ['وثائق عملاء تنتهي خلال 30 يومًا', summary.data.expiringDocuments, '/office/reminders', FileClock, false],
+        ] as const).map(([label, value, href, Icon, warn]) => <Link key={label} href={href} className={`flex min-h-11 items-center justify-between gap-3 rounded-xl border px-5 py-4 text-sm no-underline ${warn ? 'border-warn-line bg-warn-soft text-warn' : 'border-line bg-surface text-inherit hover:border-line-strong'}`}>
+          <span className="flex items-center gap-2"><Icon size={17} className="shrink-0"/>{label}</span><strong className="display nums text-xl">{count(value)}</strong>
+        </Link>)}</div>
         {staleCount > 0 && <Link href="/office/requests?sort=oldest_update" className="flex min-h-11 flex-wrap items-center justify-between gap-3 rounded-xl border border-warn-line bg-warn-soft px-5 py-4 text-sm text-warn no-underline">
           <span className="flex items-center gap-2"><Clock3 size={17} className="shrink-0"/><span><strong className="nums">{count(staleCount)}</strong> {staleCount === 1 ? 'طلب نشط' : 'طلبات نشطة'} بلا تحديث منذ {count(STALE_AFTER_DAYS)} أيام أو أكثر</span></span>
           <span className="flex items-center gap-1 font-bold">عرض من الأقدم تحديثًا<ArrowLeft size={15}/></span>
@@ -75,13 +98,16 @@ export function OfficeRequests() {
   const [status, setStatus] = useState<OfficeServiceRequestStatus | ''>(() =>
     (statusOptions as string[]).includes(initial.get('status') ?? '') ? initial.get('status') as OfficeServiceRequestStatus : '');
   const [category, setCategory] = useState<OfficeServiceRequestCategory | ''>('');
-  const [sort, setSort] = useState<RequestSort>(initial.get('sort') === 'oldest_update' ? 'oldest_update' : 'newest');
+  const [sort, setSort] = useState<RequestSort>(() => (Object.keys(requestSorts) as string[]).includes(initial.get('sort') ?? '') ? initial.get('sort') as RequestSort : 'newest');
+  const [assignee, setAssignee] = useState(initial.get('assignee') ?? '');
+  const [overdue, setOverdue] = useState(initial.get('overdue') === 'true');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<number | null>(null);
-  useEffect(() => setPage(1), [q, status, category, sort]);
+  const members = useAssignees();
+  useEffect(() => setPage(1), [q, status, category, sort, assignee, overdue]);
   const params = {
     page, pageSize, ...(q ? { q } : {}), ...(status ? { status } : {}),
-    ...(category ? { category } : {}), sort,
+    ...(category ? { category } : {}), sort, ...(assignee ? { assignee } : {}), ...(overdue ? { overdue: true } : {}),
   };
   const list = useListOfficeServiceRequests(params, { query: {
     queryKey: getListOfficeServiceRequestsQueryKey(params), refetchInterval: 30_000,
@@ -94,7 +120,7 @@ export function OfficeRequests() {
   const rows = list.data?.items ?? [];
   const active = rows.find(r => r.id === selected);
   const editorRef = useRevealOnSelect(selected);
-  const filtered = Boolean(q || status || category);
+  const filtered = Boolean(q || status || category || assignee || overdue);
 
   return <PortalLayout staff>
     <PageHeading eyebrow="صندوق الوارد" title="طلبات العملاء" subtitle="ابحث بالرقم المرجعي أو الخدمة أو تفاصيل الطلب أو رقم التواصل، وحدّث الحالة بحسب تقدم كل طلب."/>
@@ -104,11 +130,15 @@ export function OfficeRequests() {
       <label><span className="sr-only">المجال</span><select className="form-control" value={category} onChange={e => setCategory(e.target.value as OfficeServiceRequestCategory | '')}><option value="">كل المجالات</option>{Object.entries(categoryNames).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
       <label className="col-span-2 lg:col-span-1"><span className="sr-only">الترتيب</span><select className="form-control" value={sort} onChange={e => setSort(e.target.value as RequestSort)}>{Object.entries(requestSorts).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
     </div>
+    <div className="mb-4 flex flex-wrap items-center gap-3">
+      <label className="min-w-[14rem]"><span className="sr-only">المسؤول</span><select className="form-control" value={assignee} onChange={e => setAssignee(e.target.value)}><option value="">كل المسؤولين</option><option value="me">المسندة إليّ</option><option value="unassigned">غير مسندة</option>{members.data?.map(m => <option key={m.userId} value={m.userId}>{m.email ?? m.userId}</option>)}</select></label>
+      <button type="button" aria-pressed={overdue} onClick={() => setOverdue(!overdue)} className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-xs font-bold transition-colors ${overdue ? 'border-warn-line bg-warn-soft text-warn' : 'border-line-strong bg-surface text-quiet hover:bg-sage'}`}><AlarmClock size={15}/>المتأخرة فقط</button>
+    </div>
     {list.isLoading ? <LoadingBlock/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/> : !list.data?.total && !filtered
       ? <EmptyBlock title="لا توجد طلبات واردة" text="ستظهر طلبات العملاء هنا عند إرسالها عبر البوابة."/>
        : <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
          <div className="min-w-0"><ResultCount total={list.data?.total ?? 0}/><div className={`surface overflow-hidden transition-opacity ${list.isPlaceholderData ? 'opacity-60' : ''}`}>{rows.length ? rows.map(r => <button type="button" aria-pressed={selected === r.id} key={r.id} onClick={() => setSelected(r.id)} className={`block w-full border-b border-line px-5 py-4 text-right transition-colors last:border-0 hover:bg-paper sm:px-6 ${selected === r.id ? 'bg-sage shadow-[inset_-3px_0_0_var(--color-teal)]' : ''}`}>
-          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-bold">{r.service}</div><div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span dir="ltr">{r.reference}</span><span>{categoryNames[r.category]}</span><span>{dateText(r.createdAt)}</span>{isStale(r) && <StaleBadge updatedAt={r.updatedAt}/>}</div></div><Status value={r.status}/></div>
+          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-bold">{r.service}</div><div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span dir="ltr">{r.reference}</span><span>{categoryNames[r.category]}</span><span>{dateText(r.createdAt)}</span>{memberName(members.data, r.assignedTo) && <span className="inline-flex items-center gap-1"><UserRound size={12} aria-hidden="true"/>{memberName(members.data, r.assignedTo)}</span>}{isOverdue(r) && <span className="inline-flex items-center whitespace-nowrap rounded-md bg-danger-soft px-2 py-0.5 text-xs font-bold text-danger">متأخر عن موعده</span>}{isStale(r) && <StaleBadge updatedAt={r.updatedAt}/>}</div></div><Status value={r.status}/></div>
         </button>) : <div className="p-10 text-center text-sm text-subtle">لا توجد نتائج مطابقة.</div>}</div><Pager page={page} pageSize={pageSize} total={list.data?.total ?? 0} onPage={setPage}/></div>
          <div ref={editorRef} className="scroll-mt-24 xl:sticky xl:top-24">{active ? <RequestEditor key={active.id} request={active}/> : <div className="surface hidden min-h-64 flex-col items-center justify-center p-8 text-center text-subtle xl:flex"><ClipboardList className="mb-3" size={30} strokeWidth={1.5}/><p className="text-sm">اختر طلبًا من القائمة لعرض تفاصيله وتحديث حالته.</p></div>}</div>
       </div>}
@@ -121,6 +151,10 @@ function RequestEditor({ request }: { request: OfficeServiceRequest }) {
   const [status, setStatus] = useState<ServiceRequestUpdateStatus>(request.status);
   const [officeNote, setOfficeNote] = useState(request.officeNote ?? '');
   const [customerMessage, setCustomerMessage] = useState(request.customerMessage ?? '');
+  const [assignedTo, setAssignedTo] = useState(request.assignedTo ?? '');
+  const [due, setDue] = useState(dateInput(request.dueAt));
+  const [extracting, setExtracting] = useState<ServiceAttachment | null>(null);
+  const members = useAssignees();
   const [version, setVersion] = useState(request.updatedAt);
   const [saved, setSaved] = useState(false);
   const [conflict, setConflict] = useState(false);
@@ -128,6 +162,8 @@ function RequestEditor({ request }: { request: OfficeServiceRequest }) {
     setStatus(request.status);
     setOfficeNote(request.officeNote ?? '');
     setCustomerMessage(request.customerMessage ?? '');
+    setAssignedTo(request.assignedTo ?? '');
+    setDue(dateInput(request.dueAt));
     setVersion(request.updatedAt);
     setConflict(false);
     setSaved(false);
@@ -137,6 +173,8 @@ function RequestEditor({ request }: { request: OfficeServiceRequest }) {
     setStatus(request.status);
     setOfficeNote(request.officeNote ?? '');
     setCustomerMessage(request.customerMessage ?? '');
+    setAssignedTo(request.assignedTo ?? '');
+    setDue(dateInput(request.dueAt));
     setVersion(request.updatedAt);
     setConflict(false);
     setSaved(false);
@@ -151,6 +189,9 @@ function RequestEditor({ request }: { request: OfficeServiceRequest }) {
         expectedUpdatedAt: version,
         status, officeNote: officeNote.trim() || null,
         customerMessage: status === 'waiting_on_customer' ? customerMessage.trim() : null,
+        // Only changed fields are sent; omitted means "keep".
+        ...(assignedTo !== (request.assignedTo ?? '') ? { assignedTo: assignedTo || null } : {}),
+        ...(due !== dateInput(request.dueAt) ? { dueAt: dueFromInput(due) } : {}),
       } });
       setVersion(updated.updatedAt);
       await Promise.all([
@@ -171,9 +212,17 @@ function RequestEditor({ request }: { request: OfficeServiceRequest }) {
       {isStale(request) && <StaleBadge updatedAt={request.updatedAt}/>}
       <div className="grid grid-cols-2 gap-3 text-xs"><div><span className="muted block">المجال</span><strong>{categoryNames[request.category]}</strong></div><div><span className="muted block">تاريخ الإرسال</span><strong>{dateText(request.createdAt)}</strong></div><div className="col-span-2"><span className="muted block">رقم التواصل</span><strong dir="ltr" className="inline-block">{request.contactPhone}</strong></div></div>
       <div className="border-t border-line pt-4"><div className="mb-2 text-xs font-bold text-subtle">تفاصيل العميل</div><p className="max-h-44 overflow-y-auto whitespace-pre-wrap text-sm leading-7">{request.description}</p></div>
-      <div className="border-t border-line pt-4"><RequestFiles key={request.id} scope="office" requestId={request.id} attachments={request.attachments} canUpload onChanged={() => qc.invalidateQueries({ queryKey: getListOfficeServiceRequestsQueryKey() })}/></div>
+      <div className="border-t border-line pt-4"><RequestFiles key={request.id} scope="office" requestId={request.id} attachments={request.attachments} canUpload onChanged={() => qc.invalidateQueries({ queryKey: getListOfficeServiceRequestsQueryKey() })} onExtract={setExtracting}/></div>
+      {extracting && <ExtractReminder requestId={request.id} file={extracting} onClose={() => setExtracting(null)}/>}
+      <div className="border-t border-line pt-4"><OfficeInvoices requestId={request.id} onChanged={() => qc.invalidateQueries({ queryKey: getListOfficeServiceRequestsQueryKey() })}/></div>
+      {request.rating && <div className="border-t border-line pt-4 text-sm"><span className="muted block text-xs">تقييم العميل</span><strong className="text-copper">{'★'.repeat(request.rating)}{'☆'.repeat(5 - request.rating)}</strong>{request.ratingComment && <p className="mt-1 whitespace-pre-wrap leading-7">«{request.ratingComment}»</p>}</div>}
       <form onSubmit={submit} className="space-y-4 border-t border-line pt-5">
         <label className="form-field">تحديث الحالة<select className="form-control" value={status} onChange={e => setStatus(e.target.value as ServiceRequestUpdateStatus)}>{statusOptions.map(s => <option value={s} key={s}>{statusNames[s]}</option>)}</select></label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="form-field">المسؤول<select className="form-control" value={assignedTo} onChange={e => setAssignedTo(e.target.value)}><option value="">غير مسند</option>{assignedTo && !members.data?.some(m => m.userId === assignedTo) && <option value={assignedTo}>عضو سابق</option>}{members.data?.map(m => <option key={m.userId} value={m.userId}>{m.email ?? m.userId}</option>)}</select></label>
+          <label className="form-field">موعد الإنجاز<input className="form-control" type="date" dir="ltr" value={due} onChange={e => setDue(e.target.value)}/></label>
+        </div>
+        {isOverdue({ status: request.status, dueAt: request.dueAt }) && <p className="text-xs font-bold text-danger">تجاوز الطلب موعد إنجازه.</p>}
         {status === 'waiting_on_customer' && <label className="form-field">ما يحتاجه المكتب من العميل<textarea className="form-control !min-h-24" value={customerMessage} onChange={e => setCustomerMessage(e.target.value)} maxLength={2000} minLength={2} required placeholder="وضّح للعميل ما يلزم لإكمال الطلب..."/><small className="muted font-normal">تظهر هذه الرسالة للعميل في طلبه.</small></label>}
         <label className="form-field">ملاحظة المكتب الداخلية<textarea className="form-control !min-h-28" value={officeNote} onChange={e => setOfficeNote(e.target.value)} maxLength={2000} placeholder="ملاحظة داخلية للفريق..."/><small className="muted font-normal">هذه الملاحظة داخلية ولا تُعرض للعميل في البوابة.</small></label>
         {(conflict || changedSinceOpened) ? <div role="alert" className="text-xs text-danger">تغيّر هذا الطلب منذ فتحه. راجع النسخة الجديدة قبل الحفظ. <button type="button" className="underline" onClick={reviewLatest} disabled={request.updatedAt === version}>مراجعة النسخة الجديدة</button></div> : mutation.isError && <p role="alert" className="text-xs text-danger">تعذّر حفظ التحديث. حاول مجددًا.</p>}

@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, CircleHe
 import { PublicPage } from '@/components/site-chrome';
 import { ContactCard } from '@/components/contact-card';
 import { ServiceDiscovery } from '@/components/service-discovery';
+import { ServiceOffer } from '@/components/service-offer';
 import { categories, categoryById, platforms, searchServices, serviceBySlug, services, type ServiceCategory } from '@/content/services';
 import { faqs, trustFacts } from '@/content/site';
 import './public.css';
@@ -152,6 +153,7 @@ export function ServiceDetail() {
       <div className="site-wrap pub-page">
         <div className="pub-split">
           <div className="pub-detail-main">
+            <ServiceOffer slug={service.slug} />
             <section className="surface pub-block" aria-labelledby="write-title">
               <h2 id="write-title" className="display"><FileText size={20} strokeWidth={ICON} aria-hidden="true" />ما يفيد أن تكتبه في طلبك</h2>
               <ul className="pub-checklist">

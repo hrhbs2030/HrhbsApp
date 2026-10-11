@@ -12,4 +12,5 @@ export type ListOfficeServiceRequestsSort = typeof ListOfficeServiceRequestsSort
 export const ListOfficeServiceRequestsSort = {
   newest: 'newest',
   oldest_update: 'oldest_update',
+  due_soon: 'due_soon',
 } as const;

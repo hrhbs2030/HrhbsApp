@@ -5,11 +5,13 @@ import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, Check, P
 import { getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, useCreateServiceRequest, type ServiceRequestInputCategory } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading } from '@/components/portal-ui';
 import { categories, categoryById, serviceBySlug, services, type ServiceCategory } from '@/content/services';
+import { ServiceOffer } from '@/components/service-offer';
 import { ACCEPT_ATTR, MAX_FILES, RETENTION_NOTE, checkFile, sizeText, uploadError, uploadFile } from '@/components/request-files';
 import './new-request.css';
 
 // Three steps over the existing API contract (category, service,
-// description, contactPhone). Nothing new is sent to the server.
+// description, contactPhone). Nothing new is sent to the server; the
+// office's published price and documents for the chosen service are shown.
 // Limits mirror ServiceRequestInput in lib/api-spec/openapi.yaml.
 const LIMITS = { service: [2, 120], description: [10, 5000], phone: [9, 24] } as const;
 const steps = ['الخدمة', 'التفاصيل', 'المراجعة'];
@@ -156,6 +158,7 @@ export function NewRequest() {
                 {suggestions.length > 0 && <div className="nr-suggest" role="group" aria-label={`خدمات ${categoryById[category].name} المقترحة`}>
                   {suggestions.map((s) => <button key={s.slug} type="button" aria-pressed={service.trim() === s.name} onClick={() => { setService(s.name); setErrors({}); }}>{s.name}</button>)}
                 </div>}
+                <ServiceOffer slug={matched?.slug} compact />
                 {!errors.service && <p id="hint-service" className="muted mt-3 text-xs leading-6">لم تجد خدمتك؟ اكتبها بالاسم الذي تعرفه، أو تصفّح <Link href="/services" className="font-bold text-teal-bright underline">دليل الخدمات</Link>.</p>}
               </div>
             )}

@@ -2,10 +2,10 @@
 // "received" when created, and each office update in the audit log records
 // { fromStatus, toStatus }. No extra table or migration is needed.
 
-export type RequestStatus = "received" | "reviewing" | "waiting_on_customer" | "completed";
+export type RequestStatus = "received" | "reviewing" | "waiting_on_customer" | "submitted_to_authority" | "awaiting_payment" | "completed";
 export type StatusEvent = { status: RequestStatus; at: Date };
 
-const statuses = new Set<string>(["received", "reviewing", "waiting_on_customer", "completed"]);
+const statuses = new Set<string>(["received", "reviewing", "waiting_on_customer", "submitted_to_authority", "awaiting_payment", "completed"]);
 
 export function statusHistory(createdAt: Date, updates: { createdAt: Date; details: unknown }[]): StatusEvent[] {
   const events: StatusEvent[] = [{ status: "received", at: createdAt }];

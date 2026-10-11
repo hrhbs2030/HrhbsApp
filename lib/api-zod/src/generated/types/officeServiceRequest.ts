@@ -26,4 +26,21 @@ export interface OfficeServiceRequest {
   updatedAt: Date;
   attachments: ServiceAttachment[];
   customer: OfficeCustomer | null;
+  /**
+     * User ID of the responsible office member
+     * @nullable
+     */
+  assignedTo: string | null;
+  /** @nullable */
+  dueAt: Date | null;
+  /**
+     * @minimum 1
+     * @maximum 5
+     * @nullable
+     */
+  rating: number | null;
+  /** @nullable */
+  ratingComment: string | null;
+  /** @nullable */
+  ratedAt: Date | null;
 }

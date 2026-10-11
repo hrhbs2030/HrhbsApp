@@ -29,6 +29,13 @@
       "when": 1790723997041,
       "tag": "0003_replit_attachments_and_information",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791682208273,
+      "tag": "0004_features_catalog_invoices_reminders",
+      "breakpoints": true
     }
   ]
 }

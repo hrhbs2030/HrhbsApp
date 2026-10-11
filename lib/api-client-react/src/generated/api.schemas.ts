@@ -45,6 +45,13 @@ export const AuditLogEntryAction = {
   informationreview: 'information.review',
   informationpublish: 'information.publish',
   informationunpublish: 'information.unpublish',
+  attachmentextract: 'attachment.extract',
+  invoiceissue: 'invoice.issue',
+  invoicemark_paid: 'invoice.mark_paid',
+  invoicecancel: 'invoice.cancel',
+  invoicepaid_online: 'invoice.paid_online',
+  offerupdate: 'offer.update',
+  remindercreate: 'reminder.create',
 } as const;
 
 export type AuditLogEntryDetails = { [key: string]: unknown };
@@ -316,6 +323,8 @@ export const ServiceRequestStatus = {
   received: 'received',
   reviewing: 'reviewing',
   waiting_on_customer: 'waiting_on_customer',
+  submitted_to_authority: 'submitted_to_authority',
+  awaiting_payment: 'awaiting_payment',
   completed: 'completed',
 } as const;
 
@@ -351,6 +360,16 @@ export interface ServiceRequest {
   createdAt: string;
   updatedAt: string;
   attachments: ServiceAttachment[];
+  /**
+     * @minimum 1
+     * @maximum 5
+     * @nullable
+     */
+  rating: number | null;
+  /** @nullable */
+  ratingComment: string | null;
+  /** @nullable */
+  ratedAt: string | null;
 }
 
 export type ServiceRequestStatusEventStatus = typeof ServiceRequestStatusEventStatus[keyof typeof ServiceRequestStatusEventStatus];
@@ -360,6 +379,8 @@ export const ServiceRequestStatusEventStatus = {
   received: 'received',
   reviewing: 'reviewing',
   waiting_on_customer: 'waiting_on_customer',
+  submitted_to_authority: 'submitted_to_authority',
+  awaiting_payment: 'awaiting_payment',
   completed: 'completed',
 } as const;
 
@@ -390,6 +411,8 @@ export const OfficeServiceRequestStatus = {
   received: 'received',
   reviewing: 'reviewing',
   waiting_on_customer: 'waiting_on_customer',
+  submitted_to_authority: 'submitted_to_authority',
+  awaiting_payment: 'awaiting_payment',
   completed: 'completed',
 } as const;
 
@@ -409,6 +432,23 @@ export interface OfficeServiceRequest {
   updatedAt: string;
   attachments: ServiceAttachment[];
   customer: OfficeCustomer | null;
+  /**
+     * User ID of the responsible office member
+     * @nullable
+     */
+  assignedTo: string | null;
+  /** @nullable */
+  dueAt: string | null;
+  /**
+     * @minimum 1
+     * @maximum 5
+     * @nullable
+     */
+  rating: number | null;
+  /** @nullable */
+  ratingComment: string | null;
+  /** @nullable */
+  ratedAt: string | null;
 }
 
 export interface OfficeServiceRequestPage {
@@ -500,6 +540,8 @@ export const ServiceRequestUpdateStatus = {
   received: 'received',
   reviewing: 'reviewing',
   waiting_on_customer: 'waiting_on_customer',
+  submitted_to_authority: 'submitted_to_authority',
+  awaiting_payment: 'awaiting_payment',
   completed: 'completed',
 } as const;
 
@@ -516,6 +558,17 @@ export interface ServiceRequestUpdate {
      * @nullable
      */
   customerMessage?: string | null;
+  /**
+     * Omit to keep; null to unassign
+     * @maxLength 120
+     * @nullable
+     */
+  assignedTo?: string | null;
+  /**
+     * Omit to keep; null to clear
+     * @nullable
+     */
+  dueAt?: string | null;
 }
 
 export type InquiryStatus = typeof InquiryStatus[keyof typeof InquiryStatus];
@@ -557,6 +610,8 @@ export const LinkedServiceRequestContextStatus = {
   received: 'received',
   reviewing: 'reviewing',
   waiting_on_customer: 'waiting_on_customer',
+  submitted_to_authority: 'submitted_to_authority',
+  awaiting_payment: 'awaiting_payment',
   completed: 'completed',
 } as const;
 
@@ -619,6 +674,12 @@ export interface PortalSummary {
 }
 
 export interface OfficeSummary {
+  /** Open requests assigned to the signed-in member */
+  myRequests: number;
+  /** Open requests past their due date */
+  overdueRequests: number;
+  /** Customer documents expiring in the next 30 days */
+  expiringDocuments: number;
   totalRequests: number;
   newRequests: number;
   activeRequests: number;
@@ -682,6 +743,313 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface ServiceOffer {
+  slug: string;
+  /**
+     * Office fee in halalas before VAT; null when priced after review
+     * @minimum 0
+     * @nullable
+     */
+  price: number | null;
+  /** @nullable */
+  governmentFeesNote: string | null;
+  /** @nullable */
+  processingDays: number | null;
+  requiredDocuments: string[];
+  published: boolean;
+  updatedAt: string;
+}
+
+export interface ServiceOfferInput {
+  /**
+     * @minimum 0
+     * @maximum 100000000
+     * @nullable
+     */
+  price: number | null;
+  /**
+     * @maxLength 300
+     * @nullable
+     */
+  governmentFeesNote: string | null;
+  /**
+     * @minimum 1
+     * @maximum 365
+     * @nullable
+     */
+  processingDays: number | null;
+  /**
+     * @maxItems 15
+     * @items.minLength 2
+     * @items.maxLength 160
+     */
+  requiredDocuments: string[];
+  published: boolean;
+}
+
+export interface RatingInput {
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  rating: number;
+  /**
+     * @maxLength 1000
+     * @nullable
+     */
+  comment?: string | null;
+}
+
+export interface InvoiceSeller {
+  name: string;
+  /** @nullable */
+  vatNumber: string | null;
+}
+
+export type InvoiceStatus = typeof InvoiceStatus[keyof typeof InvoiceStatus];
+
+
+export const InvoiceStatus = {
+  issued: 'issued',
+  paid: 'paid',
+  cancelled: 'cancelled',
+} as const;
+
+/**
+ * @nullable
+ */
+export type InvoicePaymentMethod = typeof InvoicePaymentMethod[keyof typeof InvoicePaymentMethod] | null;
+
+
+export const InvoicePaymentMethod = {
+  manual: 'manual',
+  online: 'online',
+} as const;
+
+export interface Invoice {
+  id: number;
+  reference: string;
+  requestId: number;
+  requestReference: string;
+  description: string;
+  /** Halalas before VAT */
+  amount: number;
+  /** 1500 means 15% */
+  vatRateBasisPoints: number;
+  vat: number;
+  total: number;
+  status: InvoiceStatus;
+  /** @nullable */
+  paymentMethod: InvoicePaymentMethod;
+  /** @nullable */
+  paymentReference: string | null;
+  issuedAt: string;
+  /** @nullable */
+  paidAt: string | null;
+  /** @nullable */
+  cancelledAt: string | null;
+  canPayOnline: boolean;
+  seller: InvoiceSeller;
+}
+
+export interface InvoiceInput {
+  /**
+     * @minLength 2
+     * @maxLength 300
+     */
+  description: string;
+  /**
+     * Halalas before VAT
+     * @minimum 100
+     * @maximum 100000000
+     */
+  amount: number;
+  /** Also move the request to awaiting payment */
+  markAwaitingPayment?: boolean;
+}
+
+export type InvoiceActionAction = typeof InvoiceActionAction[keyof typeof InvoiceActionAction];
+
+
+export const InvoiceActionAction = {
+  mark_paid: 'mark_paid',
+  cancel: 'cancel',
+} as const;
+
+export interface InvoiceAction {
+  action: InvoiceActionAction;
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  paymentReference?: string | null;
+}
+
+export interface PaymentStart {
+  url: string;
+}
+
+export type ReminderKind = typeof ReminderKind[keyof typeof ReminderKind];
+
+
+export const ReminderKind = {
+  iqama: 'iqama',
+  passport: 'passport',
+  commercial_register: 'commercial_register',
+  work_permit: 'work_permit',
+  other: 'other',
+} as const;
+
+export interface ReminderInput {
+  kind: ReminderKind;
+  /**
+     * @minLength 2
+     * @maxLength 120
+     */
+  label: string;
+  expiresOn: string;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  note?: string | null;
+}
+
+export type ReminderAddedBy = typeof ReminderAddedBy[keyof typeof ReminderAddedBy];
+
+
+export const ReminderAddedBy = {
+  customer: 'customer',
+  office: 'office',
+} as const;
+
+export interface Reminder {
+  id: number;
+  kind: ReminderKind;
+  label: string;
+  expiresOn: string;
+  /** @nullable */
+  note: string | null;
+  addedBy: ReminderAddedBy;
+  createdAt: string;
+}
+
+export type OfficeReminder = Reminder & ({
+  customer: OfficeCustomer | null;
+  /** @nullable */
+  contactPhone: string | null;
+});
+
+export interface ExtractedDocument {
+  kind: ReminderKind | null;
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  label: string | null;
+  /**
+     * Gregorian date, converted from Hijri if needed
+     * @nullable
+     */
+  expiresOn: string | null;
+  /**
+     * The date exactly as written on the document
+     * @maxLength 80
+     * @nullable
+     */
+  expiresOnText: string | null;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  notes: string | null;
+}
+
+export interface PortalSettings {
+  whatsappOptIn: boolean;
+  /** @nullable */
+  whatsappPhone: string | null;
+  /** Whether the office has WhatsApp messages turned on */
+  whatsappAvailable: boolean;
+}
+
+export interface PortalSettingsInput {
+  whatsappOptIn: boolean;
+  /**
+     * @maxLength 24
+     * @nullable
+     */
+  whatsappPhone: string | null;
+}
+
+export type OfficeAssigneeRole = typeof OfficeAssigneeRole[keyof typeof OfficeAssigneeRole];
+
+
+export const OfficeAssigneeRole = {
+  owner: 'owner',
+  staff: 'staff',
+} as const;
+
+export interface OfficeAssignee {
+  userId: string;
+  /** @nullable */
+  email: string | null;
+  role: OfficeAssigneeRole;
+}
+
+export interface ReportCount {
+  key: string;
+  count: number;
+}
+
+export interface ReportService {
+  service: string;
+  created: number;
+  completed: number;
+}
+
+export interface ReportStaff {
+  /**
+     * Null for unassigned requests
+     * @nullable
+     */
+  userId: string | null;
+  /** @nullable */
+  email: string | null;
+  active: number;
+  completed: number;
+  overdue: number;
+}
+
+export type OfficeReportRatings = {
+  count: number;
+  /** @nullable */
+  average: number | null;
+  distribution: ReportCount[];
+};
+
+export type OfficeReportRevenue = {
+  paidTotal: number;
+  paidVat: number;
+  paidCount: number;
+  outstandingTotal: number;
+  outstandingCount: number;
+};
+
+export interface OfficeReport {
+  days: number;
+  created: number;
+  completed: number;
+  /** @nullable */
+  averageCompletionDays: number | null;
+  byStatus: ReportCount[];
+  byCategory: ReportCount[];
+  topServices: ReportService[];
+  staff: ReportStaff[];
+  ratings: OfficeReportRatings;
+  revenue: OfficeReportRevenue;
+}
+
 export type ListOfficeServiceRequestsParams = {
 /**
  * 1-based page; defaults to 1
@@ -704,9 +1072,19 @@ q?: string;
 status?: ListOfficeServiceRequestsStatus;
 category?: ListOfficeServiceRequestsCategory;
 /**
- * Newest created first or oldest updated first; ID breaks ties
+ * Newest created first, oldest updated first, or soonest due date first; ID breaks ties
  */
 sort?: ListOfficeServiceRequestsSort;
+/**
+ * me, unassigned, or an office member's user ID
+ * @minLength 1
+ * @maxLength 120
+ */
+assignee?: string;
+/**
+ * Only open requests past their due date
+ */
+overdue?: boolean;
 };
 
 export type ListOfficeServiceRequestsStatus = typeof ListOfficeServiceRequestsStatus[keyof typeof ListOfficeServiceRequestsStatus];
@@ -716,6 +1094,8 @@ export const ListOfficeServiceRequestsStatus = {
   received: 'received',
   reviewing: 'reviewing',
   waiting_on_customer: 'waiting_on_customer',
+  submitted_to_authority: 'submitted_to_authority',
+  awaiting_payment: 'awaiting_payment',
   completed: 'completed',
 } as const;
 
@@ -735,6 +1115,7 @@ export type ListOfficeServiceRequestsSort = typeof ListOfficeServiceRequestsSort
 export const ListOfficeServiceRequestsSort = {
   newest: 'newest',
   oldest_update: 'oldest_update',
+  due_soon: 'due_soon',
 } as const;
 
 export type ListOfficeInquiriesParams = {
@@ -765,5 +1146,31 @@ export type ListOfficeInquiriesStatus = typeof ListOfficeInquiriesStatus[keyof t
 export const ListOfficeInquiriesStatus = {
   open: 'open',
   answered: 'answered',
+} as const;
+
+export type ListOfficeRemindersParams = {
+/**
+ * Defaults to 60
+ * @minimum 1
+ * @maximum 365
+ */
+withinDays?: number;
+};
+
+export type GetOfficeReportParams = {
+/**
+ * Period length ending now; defaults to 30
+ */
+days?: GetOfficeReportDays;
+};
+
+export type GetOfficeReportDays = typeof GetOfficeReportDays[keyof typeof GetOfficeReportDays];
+
+
+export const GetOfficeReportDays = {
+  NUMBER_7: 7,
+  NUMBER_30: 30,
+  NUMBER_90: 90,
+  NUMBER_365: 365,
 } as const;
 

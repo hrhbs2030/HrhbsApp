@@ -5,6 +5,7 @@ import { db, hbsAuditLog, hbsOfficeStaff, type HbsOfficeStaffMember } from "@wor
 import {
   AddOfficeStaffBody,
   AddOfficeStaffResponse,
+  ListOfficeAssigneesResponse,
   ListOfficeAuditLogResponse,
   ListOfficeStaffResponse,
   RemoveOfficeStaffParams,
@@ -14,6 +15,7 @@ import {
   approvedOfficeEmail,
   clerkUsersById,
   requireOfficeOwner,
+  requireOfficeStaff,
   verifiedEmailOf,
 } from "../lib/office-access";
 
@@ -39,6 +41,17 @@ router.get("/office/staff", requireOfficeOwner, async (_req, res): Promise<void>
     record,
     approvedEmail ? verifiedEmailOf(owners.get(record.userId), approvedEmail) : null,
   ))));
+});
+
+// Who a request can be assigned to. Visible to all staff, unlike the team page.
+router.get("/office/assignees", requireOfficeStaff, async (_req, res): Promise<void> => {
+  const records = await db.select().from(hbsOfficeStaff).orderBy(hbsOfficeStaff.createdAt);
+  const ownerEmail = approvedOfficeEmail();
+  res.json(ListOfficeAssigneesResponse.parse(records.map((record) => ({
+    userId: record.userId,
+    email: record.email ?? ownerEmail,
+    role: record.email ? "staff" as const : "owner" as const,
+  }))));
 });
 
 router.post("/office/staff", requireOfficeOwner, async (req, res): Promise<void> => {

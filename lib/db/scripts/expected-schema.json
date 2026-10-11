@@ -35,6 +35,24 @@
       "target_id": "text not null",
       "target_type": "text not null"
     },
+    "hbs_customer_settings": {
+      "updated_at": "timestamp with time zone not null",
+      "user_id": "text not null",
+      "whatsapp_opt_in": "boolean not null",
+      "whatsapp_phone": "text"
+    },
+    "hbs_document_reminders": {
+      "created_at": "timestamp with time zone not null",
+      "created_by": "text not null",
+      "expires_on": "date not null",
+      "id": "integer not null",
+      "kind": "text not null",
+      "label": "text not null",
+      "last_reminder_days": "integer",
+      "note": "text",
+      "updated_at": "timestamp with time zone not null",
+      "user_id": "text not null"
+    },
     "hbs_inquiries": {
       "answer": "text",
       "answered_at": "timestamp with time zone",
@@ -45,6 +63,24 @@
       "status": "text not null",
       "subject": "text not null",
       "user_id": "text not null"
+    },
+    "hbs_invoices": {
+      "amount_halalas": "integer not null",
+      "cancelled_at": "timestamp with time zone",
+      "description": "text not null",
+      "gateway_invoice_id": "text",
+      "id": "integer not null",
+      "issued_at": "timestamp with time zone not null",
+      "issued_by": "text not null",
+      "paid_at": "timestamp with time zone",
+      "payment_method": "text",
+      "payment_reference": "text",
+      "payment_url": "text",
+      "request_id": "integer not null",
+      "status": "text not null",
+      "total_halalas": "integer not null",
+      "vat_halalas": "integer not null",
+      "vat_rate_basis_points": "integer not null"
     },
     "hbs_legacy_imports": {
       "digest": "text not null",
@@ -90,15 +126,30 @@
       "size": "integer not null",
       "user_id": "text not null"
     },
+    "hbs_service_offers": {
+      "government_fees_note": "text",
+      "price_halalas": "integer",
+      "processing_days": "integer",
+      "published": "boolean not null",
+      "required_documents": "jsonb not null",
+      "slug": "text not null",
+      "updated_at": "timestamp with time zone not null",
+      "updated_by": "text not null"
+    },
     "hbs_service_requests": {
+      "assigned_to": "text",
       "category": "text not null",
       "client_request_id": "text",
       "contact_phone": "text not null",
       "created_at": "timestamp with time zone not null",
       "customer_message": "text",
       "description": "text not null",
+      "due_at": "timestamp with time zone",
       "id": "integer not null",
       "office_note": "text",
+      "rated_at": "timestamp with time zone",
+      "rating": "integer",
+      "rating_comment": "text",
       "service": "text not null",
       "status": "text not null",
       "updated_at": "timestamp with time zone not null",
@@ -113,21 +164,49 @@
     }
   },
   "checks": {
+    "hbs_document_reminders_kind_check": {
+      "table": "hbs_document_reminders",
+      "definition": "CHECK ((kind = ANY (ARRAY['iqama'::text, 'passport'::text, 'commercial_register'::text, 'work_permit'::text, 'other'::text])))"
+    },
     "hbs_inquiries_status_check": {
       "table": "hbs_inquiries",
       "definition": "CHECK ((status = ANY (ARRAY['open'::text, 'answered'::text])))"
+    },
+    "hbs_invoices_amount_check": {
+      "table": "hbs_invoices",
+      "definition": "CHECK (((amount_halalas > 0) AND (vat_halalas >= 0) AND (total_halalas = (amount_halalas + vat_halalas))))"
+    },
+    "hbs_invoices_method_check": {
+      "table": "hbs_invoices",
+      "definition": "CHECK (((payment_method IS NULL) OR (payment_method = ANY (ARRAY['manual'::text, 'online'::text]))))"
+    },
+    "hbs_invoices_status_check": {
+      "table": "hbs_invoices",
+      "definition": "CHECK ((status = ANY (ARRAY['issued'::text, 'paid'::text, 'cancelled'::text])))"
     },
     "hbs_registration_requests_status_check": {
       "table": "hbs_registration_requests",
       "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))"
     },
+    "hbs_service_offers_days_check": {
+      "table": "hbs_service_offers",
+      "definition": "CHECK (((processing_days IS NULL) OR ((processing_days >= 1) AND (processing_days <= 365))))"
+    },
+    "hbs_service_offers_price_check": {
+      "table": "hbs_service_offers",
+      "definition": "CHECK (((price_halalas IS NULL) OR (price_halalas >= 0)))"
+    },
     "hbs_service_requests_category_check": {
       "table": "hbs_service_requests",
       "definition": "CHECK ((category = ANY (ARRAY['passports'::text, 'labor'::text, 'business'::text, 'other'::text])))"
     },
+    "hbs_service_requests_rating_check": {
+      "table": "hbs_service_requests",
+      "definition": "CHECK (((rating IS NULL) OR ((rating >= 1) AND (rating <= 5))))"
+    },
     "hbs_service_requests_status_check": {
       "table": "hbs_service_requests",
-      "definition": "CHECK ((status = ANY (ARRAY['received'::text, 'reviewing'::text, 'waiting_on_customer'::text, 'completed'::text])))"
+      "definition": "CHECK ((status = ANY (ARRAY['received'::text, 'reviewing'::text, 'waiting_on_customer'::text, 'submitted_to_authority'::text, 'awaiting_payment'::text, 'completed'::text])))"
     }
   },
   "indexes": {
@@ -151,6 +230,22 @@
       "table": "hbs_audit_log",
       "definition": "CREATE UNIQUE INDEX hbs_audit_log_pkey ON public.hbs_audit_log USING btree (id)"
     },
+    "hbs_customer_settings_pkey": {
+      "table": "hbs_customer_settings",
+      "definition": "CREATE UNIQUE INDEX hbs_customer_settings_pkey ON public.hbs_customer_settings USING btree (user_id)"
+    },
+    "hbs_document_reminders_expires_idx": {
+      "table": "hbs_document_reminders",
+      "definition": "CREATE INDEX hbs_document_reminders_expires_idx ON public.hbs_document_reminders USING btree (expires_on)"
+    },
+    "hbs_document_reminders_pkey": {
+      "table": "hbs_document_reminders",
+      "definition": "CREATE UNIQUE INDEX hbs_document_reminders_pkey ON public.hbs_document_reminders USING btree (id)"
+    },
+    "hbs_document_reminders_user_idx": {
+      "table": "hbs_document_reminders",
+      "definition": "CREATE INDEX hbs_document_reminders_user_idx ON public.hbs_document_reminders USING btree (user_id)"
+    },
     "hbs_inquiries_pkey": {
       "table": "hbs_inquiries",
       "definition": "CREATE UNIQUE INDEX hbs_inquiries_pkey ON public.hbs_inquiries USING btree (id)"
@@ -158,6 +253,18 @@
     "hbs_inquiries_user_idx": {
       "table": "hbs_inquiries",
       "definition": "CREATE INDEX hbs_inquiries_user_idx ON public.hbs_inquiries USING btree (user_id)"
+    },
+    "hbs_invoices_gateway_unique": {
+      "table": "hbs_invoices",
+      "definition": "CREATE UNIQUE INDEX hbs_invoices_gateway_unique ON public.hbs_invoices USING btree (gateway_invoice_id)"
+    },
+    "hbs_invoices_pkey": {
+      "table": "hbs_invoices",
+      "definition": "CREATE UNIQUE INDEX hbs_invoices_pkey ON public.hbs_invoices USING btree (id)"
+    },
+    "hbs_invoices_request_idx": {
+      "table": "hbs_invoices",
+      "definition": "CREATE INDEX hbs_invoices_request_idx ON public.hbs_invoices USING btree (request_id)"
     },
     "hbs_legacy_imports_date_idx": {
       "table": "hbs_legacy_imports",
@@ -210,6 +317,14 @@
     "hbs_request_attachments_user_idx": {
       "table": "hbs_request_attachments",
       "definition": "CREATE INDEX hbs_request_attachments_user_idx ON public.hbs_request_attachments USING btree (user_id)"
+    },
+    "hbs_service_offers_pkey": {
+      "table": "hbs_service_offers",
+      "definition": "CREATE UNIQUE INDEX hbs_service_offers_pkey ON public.hbs_service_offers USING btree (slug)"
+    },
+    "hbs_service_requests_assigned_idx": {
+      "table": "hbs_service_requests",
+      "definition": "CREATE INDEX hbs_service_requests_assigned_idx ON public.hbs_service_requests USING btree (assigned_to)"
     },
     "hbs_service_requests_pkey": {
       "table": "hbs_service_requests",
