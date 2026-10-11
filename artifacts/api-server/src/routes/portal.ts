@@ -101,10 +101,14 @@ import { notifyCustomer } from "../lib/customer-contact";
 import { subjectLabels, subjectOf } from "../lib/company";
 import { applyAssignmentRule, resumeAfterCustomerReply } from "../lib/automations";
 import { saudiMobile, whatsappConfigured } from "../lib/whatsapp";
+import { normalizePhone } from "../lib/phone";
+import {
+  UNPAID_INVOICE_ERROR, UNPAID_INVOICE_MOVE_ERROR, canTransition, needsInvoicesSettled, transitionError,
+} from "../lib/request-status";
 import { riyadhToday } from "../lib/document-reminders";
 import { inspectLegacyBackup, legacyKinds, type LegacyKind } from "../lib/legacy-backup";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
-import { officeCustomer, type OfficeCustomer } from "../lib/office-search";
+import { officeCustomer, phoneMatches, type OfficeCustomer } from "../lib/office-search";
 import {
   approvedOfficeEmail,
   clerkUsersById,
@@ -326,11 +330,19 @@ function officeRequest(
   };
 }
 
+// One lookup for a whole page of rows; a customer without a registration
+// maps to null like before.
+async function customersOf(userIds: string[]): Promise<Map<string, OfficeCustomer>> {
+  const unique = [...new Set(userIds)];
+  const rows = unique.length ? await db.select({
+    userId: hbsRegistrationRequests.userId, fullName: hbsRegistrationRequests.fullName, email: hbsRegistrationRequests.email,
+  }).from(hbsRegistrationRequests).where(inArray(hbsRegistrationRequests.userId, unique)) : [];
+  const found = new Map(rows.map(row => [row.userId, officeCustomer(row.fullName, row.email)]));
+  return new Map(unique.map(userId => [userId, found.get(userId) ?? null]));
+}
+
 async function customerOf(userId: string): Promise<OfficeCustomer> {
-  const [registration] = await db.select({
-    fullName: hbsRegistrationRequests.fullName, email: hbsRegistrationRequests.email,
-  }).from(hbsRegistrationRequests).where(eq(hbsRegistrationRequests.userId, userId)).limit(1);
-  return officeCustomer(registration?.fullName ?? null, registration?.email ?? null);
+  return (await customersOf([userId])).get(userId) ?? null;
 }
 
 function linkedRequestContext(record: HbsServiceRequest) {
@@ -422,10 +434,10 @@ router.get("/portal/registration", requirePortalAuth, async (req, res): Promise<
 router.post("/portal/registration", requirePortalAuth, async (req, res): Promise<void> => {
   const parsed = SubmitPortalRegistrationBody.safeParse(req.body);
   const fullName = parsed.success ? parsed.data.fullName.trim() : "";
-  const contactPhone = parsed.success ? parsed.data.contactPhone.trim() : "";
+  // Stored in one spelling (05XXXXXXXX or +<code><number>) so the office finds it however it was typed.
+  const contactPhone = parsed.success ? normalizePhone(parsed.data.contactPhone) : null;
   const note = parsed.success ? parsed.data.note?.trim() || null : null;
-  if (!parsed.success || fullName.length < 2 || fullName.length > 120 ||
-      contactPhone.length < 9 || contactPhone.length > 24 || (note?.length ?? 0) > 1000) {
+  if (!parsed.success || fullName.length < 2 || fullName.length > 120 || !contactPhone || (note?.length ?? 0) > 1000) {
     res.status(400).json({ error: "Invalid registration details" });
     return;
   }
@@ -580,11 +592,15 @@ router.post("/service-requests/attachments/upload-url", requirePortalAuth, requi
 
 router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
   const parsed = CreateServiceRequestBody.safeParse(req.body);
+  const contactPhone = parsed.success ? normalizePhone(parsed.data.contactPhone) : null;
   if (!parsed.success ||
       !parsed.data.service.trim() ||
-      !parsed.data.description.trim() ||
-      !parsed.data.contactPhone.trim()) {
+      !parsed.data.description.trim()) {
     res.status(400).json({ error: "Complete all request fields" });
+    return;
+  }
+  if (!contactPhone) {
+    res.status(400).json({ error: "Enter a valid mobile number (05XXXXXXXX)." });
     return;
   }
   const userId = getAuth(req).userId!;
@@ -601,7 +617,7 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
     if (record.category !== parsed.data.category ||
         record.service !== parsed.data.service.trim() ||
         record.description !== parsed.data.description.trim() ||
-        record.contactPhone !== parsed.data.contactPhone.trim()) {
+        record.contactPhone !== contactPhone) {
       res.status(409).json({ error: "This submission identifier was used for a different request." });
       return;
     }
@@ -649,7 +665,7 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
     record = await db.transaction(async (tx) => {
       const [created] = await tx.insert(hbsServiceRequests).values({
         userId, category: parsed.data.category, service: parsed.data.service.trim(),
-        description: parsed.data.description.trim(), contactPhone: parsed.data.contactPhone.trim(),
+        description: parsed.data.description.trim(), contactPhone,
         clientRequestId: requestId ?? null, employeeId, licenseId,
       }).returning();
       await lockAndAttach(tx, userId, ids, created.id, finalized);
@@ -1081,8 +1097,10 @@ router.get("/portal/settings", requirePortalAuth, requireApprovedCustomer, async
 
 router.put("/portal/settings", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
   const body = SavePortalSettingsBody.safeParse(req.body);
-  const phone = body.success && body.data.whatsappPhone?.trim() ? body.data.whatsappPhone.trim() : null;
-  if (!body.success || (phone && !saudiMobile(phone)) || (body.data.whatsappOptIn && !phone)) {
+  const typed = body.success ? body.data.whatsappPhone?.trim() || null : null;
+  // Stored as 05XXXXXXXX; only Saudi mobiles can receive the office's WhatsApp template.
+  const phone = typed ? normalizePhone(typed) : null;
+  if (!body.success || (typed && !(phone && saudiMobile(phone))) || (body.data.whatsappOptIn && !phone)) {
     res.status(400).json({ error: "Enter a Saudi mobile number (05XXXXXXXX) to receive WhatsApp messages." });
     return;
   }
@@ -1217,7 +1235,7 @@ router.get("/office/service-requests", requireOfficeStaff, async (req, res): Pro
     awaitingReply ? sql`${hbsServiceRequests.status} <> 'completed' and (select m.author_role from ${hbsRequestMessages} m
       where m.request_id = hbs_service_requests.id order by m.created_at desc, m.id desc limit 1) = 'customer'` : undefined,
     q ? or(contains(hbsServiceRequests.service, q), contains(hbsServiceRequests.description, q),
-      contains(hbsServiceRequests.contactPhone, q), contains(requestReference(), q),
+      phoneMatches(hbsServiceRequests.contactPhone, q), contains(requestReference(), q),
       customerMatches(hbsServiceRequests.userId, q)) : undefined,
   );
   const [[{ total }], records] = await Promise.all([
@@ -1230,10 +1248,9 @@ router.get("/office/service-requests", requireOfficeStaff, async (req, res): Pro
           : [desc(hbsServiceRequests.createdAt), desc(hbsServiceRequests.id)]))
       .limit(pageSize).offset((page - 1) * pageSize),
   ]);
-  const attached = await detailsFor(records);
+  const [attached, customers] = await Promise.all([detailsFor(records), customersOf(records.map(r => r.userId))]);
   const response = {
-    items: await Promise.all(records.map(async r =>
-      officeRequest(r, attached.get(r.id), await customerOf(r.userId)))),
+    items: records.map(r => officeRequest(r, attached.get(r.id), customers.get(r.userId) ?? null)),
     total, page, pageSize,
   };
   ListOfficeServiceRequestsResponse.parse(response);
@@ -1245,11 +1262,6 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
   const parsed = UpdateOfficeServiceRequestBody.safeParse(req.body);
   if (!params.success || params.data.id < 1 || !parsed.success) {
     res.status(400).json({ error: "Invalid request update" });
-    return;
-  }
-  const customerMessage = parsed.data.customerMessage?.trim() || null;
-  if (parsed.data.status === "waiting_on_customer" && !customerMessage) {
-    res.status(400).json({ error: "Explain to the customer what is needed." });
     return;
   }
   const { assignedTo, dueAt } = parsed.data;
@@ -1265,10 +1277,13 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
   let previousStatus: string | null = null;
   let previousAssignee: string | null = null;
   let stale = false;
+  // Held in an object: the transaction callback sets it, which narrowing of a plain variable would not see.
+  const refusal: { value: { status: number; error: string } | null } = { value: null };
   const record = await db.transaction(async tx => {
     const [previous] = await tx.select({
       status: hbsServiceRequests.status,
       officeNote: hbsServiceRequests.officeNote,
+      customerMessage: hbsServiceRequests.customerMessage,
       assignedTo: hbsServiceRequests.assignedTo,
       dueAt: hbsServiceRequests.dueAt,
     }).from(hbsServiceRequests)
@@ -1276,12 +1291,33 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
     if (!previous) return undefined;
     previousStatus = previous.status;
     previousAssignee = previous.assignedTo;
+    const status = parsed.data.status;
+    if (!canTransition(previous.status, status)) {
+      refusal.value = { status: 409, error: transitionError(previous.status, status) };
+      return undefined;
+    }
+    if (needsInvoicesSettled(previous.status, status)) {
+      const [open] = await tx.select({ id: hbsInvoices.id }).from(hbsInvoices)
+        .where(and(eq(hbsInvoices.requestId, params.data.id), eq(hbsInvoices.status, "issued"))).limit(1);
+      if (open) {
+        refusal.value = { status: 409, error: status === "completed" ? UNPAID_INVOICE_ERROR : UNPAID_INVOICE_MOVE_ERROR };
+        return undefined;
+      }
+    }
+    // The message to the customer is kept while the status stays, replaced
+    // when a new one is sent, and cleared once the request moves on.
+    const customerMessage = parsed.data.customerMessage !== undefined
+      ? parsed.data.customerMessage?.trim() || null : previous.customerMessage;
+    if (status === "waiting_on_customer" && !customerMessage) {
+      refusal.value = { status: 400, error: "Explain to the customer what is needed." };
+      return undefined;
+    }
     const [updated] = await tx.update(hbsServiceRequests).set({
-      status: parsed.data.status,
+      status,
       ...(parsed.data.officeNote !== undefined ? { officeNote: parsed.data.officeNote } : {}),
       ...(assignedTo !== undefined ? { assignedTo } : {}),
       ...(dueAt !== undefined ? { dueAt } : {}),
-      customerMessage: parsed.data.status === "waiting_on_customer" ? customerMessage : null,
+      customerMessage: status === previous.status || status === "waiting_on_customer" ? customerMessage : null,
       updatedAt,
     }).where(and(
       eq(hbsServiceRequests.id, params.data.id),
@@ -1307,6 +1343,10 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
     return updated;
   });
   if (!record) {
+    if (refusal.value) {
+      res.status(refusal.value.status).json({ error: refusal.value.error });
+      return;
+    }
     if (stale) {
       res.status(409).json({ error: "This request changed since you opened it. Refresh and review the latest version." });
       return;
@@ -1347,9 +1387,9 @@ router.get("/office/inquiries", requireOfficeStaff, async (req, res): Promise<vo
     base().where(filter).orderBy(desc(hbsInquiries.createdAt), desc(hbsInquiries.id))
       .limit(pageSize).offset((page - 1) * pageSize),
   ]);
+  const customers = await customersOf(records.map(({ inquiry: record }) => record.userId));
   const response = {
-    items: await Promise.all(records.map(async ({ inquiry: record, request }) =>
-      officeInquiry(record, request, await customerOf(record.userId)))),
+    items: records.map(({ inquiry: record, request }) => officeInquiry(record, request, customers.get(record.userId) ?? null)),
     total, page, pageSize,
   };
   ListOfficeInquiriesResponse.parse(response);
@@ -1447,17 +1487,21 @@ router.post("/office/legacy/import", requireOfficeOwner, async (req, res): Promi
 });
 
 router.get("/office/legacy/imports", requireOfficeOwner, async (_req, res): Promise<void> => {
-  const batches = await db.select().from(hbsLegacyImports).orderBy(desc(hbsLegacyImports.importedAt));
-  const records = await db.select({
-    importId: hbsLegacyRecords.importId, kind: hbsLegacyRecords.kind, legacyId: hbsLegacyRecords.legacyId,
-  }).from(hbsLegacyRecords);
+  // The identifiers are grouped in the database: one row per batch and
+  // kind instead of every imported record coming back to be sorted here.
+  const [batches, groups] = await Promise.all([
+    db.select().from(hbsLegacyImports).orderBy(desc(hbsLegacyImports.importedAt)),
+    db.select({
+      importId: hbsLegacyRecords.importId, kind: hbsLegacyRecords.kind,
+      legacyIds: sql<string[]>`array_agg(${hbsLegacyRecords.legacyId} order by ${hbsLegacyRecords.legacyId} collate "C")`,
+    }).from(hbsLegacyRecords).where(inArray(hbsLegacyRecords.kind, [...legacyKinds]))
+      .groupBy(hbsLegacyRecords.importId, hbsLegacyRecords.kind),
+  ]);
   res.json(ListLegacyImportsResponse.parse(batches.map(batch => {
     const ids: Record<LegacyKind, string[]> = { clients: [], transactions: [], tasks: [], notes: [] };
-    for (const row of records) {
-      if (row.importId === batch.id && legacyKinds.includes(row.kind as LegacyKind))
-        ids[row.kind as LegacyKind].push(row.legacyId);
+    for (const group of groups) {
+      if (group.importId === batch.id) ids[group.kind as LegacyKind] = group.legacyIds;
     }
-    for (const kind of legacyKinds) ids[kind].sort();
     const counts = Object.fromEntries(legacyKinds.map(kind => [kind, ids[kind].length]));
     return { id: batch.id, importedAt: batch.importedAt, exportedAt: batch.exportedAt, digest: batch.digest, ids, counts };
   })));

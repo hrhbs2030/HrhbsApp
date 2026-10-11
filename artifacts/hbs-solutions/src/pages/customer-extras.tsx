@@ -9,7 +9,9 @@ import {
 } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock } from '@/components/portal-ui';
 import { daysUntil, formatCalendarDate } from '@/lib/format';
+import { normalizePhone } from '@/lib/phone';
 import { ExpiryBadge, ReminderForm, emptyDraft, reminderKindNames, type Draft } from '@/components/reminder-ui';
+import { ConfirmDialog } from '@/components/request-billing';
 
 export function Documents() {
   const qc = useQueryClient();
@@ -32,8 +34,8 @@ export function Documents() {
       setError((e as { status?: number })?.status === 409 ? 'وصلت إلى الحد الأقصى من التنبيهات (50).' : 'تعذّر الحفظ. تحقق من البيانات وحاول مجددًا.');
     }
   }
+  const [dropping, setDropping] = useState<Reminder | null>(null);
   async function drop(item: Reminder) {
-    if (!window.confirm(`حذف تنبيه ${reminderKindNames[item.kind]} «${item.label}»؟`)) return;
     try { await remove.mutateAsync({ id: item.id }); await refresh(); } catch { setError('تعذّر حذف التنبيه.'); }
   }
   const initial = editing && editing !== 'new'
@@ -51,11 +53,12 @@ export function Documents() {
           {daysUntil(item.expiresOn) <= 60 && <Link href="/requests/new" className="btn btn-outline btn-sm">اطلب التجديد</Link>}
           {item.source === 'manual' ? <>
             <button type="button" className="rf-btn" onClick={() => { setError(null); setEditing(item); }} aria-label={`تعديل ${item.label}`}><Pencil size={16}/></button>
-            <button type="button" className="rf-btn" onClick={() => drop(item)} aria-label={`حذف ${item.label}`}><Trash2 size={16}/></button>
+            <button type="button" className="rf-btn" onClick={() => setDropping(item)} aria-label={`حذف ${item.label}`}><Trash2 size={16}/></button>
           </> : <Link href="/company" className="btn btn-outline btn-sm">من ملف المنشأة</Link>}
         </div>
       </div>)}</div>}
     {error && !editing && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
+    <ConfirmDialog open={!!dropping} onOpenChange={open => { if (!open) setDropping(null); }} title={dropping ? `حذف تنبيه ${reminderKindNames[dropping.kind]} «${dropping.label}»؟` : ''} description="لن يصلك تذكير بهذه الوثيقة بعد الحذف." confirmLabel="حذف" danger onConfirm={() => { if (dropping) void drop(dropping); setDropping(null); }}/>
   </PortalLayout>;
 }
 
@@ -66,11 +69,15 @@ export function NotificationSettings() {
   const [optIn, setOptIn] = useState(false);
   const [phone, setPhone] = useState('');
   const [saved, setSaved] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   useEffect(() => { if (settings.data) { setOptIn(settings.data.whatsappOptIn); setPhone(settings.data.whatsappPhone ?? ''); } }, [settings.data]);
   async function submit(e: FormEvent) {
-    e.preventDefault(); setSaved(false);
+    e.preventDefault(); setSaved(false); setPhoneError(null);
+    // An empty number clears it; anything typed must normalise (Arabic digits, +966 accepted).
+    const whatsappPhone = phone.trim() ? normalizePhone(phone) : null;
+    if (phone.trim() && !whatsappPhone) { setPhoneError('اكتب رقم جوال صحيحًا (مثال: 05xxxxxxxx)'); return; }
     try {
-      await save.mutateAsync({ data: { whatsappOptIn: optIn, whatsappPhone: phone.trim() || null } });
+      await save.mutateAsync({ data: { whatsappOptIn: optIn, whatsappPhone } });
       await qc.invalidateQueries({ queryKey: getGetPortalSettingsQueryKey() });
       setSaved(true);
     } catch { /* shown below */ }
@@ -80,7 +87,7 @@ export function NotificationSettings() {
     {settings.isLoading ? <LoadingBlock/> : settings.isError ? <ErrorBlock retry={() => settings.refetch()}/> : settings.data && <form onSubmit={submit} className="surface max-w-[640px] space-y-5 p-5 sm:p-7">
       {!settings.data.whatsappAvailable && <p className="rounded-lg bg-sunk p-4 text-sm leading-7 text-quiet">رسائل واتساب غير مفعّلة من المكتب حاليًا. يمكنك حفظ رقمك الآن، وتصلك الرسائل عند تفعيلها.</p>}
       <label className="flex items-start gap-3 text-sm leading-7"><input type="checkbox" className="mt-1.5" checked={optIn} onChange={e => setOptIn(e.target.checked)}/><span><strong>أوافق على استلام رسائل واتساب</strong> عن حالة طلباتي والفواتير وتنبيهات انتهاء الوثائق. يمكنني إيقافها في أي وقت.</span></label>
-      <label className="form-field">رقم الجوال لواتساب<input className="form-control text-right" dir="ltr" type="tel" inputMode="tel" placeholder="05XXXXXXXX" value={phone} onChange={e => setPhone(e.target.value)} maxLength={24}/></label>
+      <label className="form-field">رقم الجوال لواتساب<input className="form-control text-right" dir="ltr" type="tel" inputMode="tel" placeholder="05XXXXXXXX" value={phone} onChange={e => { setPhoneError(null); setPhone(e.target.value); }} maxLength={24} aria-invalid={!!phoneError} aria-describedby={phoneError ? 'wa-phone-error' : undefined}/>{phoneError && <span id="wa-phone-error" className="field-error" role="alert">{phoneError}</span>}</label>
       <p className="muted text-xs leading-6">تحمل الرسائل رقم الطلب وحالته فقط. لا يطلب المكتب كلمات المرور أو رموز التحقق.</p>
       {save.isError && <p role="alert" className="text-sm text-danger">اكتب رقم جوال سعوديًا صحيحًا (05XXXXXXXX) لتفعيل واتساب.</p>}
       {saved && <p role="status" className="text-sm font-bold text-ok">تم حفظ الإعدادات.</p>}

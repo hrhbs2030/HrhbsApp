@@ -18,7 +18,8 @@
     "test:services-contrast": "tsx tests/services-contrast.test.ts",
     "test:react-build-check": "tsx --test tests/react-build-check.test.ts",
     "test:react-query-build-check": "tsx --test tests/react-query-build-check.test.ts",
-    "test:excel": "tsx --test tests/excel-rows.test.ts"
+    "test:excel": "tsx --test tests/excel-rows.test.ts",
+    "test:lib": "tsx --test tests/phone.test.ts tests/days-until.test.ts"
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",

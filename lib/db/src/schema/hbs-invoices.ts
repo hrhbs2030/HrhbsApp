@@ -18,12 +18,17 @@ export const hbsInvoices = pgTable("hbs_invoices", {
   // The hosted payment page created at the payment gateway, if any.
   gatewayInvoiceId: text("gateway_invoice_id"),
   paymentUrl: text("payment_url"),
+  // Set while one request is creating the hosted page, so a second click
+  // waits instead of opening a second page. Cleared once the page is stored.
+  gatewayClaimedAt: timestamp("gateway_claimed_at", { withTimezone: true }),
   issuedBy: text("issued_by").notNull(),
   issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
 }, (table) => [
   index("hbs_invoices_request_idx").on(table.requestId),
+  // Open invoices by date: reports, reconciliation and the customer's summary.
+  index("hbs_invoices_status_issued_idx").on(table.status, table.issuedAt),
   uniqueIndex("hbs_invoices_gateway_unique").on(table.gatewayInvoiceId),
   check("hbs_invoices_status_check", sql`${table.status} in ('issued', 'paid', 'cancelled')`),
   check("hbs_invoices_method_check", sql`${table.paymentMethod} is null or ${table.paymentMethod} in ('manual', 'online')`),

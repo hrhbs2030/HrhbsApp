@@ -123,6 +123,7 @@
       "amount_halalas": "integer not null",
       "cancelled_at": "timestamp with time zone",
       "description": "text not null",
+      "gateway_claimed_at": "timestamp with time zone",
       "gateway_invoice_id": "text",
       "id": "integer not null",
       "issued_at": "timestamp with time zone not null",
@@ -319,6 +320,10 @@
       "table": "hbs_audit_log",
       "definition": "CREATE UNIQUE INDEX hbs_audit_log_pkey ON public.hbs_audit_log USING btree (id)"
     },
+    "hbs_audit_log_target_idx": {
+      "table": "hbs_audit_log",
+      "definition": "CREATE INDEX hbs_audit_log_target_idx ON public.hbs_audit_log USING btree (target_type, target_id, created_at DESC NULLS LAST)"
+    },
     "hbs_companies_pkey": {
       "table": "hbs_companies",
       "definition": "CREATE UNIQUE INDEX hbs_companies_pkey ON public.hbs_companies USING btree (user_id)"
@@ -363,9 +368,17 @@
       "table": "hbs_document_reminders",
       "definition": "CREATE INDEX hbs_document_reminders_user_idx ON public.hbs_document_reminders USING btree (user_id)"
     },
+    "hbs_inquiries_linked_request_idx": {
+      "table": "hbs_inquiries",
+      "definition": "CREATE INDEX hbs_inquiries_linked_request_idx ON public.hbs_inquiries USING btree (linked_service_request_id)"
+    },
     "hbs_inquiries_pkey": {
       "table": "hbs_inquiries",
       "definition": "CREATE UNIQUE INDEX hbs_inquiries_pkey ON public.hbs_inquiries USING btree (id)"
+    },
+    "hbs_inquiries_status_idx": {
+      "table": "hbs_inquiries",
+      "definition": "CREATE INDEX hbs_inquiries_status_idx ON public.hbs_inquiries USING btree (status)"
     },
     "hbs_inquiries_user_idx": {
       "table": "hbs_inquiries",
@@ -382,6 +395,10 @@
     "hbs_invoices_request_idx": {
       "table": "hbs_invoices",
       "definition": "CREATE INDEX hbs_invoices_request_idx ON public.hbs_invoices USING btree (request_id)"
+    },
+    "hbs_invoices_status_issued_idx": {
+      "table": "hbs_invoices",
+      "definition": "CREATE INDEX hbs_invoices_status_issued_idx ON public.hbs_invoices USING btree (status, issued_at)"
     },
     "hbs_legacy_imports_date_idx": {
       "table": "hbs_legacy_imports",
@@ -423,6 +440,10 @@
       "table": "hbs_request_attachments",
       "definition": "CREATE UNIQUE INDEX hbs_request_attachments_path_unique ON public.hbs_request_attachments USING btree (object_path)"
     },
+    "hbs_request_attachments_pending_expiry_idx": {
+      "table": "hbs_request_attachments",
+      "definition": "CREATE INDEX hbs_request_attachments_pending_expiry_idx ON public.hbs_request_attachments USING btree (expires_at) WHERE (request_id IS NULL)"
+    },
     "hbs_request_attachments_pkey": {
       "table": "hbs_request_attachments",
       "definition": "CREATE UNIQUE INDEX hbs_request_attachments_pkey ON public.hbs_request_attachments USING btree (id)"
@@ -451,9 +472,21 @@
       "table": "hbs_service_requests",
       "definition": "CREATE INDEX hbs_service_requests_assigned_idx ON public.hbs_service_requests USING btree (assigned_to)"
     },
+    "hbs_service_requests_created_idx": {
+      "table": "hbs_service_requests",
+      "definition": "CREATE INDEX hbs_service_requests_created_idx ON public.hbs_service_requests USING btree (created_at DESC NULLS LAST, id DESC NULLS LAST)"
+    },
+    "hbs_service_requests_open_due_idx": {
+      "table": "hbs_service_requests",
+      "definition": "CREATE INDEX hbs_service_requests_open_due_idx ON public.hbs_service_requests USING btree (due_at) WHERE (status <> 'completed'::text)"
+    },
     "hbs_service_requests_pkey": {
       "table": "hbs_service_requests",
       "definition": "CREATE UNIQUE INDEX hbs_service_requests_pkey ON public.hbs_service_requests USING btree (id)"
+    },
+    "hbs_service_requests_status_updated_idx": {
+      "table": "hbs_service_requests",
+      "definition": "CREATE INDEX hbs_service_requests_status_updated_idx ON public.hbs_service_requests USING btree (status, updated_at DESC NULLS LAST)"
     },
     "hbs_service_requests_user_client_request_idx": {
       "table": "hbs_service_requests",

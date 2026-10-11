@@ -28,14 +28,14 @@ export const faqs = [
   },
 ];
 
-// The journey, in the order a customer lives it. Each chapter maps to a
-// portal stage index (see components/request-object.tsx) for the visual.
+// The journey, in the order a customer lives it. `stage` is the milestone
+// index in content/milestones.ts (a `pause` sits on the review milestone).
 export const journey = [
   { stage: 0, kicker: 'قبل الطلب', title: 'اختر الخدمة من الدليل', text: 'ابحث في الدليل أو اختر المجال، وستجد لكل خدمة ما يفيد المكتب أن تذكره في طلبك.' },
   { stage: 0, kicker: 'الطلب', title: 'اكتب التفاصيل وراجعها', text: 'ثلاث خطوات: الخدمة، ثم التفاصيل ورقم التواصل، ثم مراجعة أخيرة قبل الإرسال.' },
   { stage: 0, kicker: 'فور الإرسال', title: 'رقم مرجعي فور الإرسال', text: 'يصل الطلب إلى المكتب في اللحظة نفسها، ويظهر في حسابك بحالة «تم الاستلام».' },
-  { stage: 1, kicker: 'أثناء العمل', title: 'المكتب يراجع ويحدّث الحالة', text: 'كل تحديث يظهر في صفحة طلبك ويصلك بالبريد، فلا تحتاج إلى الاتصال للسؤال.' },
-  { stage: 2, kicker: 'عند الحاجة', title: 'إن احتاج المكتب شيئًا، تعرف فورًا', text: 'تصبح الحالة «بانتظار العميل» ويظهر تنبيه في حسابك، فتردّ أو ترفع المستند من صفحة الطلب.' },
+  { stage: 1, kicker: 'أثناء العمل', title: 'المكتب يراجع ويحدّث الحالة', text: 'كل تحديث يظهر في صفحة طلبك ويصلك بالبريد، حتى «تم الرفع للجهة»، فلا تحتاج إلى الاتصال للسؤال.' },
+  { stage: 1, pause: 'waiting_on_customer', kicker: 'عند الحاجة', title: 'إن احتاج المكتب شيئًا، تعرف فورًا', text: 'تصبح الحالة «بانتظار العميل» ويظهر تنبيه في حسابك، فتردّ أو ترفع المستند من صفحة الطلب.' },
   { stage: 3, kicker: 'النهاية', title: 'اكتمل الطلب', text: 'تصبح الحالة «مكتملة»، ويبقى الطلب بتفاصيله في سجلك، ويمكنك تقييم الخدمة.' },
 ];
 

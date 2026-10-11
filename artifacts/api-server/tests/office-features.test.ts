@@ -104,9 +104,19 @@ test("assignment, statuses, ratings, invoices, reminders, catalogue and reports"
       });
       assert.equal(rejected.status, 400);
 
+      // A received request cannot be filed with the authority before review.
+      const skipped = await call(owner, "PATCH", `/office/service-requests/${reqA.id}`, {
+        status: "submitted_to_authority", expectedUpdatedAt: reqA.updatedAt.toISOString(),
+      });
+      assert.equal(skipped.status, 409);
+      assert.equal(skipped.data.error, "لا يمكن نقل الطلب من تم الاستلام إلى تم الرفع للجهة المختصة.");
+      const reviewing = await call(owner, "PATCH", `/office/service-requests/${reqA.id}`, {
+        status: "reviewing", expectedUpdatedAt: reqA.updatedAt.toISOString(),
+      });
+      assert.equal(reviewing.status, 200);
       const past = new Date(Date.now() - 86_400_000).toISOString();
       const assigned = await call(owner, "PATCH", `/office/service-requests/${reqA.id}`, {
-        status: "submitted_to_authority", expectedUpdatedAt: reqA.updatedAt.toISOString(), assignedTo: staff, dueAt: past,
+        status: "submitted_to_authority", expectedUpdatedAt: reviewing.data.updatedAt, assignedTo: staff, dueAt: past,
       });
       assert.equal(assigned.status, 200);
       assert.equal(assigned.data.assignedTo, staff);
@@ -131,15 +141,39 @@ test("assignment, statuses, ratings, invoices, reminders, catalogue and reports"
         status: "submitted_to_authority", expectedUpdatedAt: assigned.data.updatedAt,
       });
       assert.equal(kept.data.assignedTo, staff);
-      const [audit] = await db.select().from(hbsAuditLog).where(eq(hbsAuditLog.targetId, String(reqA.id)))
-        .orderBy(hbsAuditLog.id).limit(1);
-      assert.equal((audit.details as any).toAssignee, staff);
+      const audits = await db.select().from(hbsAuditLog).where(eq(hbsAuditLog.targetId, String(reqA.id))).orderBy(hbsAuditLog.id);
+      assert.equal(audits.filter(a => (a.details as any).toAssignee === staff).length, 1);
 
       const history = await call(customerA, "GET", `/service-requests/${reqA.id}/history`);
-      assert.deepEqual(history.data.map((e: any) => e.status), ["received", "submitted_to_authority"]);
+      assert.deepEqual(history.data.map((e: any) => e.status), ["received", "reviewing", "submitted_to_authority"]);
       // Customers never see who handles their request.
       const own = await call(customerA, "GET", `/service-requests/${reqA.id}`);
       assert.ok(!("assignedTo" in own.data));
+    });
+
+    await t.test("status moves follow the table and keep the customer's message", async () => {
+      const current = async () => (await db.select().from(hbsServiceRequests).where(eq(hbsServiceRequests.id, reqB.id)))[0];
+      let row = await current();
+      const patch = (body: Record<string, unknown>) => call(staff, "PATCH", `/office/service-requests/${reqB.id}`, {
+        expectedUpdatedAt: row.updatedAt.toISOString(), ...body,
+      });
+      assert.equal((await patch({ status: "completed" })).status, 409);
+      assert.equal((await patch({ status: "waiting_on_customer" })).status, 400, "a message to the customer is required");
+      const waiting = await patch({ status: "waiting_on_customer", customerMessage: " أرسل صورة الإقامة " });
+      assert.equal(waiting.status, 200);
+      assert.equal((await call(customerB, "GET", `/service-requests/${reqB.id}`)).data.customerMessage, "أرسل صورة الإقامة");
+      row = await current();
+      // A note added while the request still waits leaves the message alone.
+      const noted = await patch({ status: "waiting_on_customer", officeNote: "internal" });
+      assert.equal(noted.status, 200);
+      assert.equal((await current()).customerMessage, "أرسل صورة الإقامة");
+      row = await current();
+      assert.equal((await patch({ status: "completed" })).status, 409, "waiting requests go back to review first");
+      const back = await patch({ status: "reviewing" });
+      assert.equal(back.status, 200);
+      assert.equal((await current()).customerMessage, null, "the message is cleared once the request moves on");
+      const history = await call(customerB, "GET", `/service-requests/${reqB.id}/history`);
+      assert.deepEqual(history.data.map((e: any) => e.status), ["received", "waiting_on_customer", "reviewing"]);
     });
 
     await t.test("ratings: completed requests only, once, own requests only", async () => {
@@ -180,6 +214,12 @@ test("assignment, statuses, ratings, invoices, reminders, catalogue and reports"
       assert.match(issued.data.reference, /^INV-\d{4}-\d{5}$/);
       const [after] = await db.select().from(hbsServiceRequests).where(eq(hbsServiceRequests.id, reqB.id));
       assert.equal(after.status, "awaiting_payment");
+      // With the invoice open the request cannot be filed or completed.
+      const filed = await call(staff, "PATCH", `/office/service-requests/${reqB.id}`, {
+        status: "submitted_to_authority", expectedUpdatedAt: after.updatedAt.toISOString(),
+      });
+      assert.equal(filed.status, 409);
+      assert.equal(filed.data.error, "لا يمكن نقل الطلب وله فاتورة غير مسددة.");
 
       assert.equal((await call(customerA, "GET", `/service-requests/${reqB.id}/invoices`)).status, 404);
       const own = await call(customerB, "GET", `/service-requests/${reqB.id}/invoices`);
@@ -200,6 +240,12 @@ test("assignment, statuses, ratings, invoices, reminders, catalogue and reports"
         vatHalalas: 150, totalHalalas: 1_150, issuedBy: staff, gatewayInvoiceId: `gw-${randomUUID()}`,
       }).returning();
       const gateway = { id: row.gatewayInvoiceId!, status: "paid", currency: "SAR", url: "https://example.invalid" };
+      assert.equal(request.status, "reviewing", "paying the earlier invoice resumed the request");
+      const completed = await call(staff, "PATCH", `/office/service-requests/${reqB.id}`, {
+        status: "completed", expectedUpdatedAt: request.updatedAt.toISOString(),
+      });
+      assert.equal(completed.status, 409);
+      assert.equal(completed.data.error, "لا يمكن إكمال الطلب وله فاتورة غير مسددة.");
       assert.equal((await settleFromGateway(row, request, { ...gateway, amount: 100 })).status, "issued");
       assert.equal((await settleFromGateway(row, request, { ...gateway, amount: 1_150, currency: "USD" })).status, "issued");
       assert.equal((await settleFromGateway(row, request, { ...gateway, amount: 1_150, status: "initiated" })).status, "issued");
@@ -244,6 +290,65 @@ test("assignment, statuses, ratings, invoices, reminders, catalogue and reports"
       }
     });
 
+    await t.test("starting an online payment claims the invoice while the page is created", async () => {
+      const insert = (values: Partial<typeof hbsInvoices.$inferInsert> = {}) => db.insert(hbsInvoices).values({
+        requestId: reqB.id, description: "Pay online", amountHalalas: 1_000, vatRateBasisPoints: 1500,
+        vatHalalas: 150, totalHalalas: 1_150, issuedBy: staff, ...values,
+      }).returning();
+      const [fresh] = await insert();
+      const [held] = await insert({ gatewayClaimedAt: new Date() });
+      const [abandoned] = await insert({ gatewayClaimedAt: new Date(Date.now() - 2 * 60_000) });
+      const [broken] = await insert();
+      const calls: string[] = [];
+      let fail = false;
+      const realFetch = globalThis.fetch;
+      const previousKey = process.env.MOYASAR_SECRET_KEY;
+      process.env.MOYASAR_SECRET_KEY = "sk_test_placeholder";
+      globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+        const url = String(input instanceof Request ? input.url : input);
+        if (!url.startsWith("https://api.moyasar.com/")) return realFetch(input, init);
+        calls.push(`${init?.method ?? "GET"} ${url}`);
+        if (fail) return new Response("down", { status: 500 });
+        const id = init?.method === "POST" ? `gw-${randomUUID()}` : url.split("/").at(-1)!;
+        return new Response(JSON.stringify({ id, status: "initiated", amount: 1_150, currency: "SAR", url: `https://pay.example.invalid/${id}` }));
+      }) as typeof fetch;
+      try {
+        const invoiceOf = async (id: number) => (await db.select().from(hbsInvoices).where(eq(hbsInvoices.id, id)))[0];
+        const first = await call(customerB, "POST", `/invoices/${fresh.id}/pay`);
+        assert.equal(first.status, 200);
+        const stored = await invoiceOf(fresh.id);
+        assert.equal(stored.paymentUrl, first.data.url);
+        assert.ok(stored.gatewayInvoiceId);
+        assert.equal(stored.gatewayClaimedAt, null, "the claim is released once the page is stored");
+        // A second click reuses the open page instead of creating another.
+        const again = await call(customerB, "POST", `/invoices/${fresh.id}/pay`);
+        assert.equal(again.data.url, first.data.url);
+        assert.equal(calls.filter(c => c.startsWith("POST")).length, 1);
+        assert.equal((await call(customerA, "POST", `/invoices/${fresh.id}/pay`)).status, 404);
+
+        // Claimed moments ago by another request: wait, do not open a second page.
+        const busy = await call(customerB, "POST", `/invoices/${held.id}/pay`);
+        assert.equal(busy.status, 409);
+        assert.equal(calls.filter(c => c.startsWith("POST")).length, 1);
+        // A claim left behind by a crashed request is taken over.
+        assert.equal((await call(customerB, "POST", `/invoices/${abandoned.id}/pay`)).status, 200);
+        assert.ok((await invoiceOf(abandoned.id)).gatewayInvoiceId);
+
+        // The gateway failing releases the claim so the customer can retry.
+        fail = true;
+        assert.equal((await call(customerB, "POST", `/invoices/${broken.id}/pay`)).status, 502);
+        assert.equal((await invoiceOf(broken.id)).gatewayClaimedAt, null);
+        fail = false;
+        assert.equal((await call(customerB, "POST", `/invoices/${broken.id}/pay`)).status, 200);
+      } finally {
+        globalThis.fetch = realFetch;
+        if (previousKey === undefined) delete process.env.MOYASAR_SECRET_KEY;
+        else process.env.MOYASAR_SECRET_KEY = previousKey;
+        await db.update(hbsInvoices).set({ status: "cancelled", cancelledAt: new Date() })
+          .where(inArray(hbsInvoices.id, [fresh.id, held.id, abandoned.id, broken.id]));
+      }
+    });
+
     await t.test("reminders: customers own theirs; office adds with audit; due reminders are sent once", async () => {
       const bad = await call(customerA, "POST", "/reminders", { kind: "iqama", label: "Me", expiresOn: "2030-02-30" });
       assert.equal(bad.status, 400);
@@ -269,6 +374,17 @@ test("assignment, statuses, ratings, invoices, reminders, catalogue and reports"
       assert.equal((await db.select().from(hbsDocumentReminders).where(eq(hbsDocumentReminders.id, created.data.id)))[0].lastReminderDays, 7);
       await call(customerA, "PUT", `/reminders/${created.data.id}`, { kind: "iqama", label: "Ahmad", expiresOn: later, note: null });
       assert.equal((await db.select().from(hbsDocumentReminders).where(eq(hbsDocumentReminders.id, created.data.id)))[0].lastReminderDays, null);
+
+      // A reminder that could not be sent is not counted as sent: the next sweep tries again.
+      const retry = await call(customerA, "POST", "/reminders", { kind: "passport", label: "Retry", expiresOn: soon });
+      const reminderRow = async () => (await db.select().from(hbsDocumentReminders).where(eq(hbsDocumentReminders.id, retry.data.id)))[0];
+      await sendDueReminders(async () => { throw new Error("mail server down"); });
+      assert.equal((await reminderRow()).lastReminderDays, null, "the claim is given back");
+      await sendDueReminders(fakeSend);
+      assert.equal((await reminderRow()).lastReminderDays, 7);
+      assert.equal(sent.filter(u => u === customerA).length, 2);
+      await sendDueReminders(fakeSend);
+      assert.equal(sent.filter(u => u === customerA).length, 2);
 
       const office = await call(staff, "POST", `/office/service-requests/${reqB.id}/reminders`, { kind: "passport", label: "Sara", expiresOn: soon });
       assert.equal(office.status, 201);

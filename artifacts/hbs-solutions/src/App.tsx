@@ -149,11 +149,36 @@ function OfficeAccessProvider({ children }: { children: ReactNode }) {
   const restore = () => { setDenied(false); lastRole.current = null; };
   return <OfficeAccessContext.Provider value={{ denied, restore }}>{children}</OfficeAccessContext.Provider>;
 }
+// Clerk's script comes from a CDN; when it is blocked or very slow `isLoaded`
+// never turns true. After the delay the screens that wait on it stop spinning
+// and say so, with a reload as the retry (the script is fetched once per load).
+const CLERK_STALL_MS = 8_000;
+function useClerkStalled(isLoaded: boolean): boolean {
+  const [stalled, setStalled] = useState(false);
+  useEffect(() => {
+    if (isLoaded) { setStalled(false); return; }
+    const timer = window.setTimeout(() => setStalled(true), CLERK_STALL_MS);
+    return () => window.clearTimeout(timer);
+  }, [isLoaded]);
+  return stalled && !isLoaded;
+}
+function ClerkStalled() {
+  return <div role="alert" className="surface relative mx-auto w-full max-w-md p-8 text-center">
+    <h2 className="display text-xl">تعذّر تحميل تسجيل الدخول</h2>
+    <p className="muted my-4 text-sm leading-7">تعذّر تحميل تسجيل الدخول. تحقق من الاتصال ثم أعد المحاولة.</p>
+    <button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>إعادة المحاولة</button>
+  </div>;
+}
+// The gate's own waiting state: the skeleton, or the stall notice once Clerk is late.
+function AuthWait({ stalled }: { stalled: boolean }) {
+  return <div dir="rtl" className="mx-auto max-w-2xl p-10">{stalled ? <ClerkStalled/> : <LoadingBlock/>}</div>;
+}
 function RoleGate({ children, staff = false, owner = false, registration = false }: { children: ReactNode; staff?: boolean; owner?: boolean; registration?: boolean }) {
   const { isLoaded, isSignedIn } = useAuth();
+  const stalled = useClerkStalled(!!isLoaded);
   const { denied, restore } = useContext(OfficeAccessContext);
   const me = useGetPortalMe({ query: { enabled: !!isLoaded && !!isSignedIn, queryKey: getGetPortalMeQueryKey(), refetchInterval: 20_000 } });
-  if (!isLoaded) return <div dir="rtl" className="mx-auto max-w-2xl p-10"><LoadingBlock/></div>;
+  if (!isLoaded) return <AuthWait stalled={stalled}/>;
   if (!isSignedIn) return <Redirect to="/sign-in"/>;
   if (staff && (denied || (me.data && me.data.role !== 'staff'))) return <div dir="rtl" role="alert" className="mx-auto max-w-2xl p-10">
     <div className="surface p-8 text-center"><h1 className="display text-2xl">لم تعد لديك صلاحية الوصول إلى المكتب</h1>
@@ -169,15 +194,20 @@ function RoleGate({ children, staff = false, owner = false, registration = false
   if (registration && me.data?.registrationStatus === 'approved') return <Redirect to="/dashboard"/>;
   return <>{children}</>;
 }
+// The landing page never waits for Clerk: visitors see it at once, and only
+// the signed-in redirect depends on the auth script having loaded.
 function HomeRoute() {
   const { isLoaded, isSignedIn } = useAuth();
-  if (!isLoaded) return <div dir="rtl" className="mx-auto max-w-2xl p-10"><LoadingBlock/></div>;
-  return isSignedIn ? <RoleGate><Redirect to="/dashboard"/></RoleGate> : <Landing/>;
+  if (isLoaded && isSignedIn) return <RoleGate><Redirect to="/dashboard"/></RoleGate>;
+  return <Landing/>;
 }
 function AuthPage({kind}:{kind:'sign-in'|'sign-up'}) {
-  const { isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
+  const stalled = useClerkStalled(!!isLoaded);
   if (isSignedIn) return <RoleGate><Redirect to="/dashboard"/></RoleGate>;
-  return <div dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center gap-7 px-4 py-10"><SceneWindow edge="top"/><a href={basePath || '/'} className="display rounded-full bg-night/60 px-5 py-2 text-xl font-semibold text-on-dark no-underline backdrop-blur">HBS / حلول الغد</a>{kind==='sign-up' && <p className="max-w-sm rounded-2xl bg-night/70 px-5 py-3 text-center text-sm leading-7 text-on-dark-2 backdrop-blur">أنشئ حسابًا بالبريد الإلكتروني وتحقق منه، ثم قدّم طلب تسجيل يراجعه المكتب قبل إتاحة خدمات البوابة.</p>}<div dir="rtl" className="w-full max-w-[440px]">{kind==='sign-in' ? <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /> : <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />}</div><p className="rounded-full bg-night/70 px-4 py-2 text-center text-xs text-on-dark-2 backdrop-blur">تتوفر خدمات العملاء بعد موافقة المكتب على طلب التسجيل.</p></div>;
+  const title = kind==='sign-in' ? 'تسجيل الدخول' : 'إنشاء حساب';
+  // Clerk's card carries the visible heading; the page keeps its own h1 for assistive tech.
+  return <main dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center gap-7 px-4 py-10"><SceneWindow edge="top"/><h1 className="sr-only">{title}</h1><a href={basePath || '/'} className="display rounded-full bg-night/60 px-5 py-2 text-xl font-semibold text-on-dark no-underline backdrop-blur">HBS / حلول الغد</a>{kind==='sign-up' && <p className="max-w-sm rounded-2xl bg-night/70 px-5 py-3 text-center text-sm leading-7 text-on-dark-2 backdrop-blur">أنشئ حسابًا بالبريد الإلكتروني وتحقق منه، ثم قدّم طلب تسجيل يراجعه المكتب قبل إتاحة خدمات البوابة.</p>}<div dir="rtl" className="w-full max-w-[440px]">{stalled ? <ClerkStalled/> : kind==='sign-in' ? <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /> : <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />}</div><p className="rounded-full bg-night/70 px-4 py-2 text-center text-xs text-on-dark-2 backdrop-blur">تتوفر خدمات العملاء بعد موافقة المكتب على طلب التسجيل.</p></main>;
 }
 function Missing() { return <main dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center p-6 text-center text-on-dark"><SceneWindow edge="top"/><div className="relative rounded-[22px] bg-night/70 px-8 py-10 backdrop-blur"><div className="display text-7xl font-semibold text-copper-light">404</div><h1 className="display mt-5 text-2xl">الصفحة غير موجودة</h1><p className="mt-3 text-sm text-on-dark-2">قد يكون الرابط غير صحيح أو تغيّر مكان الصفحة.</p><a href={basePath || '/'} className="btn btn-light mt-7">العودة للرئيسية</a></div></main>; }
 const isPublicPath = (location: string) => location === '/' || location === '/services' || location.startsWith('/services/') || location === '/trust' || location === '/help' || location === '/privacy' || location === '/terms';

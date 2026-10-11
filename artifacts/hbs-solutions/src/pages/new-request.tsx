@@ -7,6 +7,7 @@ import { PortalLayout, PageHeading } from '@/components/portal-ui';
 import { categories, categoryById, serviceBySlug, services, type ServiceCategory } from '@/content/services';
 import { ServiceOffer } from '@/components/service-offer';
 import { ACCEPT_ATTR, MAX_FILES, RETENTION_NOTE, checkFile, sizeText, uploadError, uploadFile } from '@/components/request-files';
+import { normalizePhone } from '@/lib/phone';
 import './new-request.css';
 
 // Three steps over the existing API contract (category, service,
@@ -30,10 +31,8 @@ function validate(step: number, v: { service: string; description: string; conta
     const d = v.description.trim().length;
     if (d < LIMITS.description[0]) e.description = 'اكتب تفاصيل أكثر قليلًا (10 أحرف على الأقل) ليفهم المكتب طلبك.';
     else if (d > LIMITS.description[1]) e.description = `التفاصيل أطول من ${LIMITS.description[1]} حرف.`;
-    const phone = v.contactPhone.trim();
-    const digits = phone.replace(/\D/g, '').length;
-    if (phone.length < LIMITS.phone[0] || digits < 9) e.contactPhone = 'اكتب رقم جوال صحيحًا للتواصل (9 أرقام على الأقل).';
-    else if (phone.length > LIMITS.phone[1]) e.contactPhone = 'رقم التواصل أطول من المسموح.';
+    // Arabic digits and spacing are fine; the number is sent in its canonical form.
+    if (!normalizePhone(v.contactPhone)) e.contactPhone = 'اكتب رقم جوال صحيحًا (مثال: 05xxxxxxxx)';
   }
   return e;
 }
@@ -121,7 +120,7 @@ export function NewRequest() {
       // A link to an employee or license that is no longer in the file is ignored.
       const [subjectType, subjectId] = subjectLabel ? subject.split(':') : [];
       const link = subjectType === 'employee' ? { employeeId: Number(subjectId) } : subjectType === 'license' ? { licenseId: Number(subjectId) } : {};
-      const result = await mutation.mutateAsync({ data: { category, service: service.trim(), description: description.trim(), contactPhone: contactPhone.trim(), clientRequestId, ...link, ...(attachmentIds.length ? { attachmentIds } : {}) } });
+      const result = await mutation.mutateAsync({ data: { category, service: service.trim(), description: description.trim(), contactPhone: normalizePhone(contactPhone) ?? contactPhone.trim(), clientRequestId, ...link, ...(attachmentIds.length ? { attachmentIds } : {}) } });
       await Promise.all([qc.invalidateQueries({ queryKey: getListServiceRequestsQueryKey() }), qc.invalidateQueries({ queryKey: getGetPortalSummaryQueryKey() })]);
       navigate(`/requests/${result.id}?sent=1`);
     } catch { /* error shown below */ }
@@ -223,7 +222,7 @@ export function NewRequest() {
                   <div><dt>الخدمة</dt><dd>{service.trim()}</dd><button type="button" onClick={() => go(0)} aria-label="تعديل اسم الخدمة"><Pencil size={15} /></button></div>
                   <div className="nr-review-wide"><dt>التفاصيل</dt><dd className="whitespace-pre-wrap">{description.trim()}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل التفاصيل"><Pencil size={15} /></button></div>
                   {subjectLabel && <div className="nr-review-wide"><dt>يخص</dt><dd>{subjectLabel}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل ما يخصه الطلب"><Pencil size={15} /></button></div>}
-                  <div><dt>رقم التواصل</dt><dd dir="ltr" className="text-right">{contactPhone.trim()}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل رقم التواصل"><Pencil size={15} /></button></div>
+                  <div><dt>رقم التواصل</dt><dd dir="ltr" className="text-right">{normalizePhone(contactPhone) ?? contactPhone.trim()}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل رقم التواصل"><Pencil size={15} /></button></div>
                   <div className="nr-review-wide"><dt>المستندات</dt><dd>{files.length ? files.map((f) => f.name).join('، ') : 'لا توجد'}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل المستندات"><Pencil size={15} /></button></div>
                 </dl>
                 <p className="muted mt-5 text-sm leading-7">سيراجع المكتب طلبك، وإن احتاج مستندًا إضافيًا تصبح الحالة «بانتظار العميل» وترفعه من صفحة الطلب.</p>

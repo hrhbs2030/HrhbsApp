@@ -13,7 +13,8 @@
   (the Clerk sign-in theme). Keep both in step.
 
   Contrast (WCAG 2.1): every text token below passes 4.5:1 on the surface it
-  is meant for; the pairs are listed next to each value.
+  is meant for, and control borders (--color-line-strong) pass 3:1 (1.4.11)
+  on the field and surface colours; the pairs are listed next to each value.
 */
 @theme {
   /* Ground */
@@ -24,7 +25,7 @@
   --color-field: #fffcf6;        /* inputs */
   --color-sunk: #f1efe6;         /* inset panels */
   --color-line: #e4e0d4;         /* hairlines, card borders */
-  --color-line-strong: #c9d0c7;  /* input borders, outlined buttons */
+  --color-line-strong: #84918a;  /* input borders, outlined buttons — 3.2:1 on field, 3.1:1 on surface */
   --color-line-dark: #376064;    /* hairlines on the sidebar */
   --color-line-dark-2: #709590;  /* outlined controls on the sidebar */
 
@@ -109,7 +110,7 @@
   --background: 47 30% 95%;
   --foreground: 185 48% 18%;
   --border: 44 22% 86%;
-  --input: 105 8% 80%;
+  --input: 140 6% 54%;           /* mirrors --color-line-strong */
   --ring: 184 55% 20%;
   --card: 45 55% 97%;
   --card-foreground: 185 48% 18%;
@@ -161,6 +162,8 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .btn-accent { color: var(--color-on-dark); background: var(--color-copper); }
 .btn-accent:hover:not(:disabled) { background: var(--color-copper-2); }
 .btn-sm { min-height: 40px; padding: .45rem 1rem; font-size: .85rem; }
+/* Touch: small buttons still reach a 44px target. */
+@media (pointer: coarse) { .btn-sm { min-height: 44px; } }
 
 .eyebrow { color: var(--color-copper); font-size: .8rem; font-weight: 700; }
 .surface { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-card); box-shadow: var(--shadow-card); }

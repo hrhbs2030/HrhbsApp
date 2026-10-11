@@ -1,5 +1,6 @@
 import { logger } from "./logger";
 import type { Mail } from "./notify";
+import { normalizePhone } from "./phone";
 
 // WhatsApp messages through the WhatsApp Business Cloud API (Meta). The
 // office opens messages, so Meta requires an approved template. The template
@@ -20,10 +21,8 @@ export function whatsappConfigured(): boolean {
 // Saudi numbers as customers type them (05XXXXXXXX, 5XXXXXXXX, +9665…,
 // 009665…) become 9665XXXXXXXX. Anything else is rejected.
 export function saudiMobile(input: string): string | null {
-  const digits = input.replace(/[\s\-()]/g, "").replace(/^\+/, "").replace(/^00/, "");
-  if (!/^\d+$/.test(digits)) return null;
-  const local = digits.startsWith("966") ? digits.slice(3) : digits.startsWith("0") ? digits.slice(1) : digits;
-  return /^5\d{8}$/.test(local) ? `966${local}` : null;
+  const phone = normalizePhone(input);
+  return phone && /^05\d{8}$/.test(phone) ? `966${phone.slice(1)}` : null;
 }
 
 // Template variables may not contain new lines, tabs or more than four

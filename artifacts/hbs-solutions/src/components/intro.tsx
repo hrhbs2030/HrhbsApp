@@ -1,6 +1,8 @@
-import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, Check, CreditCard, FileText, MessageCircle, Search, Send, UsersRound } from 'lucide-react';
 import { introScenes, type IntroScene } from '@/content/intro-script';
+import { milestoneLabels } from '@/content/milestones';
 import { prefersReducedMotion, safeStorage } from '@/lib/motion';
 import './intro.css';
 
@@ -86,12 +88,12 @@ function RequestVisual() {
   </div>;
 }
 
-const steps = ['تم الاستلام', 'قيد المراجعة', 'تم الرفع للجهة', 'مكتملة'];
+// The four portal milestones, from content/milestones.ts.
 function OfficeVisual() {
   return <div className="iv iv-office">
     <Card className="iv-a">
       <div className="iv-head"><b>تجديد الإقامة</b><span dir="ltr">{REF}</span></div>
-      <ol className="iv-track">{steps.map((s, i) => <li key={s} style={{ '--d': `${0.5 + i * 0.45}s` } as CSSProperties}><span className="iv-dot"><Check size={10} strokeWidth={3} /></span>{s}</li>)}</ol>
+      <ol className="iv-track">{milestoneLabels.map((s, i) => <li key={s} style={{ '--d': `${0.5 + i * 0.45}s` } as CSSProperties}><span className="iv-dot"><Check size={10} strokeWidth={3} /></span>{s}</li>)}</ol>
     </Card>
     <div className="iv-chat">
       <span className="iv-bubble is-them" style={{ '--d': '1.6s' } as CSSProperties}><MessageCircle size={13} />رفعنا طلبك للجهة المختصة</span>
@@ -107,7 +109,7 @@ function DocumentsVisual() {
     <Card className="iv-invoice">
       <div className="iv-head"><b>فاتورة</b><span dir="ltr">INV-2026-00012</span></div>
       <div className="iv-rows"><span>أتعاب الخدمة</span><span dir="ltr">200.00</span><span>ضريبة القيمة المضافة</span><span dir="ltr">30.00</span><b>الإجمالي</b><b dir="ltr">230.00 ر.س</b></div>
-      <span className="iv-pay"><CreditCard size={14} />مدى · Apple Pay</span>
+      <span className="iv-pay"><CreditCard size={14} />دفع إلكتروني آمن</span>
       <span className="iv-stamp">مسددة</span>
     </Card>
   </div>;
@@ -133,20 +135,32 @@ function SceneVisual({ scene }: { scene: IntroScene['key'] }) {
   return null;
 }
 
-export function IntroSequence({ onDone }: { onDone: () => void }) {
+// `pageRef` is the page root the film covers: it is made inert while the film
+// plays so focus and taps cannot reach the page underneath. The film itself
+// renders in a portal on <body>, outside that root. `focusRef` (the replay
+// button, or several of which one is visible) gets focus back when the film
+// ends; otherwise focus returns to where it was, or to #main.
+type FocusRef = RefObject<HTMLElement | null>;
+type IntroProps = { onDone: () => void; pageRef?: RefObject<HTMLElement | null>; focusRef?: FocusRef | FocusRef[] };
+export function IntroSequence({ onDone, pageRef, focusRef }: IntroProps) {
   const [index, setIndex] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const doneRef = useRef(false);
+  const exitTimer = useRef(0);
   const hold = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('intro') === 'hold';
   const scene = introScenes[index];
+  const last = index === introScenes.length - 1;
 
   const leave = useCallback((fast: boolean) => {
     if (doneRef.current) return;
     doneRef.current = true;
     if (fast) { onDone(); return; }
     setLeaving(true);
-    window.setTimeout(onDone, EXIT_MS);
+    exitTimer.current = window.setTimeout(onDone, EXIT_MS);
   }, [onDone]);
+  // A tap or click anywhere on the film moves to the next scene; on the last
+  // scene it hands over to the page. The skip button is a sibling, not inside.
+  const advance = () => { if (last) leave(true); else setIndex((i) => i + 1); };
 
   // One timer per scene; the last scene hands over to the page.
   useEffect(() => {
@@ -166,17 +180,28 @@ export function IntroSequence({ onDone }: { onDone: () => void }) {
       if (event.key === 'ArrowRight') setIndex(i => Math.max(i - 1, 0));
     };
     window.addEventListener('keydown', onKey);
+    const page = pageRef?.current ?? null;
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.documentElement.style.overflow;
     document.documentElement.style.overflow = 'hidden';
+    if (page) page.inert = true;
     return () => {
       window.removeEventListener('keydown', onKey);
-      document.documentElement.style.overflow = '';
+      window.clearTimeout(exitTimer.current);
+      // Restored on every exit path, including an unmount mid-fade.
+      document.documentElement.style.overflow = overflow;
+      if (page) page.inert = false;
+      const visible = (el: HTMLElement | null | undefined): el is HTMLElement => !!el && el.isConnected && el.offsetParent !== null;
+      const replays = (Array.isArray(focusRef) ? focusRef : [focusRef]).map((ref) => ref?.current);
+      const target = [...replays, previous !== document.body ? previous : null].find(visible) ?? document.getElementById('main');
+      target?.focus({ preventScroll: true });
     };
-  }, [leave]);
+  }, [leave, pageRef, focusRef]);
 
   const brand = scene.key === 'brand' || scene.key === 'done';
-  return (
+  return createPortal(
     <>
-      <div className={`intro ${leaving ? 'intro--leaving' : ''} ${hold ? 'intro--hold' : ''}`} aria-hidden="true">
+      <div className={`intro ${leaving ? 'intro--leaving' : ''} ${hold ? 'intro--hold' : ''}`} aria-hidden="true" onClick={advance}>
         <div className="intro-bg">
           <span className="intro-pattern" />
           <span className="intro-orb intro-orb--a" />
@@ -200,9 +225,10 @@ export function IntroSequence({ onDone }: { onDone: () => void }) {
           </span>)}</div>
       </div>
       {/* Screen readers get the page itself; the film is decorative. */}
-      <button type="button" className={`intro-skip ${leaving ? 'intro-skip--leaving' : ''}`} onClick={() => leave(true)}>
+      <button type="button" className={`intro-skip ${leaving ? 'intro-skip--leaving' : ''}`} onClick={() => leave(true)} autoFocus>
         تخطَّ المقدمة
       </button>
-    </>
+    </>,
+    document.body,
   );
 }

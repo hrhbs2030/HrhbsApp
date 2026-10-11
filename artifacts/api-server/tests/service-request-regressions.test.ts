@@ -58,7 +58,7 @@ test("service request retries are idempotent per customer and waiting messages s
       category: "business",
       service: "Business registration",
       description: "Please help with a business registration.",
-      contactPhone: "0000000000",
+      contactPhone: "0500000000",
       clientRequestId,
     };
     const [waitingRequest] = await db.insert(hbsServiceRequests).values({
@@ -66,7 +66,7 @@ test("service request retries are idempotent per customer and waiting messages s
       category: "labor",
       service: "Employment document review",
       description: "Review my employment documents.",
-      contactPhone: "0000000000",
+      contactPhone: "0500000000",
       status: "waiting_on_customer",
       customerMessage: "Please provide a clearer copy of the document.",
       officeNote: "PRIVATE internal follow-up note",
@@ -76,7 +76,7 @@ test("service request retries are idempotent per customer and waiting messages s
       category: "other",
       service: "Existing customer request",
       description: "Existing request used to grant test customer access.",
-      contactPhone: "1111111111",
+      contactPhone: "0511111111",
     });
 
     const first = await request(base, customerA, "/service-requests", body);

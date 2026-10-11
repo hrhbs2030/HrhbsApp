@@ -9,6 +9,7 @@ const webChecks = [
   [hbs, 'check:site'],
   [hbs, 'test:office'],
   [hbs, 'test:excel'],
+  [hbs, 'test:lib'],
   [hbs, 'test:city'],
   [hbs, 'test:assistant-source'],
   [hbs, 'test:services-contrast'],

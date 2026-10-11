@@ -32,12 +32,20 @@
 .hbs-landing[data-intro="playing"] :is(.lp-word, .lp-enter, .lp-enter-visual) { animation-play-state: paused; }
 
 .lp-search-wrap { margin-top: 20px; max-width: 540px; }
+.lp-search-wrap--mobile { display: none; }
+.lp-replay--how { display: none; }
 .lp-search { display: flex; align-items: center; gap: 10px; padding: 6px; padding-inline-start: 16px; border-radius: 14px; border: 1px solid rgb(255 255 255 / .14); background: rgb(8 26 28 / .45); backdrop-filter: blur(10px); color: var(--color-on-dark-2); transition: border-color var(--duration-hover) ease, background-color var(--duration-hover) ease; }
 .lp-search:focus-within { border-color: var(--color-copper-light); background: rgb(8 26 28 / .6); }
 .lp-search input { flex: 1; min-width: 0; min-height: 44px; border: 0; outline: none; background: transparent; color: var(--color-on-dark); font-size: 15px; }
 .lp-search input::placeholder { color: var(--color-on-dark-2); opacity: .85; }
 .lp-search input::-webkit-search-cancel-button { filter: invert(1); }
 .lp-search .btn { min-height: 44px; }
+/* Paper variant for the phone placement inside the service-areas section. */
+.lp-search--light { border-color: var(--color-line-strong); background: var(--color-field); backdrop-filter: none; color: var(--color-subtle); }
+.lp-search--light:focus-within { border-color: var(--color-teal-bright); background: var(--color-field); box-shadow: 0 0 0 3px rgb(29 97 100 / .14); }
+.lp-search--light input { color: var(--color-ink); }
+.lp-search--light input::placeholder { color: var(--color-subtle); }
+.lp-search--light input::-webkit-search-cancel-button { filter: none; }
 
 .lp-hero-visual { display: grid; gap: 26px; justify-items: center; }
 .lp-hero-rail { width: min(100%, 480px); padding: 12px 10px 6px; border-radius: 18px; border: 1px solid rgb(255 255 255 / .08); background: rgb(8 26 28 / .5); backdrop-filter: blur(10px); }
@@ -82,7 +90,7 @@
 /* ---------- Journey (scroll-driven) ---------- */
 .lp-journey { position: relative; isolation: isolate; overflow: clip; margin-top: var(--lp-space); background: var(--color-night); color: var(--color-on-dark); padding: var(--lp-space) 0; }
 .lp-journey-glow { position: absolute; z-index: -1; width: 800px; height: 800px; inset-inline-start: -300px; bottom: -300px; border-radius: 50%; background: radial-gradient(circle, rgb(143 208 198 / .08), transparent 62%); }
-.lp-journey-head { margin-bottom: 48px; }
+.lp-journey-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin-bottom: 48px; }
 .lp-film { margin-bottom: 44px; }
 .lp-chapters { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .lp-chapter { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; padding: 24px 22px; border-radius: var(--radius-panel); border: 1px solid rgb(255 255 255 / .08); background: rgb(255 255 255 / .03); transition: opacity var(--duration-reveal) var(--ease-out-soft), background-color var(--duration-reveal) ease, border-color var(--duration-reveal) ease; }
@@ -135,6 +143,14 @@
   .lp-trust-grid { grid-template-columns: minmax(0, 1fr); }
   .lp-trust-card + .lp-trust-card { border-inline-start: 0; border-top: 1px solid var(--color-line); }
 }
+@media (max-width: 720px) {
+  /* One primary CTA; the directory becomes a text link, search and the replay move below the fold. */
+  .lp-hero-actions .lp-hero-secondary { flex: 1 1 100%; min-height: 44px; padding: 0; border: 0; background: none; color: var(--color-on-dark); font-size: 15px; text-decoration: underline; text-decoration-color: rgb(246 239 227 / .35); text-underline-offset: 6px; }
+  .lp-hero-actions .lp-hero-secondary:hover:not(:disabled) { background: none; transform: none; text-decoration-color: currentColor; }
+  .lp-search-wrap--hero, .lp-replay--hero { display: none; }
+  .lp-search-wrap--mobile { display: block; margin: 0 0 22px; max-width: none; }
+  .lp-replay--how { display: inline-flex; margin-top: 0; }
+}
 @media (max-width: 640px) {
   .hbs-landing { --lp-space: 64px; }
   .lp-hero { padding: 96px 0 56px; }
@@ -161,6 +177,9 @@
   .lp-final { border-radius: var(--radius-panel); }
   .lp-final-actions .btn { flex: 1 1 100%; }
   .lp-search .btn { padding-inline: .9rem; }
+}
+@media (pointer: coarse) {
+  .intro-replay, .lp-search .btn { min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .reveal-ready .reveal { opacity: 1; transform: none; }

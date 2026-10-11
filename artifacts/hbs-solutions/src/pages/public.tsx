@@ -7,6 +7,8 @@ import { ServiceDiscovery } from '@/components/service-discovery';
 import { ServiceOffer } from '@/components/service-offer';
 import { categories, categoryById, platforms, searchServices, serviceBySlug, services, type ServiceCategory } from '@/content/services';
 import { faqs, trustFacts } from '@/content/site';
+import { milestones, pauses } from '@/content/milestones';
+import { formatNumber } from '@/lib/format';
 import './public.css';
 
 const ICON = 1.75;
@@ -23,12 +25,8 @@ function PageIntro({ kicker, title, text }: { kicker?: string; title: string; te
   );
 }
 
-const statusSteps = [
-  { label: 'تم الاستلام', text: 'يصلك رقم مرجعي فور الإرسال.' },
-  { label: 'قيد المراجعة', text: 'يعمل المكتب على طلبك ويحدّث حالته.' },
-  { label: 'بانتظار العميل', text: 'يحتاج المكتب معلومة منك، ويظهر لك تنبيه.' },
-  { label: 'مكتملة', text: 'انتهى الطلب ويبقى في سجلك.' },
-];
+// The four portal milestones (content/milestones.ts); the pauses are named below them.
+const pauseNote = `قد يتوقف الطلب عند المراجعة بحالة «${pauses.waiting_on_customer.label}» إن احتاج المكتب معلومة أو مستندًا منك، أو «${pauses.awaiting_payment.label}» حتى تسدَّد الفاتورة، ثم يتابع مساره.`;
 
 export function ServicesDirectory() {
   const search = useSearch();
@@ -165,14 +163,15 @@ export function ServiceDetail() {
             <section className="surface pub-block" aria-labelledby="flow-title">
               <h2 id="flow-title" className="display"><History size={20} strokeWidth={ICON} aria-hidden="true" />مراحل الطلب</h2>
               <ol className="pub-steps">
-                {statusSteps.map((step, index) => (
-                  <li key={step.label}>
-                    <span className="pub-step-num" aria-hidden="true">{index + 1}</span>
+                {milestones.map((step, index) => (
+                  <li key={step.key}>
+                    <span className="pub-step-num" aria-hidden="true">{formatNumber(index + 1)}</span>
                     <strong>{step.label}</strong>
-                    <span>{step.text}</span>
+                    <span>{step.short}</span>
                   </li>
                 ))}
               </ol>
+              <p className="pub-note"><Info size={16} strokeWidth={ICON} aria-hidden="true" />{pauseNote}</p>
             </section>
           </div>
 
