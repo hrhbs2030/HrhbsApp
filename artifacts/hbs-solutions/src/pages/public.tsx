@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams, useSearch } from 'wouter';
 import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, CircleHelp, FileText, Hash, History, Info, KeyRound, MessageSquareText, MessagesSquare, Search, ShieldCheck, Shapes, UserRoundCheck } from 'lucide-react';
 import { PublicPage } from '@/components/site-chrome';
+import { siteUrl } from '@/App';
+import { prefersReducedMotion } from '@/lib/motion';
 import { ContactCard } from '@/components/contact-card';
 import { ServiceDiscovery } from '@/components/service-discovery';
 import { ServiceOffer } from '@/components/service-offer';
@@ -33,9 +35,13 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 const ORG = 'HBS حلول الغد';
 
 // Structured data for crawlers that run scripts. The build prerenders the same
-// objects statically into each service page; when a static script of the same
-// @type is already in the head, the hook leaves it alone so nothing is doubled.
-const hasStaticJsonLd = (type: string) => [...document.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]:not([id])')].some((script) => {
+// objects (same shapes: scripts/prerender.mjs) statically into each service
+// page, so on the page the visitor landed on a static script of the same @type
+// is left alone and nothing is doubled. After the first client-side navigation
+// the meta effect in App.tsx drops the static scripts, and from then on the
+// runtime ones are always injected.
+const landedPath = typeof window === 'undefined' ? '' : window.location.pathname;
+const hasStaticJsonLd = (type: string) => window.location.pathname === landedPath && [...document.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]:not([id])')].some((script) => {
   try { return (JSON.parse(script.textContent || 'null') as { '@type'?: string } | null)?.['@type'] === type; } catch { return false; }
 });
 function useJsonLd(id: string, data: Record<string, unknown> | null) {
@@ -54,7 +60,9 @@ function useJsonLd(id: string, data: Record<string, unknown> | null) {
 }
 
 // Public URL of a route, without query string; used only in structured data.
-const pageUrl = (path: string) => (typeof window === 'undefined' ? path : `${window.location.origin}${basePath}${path}`);
+// Built from the site URL, not the current origin, so a preview host or the
+// bare domain never leaks into the data.
+const pageUrl = (path: string) => `${siteUrl}${basePath}${path}`;
 
 function ServiceCard({ service }: { service: ServiceEntry }) {
   const Icon = categoryIcons[service.category];
@@ -81,6 +89,16 @@ export function ServicesDirectory() {
   const [category, setCategory] = useState<ServiceCategory | null>(initialCategory);
   const [platform, setPlatform] = useState(platforms.includes(params.get('platform') ?? '') ? params.get('platform') : null);
   const results = useMemo(() => searchServices(query, category, platform), [query, category, platform]);
+  const searchField = useRef<HTMLInputElement>(null);
+  const scrollTo = (el: Element | null) => el?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  // Arriving with a query or filter (the hero search, a shared link): the
+  // search field and its results sit below the wizard, so bring them up and put
+  // the cursor in the field; a plain visit keeps the page at the top.
+  useEffect(() => {
+    if (!(params.get('q') || params.get('category') || params.get('platform'))) return;
+    requestAnimationFrame(() => { scrollTo(document.getElementById('directory-tools')); searchField.current?.focus({ preventScroll: true }); });
+    // Only on mount: the URL is kept in sync below without re-running this.
+  }, []);
 
   // Keep the URL shareable without adding a history entry per keystroke.
   useEffect(() => {
@@ -96,17 +114,19 @@ export function ServicesDirectory() {
   return (
     <PublicPage intro={<PageIntro kicker="دليل الخدمات" title="ما الخدمة التي تحتاجها؟" text="ابحث باسم المعاملة أو المنصة، أو صفِّ حسب المجال والمنصة. يستقبل المكتب طلبك ويراجع إمكانية المساعدة قبل البدء." />}>
       <div className="site-wrap pub-page">
+        {/* On phones the toolbar comes first (CSS order): the search is the primary tool, the wizard an alternative. */}
+        <div className="pub-directory-top">
         <ServiceDiscovery onViewAllMatches={({ query: nextQuery, category: nextCategory, platform: nextPlatform }) => {
           setQuery(nextQuery);
           setCategory(nextCategory);
           setPlatform(nextPlatform);
-          requestAnimationFrame(() => document.getElementById('directory-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+          requestAnimationFrame(() => scrollTo(document.getElementById('directory-results')));
         }} />
-        <div className="pub-toolbar">
+        <div id="directory-tools" className="pub-toolbar">
           <label className="pub-search">
             <span className="sr-only">ابحث في الخدمات</span>
             <Search size={19} strokeWidth={ICON} aria-hidden="true" />
-            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ابحث: إقامة، سجل تجاري، تأمينات" autoComplete="off" />
+            <input ref={searchField} type="search" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') scrollTo(document.getElementById('directory-results')); }} placeholder="ابحث: إقامة، سجل تجاري، تأمينات" autoComplete="off" />
           </label>
           <label className="pub-platform-filter" htmlFor="platform-filter">
             <span>المنصة</span>
@@ -121,6 +141,7 @@ export function ServicesDirectory() {
               <button key={c.id} type="button" aria-pressed={category === c.id} onClick={() => setCategory(category === c.id ? null : c.id)}>{c.name}</button>
             ))}
           </div>
+        </div>
         </div>
         <p className="pub-directory-intro">يجمع هذا الدليل الخدمات التي يقدّمها {ORG}، مكتب خدمات عامة في {contact.city}، للمنشآت والأفراد: معاملات الجوازات والإقامة، وشؤون العمل والرواتب، وتأسيس الشركات والتراخيص، ومعاملات أخرى تحتاجها منشأتك. تفتح كل خدمة صفحة توضح متى تحتاجها وما يفيد أن تكتبه في طلبك، ثم ترسل الطلب من حسابك ويتابعه المكتب معك خطوة بخطوة.</p>
         <p id="directory-results" className="pub-count" role="status" aria-live="polite">{resultsLabel(results.length)} · طلب الخدمة عبر المكتب بعد مراجعة الحالة، وليس ربطًا مباشرًا بالمنصة.</p>
@@ -161,13 +182,15 @@ export function ServiceDetail() {
   const category = service ? categoryById[service.category] : undefined;
   const path = service ? `/services/${service.slug}` : '';
 
-  // Breadcrumbs, the service itself and its FAQ, in the shape the build emits too.
+  // Breadcrumbs, the service itself and its FAQ, in the shape the build emits
+  // (buildPages in scripts/prerender.mjs): home → directory → service, and the
+  // category as the serviceType.
   useJsonLd('ld-breadcrumbs', service && category ? {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'دليل الخدمات', item: pageUrl('/services') },
-      { '@type': 'ListItem', position: 2, name: category.name, item: pageUrl(`/services?category=${category.slug}`) },
+      { '@type': 'ListItem', position: 1, name: 'الرئيسية', item: pageUrl('/') },
+      { '@type': 'ListItem', position: 2, name: 'دليل الخدمات', item: pageUrl('/services') },
       { '@type': 'ListItem', position: 3, name: service.name, item: pageUrl(path) },
     ],
   } : null);
@@ -176,10 +199,11 @@ export function ServiceDetail() {
     '@type': 'Service',
     name: service.name,
     description: service.summary,
-    provider: { '@type': 'ProfessionalService', name: ORG },
-    areaServed: contact.city,
-    serviceType: category.name,
     url: pageUrl(path),
+    serviceType: category.name,
+    inLanguage: 'ar',
+    areaServed: { '@type': 'City', name: contact.city, containedInPlace: { '@type': 'Country', name: 'SA' } },
+    provider: { '@type': 'ProfessionalService', name: ORG },
   } : null);
   useJsonLd('ld-faq', service ? {
     '@context': 'https://schema.org',
@@ -227,12 +251,12 @@ export function ServiceDetail() {
       <div className="site-wrap pub-page">
         <div className="pub-split">
           <div className="pub-detail-main">
-            <p className="pub-detail-intro">{service.intro}</p>
-            {/* On phones the sidebar lands below everything, so the same action sits right under the intro. */}
+            {/* On phones the sidebar lands below everything, so the same action sits right under the title band, inside the first screen even for long intros. */}
             <p className="pub-cta-inline">
               <Link href={startHref} className="btn btn-primary">ابدأ الطلب <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
               <span>يلزم حساب معتمد من المكتب.</span>
             </p>
+            <p className="pub-detail-intro">{service.intro}</p>
             <ServiceOffer slug={service.slug} />
             <section className="surface pub-block" aria-labelledby="write-title">
               <h2 id="write-title" className="display"><FileText size={20} strokeWidth={ICON} aria-hidden="true" />ما يفيد أن تكتبه في طلبك</h2>

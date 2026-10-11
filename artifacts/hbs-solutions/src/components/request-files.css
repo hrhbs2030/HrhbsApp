@@ -23,3 +23,20 @@
 .rf-spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-top-color: transparent; animation: rf-spin .8s linear infinite; }
 @keyframes rf-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .rf-spinner { animation-duration: 2.4s; } }
+/* The camera button is for phones: touch screens or narrow viewports. */
+.rf-head .rf-camera, .nr-files-head .rf-camera { display: none; }
+@media (pointer: coarse), (max-width: 720px) { .rf-head .rf-camera, .nr-files-head .rf-camera { display: inline-flex; } }
+/* Required-documents checklist above the file list: one row per item, linked file name under the label. */
+.rf-check { margin-bottom: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--color-line); background: var(--color-paper); }
+.rf-check-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 12.5px; font-weight: 700; color: var(--color-subtle); }
+.rf-check-head svg { color: var(--color-copper); }
+.rf-check ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.rf-check li { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 0; }
+.rf-check li + li { border-top: 1px solid var(--color-line); }
+.rf-check-mark { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--color-line-strong); color: var(--color-subtle); }
+.rf-check-mark.is-done { background: var(--color-ok); border-color: var(--color-ok); color: var(--color-on-dark); }
+.rf-check-main { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.rf-check-main strong { font-size: 14px; }
+.rf-check-main small { color: var(--color-subtle); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-check li[data-done] .rf-check-main strong { color: var(--color-quiet); }
+.rf-btn--text { font-size: 12.5px; font-weight: 700; }

@@ -9,6 +9,7 @@ import {
   officeNewRequestMail,
   registrationDecisionMail,
   renderMail,
+  sendMailNow,
   statusChangedMail,
 } from "../src/lib/notify";
 
@@ -69,4 +70,23 @@ test("office inbox falls back to the owner email, and nothing is sent without SM
   if (saved.notify === undefined) delete process.env.HBS_NOTIFY_EMAIL; else process.env.HBS_NOTIFY_EMAIL = saved.notify;
   if (saved.office === undefined) delete process.env.HBS_OFFICE_EMAIL; else process.env.HBS_OFFICE_EMAIL = saved.office;
   if (saved.host !== undefined) process.env.SMTP_HOST = saved.host;
+});
+
+test("sendMailNow reports an SMTP failure to its caller and skips quietly when mail is off", async () => {
+  const saved = { host: process.env.SMTP_HOST, user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
+  const mail = { to: "a@b.test", subject: "s", heading: "h", lines: ["l"] };
+  try {
+    process.env.SMTP_HOST = "smtp.example.invalid"; process.env.SMTP_USER = "u"; process.env.SMTP_PASS = "p";
+    const sent: unknown[] = [];
+    await sendMailNow(mail, async options => { sent.push(options); });
+    assert.equal(sent.length, 1);
+    await assert.rejects(sendMailNow(mail, async () => { throw Object.assign(new Error("secret@host refused"), { code: "ECONNECTION" }); }),
+      (error: Error) => /ECONNECTION/.test(error.message) && !/secret@host/.test(error.message));
+    delete process.env.SMTP_HOST;
+    await sendMailNow(mail, async () => { throw new Error("must not be called"); });
+  } finally {
+    for (const [key, value] of [["SMTP_HOST", saved.host], ["SMTP_USER", saved.user], ["SMTP_PASS", saved.pass]] as const) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  }
 });

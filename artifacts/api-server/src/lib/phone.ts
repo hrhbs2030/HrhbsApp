@@ -1,7 +1,8 @@
 // Phone numbers as customers type them: Arabic-Indic (٠-٩) or Persian (۰-۹)
 // digits, spaces, dashes and brackets, with or without the country code.
-// Saudi mobiles are stored as 05XXXXXXXX so that one number has one spelling
-// to search for; any other international number keeps its code as +<digits>.
+// Saudi mobiles are stored as 05XXXXXXXX and Saudi landlines as 01XXXXXXXX
+// so that one number has one spelling to search for; any other international
+// number keeps its code as +<digits>.
 
 const ARABIC_INDIC = "٠١٢٣٤٥٦٧٨٩";
 const PERSIAN = "۰۱۲۳۴۵۶۷۸۹";
@@ -20,7 +21,7 @@ export function normalizePhone(input: string): string | null {
   const digits = international ?? text;
   if (!/^\d+$/.test(digits)) return null;
   const local = digits.startsWith("966") ? digits.slice(3) : international === null && digits.startsWith("0") ? digits.slice(1) : digits;
-  if (/^5\d{8}$/.test(local)) return `0${local}`;
+  if (/^[15]\d{8}$/.test(local)) return `0${local}`;
   if (international !== null && !international.startsWith("0") && international.length >= 8 && international.length <= 15) return `+${international}`;
   return null;
 }

@@ -1,6 +1,6 @@
 import { and, eq, isNull, or, gt, sql } from "drizzle-orm";
 import { db, hbsDocumentReminders } from "@workspace/db";
-import { notifyCustomer } from "./customer-contact";
+import { notifyCustomerNow } from "./customer-contact";
 import { logger } from "./logger";
 import { reminderMail } from "./notify";
 
@@ -34,7 +34,7 @@ function expiresText(date: string): string {
   return new Intl.DateTimeFormat("ar-SA-u-ca-gregory", { dateStyle: "long", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
 }
 
-export async function sendDueReminders(send: typeof notifyCustomer = notifyCustomer): Promise<number> {
+export async function sendDueReminders(send: typeof notifyCustomerNow = notifyCustomerNow): Promise<number> {
   const rows = await db.select({
     id: hbsDocumentReminders.id,
     daysLeft: sql<number>`(${hbsDocumentReminders.expiresOn} - ${riyadhToday()})::int`,

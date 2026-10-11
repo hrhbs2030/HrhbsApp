@@ -12,9 +12,11 @@ export function normalizePhone(input: string): string | null {
   if (!/^(\+|00)?\d+$/.test(compact)) return null;
   const international = compact.startsWith('+') || compact.startsWith('00');
   const digits = compact.replace(/^(\+|00)/, '');
-  // Saudi mobile in any of its spellings.
-  if (!international && /^0?5\d{8}$/.test(digits)) return `0${digits.replace(/^0/, '')}`;
-  if (/^9665\d{8}$/.test(digits)) return `0${digits.slice(3)}`;
+  // Saudi mobile (05…) or landline (01…) in any of its spellings: company
+  // contact numbers are often landlines, and records saved before this
+  // normaliser existed must still be editable.
+  if (!international && /^0?[15]\d{8}$/.test(digits)) return `0${digits.replace(/^0/, '')}`;
+  if (/^966[15]\d{8}$/.test(digits)) return `0${digits.slice(3)}`;
   // No country code starts with 0, so "+05…" is a typo, as the API also treats it.
   if (international && !digits.startsWith('0') && digits.length >= 8 && digits.length <= 15) return `+${digits}`;
   return null;

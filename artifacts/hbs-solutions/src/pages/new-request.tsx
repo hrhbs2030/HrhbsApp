@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, Check, Paperclip, Pencil, Send, Shapes, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, Camera, Check, Paperclip, Pencil, Send, Shapes, X } from 'lucide-react';
 import { getGetCompanyFileQueryKey, getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, useCreateServiceRequest, useGetCompanyFile, type ServiceRequestInputCategory } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading } from '@/components/portal-ui';
 import { categories, categoryById, serviceBySlug, services, type ServiceCategory } from '@/content/services';
 import { ServiceOffer } from '@/components/service-offer';
-import { ACCEPT_ATTR, MAX_FILES, RETENTION_NOTE, checkFile, sizeText, uploadError, uploadFile } from '@/components/request-files';
+import { ACCEPT_ATTR, CAMERA_ACCEPT, MAX_FILES, RETENTION_NOTE, prepareFiles, sizeText, uploadError, uploadFile } from '@/components/request-files';
 import { normalizePhone } from '@/lib/phone';
 import './new-request.css';
 
@@ -58,11 +58,15 @@ export function NewRequest() {
   const [files, setFiles] = useState<File[]>([]);
   const [fileProblems, setFileProblems] = useState<string[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   // Uploaded files keep their reservation, so a retry does not upload them again.
   const uploaded = useRef(new Map<File, number>());
+  // Photos shrunk on the device: the size they had before, shown next to the new one.
+  const originalSizes = useRef(new Map<File, number>());
   // One id per form: a retried submission returns the same request, never a duplicate.
   const [clientRequestId] = useState(() => crypto.randomUUID());
   const fileInput = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const values = { service, description, contactPhone };
@@ -92,14 +96,18 @@ export function NewRequest() {
     if (step < 2) go(step + 1);
     else void submit();
   }
-  function pickFiles(event: ChangeEvent<HTMLInputElement>) {
+  async function pickFiles(event: ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(event.target.files ?? []);
     event.target.value = '';
-    const problems: string[] = [];
-    const valid = picked.filter((file) => { const p = checkFile(file); if (p) problems.push(p); return !p; });
+    if (!picked.length) return;
+    setPreparing(true);
+    const { files: valid, problems } = await prepareFiles(picked);
+    setPreparing(false);
     const room = MAX_FILES - files.length;
     if (valid.length > room) problems.push(`يمكن إرفاق ${MAX_FILES} ملفات كحد أقصى.`);
-    setFiles([...files, ...valid.slice(0, Math.max(room, 0))]);
+    const added = valid.slice(0, Math.max(room, 0));
+    for (const { file, originalSize } of added) if (originalSize !== null) originalSizes.current.set(file, originalSize);
+    setFiles([...files, ...added.map(({ file }) => file)]);
     setFileProblems(problems);
   }
   async function submit() {
@@ -120,7 +128,7 @@ export function NewRequest() {
       // A link to an employee or license that is no longer in the file is ignored.
       const [subjectType, subjectId] = subjectLabel ? subject.split(':') : [];
       const link = subjectType === 'employee' ? { employeeId: Number(subjectId) } : subjectType === 'license' ? { licenseId: Number(subjectId) } : {};
-      const result = await mutation.mutateAsync({ data: { category, service: service.trim(), description: description.trim(), contactPhone: normalizePhone(contactPhone) ?? contactPhone.trim(), clientRequestId, ...link, ...(attachmentIds.length ? { attachmentIds } : {}) } });
+      const result = await mutation.mutateAsync({ data: { category, service: service.trim(), ...(matched?.slug ? { serviceSlug: matched.slug } : {}), description: description.trim(), contactPhone: normalizePhone(contactPhone) ?? contactPhone.trim(), clientRequestId, ...link, ...(attachmentIds.length ? { attachmentIds } : {}) } });
       await Promise.all([qc.invalidateQueries({ queryKey: getListServiceRequestsQueryKey() }), qc.invalidateQueries({ queryKey: getGetPortalSummaryQueryKey() })]);
       navigate(`/requests/${result.id}?sent=1`);
     } catch { /* error shown below */ }
@@ -201,15 +209,20 @@ export function NewRequest() {
                 <div className="nr-files">
                   <div className="nr-files-head">
                     <span className="nr-files-label">المستندات <small>(اختياري)</small></span>
-                    {files.length < MAX_FILES && <button type="button" className="btn btn-outline btn-sm" onClick={() => fileInput.current?.click()}><Paperclip size={15} aria-hidden="true" />إرفاق ملفات</button>}
+                    {files.length < MAX_FILES && <span className="flex flex-wrap gap-2">
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => fileInput.current?.click()} disabled={preparing}><Paperclip size={15} aria-hidden="true" />إرفاق ملفات</button>
+                      <button type="button" className="btn btn-outline btn-sm rf-camera" onClick={() => cameraInput.current?.click()} disabled={preparing}><Camera size={15} aria-hidden="true" />التقط بالكاميرا</button>
+                    </span>}
                     <input ref={fileInput} type="file" accept={ACCEPT_ATTR} multiple hidden onChange={pickFiles} aria-label="اختر مستندات لإرفاقها" />
+                    <input ref={cameraInput} type="file" accept={CAMERA_ACCEPT} capture="environment" hidden onChange={pickFiles} aria-label="التقط صورة للمستند" />
                   </div>
                   {files.length > 0 && <ul className="nr-files-list">{files.map((file, index) => <li key={`${index}-${file.name}`}>
-                    <span className="nr-file-name">{file.name}</span><small>{sizeText(file.size)}</small>
+                    <span className="nr-file-name">{file.name}</span><small>{sizeText(file.size)}{originalSizes.current.has(file) && ` (ضُغطت من ${sizeText(originalSizes.current.get(file)!)})`}</small>
                     <button type="button" onClick={() => { uploaded.current.delete(file); setFiles(files.filter((_, i) => i !== index)); }} aria-label={`إزالة ${file.name}`}><X size={15} /></button>
                   </li>)}</ul>}
+                  {preparing && <p className="muted m-0 text-xs" role="status">جارٍ تجهيز الصور…</p>}
                   {fileProblems.length > 0 && <div role="alert" className="nr-files-errors">{fileProblems.map((p) => <p key={p}>{p}</p>)}</div>}
-                  <small className="muted block text-xs leading-6">{RETENTION_NOTE}</small>
+                  <small className="muted block text-xs leading-6">{RETENTION_NOTE} تُصغَّر الصور الكبيرة تلقائيًا قبل الرفع.</small>
                 </div>
               </div>
             )}

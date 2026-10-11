@@ -63,6 +63,10 @@ export const AuditLogEntryAction = {
   employeeimport: 'employee.import',
   licenseimport: 'license.import',
   automationupdate: 'automation.update',
+  service_requestquote: 'service_request.quote',
+  service_requestquote_accept: 'service_request.quote_accept',
+  service_requestquote_decline: 'service_request.quote_decline',
+  service_requestchecklist: 'service_request.checklist',
 } as const;
 
 export type AuditLogEntryDetails = { [key: string]: unknown };
@@ -317,6 +321,97 @@ export interface RegistrationReview {
   reason?: string | null;
 }
 
+export interface RequestQuote {
+  /** Halalas before VAT */
+  amount: number;
+  vat: number;
+  total: number;
+  /** @nullable */
+  note: string | null;
+  quotedAt: string;
+  /** @nullable */
+  acceptedAt: string | null;
+  /** @nullable */
+  declinedAt: string | null;
+}
+
+export interface QuoteInput {
+  /**
+     * Halalas before VAT
+     * @minimum 100
+     * @maximum 100000000
+     */
+  amount: number;
+  /** @maxLength 500 */
+  note?: string;
+  /** Also move the request to waiting on customer (default true) */
+  markWaiting?: boolean;
+}
+
+export interface QuoteDeclineInput {
+  /** @maxLength 500 */
+  reason?: string;
+}
+
+export interface ChecklistItem {
+  key: string;
+  label: string;
+  /** @nullable */
+  attachmentId: number | null;
+  /** @nullable */
+  attachmentName: string | null;
+}
+
+export type ChecklistInputItemsItem = {
+  /**
+     * Omit for a new item; keeps attachment links when given
+     * @minLength 1
+     * @maxLength 40
+     */
+  key?: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  label: string;
+};
+
+export interface ChecklistInput {
+  /** @maxItems 20 */
+  items: ChecklistInputItemsItem[];
+}
+
+export interface ChecklistLinkInput {
+  /**
+     * Null unlinks the attachment
+     * @maxLength 40
+     * @nullable
+     */
+  key: string | null;
+}
+
+export interface CommercialRegisterLookup {
+  name: string;
+  /** @nullable */
+  unifiedNumber: string | null;
+  /** @nullable */
+  status: string | null;
+  /** @nullable */
+  activity: string | null;
+  /** @nullable */
+  city: string | null;
+  /**
+     * Date as given by Wathq
+     * @nullable
+     */
+  issuedOn: string | null;
+  /**
+     * Date as given by Wathq
+     * @nullable
+     */
+  expiresOn: string | null;
+}
+
 export type ServiceRequestCategory = typeof ServiceRequestCategory[keyof typeof ServiceRequestCategory];
 
 
@@ -410,6 +505,8 @@ export interface ServiceRequest {
   ratedAt: string | null;
   subject: RequestSubject | null;
   lastMessage: RequestLastMessage | null;
+  quote: RequestQuote | null;
+  checklist: ChecklistItem[];
 }
 
 export type ServiceRequestStatusEventStatus = typeof ServiceRequestStatusEventStatus[keyof typeof ServiceRequestStatusEventStatus];
@@ -493,6 +590,8 @@ export interface OfficeServiceRequest {
   lastMessage: RequestLastMessage | null;
   /** The customer's user ID, for opening their file */
   userId: string;
+  quote: RequestQuote | null;
+  checklist: ChecklistItem[];
 }
 
 export interface OfficeServiceRequestPage {
@@ -505,6 +604,16 @@ export interface OfficeServiceRequestPage {
   pageSize: number;
 }
 
+export type AttachAttachmentsInputChecklistItem = {
+  /** @minimum 1 */
+  attachmentId: number;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  key: string;
+};
+
 export interface AttachAttachmentsInput {
   /**
      * @minItems 1
@@ -512,6 +621,11 @@ export interface AttachAttachmentsInput {
      * @items.minimum 1
      */
   attachmentIds: number[];
+  /**
+     * Link uploaded files to checklist items in the same call
+     * @maxItems 10
+     */
+  checklist?: AttachAttachmentsInputChecklistItem[];
 }
 
 export type AttachmentUploadInputContentType = typeof AttachmentUploadInputContentType[keyof typeof AttachmentUploadInputContentType];
@@ -587,6 +701,11 @@ export interface ServiceRequestInput {
      * @nullable
      */
   licenseId?: number | null;
+  /**
+     * Catalogue slug of the chosen service; its published required documents become the request's checklist
+     * @pattern ^[a-z0-9-]{2,60}$
+     */
+  serviceSlug?: string;
 }
 
 export type ServiceRequestUpdateStatus = typeof ServiceRequestUpdateStatus[keyof typeof ServiceRequestUpdateStatus];
@@ -1655,5 +1774,23 @@ export type ListOfficeCustomersParams = {
  * @maxLength 120
  */
 q?: string;
+};
+
+export type LookupCommercialRegisterParams = {
+/**
+ * 10-digit CR number; Arabic digits accepted
+ * @minLength 1
+ * @maxLength 40
+ */
+number: string;
+};
+
+export type LookupOfficeCommercialRegisterParams = {
+/**
+ * 10-digit CR number; Arabic digits accepted
+ * @minLength 1
+ * @maxLength 40
+ */
+number: string;
 };
 

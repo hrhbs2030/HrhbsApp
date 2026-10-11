@@ -100,6 +100,8 @@ import { statusHistory } from "../lib/request-history";
 import { notifyCustomer } from "../lib/customer-contact";
 import { subjectLabels, subjectOf } from "../lib/company";
 import { applyAssignmentRule, resumeAfterCustomerReply } from "../lib/automations";
+import { checklistForService, checklistOf, linkChecklist, resumeIfChecklistComplete } from "../lib/checklist";
+import { requestReference, vatFor } from "../lib/money";
 import { saudiMobile, whatsappConfigured } from "../lib/whatsapp";
 import { normalizePhone } from "../lib/phone";
 import {
@@ -135,6 +137,7 @@ function attachmentInfo(row: HbsRequestAttachment, ownerId: string) {
   };
 }
 
+// Attachment rows by request, with the request owner to tell who uploaded each.
 async function attachmentsFor(requestIds: number[]) {
   const rows = requestIds.length
     ? await db.select({ attachment: hbsRequestAttachments, ownerId: hbsServiceRequests.userId })
@@ -143,23 +146,25 @@ async function attachmentsFor(requestIds: number[]) {
       .where(and(inArray(hbsRequestAttachments.requestId, requestIds), isNotNull(hbsRequestAttachments.requestId)))
       .orderBy(asc(hbsRequestAttachments.createdAt), asc(hbsRequestAttachments.id))
     : [];
-  const grouped = new Map<number, ReturnType<typeof attachmentInfo>[]>();
-  for (const { attachment, ownerId } of rows) {
-    if (attachment.requestId === null) continue;
-    grouped.set(attachment.requestId, [...(grouped.get(attachment.requestId) ?? []), attachmentInfo(attachment, ownerId)]);
+  const grouped = new Map<number, { attachment: HbsRequestAttachment; ownerId: string }[]>();
+  for (const row of rows) {
+    if (row.attachment.requestId === null) continue;
+    grouped.set(row.attachment.requestId, [...(grouped.get(row.attachment.requestId) ?? []), row]);
   }
   return grouped;
 }
 
 type RequestDetails = {
   attachments: ReturnType<typeof attachmentInfo>[];
+  checklist: ReturnType<typeof checklistOf>;
   subject: ReturnType<typeof subjectOf>;
   lastMessage: { by: "customer" | "office"; at: Date } | null;
 };
 
-// Everything shown with a request besides its own row: files, the employee
-// or license it is about, and who wrote last in its conversation.
-async function detailsFor(records: HbsServiceRequest[]): Promise<Map<number, RequestDetails>> {
+// Everything shown with a request besides its own row: files and which
+// checklist item each answers, the employee or license it is about, and who
+// wrote last in its conversation.
+export async function detailsFor(records: HbsServiceRequest[]): Promise<Map<number, RequestDetails>> {
   const ids = records.map(r => r.id);
   const [attached, labels, last] = await Promise.all([
     attachmentsFor(ids),
@@ -171,7 +176,9 @@ async function detailsFor(records: HbsServiceRequest[]): Promise<Map<number, Req
   ]);
   const lastBy = new Map(last.map(m => [m.requestId, { by: m.by as "customer" | "office", at: m.at }]));
   return new Map(records.map(r => [r.id, {
-    attachments: attached.get(r.id) ?? [], subject: subjectOf(r, labels), lastMessage: lastBy.get(r.id) ?? null,
+    attachments: (attached.get(r.id) ?? []).map(({ attachment, ownerId }) => attachmentInfo(attachment, ownerId)),
+    checklist: checklistOf(r.documentChecklist, (attached.get(r.id) ?? []).map(({ attachment }) => attachment)),
+    subject: subjectOf(r, labels), lastMessage: lastBy.get(r.id) ?? null,
   }]));
 }
 
@@ -292,11 +299,22 @@ export const requireApprovedCustomer: RequestHandler = async (req, res, next) =>
   next();
 };
 
-function publicRequest(record: HbsServiceRequest, details?: RequestDetails) {
+// The office's quote as the customer sees it; VAT is added at acceptance
+// exactly as the invoice will carry it.
+function quoteOf(record: HbsServiceRequest) {
+  if (record.quoteHalalas === null || record.quotedAt === null) return null;
+  const vat = vatFor(record.quoteHalalas);
+  return {
+    amount: record.quoteHalalas, vat, total: record.quoteHalalas + vat, note: record.quoteNote,
+    quotedAt: record.quotedAt, acceptedAt: record.quoteAcceptedAt, declinedAt: record.quoteDeclinedAt,
+  };
+}
+
+export function publicRequest(record: HbsServiceRequest, details?: RequestDetails) {
   // Internal office notes must never be included in customer responses.
   return {
     id: record.id,
-    reference: `HBS-${record.createdAt.getUTCFullYear()}-${String(record.id).padStart(5, "0")}`,
+    reference: requestReference(record.id, record.createdAt),
     category: record.category,
     service: record.service,
     description: record.description,
@@ -312,10 +330,12 @@ function publicRequest(record: HbsServiceRequest, details?: RequestDetails) {
     ratedAt: record.ratedAt,
     subject: details?.subject ?? null,
     lastMessage: details?.lastMessage ?? null,
+    quote: quoteOf(record),
+    checklist: details?.checklist ?? [],
   };
 }
 
-function officeRequest(
+export function officeRequest(
   record: HbsServiceRequest,
   details?: RequestDetails,
   customer?: OfficeCustomer,
@@ -341,13 +361,13 @@ async function customersOf(userIds: string[]): Promise<Map<string, OfficeCustome
   return new Map(unique.map(userId => [userId, found.get(userId) ?? null]));
 }
 
-async function customerOf(userId: string): Promise<OfficeCustomer> {
+export async function customerOf(userId: string): Promise<OfficeCustomer> {
   return (await customersOf([userId])).get(userId) ?? null;
 }
 
 function linkedRequestContext(record: HbsServiceRequest) {
   return {
-    reference: `HBS-${record.createdAt.getUTCFullYear()}-${String(record.id).padStart(5, "0")}`,
+    reference: requestReference(record.id, record.createdAt),
     category: record.category,
     service: record.service,
     description: record.description,
@@ -667,6 +687,9 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
         userId, category: parsed.data.category, service: parsed.data.service.trim(),
         description: parsed.data.description.trim(), contactPhone,
         clientRequestId: requestId ?? null, employeeId, licenseId,
+        // The office's published list of required documents becomes the
+        // request's checklist, for the customer to tick off with uploads.
+        documentChecklist: await checklistForService(tx, parsed.data.serviceSlug, parsed.data.service.trim()),
       }).returning();
       await lockAndAttach(tx, userId, ids, created.id, finalized);
       return applyAssignmentRule(tx, created);
@@ -692,7 +715,7 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
     (await detailsFor([record])).get(record.id))));
   const created = {
     id: record.id,
-    reference: `HBS-${record.createdAt.getUTCFullYear()}-${String(record.id).padStart(5, "0")}`,
+    reference: requestReference(record.id, record.createdAt),
     service: record.service,
     category: record.category,
   };
@@ -818,6 +841,15 @@ async function attachToRequest(req: Request, res: import("express").Response, of
     res.status(409).json({ error: "The request is completed" });
     return;
   }
+  // Uploads may be assigned to checklist items in the same call: each named
+  // upload must be in this batch and each item must exist, once.
+  const links = body.data.checklist ?? [];
+  const known = new Set(request.documentChecklist.map(item => item.key));
+  if (links.some(link => !ids.includes(link.attachmentId) || !known.has(link.key)) ||
+      new Set(links.map(link => link.key)).size !== links.length || new Set(links.map(link => link.attachmentId)).size !== links.length) {
+    res.status(400).json({ error: "Unknown checklist item or upload" });
+    return;
+  }
   const countFiles = async (runner: Pick<typeof db, "select">) => (await runner.select({ count: sql<number>`count(*)::int` })
     .from(hbsRequestAttachments).where(eq(hbsRequestAttachments.requestId, request.id)))[0].count;
   const full = `A request can hold ${MAX_ATTACHMENTS_PER_REQUEST} files`;
@@ -840,6 +872,7 @@ async function attachToRequest(req: Request, res: import("express").Response, of
         .where(eq(hbsServiceRequests.id, request.id)).for("update");
       if (await countFiles(tx) + ids.length > MAX_ATTACHMENTS_PER_REQUEST) throw new FullRequestError();
       await lockAndAttach(tx, userId, ids, request.id, finalized);
+      for (const link of links) await linkChecklist(tx, request.id, link.attachmentId, link.key);
       if (office) {
         for (const { row } of finalized) {
           await recordAudit(tx, {
@@ -855,8 +888,10 @@ async function attachToRequest(req: Request, res: import("express").Response, of
     res.status(409).json({ error: error instanceof FullRequestError ? full : "These uploads were already attached or have expired. Upload again." });
     return;
   }
-  // A customer's document answers a request waiting on them: back to review first.
-  const current = !office ? (await resumeAfterCustomerReply(request.id, "customer_file")) ?? request : request;
+  // A customer's document answers a request waiting on them: back to review
+  // first. An office upload that completes the checklist does the same.
+  const current = !office ? (await resumeAfterCustomerReply(request.id, "customer_file")) ?? request
+    : links.length ? (await resumeIfChecklistComplete(request.id)) ?? request : request;
   const details = (await detailsFor([current])).get(current.id);
   if (office) res.json(AttachOfficeServiceRequestFilesResponse.parse(officeRequest(current, details, await customerOf(current.userId))));
   else res.json(AttachServiceRequestFilesResponse.parse(publicRequest(current, details)));
@@ -1051,7 +1086,7 @@ router.patch("/office/registrations/:id", requireOfficeStaff, async (req, res): 
 });
 
 // An office member's address: their staff email, or the owner's approved email.
-async function staffEmail(userId: string): Promise<string | null> {
+export async function staffEmail(userId: string): Promise<string | null> {
   const [member] = await db.select({ email: hbsOfficeStaff.email }).from(hbsOfficeStaff)
     .where(eq(hbsOfficeStaff.userId, userId)).limit(1);
   if (!member) return null;
@@ -1215,8 +1250,8 @@ function customerMatches(userId: AnyColumn, text: string) {
 function overdueFilter() {
   return sql`${hbsServiceRequests.status} <> 'completed' and ${hbsServiceRequests.dueAt} < now()`;
 }
-function requestReference() {
-  return sql`concat('HBS-', extract(year from ${hbsServiceRequests.createdAt})::int, '-', lpad(${hbsServiceRequests.id}::text, 5, '0'))`;
+function requestReferenceSql() {
+  return sql`concat('HBS-', extract(year from ${hbsServiceRequests.createdAt} at time zone 'Asia/Riyadh')::int, '-', lpad(${hbsServiceRequests.id}::text, 5, '0'))`;
 }
 
 router.get("/office/service-requests", requireOfficeStaff, async (req, res): Promise<void> => {
@@ -1235,7 +1270,7 @@ router.get("/office/service-requests", requireOfficeStaff, async (req, res): Pro
     awaitingReply ? sql`${hbsServiceRequests.status} <> 'completed' and (select m.author_role from ${hbsRequestMessages} m
       where m.request_id = hbs_service_requests.id order by m.created_at desc, m.id desc limit 1) = 'customer'` : undefined,
     q ? or(contains(hbsServiceRequests.service, q), contains(hbsServiceRequests.description, q),
-      phoneMatches(hbsServiceRequests.contactPhone, q), contains(requestReference(), q),
+      phoneMatches(hbsServiceRequests.contactPhone, q), contains(requestReferenceSql(), q),
       customerMatches(hbsServiceRequests.userId, q)) : undefined,
   );
   const [[{ total }], records] = await Promise.all([
@@ -1286,9 +1321,16 @@ router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res
       customerMessage: hbsServiceRequests.customerMessage,
       assignedTo: hbsServiceRequests.assignedTo,
       dueAt: hbsServiceRequests.dueAt,
+      updatedAt: hbsServiceRequests.updatedAt,
     }).from(hbsServiceRequests)
       .where(eq(hbsServiceRequests.id, params.data.id)).for("update");
     if (!previous) return undefined;
+    // A stale editor hears that first: a rule refusal would describe a
+    // transition from a status they never saw.
+    if (previous.updatedAt.getTime() !== parsed.data.expectedUpdatedAt.getTime()) {
+      stale = true;
+      return undefined;
+    }
     previousStatus = previous.status;
     previousAssignee = previous.assignedTo;
     const status = parsed.data.status;
@@ -1376,7 +1418,7 @@ router.get("/office/inquiries", requireOfficeStaff, async (req, res): Promise<vo
   const filter = and(
     status ? eq(hbsInquiries.status, status) : undefined,
     q ? or(contains(hbsInquiries.subject, q), contains(hbsInquiries.message, q),
-      contains(requestReference(), q), customerMatches(hbsInquiries.userId, q)) : undefined,
+      contains(requestReferenceSql(), q), customerMatches(hbsInquiries.userId, q)) : undefined,
   );
   const base = () => db.select({ inquiry: hbsInquiries, request: hbsServiceRequests })
     .from(hbsInquiries)

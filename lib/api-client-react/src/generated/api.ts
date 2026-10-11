@@ -31,6 +31,9 @@ import type {
   AttachmentUploadInput,
   AttachmentUploadReservation,
   AuditLogEntry,
+  ChecklistInput,
+  ChecklistLinkInput,
+  CommercialRegisterLookup,
   Company,
   CompanyFile,
   CompanyInput,
@@ -63,6 +66,8 @@ import type {
   ListOfficeInquiriesParams,
   ListOfficeRemindersParams,
   ListOfficeServiceRequestsParams,
+  LookupCommercialRegisterParams,
+  LookupOfficeCommercialRegisterParams,
   OfficeAssignee,
   OfficeCustomerFile,
   OfficeCustomerListItem,
@@ -83,6 +88,8 @@ import type {
   PortalSettingsInput,
   PortalSummary,
   PortalUser,
+  QuoteDeclineInput,
+  QuoteInput,
   RatingInput,
   RegistrationRequestInput,
   RegistrationReview,
@@ -7750,4 +7757,700 @@ export const useSaveAssignmentRule = <TError = ErrorType<void>,
       > => {
       return useMutation(getSaveAssignmentRuleMutationOptions(options));
     }
+
+export const getSendOfficeQuoteUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/service-requests/${id}/quote`
+}
+
+/**
+ * @summary Staff-only send (or revise) a price quote on a request before work starts
+ */
+export const sendOfficeQuote = async (id: number,
+    quoteInput: QuoteInput, options?: Parameters<typeof customFetch>[1]): Promise<OfficeServiceRequest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OfficeServiceRequest>(getSendOfficeQuoteUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(quoteInput)
+  }
+);}
+
+
+
+
+
+export const getSendOfficeQuoteMutationKey = () => ['sendOfficeQuote'] as const;
+
+export const getSendOfficeQuoteMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendOfficeQuote>>, TError,SendOfficeQuoteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendOfficeQuote>>, TError,SendOfficeQuoteMutationVariables, TContext> => {
+
+const mutationKey = getSendOfficeQuoteMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendOfficeQuote>>, SendOfficeQuoteMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendOfficeQuote(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendOfficeQuoteMutationResult = NonNullable<Awaited<ReturnType<typeof sendOfficeQuote>>>
+    export type SendOfficeQuoteMutationBody = BodyType<QuoteInput>
+    export type SendOfficeQuoteMutationError = ErrorType<void>
+    export type SendOfficeQuoteMutationVariables = {id: number;data: BodyType<QuoteInput>}
+
+    /**
+ * @summary Staff-only send (or revise) a price quote on a request before work starts
+ */
+export const useSendOfficeQuote = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendOfficeQuote>>, TError,SendOfficeQuoteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendOfficeQuote>>,
+        TError,
+        SendOfficeQuoteMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSendOfficeQuoteMutationOptions(options));
+    }
+
+export const getAcceptQuoteUrl = (id: number,) => {
+
+
+
+
+  return `/api/service-requests/${id}/quote/accept`
+}
+
+/**
+ * @summary Accept the office quote on the customer's own request; an invoice is issued for the quoted amount
+ */
+export const acceptQuote = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ServiceRequest> => {
+
+  return customFetch<ServiceRequest>(getAcceptQuoteUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAcceptQuoteMutationKey = () => ['acceptQuote'] as const;
+
+export const getAcceptQuoteMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptQuote>>, TError,AcceptQuoteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acceptQuote>>, TError,AcceptQuoteMutationVariables, TContext> => {
+
+const mutationKey = getAcceptQuoteMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acceptQuote>>, AcceptQuoteMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  acceptQuote(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcceptQuoteMutationResult = NonNullable<Awaited<ReturnType<typeof acceptQuote>>>
+
+    export type AcceptQuoteMutationError = ErrorType<void>
+    export type AcceptQuoteMutationVariables = {id: number}
+
+    /**
+ * @summary Accept the office quote on the customer's own request; an invoice is issued for the quoted amount
+ */
+export const useAcceptQuote = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptQuote>>, TError,AcceptQuoteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acceptQuote>>,
+        TError,
+        AcceptQuoteMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAcceptQuoteMutationOptions(options));
+    }
+
+export const getDeclineQuoteUrl = (id: number,) => {
+
+
+
+
+  return `/api/service-requests/${id}/quote/decline`
+}
+
+/**
+ * @summary Decline the office quote on the customer's own request, optionally with a reason sent as a message
+ */
+export const declineQuote = async (id: number,
+    quoteDeclineInput?: QuoteDeclineInput, options?: Parameters<typeof customFetch>[1]): Promise<ServiceRequest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ServiceRequest>(getDeclineQuoteUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(quoteDeclineInput)
+  }
+);}
+
+
+
+
+
+export const getDeclineQuoteMutationKey = () => ['declineQuote'] as const;
+
+export const getDeclineQuoteMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof declineQuote>>, TError,DeclineQuoteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof declineQuote>>, TError,DeclineQuoteMutationVariables, TContext> => {
+
+const mutationKey = getDeclineQuoteMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof declineQuote>>, DeclineQuoteMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  declineQuote(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeclineQuoteMutationResult = NonNullable<Awaited<ReturnType<typeof declineQuote>>>
+    export type DeclineQuoteMutationBody = BodyType<QuoteDeclineInput> | undefined
+    export type DeclineQuoteMutationError = ErrorType<void>
+    export type DeclineQuoteMutationVariables = {id: number;data?: BodyType<QuoteDeclineInput>}
+
+    /**
+ * @summary Decline the office quote on the customer's own request, optionally with a reason sent as a message
+ */
+export const useDeclineQuote = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof declineQuote>>, TError,DeclineQuoteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof declineQuote>>,
+        TError,
+        DeclineQuoteMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeclineQuoteMutationOptions(options));
+    }
+
+export const getSaveOfficeChecklistUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/service-requests/${id}/checklist`
+}
+
+/**
+ * @summary Staff-only replace the document checklist on a request (attachment links are kept by key)
+ */
+export const saveOfficeChecklist = async (id: number,
+    checklistInput: ChecklistInput, options?: Parameters<typeof customFetch>[1]): Promise<OfficeServiceRequest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OfficeServiceRequest>(getSaveOfficeChecklistUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(checklistInput)
+  }
+);}
+
+
+
+
+
+export const getSaveOfficeChecklistMutationKey = () => ['saveOfficeChecklist'] as const;
+
+export const getSaveOfficeChecklistMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveOfficeChecklist>>, TError,SaveOfficeChecklistMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveOfficeChecklist>>, TError,SaveOfficeChecklistMutationVariables, TContext> => {
+
+const mutationKey = getSaveOfficeChecklistMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveOfficeChecklist>>, SaveOfficeChecklistMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  saveOfficeChecklist(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveOfficeChecklistMutationResult = NonNullable<Awaited<ReturnType<typeof saveOfficeChecklist>>>
+    export type SaveOfficeChecklistMutationBody = BodyType<ChecklistInput>
+    export type SaveOfficeChecklistMutationError = ErrorType<void>
+    export type SaveOfficeChecklistMutationVariables = {id: number;data: BodyType<ChecklistInput>}
+
+    /**
+ * @summary Staff-only replace the document checklist on a request (attachment links are kept by key)
+ */
+export const useSaveOfficeChecklist = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveOfficeChecklist>>, TError,SaveOfficeChecklistMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveOfficeChecklist>>,
+        TError,
+        SaveOfficeChecklistMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSaveOfficeChecklistMutationOptions(options));
+    }
+
+export const getLinkAttachmentToChecklistUrl = (id: number,
+    attachmentId: number,) => {
+
+
+
+
+  return `/api/service-requests/${id}/attachments/${attachmentId}/checklist`
+}
+
+/**
+ * @summary Link (or unlink with null) one of the customer's own attachments to a checklist item on their request
+ */
+export const linkAttachmentToChecklist = async (id: number,
+    attachmentId: number,
+    checklistLinkInput: ChecklistLinkInput, options?: Parameters<typeof customFetch>[1]): Promise<ServiceRequest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ServiceRequest>(getLinkAttachmentToChecklistUrl(id,attachmentId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(checklistLinkInput)
+  }
+);}
+
+
+
+
+
+export const getLinkAttachmentToChecklistMutationKey = () => ['linkAttachmentToChecklist'] as const;
+
+export const getLinkAttachmentToChecklistMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof linkAttachmentToChecklist>>, TError,LinkAttachmentToChecklistMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof linkAttachmentToChecklist>>, TError,LinkAttachmentToChecklistMutationVariables, TContext> => {
+
+const mutationKey = getLinkAttachmentToChecklistMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof linkAttachmentToChecklist>>, LinkAttachmentToChecklistMutationVariables> = (props) => {
+          const {id,attachmentId,data} = props ?? {};
+
+          return  linkAttachmentToChecklist(id,attachmentId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LinkAttachmentToChecklistMutationResult = NonNullable<Awaited<ReturnType<typeof linkAttachmentToChecklist>>>
+    export type LinkAttachmentToChecklistMutationBody = BodyType<ChecklistLinkInput>
+    export type LinkAttachmentToChecklistMutationError = ErrorType<void>
+    export type LinkAttachmentToChecklistMutationVariables = {id: number;attachmentId: number;data: BodyType<ChecklistLinkInput>}
+
+    /**
+ * @summary Link (or unlink with null) one of the customer's own attachments to a checklist item on their request
+ */
+export const useLinkAttachmentToChecklist = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof linkAttachmentToChecklist>>, TError,LinkAttachmentToChecklistMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof linkAttachmentToChecklist>>,
+        TError,
+        LinkAttachmentToChecklistMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLinkAttachmentToChecklistMutationOptions(options));
+    }
+
+export const getLinkOfficeAttachmentToChecklistUrl = (id: number,
+    attachmentId: number,) => {
+
+
+
+
+  return `/api/office/service-requests/${id}/attachments/${attachmentId}/checklist`
+}
+
+/**
+ * @summary Staff-only link (or unlink with null) an attachment to a checklist item on a request
+ */
+export const linkOfficeAttachmentToChecklist = async (id: number,
+    attachmentId: number,
+    checklistLinkInput: ChecklistLinkInput, options?: Parameters<typeof customFetch>[1]): Promise<OfficeServiceRequest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OfficeServiceRequest>(getLinkOfficeAttachmentToChecklistUrl(id,attachmentId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(checklistLinkInput)
+  }
+);}
+
+
+
+
+
+export const getLinkOfficeAttachmentToChecklistMutationKey = () => ['linkOfficeAttachmentToChecklist'] as const;
+
+export const getLinkOfficeAttachmentToChecklistMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof linkOfficeAttachmentToChecklist>>, TError,LinkOfficeAttachmentToChecklistMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof linkOfficeAttachmentToChecklist>>, TError,LinkOfficeAttachmentToChecklistMutationVariables, TContext> => {
+
+const mutationKey = getLinkOfficeAttachmentToChecklistMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof linkOfficeAttachmentToChecklist>>, LinkOfficeAttachmentToChecklistMutationVariables> = (props) => {
+          const {id,attachmentId,data} = props ?? {};
+
+          return  linkOfficeAttachmentToChecklist(id,attachmentId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LinkOfficeAttachmentToChecklistMutationResult = NonNullable<Awaited<ReturnType<typeof linkOfficeAttachmentToChecklist>>>
+    export type LinkOfficeAttachmentToChecklistMutationBody = BodyType<ChecklistLinkInput>
+    export type LinkOfficeAttachmentToChecklistMutationError = ErrorType<void>
+    export type LinkOfficeAttachmentToChecklistMutationVariables = {id: number;attachmentId: number;data: BodyType<ChecklistLinkInput>}
+
+    /**
+ * @summary Staff-only link (or unlink with null) an attachment to a checklist item on a request
+ */
+export const useLinkOfficeAttachmentToChecklist = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof linkOfficeAttachmentToChecklist>>, TError,LinkOfficeAttachmentToChecklistMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof linkOfficeAttachmentToChecklist>>,
+        TError,
+        LinkOfficeAttachmentToChecklistMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLinkOfficeAttachmentToChecklistMutationOptions(options));
+    }
+
+export const getLookupCommercialRegisterUrl = (params: LookupCommercialRegisterParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/company/cr-lookup?${stringifiedParams}` : `/api/company/cr-lookup`
+}
+
+/**
+ * @summary Look up a commercial register number at Wathq for the signed-in customer
+ */
+export const lookupCommercialRegister = async (params: LookupCommercialRegisterParams, options?: Parameters<typeof customFetch>[1]): Promise<CommercialRegisterLookup> => {
+
+  return customFetch<CommercialRegisterLookup>(getLookupCommercialRegisterUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getLookupCommercialRegisterQueryKey = (params?: LookupCommercialRegisterParams,) => {
+    return [
+    `/api/company/cr-lookup`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getLookupCommercialRegisterQueryOptions = <TData = Awaited<ReturnType<typeof lookupCommercialRegister>>, TError = ErrorType<void>>(params: LookupCommercialRegisterParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof lookupCommercialRegister>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getLookupCommercialRegisterQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof lookupCommercialRegister>>> = ({ signal }) => lookupCommercialRegister(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof lookupCommercialRegister>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type LookupCommercialRegisterQueryResult = NonNullable<Awaited<ReturnType<typeof lookupCommercialRegister>>>
+export type LookupCommercialRegisterQueryError = ErrorType<void>
+
+
+/**
+ * @summary Look up a commercial register number at Wathq for the signed-in customer
+ */
+
+export function useLookupCommercialRegister<TData = Awaited<ReturnType<typeof lookupCommercialRegister>>, TError = ErrorType<void>>(
+ params: LookupCommercialRegisterParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof lookupCommercialRegister>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getLookupCommercialRegisterQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getLookupOfficeCommercialRegisterUrl = (userId: string,
+    params: LookupOfficeCommercialRegisterParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/office/customers/${userId}/cr-lookup?${stringifiedParams}` : `/api/office/customers/${userId}/cr-lookup`
+}
+
+/**
+ * @summary Staff-only commercial register lookup at Wathq while editing a customer's file
+ */
+export const lookupOfficeCommercialRegister = async (userId: string,
+    params: LookupOfficeCommercialRegisterParams, options?: Parameters<typeof customFetch>[1]): Promise<CommercialRegisterLookup> => {
+
+  return customFetch<CommercialRegisterLookup>(getLookupOfficeCommercialRegisterUrl(userId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getLookupOfficeCommercialRegisterQueryKey = (userId: string,
+    params?: LookupOfficeCommercialRegisterParams,) => {
+    return [
+    `/api/office/customers/${userId}/cr-lookup`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getLookupOfficeCommercialRegisterQueryOptions = <TData = Awaited<ReturnType<typeof lookupOfficeCommercialRegister>>, TError = ErrorType<void>>(userId: string,
+    params: LookupOfficeCommercialRegisterParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof lookupOfficeCommercialRegister>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getLookupOfficeCommercialRegisterQueryKey(userId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof lookupOfficeCommercialRegister>>> = ({ signal }) => lookupOfficeCommercialRegister(userId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: userId !== null && userId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof lookupOfficeCommercialRegister>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type LookupOfficeCommercialRegisterQueryResult = NonNullable<Awaited<ReturnType<typeof lookupOfficeCommercialRegister>>>
+export type LookupOfficeCommercialRegisterQueryError = ErrorType<void>
+
+
+/**
+ * @summary Staff-only commercial register lookup at Wathq while editing a customer's file
+ */
+
+export function useLookupOfficeCommercialRegister<TData = Awaited<ReturnType<typeof lookupOfficeCommercialRegister>>, TError = ErrorType<void>>(
+ userId: string,
+    params: LookupOfficeCommercialRegisterParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof lookupOfficeCommercialRegister>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getLookupOfficeCommercialRegisterQueryOptions(userId,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

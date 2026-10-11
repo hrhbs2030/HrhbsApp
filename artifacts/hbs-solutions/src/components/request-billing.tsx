@@ -11,6 +11,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { formatDate, formatMoney, formatNumber, parseRiyals } from '@/lib/format';
+import { contact } from '@/content/contact';
 import './request-billing.css';
 
 const methodNames: Record<string, string> = { manual: 'سداد لدى المكتب', online: 'دفع إلكتروني' };
@@ -209,7 +210,11 @@ export function RatingPanel({ requestId, rating, comment, onRated }: { requestId
       : <Star key={n} size={20} fill={n <= current ? 'currentColor' : 'none'} aria-hidden="true"/>)}
   </div>;
   if (rating) return <section className="rb rb-rated" aria-label="تقييمك">
-    <h2 className="rf-title">تقييمك للخدمة</h2>{stars(rating, false)}{comment && <p className="rb-note">«{comment}»</p>}<p className="rb-note">شكرًا لك، يصل تقييمك إلى إدارة المكتب.</p>
+    <h2 className="rf-title">تقييمك للخدمة</h2>{stars(rating, false)}{comment && <p className="rb-note">«{comment}»</p>}
+    {/* Happy customers are asked for a public review; others hear that the office follows up. */}
+    {rating <= 3 ? <p className="rb-note">شكرًا، سيتواصل معك المكتب لتحسين التجربة.</p>
+      : contact.reviewUrl ? <p className="rb-note">شكرًا! يسعدنا تقييمك على Google: <a href={contact.reviewUrl} target="_blank" rel="noopener noreferrer" className="font-bold text-copper">اكتب تقييمك</a></p>
+      : <p className="rb-note">شكرًا لك، يصل تقييمك إلى إدارة المكتب.</p>}
   </section>;
   return <form onSubmit={submit} className="rb" aria-label="قيّم الخدمة">
     <h2 className="rf-title">كيف كانت تجربتك؟</h2>

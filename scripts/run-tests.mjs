@@ -11,6 +11,8 @@ const webChecks = [
   [hbs, 'test:excel'],
   [hbs, 'test:lib'],
   [hbs, 'test:content'],
+  [hbs, 'test:customer'],
+  [hbs, 'test:office-extras'],
   [hbs, 'test:city'],
   [hbs, 'test:assistant-source'],
   [hbs, 'test:services-contrast'],
@@ -42,6 +44,7 @@ const databaseChecks = [
   [api, 'test:office-features'],
   [api, 'test:company-file'],
   [api, 'test:automations'],
+  [api, 'test:package-c'],
 ];
 const storageCheck = [api, 'test:attachment-storage'];
 

@@ -24,7 +24,11 @@ test("phone numbers are stored in one spelling", () => {
   assert.equal(normalizePhone("+1 (555) 123-4567"), "+15551234567");
   assert.equal(normalizePhone("0044 20 7946 0958"), "+442079460958");
   assert.equal(normalizePhone("+٢٠١٠٠١٢٣٤٥٦٧"), "+201001234567");
-  for (const input of ["", "abc", "12345", "0112345678", "05512345678", "+0551234567", "+1234567", "+1234567890123456", "055-123-45x7"]) {
+  // Saudi landlines keep the same local spelling as mobiles.
+  for (const input of ["0112345678", "112345678", "+966 11 234 5678", "٠١١٢٣٤٥٦٧٨"]) {
+    assert.equal(normalizePhone(input), "0112345678", input);
+  }
+  for (const input of ["", "abc", "12345", "0212345678", "05512345678", "+0551234567", "+1234567", "+1234567890123456", "055-123-45x7"]) {
     assert.equal(normalizePhone(input), null, JSON.stringify(input));
   }
   // Search compares digits in the local form, whole numbers or a typed prefix.

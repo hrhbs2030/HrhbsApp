@@ -4,6 +4,7 @@ import { ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { getListOfficeAuditLogQueryKey, getListOfficeStaffQueryKey, useAddOfficeStaff, useListOfficeAuditLog, useListOfficeStaff, useRemoveOfficeStaff, type AuditLogEntry, type OfficeStaffMember } from '@workspace/api-client-react';
 import { EmptyBlock, ErrorBlock, LoadingBlock, PageHeading, PortalLayout, dateText } from '@/components/portal-ui';
 import { PrintButton } from '@/components/brand/print';
+import { ConfirmDialog } from '@/components/request-billing';
 import { LOCALE, formatMoney } from '@/lib/format';
 
 function serverMessage(error: unknown, fallback: string): string {
@@ -42,8 +43,11 @@ export function OfficeStaff() {
     }
   }
 
+  // In-page confirmation (ConfirmDialog) rather than window.confirm: browsers
+  // may suppress native dialogs and they ignore the page's direction.
+  const [revoking, setRevoking] = useState<OfficeStaffMember | null>(null);
   async function revoke(member: OfficeStaffMember) {
-    if (!window.confirm(`إزالة صلاحية المكتب من ${member.email ?? 'هذا الحساب'}؟`)) return;
+    setRevoking(null);
     setNotice(null);
     setRemovingId(member.userId);
     try {
@@ -75,9 +79,11 @@ export function OfficeStaff() {
         {staff.isLoading ? <LoadingBlock/> : staff.isError ? <ErrorBlock retry={() => staff.refetch()}/> : !staff.data?.length ? <EmptyBlock title="لا يوجد أعضاء بعد" text="سيظهر حساب المالك هنا بعد أول دخول له."/> :
           <ul className="surface m-0 list-none overflow-hidden p-0">{staff.data.map(member => <li key={member.userId} className="flex flex-col gap-3 border-b border-line px-5 py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="min-w-0 truncate font-bold" dir="ltr">{member.email ?? 'بريد المالك غير مؤكد'}</span><span className={`pill ${member.role === 'owner' ? 'bg-teal text-on-dark' : 'bg-info-soft text-info'}`}>{member.role === 'owner' ? 'المالك' : 'موظف'}</span></div><div className="mt-1 text-xs text-subtle">أُضيف في {dateText(member.createdAt)}</div></div>
-            {member.role === 'staff' ? <button type="button" onClick={() => revoke(member)} disabled={removingId === member.userId} className="btn btn-outline btn-sm !min-h-11 self-start sm:self-auto"><Trash2 size={15}/>{removingId === member.userId ? 'جارٍ الإزالة…' : 'إزالة الصلاحية'}</button> : <span className="flex items-center gap-1.5 text-xs text-subtle"><ShieldCheck size={15}/>مرتبط ببريد المكتب المعتمد</span>}
+            {member.role === 'staff' ? <button type="button" onClick={() => setRevoking(member)} disabled={removingId === member.userId} className="btn btn-outline btn-sm !min-h-11 self-start sm:self-auto"><Trash2 size={15}/>{removingId === member.userId ? 'جارٍ الإزالة…' : 'إزالة الصلاحية'}</button> : <span className="flex items-center gap-1.5 text-xs text-subtle"><ShieldCheck size={15}/>مرتبط ببريد المكتب المعتمد</span>}
           </li>)}</ul>}
       </section>
+      <ConfirmDialog open={!!revoking} onOpenChange={o => { if (!o) setRevoking(null); }} danger busy={remove.isPending} confirmLabel="إزالة الصلاحية"
+        title={`إزالة صلاحية المكتب من ${revoking?.email ?? 'هذا الحساب'}؟`} description="يفقد الحساب الوصول إلى مساحة المكتب فورًا، ويمكن إضافته مجددًا بالبريد." onConfirm={() => revoking && revoke(revoking)}/>
     </div>
   </PortalLayout>;
 }
@@ -86,6 +92,10 @@ const actionNames: Record<AuditLogEntry['action'], string> = {
   'staff.add': 'إضافة موظف',
   'staff.remove': 'إزالة موظف',
   'service_request.update': 'تحديث طلب خدمة',
+  'service_request.quote': 'إرسال عرض سعر',
+  'service_request.quote_accept': 'قبول عرض سعر',
+  'service_request.quote_decline': 'رفض عرض سعر',
+  'service_request.checklist': 'تحديث المستندات المطلوبة',
   'inquiry.answer': 'الرد على استفسار',
   'attachment.upload': 'إرفاق مستند',
   'attachment.download': 'تنزيل مستند',

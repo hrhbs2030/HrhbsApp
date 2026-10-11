@@ -90,19 +90,32 @@ ${paragraphs}${button}
 }
 
 let warnedOff = false;
-export function notify(mail: Mail | null): void {
-  if (!mail) return;
+
+// Sends now and rejects when SMTP refuses, for callers that must know (the
+// reminder sweeps give their claim back on failure). Skipped silently when
+// mail is off. Subjects and SMTP errors can carry customer names and
+// addresses, so the log keeps only the outcome and the SMTP error code.
+export async function sendMailNow(mail: Mail, send: (options: Parameters<Transporter["sendMail"]>[0]) => Promise<unknown> = options => transport().sendMail(options)): Promise<void> {
   if (!mailConfigured()) {
     if (!warnedOff) { logger.info("Email notifications are off (SMTP settings missing)"); warnedOff = true; }
     return;
   }
   const { html, text } = renderMail(mail);
   const from = process.env.MAIL_FROM || `HBS حلول الغد <${process.env.SMTP_USER}>`;
-  transport().sendMail({ from, to: mail.to, subject: mail.subject, html, text })
-    // Subjects and SMTP errors can carry customer names and addresses, so the
-    // log keeps only the outcome and the SMTP error code.
-    .then(() => logger.info("Notification sent"))
-    .catch((error: unknown) => logger.warn({ code: (error as { code?: string })?.code ?? "unknown" }, "Notification failed"));
+  try {
+    await send({ from, to: mail.to, subject: mail.subject, html, text });
+    logger.info("Notification sent");
+  } catch (error) {
+    logger.warn({ code: (error as { code?: string })?.code ?? "unknown" }, "Notification failed");
+    throw new Error(`Notification failed (${(error as { code?: string })?.code ?? "unknown"})`);
+  }
+}
+
+// Fire and forget, after the change it describes is saved: a failure is
+// logged by sendMailNow and never fails the request.
+export function notify(mail: Mail | null): void {
+  if (!mail) return;
+  sendMailNow(mail).catch(() => {});
 }
 
 // ---- messages ---------------------------------------------------------------
@@ -288,5 +301,55 @@ export function customerNewFileMail(to: string | null, request: RequestInfo): Ma
     heading: "أرفق المكتب مستندًا على طلبك",
     lines: [`أضاف المكتب مستندًا إلى طلبك «${request.service}». تجده في صفحة الطلب.`],
     action: { label: "افتح الطلب", path: `/requests/${request.id}` },
+  };
+}
+
+export function quoteSentMail(to: string | null, request: RequestInfo, total: string, note: string | null): Mail | null {
+  if (!to) return null;
+  return {
+    to,
+    subject: `عرض سعر لطلبك ${request.reference}`,
+    heading: "أرسل المكتب عرض سعر لطلبك",
+    lines: [`الطلب: «${request.service}»`, `الإجمالي شامل الضريبة: ${total}`, ...(note ? [`ملاحظة المكتب: ${note}`] : []),
+      "راجع العرض ووافق عليه من صفحة الطلب ليبدأ المكتب العمل، أو ارفضه مع توضيح السبب."],
+    action: { label: "راجع عرض السعر", path: `/requests/${request.id}` },
+  };
+}
+
+export function quoteAcceptedMail(to: string | null, request: RequestInfo, total: string): Mail | null {
+  const address = to ?? officeInbox();
+  if (!address) return null;
+  return {
+    to: address,
+    subject: `وافق العميل على عرض السعر ${request.reference}`,
+    heading: "وافق العميل على عرض السعر",
+    lines: [`الطلب: ${request.reference} · ${request.service}`, `أُصدرت فاتورة بقيمة ${total} شاملة الضريبة.`],
+    action: { label: "افتح طلبات العملاء", path: "/office/requests" },
+  };
+}
+
+export function quoteDeclinedMail(to: string | null, request: RequestInfo): Mail | null {
+  const address = to ?? officeInbox();
+  if (!address) return null;
+  return {
+    to: address,
+    subject: `رفض العميل عرض السعر ${request.reference}`,
+    heading: "رفض العميل عرض السعر",
+    lines: [`الطلب: ${request.reference} · ${request.service}`, "تجد سبب الرفض، إن كتبه العميل، في محادثة الطلب."],
+    action: { label: "افتح طلبات العملاء", path: "/office/requests" },
+  };
+}
+
+export function invoiceOverdueMail(to: string | null, request: RequestInfo, invoice: { id: number; reference: string; total: string; days: number }): Mail | null {
+  if (!to) return null;
+  return {
+    to,
+    subject: `تذكير بسداد الفاتورة ${invoice.reference}`,
+    heading: "فاتورة بانتظار السداد",
+    lines: [`الطلب: «${request.service}» · ${request.reference}`,
+      `الفاتورة ${invoice.reference} بقيمة ${invoice.total} صدرت قبل ${invoice.days} أيام ولم تُسدد بعد.`,
+      "يمكنك السداد إلكترونيًا من صفحة الطلب، أو التواصل مع المكتب لترتيب السداد."],
+    // Same return address the payment page uses, so the page checks the invoice on arrival.
+    action: { label: "سدّد الفاتورة", path: `/requests/${request.id}?invoice=${invoice.id}` },
   };
 }

@@ -13,6 +13,7 @@ import {
   publicRouteDescriptions,
   publicRouteTitles,
   readProvider,
+  rehost,
   renderPage,
   routeModules,
   serviceDescription,
@@ -38,6 +39,10 @@ test('prerendered titles, descriptions and route prefixes mirror src/App.tsx', (
   assert.ok(app.includes(`\`${'${service.summary}'} اطلبها من HBS حلول الغد وتابع حالتها من حسابك.\``), 'service description template');
   assert.ok(app.includes(`\`\${title} | ${siteName}\``), 'title suffix');
   assert.ok(app.includes(`:'${missingPageTitle}');`), 'fallback title for unknown routes');
+  // The SPA's canonical comes from the build-time site URL, never the serving host.
+  assert.ok(app.includes("import.meta.env.VITE_SITE_URL || 'https://hrhbs.com'"), 'App.tsx reads the site URL from the build');
+  assert.ok(app.includes('canonical.href = `${siteUrl}${basePath}'), 'canonical is built from siteUrl');
+  assert.ok(!app.includes('canonical.href = `${window.location.origin}'), 'canonical never uses window.location.origin');
   const portal = app.match(/const isPortalPath = [^\n]*\[([^\]]+)\]/)?.[1];
   assert.deepEqual(portal.match(/'([^']+)'/g).map((p) => p.slice(1, -1)), portalRoutePrefixes);
   for (const prefix of authRoutePrefixes) assert.ok(app.includes(`location.startsWith('${prefix}')`), `App.tsx treats ${prefix} as an auth route`);
@@ -80,7 +85,8 @@ test('pages carry per-route meta and structured data with the shell provider', (
   assert.equal(service.description, serviceDescription(services[0]));
   const schema = service.structuredData.find((data) => data['@type'] === 'Service');
   assert.equal(schema.provider, provider);
-  assert.equal(schema.category, 'الجوازات والإقامة');
+  assert.equal(schema.serviceType, 'الجوازات والإقامة');
+  assert.equal(schema.category, undefined);
   assert.equal(schema.areaServed.name, 'جدة');
   const crumbs = service.structuredData.find((data) => data['@type'] === 'BreadcrumbList').itemListElement;
   assert.deepEqual(crumbs.map((item) => item.item), ['https://example.test/', 'https://example.test/services', 'https://example.test/services/iqama-renewal']);
@@ -107,6 +113,21 @@ test('renderPage rewrites only head metadata and escapes content', () => {
   assert.ok(!missing.includes('rel="canonical"'));
   assert.ok(missing.includes('<meta property="og:url" />'));
   assert.ok(missing.includes('<meta name="robots" content="noindex, nofollow" />'));
+});
+
+test('rehost moves the shell head to the site URL and leaves the body alone', () => {
+  assert.equal(rehost(shell, 'https://hrhbs.com/'), shell);
+  const moved = rehost(shell, 'https://www.example.test/');
+  assert.ok(!moved.slice(0, moved.indexOf('</head>')).includes('https://hrhbs.com'), 'no stale host left in the head');
+  assert.ok(moved.includes('<meta property="og:image" content="https://www.example.test/og-image.png" />'));
+  assert.ok(moved.includes('<meta name="twitter:image" content="https://www.example.test/og-image.png" />'));
+  assert.ok(moved.includes('"logo": "https://www.example.test/icon-512.png"'));
+  assert.equal(moved.slice(moved.indexOf('</head>')), shell.slice(shell.indexOf('</head>')));
+  // Rehosted pages then carry the same host in canonical and og:image alike.
+  const [page] = buildPages({ services: [services[0]], categoryById, siteUrl: 'https://www.example.test', city: 'جدة', provider: readProvider(moved) });
+  const html = renderPage(moved, page);
+  assert.ok(html.includes('<link rel="canonical" href="https://www.example.test/" />'));
+  assert.ok(html.includes('content="https://www.example.test/og-image.png"'));
 });
 
 test('chunk preloads follow the manifest for lazy page modules only', () => {

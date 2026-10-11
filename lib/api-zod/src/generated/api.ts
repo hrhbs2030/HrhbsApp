@@ -369,7 +369,22 @@ export const GetPortalSummaryResponse = zod.object({
   "lastMessage": zod.union([zod.object({
   "by": zod.enum(['customer', 'office']),
   "at": zod.coerce.date()
-}),zod.null()])
+}),zod.null()]),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+}))
 })),
   "recentInquiries": zod.array(zod.object({
   "id": zod.number().int(),
@@ -422,7 +437,22 @@ export const ListServiceRequestsResponseItem = zod.object({
   "lastMessage": zod.union([zod.object({
   "by": zod.enum(['customer', 'office']),
   "at": zod.coerce.date()
-}),zod.null()])
+}),zod.null()]),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+}))
 })
 export const ListServiceRequestsResponse = zod.array(ListServiceRequestsResponseItem)
 
@@ -444,6 +474,7 @@ export const createServiceRequestBodyAttachmentIdsMax = 10;
 
 
 
+export const createServiceRequestBodyServiceSlugRegExp = new RegExp('^[a-z0-9-]{2,60}$');
 
 
 export const CreateServiceRequestBody = zod.object({
@@ -454,7 +485,8 @@ export const CreateServiceRequestBody = zod.object({
   "clientRequestId": zod.string().uuid().optional(),
   "attachmentIds": zod.array(zod.number().int().min(1)).max(createServiceRequestBodyAttachmentIdsMax).optional(),
   "employeeId": zod.number().int().min(1).nullish().describe('An employee in the customer\'s company file'),
-  "licenseId": zod.number().int().min(1).nullish().describe('A license in the customer\'s company file')
+  "licenseId": zod.number().int().min(1).nullish().describe('A license in the customer\'s company file'),
+  "serviceSlug": zod.string().regex(createServiceRequestBodyServiceSlugRegExp).optional().describe('Catalogue slug of the chosen service; its published required documents become the request\'s checklist')
 })
 
 export const createServiceRequestResponseRatingMax = 5;
@@ -492,7 +524,22 @@ export const CreateServiceRequestResponse = zod.object({
   "lastMessage": zod.union([zod.object({
   "by": zod.enum(['customer', 'office']),
   "at": zod.coerce.date()
-}),zod.null()])
+}),zod.null()]),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+}))
 })
 
 
@@ -528,9 +575,18 @@ export const AttachServiceRequestFilesParams = zod.object({
 export const attachServiceRequestFilesBodyAttachmentIdsMax = 10;
 
 
+export const attachServiceRequestFilesBodyChecklistItemKeyMax = 40;
+
+export const attachServiceRequestFilesBodyChecklistMax = 10;
+
+
 
 export const AttachServiceRequestFilesBody = zod.object({
-  "attachmentIds": zod.array(zod.number().int().min(1)).min(1).max(attachServiceRequestFilesBodyAttachmentIdsMax)
+  "attachmentIds": zod.array(zod.number().int().min(1)).min(1).max(attachServiceRequestFilesBodyAttachmentIdsMax),
+  "checklist": zod.array(zod.object({
+  "attachmentId": zod.number().int().min(1),
+  "key": zod.string().min(1).max(attachServiceRequestFilesBodyChecklistItemKeyMax)
+})).max(attachServiceRequestFilesBodyChecklistMax).optional().describe('Link uploaded files to checklist items in the same call')
 })
 
 export const attachServiceRequestFilesResponseRatingMax = 5;
@@ -568,7 +624,22 @@ export const AttachServiceRequestFilesResponse = zod.object({
   "lastMessage": zod.union([zod.object({
   "by": zod.enum(['customer', 'office']),
   "at": zod.coerce.date()
-}),zod.null()])
+}),zod.null()]),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+}))
 })
 
 
@@ -624,9 +695,18 @@ export const AttachOfficeServiceRequestFilesParams = zod.object({
 export const attachOfficeServiceRequestFilesBodyAttachmentIdsMax = 10;
 
 
+export const attachOfficeServiceRequestFilesBodyChecklistItemKeyMax = 40;
+
+export const attachOfficeServiceRequestFilesBodyChecklistMax = 10;
+
+
 
 export const AttachOfficeServiceRequestFilesBody = zod.object({
-  "attachmentIds": zod.array(zod.number().int().min(1)).min(1).max(attachOfficeServiceRequestFilesBodyAttachmentIdsMax)
+  "attachmentIds": zod.array(zod.number().int().min(1)).min(1).max(attachOfficeServiceRequestFilesBodyAttachmentIdsMax),
+  "checklist": zod.array(zod.object({
+  "attachmentId": zod.number().int().min(1),
+  "key": zod.string().min(1).max(attachOfficeServiceRequestFilesBodyChecklistItemKeyMax)
+})).max(attachOfficeServiceRequestFilesBodyChecklistMax).optional().describe('Link uploaded files to checklist items in the same call')
 })
 
 export const attachOfficeServiceRequestFilesResponseRatingMax = 5;
@@ -671,7 +751,22 @@ export const AttachOfficeServiceRequestFilesResponse = zod.object({
   "by": zod.enum(['customer', 'office']),
   "at": zod.coerce.date()
 }),zod.null()]),
-  "userId": zod.string().describe('The customer\'s user ID, for opening their file')
+  "userId": zod.string().describe('The customer\'s user ID, for opening their file'),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+}))
 })
 
 
@@ -741,7 +836,22 @@ export const GetServiceRequestResponse = zod.object({
   "lastMessage": zod.union([zod.object({
   "by": zod.enum(['customer', 'office']),
   "at": zod.coerce.date()
-}),zod.null()])
+}),zod.null()]),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+}))
 })
 
 
@@ -898,7 +1008,22 @@ export const ListOfficeServiceRequestsResponse = zod.object({
   "by": zod.enum(['customer', 'office']),
   "at": zod.coerce.date()
 }),zod.null()]),
-  "userId": zod.string().describe('The customer\'s user ID, for opening their file')
+  "userId": zod.string().describe('The customer\'s user ID, for opening their file'),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+}))
 })),
   "total": zod.number().int().min(listOfficeServiceRequestsResponseTotalMin),
   "page": zod.number().int().min(1),
@@ -1030,7 +1155,22 @@ export const UpdateOfficeServiceRequestResponse = zod.object({
   "by": zod.enum(['customer', 'office']),
   "at": zod.coerce.date()
 }),zod.null()]),
-  "userId": zod.string().describe('The customer\'s user ID, for opening their file')
+  "userId": zod.string().describe('The customer\'s user ID, for opening their file'),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+}))
 })
 
 
@@ -1276,7 +1416,7 @@ export const ListOfficeAuditLogResponseItem = zod.object({
   "id": zod.number().int(),
   "actorId": zod.string(),
   "actorEmail": zod.string().email().nullable(),
-  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge', 'registration.approve', 'registration.reject', 'information.review', 'information.publish', 'information.unpublish', 'attachment.extract', 'invoice.issue', 'invoice.mark_paid', 'invoice.cancel', 'invoice.paid_online', 'offer.update', 'reminder.create', 'company.update', 'employee.create', 'employee.update', 'employee.delete', 'employee.reveal', 'license.create', 'license.update', 'license.delete', 'employee.import', 'license.import', 'automation.update']),
+  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge', 'registration.approve', 'registration.reject', 'information.review', 'information.publish', 'information.unpublish', 'attachment.extract', 'invoice.issue', 'invoice.mark_paid', 'invoice.cancel', 'invoice.paid_online', 'offer.update', 'reminder.create', 'company.update', 'employee.create', 'employee.update', 'employee.delete', 'employee.reveal', 'license.create', 'license.update', 'license.delete', 'employee.import', 'license.import', 'automation.update', 'service_request.quote', 'service_request.quote_accept', 'service_request.quote_decline', 'service_request.checklist']),
   "targetType": zod.string(),
   "targetId": zod.string(),
   "details": zod.record(zod.string(), zod.unknown()),
@@ -1428,7 +1568,22 @@ export const RateServiceRequestResponse = zod.object({
   "lastMessage": zod.union([zod.object({
   "by": zod.enum(['customer', 'office']),
   "at": zod.coerce.date()
-}),zod.null()])
+}),zod.null()]),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+}))
 })
 
 
@@ -3031,6 +3186,527 @@ export const SaveAssignmentRuleResponse = zod.object({
   "assignee": zod.string().nullable(),
   "dueDays": zod.number().int().nullable(),
   "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Staff-only send (or revise) a price quote on a request before work starts
+ */
+export const sendOfficeQuotePathIdMax = 2147483647;
+
+
+
+export const SendOfficeQuoteParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(sendOfficeQuotePathIdMax)
+})
+
+export const sendOfficeQuoteBodyAmountMin = 100;
+export const sendOfficeQuoteBodyAmountMax = 100000000;
+
+export const sendOfficeQuoteBodyNoteMax = 500;
+
+
+
+export const SendOfficeQuoteBody = zod.object({
+  "amount": zod.number().int().min(sendOfficeQuoteBodyAmountMin).max(sendOfficeQuoteBodyAmountMax).describe('Halalas before VAT'),
+  "note": zod.string().max(sendOfficeQuoteBodyNoteMax).optional(),
+  "markWaiting": zod.boolean().optional().describe('Also move the request to waiting on customer (default true)')
+})
+
+export const sendOfficeQuoteResponseRatingMax = 5;
+
+
+
+export const SendOfficeQuoteResponse = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "category": zod.enum(['passports', 'labor', 'business', 'other']),
+  "service": zod.string(),
+  "description": zod.string(),
+  "contactPhone": zod.string(),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
+  "officeNote": zod.string().nullish(),
+  "customerMessage": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+})),
+  "customer": zod.union([zod.object({
+  "fullName": zod.string(),
+  "email": zod.string().email()
+}),zod.null()]),
+  "assignedTo": zod.string().nullable().describe('User ID of the responsible office member'),
+  "dueAt": zod.coerce.date().nullable(),
+  "rating": zod.number().int().min(1).max(sendOfficeQuoteResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable(),
+  "subject": zod.union([zod.object({
+  "type": zod.enum(['employee', 'license']),
+  "id": zod.number().int(),
+  "label": zod.string()
+}),zod.null()]),
+  "lastMessage": zod.union([zod.object({
+  "by": zod.enum(['customer', 'office']),
+  "at": zod.coerce.date()
+}),zod.null()]),
+  "userId": zod.string().describe('The customer\'s user ID, for opening their file'),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Accept the office quote on the customer's own request; an invoice is issued for the quoted amount
+ */
+export const acceptQuotePathIdMax = 2147483647;
+
+
+
+export const AcceptQuoteParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(acceptQuotePathIdMax)
+})
+
+export const acceptQuoteResponseRatingMax = 5;
+
+
+
+export const AcceptQuoteResponse = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "category": zod.enum(['passports', 'labor', 'business', 'other']),
+  "service": zod.string(),
+  "description": zod.string(),
+  "contactPhone": zod.string(),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
+  "customerMessage": zod.string().nullable(),
+  "clientRequestId": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+})),
+  "rating": zod.number().int().min(1).max(acceptQuoteResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable(),
+  "subject": zod.union([zod.object({
+  "type": zod.enum(['employee', 'license']),
+  "id": zod.number().int(),
+  "label": zod.string()
+}),zod.null()]),
+  "lastMessage": zod.union([zod.object({
+  "by": zod.enum(['customer', 'office']),
+  "at": zod.coerce.date()
+}),zod.null()]),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Decline the office quote on the customer's own request, optionally with a reason sent as a message
+ */
+export const declineQuotePathIdMax = 2147483647;
+
+
+
+export const DeclineQuoteParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(declineQuotePathIdMax)
+})
+
+export const declineQuoteBodyReasonMax = 500;
+
+
+
+export const DeclineQuoteBody = zod.object({
+  "reason": zod.string().max(declineQuoteBodyReasonMax).optional()
+})
+
+export const declineQuoteResponseRatingMax = 5;
+
+
+
+export const DeclineQuoteResponse = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "category": zod.enum(['passports', 'labor', 'business', 'other']),
+  "service": zod.string(),
+  "description": zod.string(),
+  "contactPhone": zod.string(),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
+  "customerMessage": zod.string().nullable(),
+  "clientRequestId": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+})),
+  "rating": zod.number().int().min(1).max(declineQuoteResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable(),
+  "subject": zod.union([zod.object({
+  "type": zod.enum(['employee', 'license']),
+  "id": zod.number().int(),
+  "label": zod.string()
+}),zod.null()]),
+  "lastMessage": zod.union([zod.object({
+  "by": zod.enum(['customer', 'office']),
+  "at": zod.coerce.date()
+}),zod.null()]),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Staff-only replace the document checklist on a request (attachment links are kept by key)
+ */
+export const saveOfficeChecklistPathIdMax = 2147483647;
+
+
+
+export const SaveOfficeChecklistParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(saveOfficeChecklistPathIdMax)
+})
+
+export const saveOfficeChecklistBodyItemsItemKeyMax = 40;
+
+export const saveOfficeChecklistBodyItemsItemLabelMax = 120;
+
+export const saveOfficeChecklistBodyItemsMax = 20;
+
+
+
+export const SaveOfficeChecklistBody = zod.object({
+  "items": zod.array(zod.object({
+  "key": zod.string().min(1).max(saveOfficeChecklistBodyItemsItemKeyMax).optional().describe('Omit for a new item; keeps attachment links when given'),
+  "label": zod.string().min(1).max(saveOfficeChecklistBodyItemsItemLabelMax)
+})).max(saveOfficeChecklistBodyItemsMax)
+})
+
+export const saveOfficeChecklistResponseRatingMax = 5;
+
+
+
+export const SaveOfficeChecklistResponse = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "category": zod.enum(['passports', 'labor', 'business', 'other']),
+  "service": zod.string(),
+  "description": zod.string(),
+  "contactPhone": zod.string(),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
+  "officeNote": zod.string().nullish(),
+  "customerMessage": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+})),
+  "customer": zod.union([zod.object({
+  "fullName": zod.string(),
+  "email": zod.string().email()
+}),zod.null()]),
+  "assignedTo": zod.string().nullable().describe('User ID of the responsible office member'),
+  "dueAt": zod.coerce.date().nullable(),
+  "rating": zod.number().int().min(1).max(saveOfficeChecklistResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable(),
+  "subject": zod.union([zod.object({
+  "type": zod.enum(['employee', 'license']),
+  "id": zod.number().int(),
+  "label": zod.string()
+}),zod.null()]),
+  "lastMessage": zod.union([zod.object({
+  "by": zod.enum(['customer', 'office']),
+  "at": zod.coerce.date()
+}),zod.null()]),
+  "userId": zod.string().describe('The customer\'s user ID, for opening their file'),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Link (or unlink with null) one of the customer's own attachments to a checklist item on their request
+ */
+export const linkAttachmentToChecklistPathIdMax = 2147483647;
+
+export const linkAttachmentToChecklistPathAttachmentIdMax = 2147483647;
+
+
+
+export const LinkAttachmentToChecklistParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(linkAttachmentToChecklistPathIdMax),
+  "attachmentId": zod.coerce.number().int().min(1).max(linkAttachmentToChecklistPathAttachmentIdMax)
+})
+
+export const linkAttachmentToChecklistBodyKeyMax = 40;
+
+
+
+export const LinkAttachmentToChecklistBody = zod.object({
+  "key": zod.string().max(linkAttachmentToChecklistBodyKeyMax).nullable().describe('Null unlinks the attachment')
+})
+
+export const linkAttachmentToChecklistResponseRatingMax = 5;
+
+
+
+export const LinkAttachmentToChecklistResponse = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "category": zod.enum(['passports', 'labor', 'business', 'other']),
+  "service": zod.string(),
+  "description": zod.string(),
+  "contactPhone": zod.string(),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
+  "customerMessage": zod.string().nullable(),
+  "clientRequestId": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+})),
+  "rating": zod.number().int().min(1).max(linkAttachmentToChecklistResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable(),
+  "subject": zod.union([zod.object({
+  "type": zod.enum(['employee', 'license']),
+  "id": zod.number().int(),
+  "label": zod.string()
+}),zod.null()]),
+  "lastMessage": zod.union([zod.object({
+  "by": zod.enum(['customer', 'office']),
+  "at": zod.coerce.date()
+}),zod.null()]),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Staff-only link (or unlink with null) an attachment to a checklist item on a request
+ */
+export const linkOfficeAttachmentToChecklistPathIdMax = 2147483647;
+
+export const linkOfficeAttachmentToChecklistPathAttachmentIdMax = 2147483647;
+
+
+
+export const LinkOfficeAttachmentToChecklistParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(linkOfficeAttachmentToChecklistPathIdMax),
+  "attachmentId": zod.coerce.number().int().min(1).max(linkOfficeAttachmentToChecklistPathAttachmentIdMax)
+})
+
+export const linkOfficeAttachmentToChecklistBodyKeyMax = 40;
+
+
+
+export const LinkOfficeAttachmentToChecklistBody = zod.object({
+  "key": zod.string().max(linkOfficeAttachmentToChecklistBodyKeyMax).nullable().describe('Null unlinks the attachment')
+})
+
+export const linkOfficeAttachmentToChecklistResponseRatingMax = 5;
+
+
+
+export const LinkOfficeAttachmentToChecklistResponse = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "category": zod.enum(['passports', 'labor', 'business', 'other']),
+  "service": zod.string(),
+  "description": zod.string(),
+  "contactPhone": zod.string(),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
+  "officeNote": zod.string().nullish(),
+  "customerMessage": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+})),
+  "customer": zod.union([zod.object({
+  "fullName": zod.string(),
+  "email": zod.string().email()
+}),zod.null()]),
+  "assignedTo": zod.string().nullable().describe('User ID of the responsible office member'),
+  "dueAt": zod.coerce.date().nullable(),
+  "rating": zod.number().int().min(1).max(linkOfficeAttachmentToChecklistResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable(),
+  "subject": zod.union([zod.object({
+  "type": zod.enum(['employee', 'license']),
+  "id": zod.number().int(),
+  "label": zod.string()
+}),zod.null()]),
+  "lastMessage": zod.union([zod.object({
+  "by": zod.enum(['customer', 'office']),
+  "at": zod.coerce.date()
+}),zod.null()]),
+  "userId": zod.string().describe('The customer\'s user ID, for opening their file'),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Look up a commercial register number at Wathq for the signed-in customer
+ */
+export const lookupCommercialRegisterQueryNumberMax = 40;
+
+
+
+export const LookupCommercialRegisterQueryParams = zod.object({
+  "number": zod.coerce.string().min(1).max(lookupCommercialRegisterQueryNumberMax).describe('10-digit CR number; Arabic digits accepted')
+})
+
+export const LookupCommercialRegisterResponse = zod.object({
+  "name": zod.string(),
+  "unifiedNumber": zod.string().nullable(),
+  "status": zod.string().nullable(),
+  "activity": zod.string().nullable(),
+  "city": zod.string().nullable(),
+  "issuedOn": zod.string().nullable().describe('Date as given by Wathq'),
+  "expiresOn": zod.string().nullable().describe('Date as given by Wathq')
+})
+
+
+/**
+ * @summary Staff-only commercial register lookup at Wathq while editing a customer's file
+ */
+export const lookupOfficeCommercialRegisterPathUserIdMax = 120;
+
+
+
+export const LookupOfficeCommercialRegisterParams = zod.object({
+  "userId": zod.coerce.string().min(1).max(lookupOfficeCommercialRegisterPathUserIdMax)
+})
+
+export const lookupOfficeCommercialRegisterQueryNumberMax = 40;
+
+
+
+export const LookupOfficeCommercialRegisterQueryParams = zod.object({
+  "number": zod.coerce.string().min(1).max(lookupOfficeCommercialRegisterQueryNumberMax).describe('10-digit CR number; Arabic digits accepted')
+})
+
+export const LookupOfficeCommercialRegisterResponse = zod.object({
+  "name": zod.string(),
+  "unifiedNumber": zod.string().nullable(),
+  "status": zod.string().nullable(),
+  "activity": zod.string().nullable(),
+  "city": zod.string().nullable(),
+  "issuedOn": zod.string().nullable().describe('Date as given by Wathq'),
+  "expiresOn": zod.string().nullable().describe('Date as given by Wathq')
 })
 
 

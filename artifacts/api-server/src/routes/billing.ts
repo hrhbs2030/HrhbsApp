@@ -1,6 +1,6 @@
 import { getAuth } from "@clerk/express";
 import { timingSafeEqual } from "node:crypto";
-import { and, asc, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { db, hbsInvoices, hbsServiceRequests, type HbsInvoice, type HbsServiceRequest } from "@workspace/db";
 import {
@@ -136,7 +136,10 @@ router.post("/invoices/:id/pay", requireApprovedCustomer, async (req, res): Prom
       const existing = await fetchGatewayInvoice(row.gatewayInvoiceId);
       if (existing.status === "paid") { await settleFromGateway(row, request, existing); closed(); return; }
       if (existing.status === "initiated" && row.paymentUrl) { res.json(StartInvoicePaymentResponse.parse({ url: row.paymentUrl })); return; }
-      // The page at the gateway expired or was closed: a new one replaces it.
+      // The page at the gateway expired or was closed: a new one replaces it,
+      // and the old one is closed so it cannot take a payment nothing tracks.
+      cancelGatewayInvoice(row.gatewayInvoiceId).catch((error: unknown) =>
+        req.log.warn({ err: error, invoiceId: row.id }, "Could not close the replaced payment page"));
     }
     const claimedAt = new Date();
     const [claimed] = await db.update(hbsInvoices).set({ gatewayClaimedAt: claimedAt }).where(and(
@@ -167,8 +170,10 @@ router.post("/invoices/:id/pay", requireApprovedCustomer, async (req, res): Prom
         .where(and(eq(hbsInvoices.id, claimed.id), eq(hbsInvoices.gatewayClaimedAt, claimedAt)));
       throw error;
     }
+    // Stored only while the invoice is still open: one cancelled or marked
+    // paid while the page was being created must not get a live page.
     const [stored] = await db.update(hbsInvoices).set({ gatewayInvoiceId: created.id, paymentUrl: created.url, gatewayClaimedAt: null })
-      .where(and(eq(hbsInvoices.id, claimed.id), eq(hbsInvoices.gatewayClaimedAt, claimedAt))).returning();
+      .where(and(eq(hbsInvoices.id, claimed.id), eq(hbsInvoices.status, "issued"), eq(hbsInvoices.gatewayClaimedAt, claimedAt))).returning();
     if (!stored) {
       // The claim was taken over after 60 s or the invoice was closed: the
       // page just created must not stay open with nothing tracking it.
@@ -232,7 +237,8 @@ export async function reconcileOnlinePayments(): Promise<number> {
     .innerJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
     .where(and(eq(hbsInvoices.status, "issued"), isNotNull(hbsInvoices.gatewayInvoiceId),
       sql`${hbsInvoices.issuedAt} > now() - interval '30 days'`))
-    .orderBy(asc(hbsInvoices.id)).limit(200);
+    // Newest first: a backlog of stale pages must not keep the latest payments unchecked.
+    .orderBy(desc(hbsInvoices.issuedAt), desc(hbsInvoices.id)).limit(200);
   let settled = 0;
   for (const { invoice: row, request } of rows) {
     try { if ((await settleFromGateway(row, request)).status === "paid") settled++; }
@@ -255,6 +261,27 @@ export function startPaymentReconciliation() {
   schedule(2 * 60_000);
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+// Inserts an invoice with VAT computed now and records who issued it. The
+// caller holds the request locked; the audit actor may differ from issuedBy
+// when an accepted quote issues the invoice on the office's behalf.
+export async function issueInvoice(
+  tx: Tx, request: Pick<HbsServiceRequest, "id">,
+  input: { description: string; amount: number; issuedBy: string }, actorId: string,
+): Promise<HbsInvoice> {
+  const vat = vatFor(input.amount);
+  const [row] = await tx.insert(hbsInvoices).values({
+    requestId: request.id, description: input.description, amountHalalas: input.amount,
+    vatRateBasisPoints: VAT_RATE_BASIS_POINTS, vatHalalas: vat, totalHalalas: input.amount + vat, issuedBy: input.issuedBy,
+  }).returning();
+  await recordAudit(tx, {
+    actorId, action: "invoice.issue", targetType: "service_request", targetId: request.id,
+    details: { invoiceId: row.id, total: row.totalHalalas },
+  });
+  return row;
+}
+
 router.get("/office/service-requests/:id/invoices", requireOfficeStaff, async (req, res): Promise<void> => {
   const params = ListOfficeServiceRequestInvoicesParams.safeParse(req.params);
   if (!params.success) { res.status(404).json({ error: "Request not found" }); return; }
@@ -275,15 +302,7 @@ router.post("/office/service-requests/:id/invoices", requireOfficeStaff, async (
   const result = await db.transaction(async tx => {
     const [request] = await tx.select().from(hbsServiceRequests).where(eq(hbsServiceRequests.id, params.data.id)).for("update");
     if (!request) return null;
-    const vat = vatFor(body.data.amount);
-    const [row] = await tx.insert(hbsInvoices).values({
-      requestId: request.id, description, amountHalalas: body.data.amount,
-      vatRateBasisPoints: VAT_RATE_BASIS_POINTS, vatHalalas: vat, totalHalalas: body.data.amount + vat, issuedBy: actorId,
-    }).returning();
-    await recordAudit(tx, {
-      actorId, action: "invoice.issue", targetType: "service_request", targetId: request.id,
-      details: { invoiceId: row.id, total: row.totalHalalas },
-    });
+    const row = await issueInvoice(tx, request, { description, amount: body.data.amount, issuedBy: actorId }, actorId);
     let current = request;
     if (body.data.markAwaitingPayment && request.status !== "completed" && request.status !== "awaiting_payment") {
       [current] = await tx.update(hbsServiceRequests).set({ status: "awaiting_payment", customerMessage: null, updatedAt: new Date() })

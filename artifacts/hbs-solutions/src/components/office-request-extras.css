@@ -1,0 +1,16 @@
+.oq-state { display: grid; gap: 4px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--color-line); background: var(--color-surface); font-size: 13px; }
+.oq-accepted { border-color: var(--color-ok); background: var(--color-ok-soft); }
+.oq-declined { border-color: var(--color-danger); background: var(--color-danger-soft); }
+.oq-amounts { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.oq-amounts strong { font-size: 16px; }
+.oq-note, .oq-status, .oq-reason { margin: 0; line-height: 1.8; }
+.oq-status { font-size: 12.5px; color: var(--color-quiet); }
+.oq-reason { font-size: 12.5px; }
+.oc-list, .oc-edit { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.oc-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--color-line); background: var(--color-surface); }
+.oc-main { display: grid; gap: 2px; min-width: 0; flex: 1; font-size: 13.5px; }
+.oc-main small { color: var(--color-subtle); font-size: 12px; }
+.oc-link { flex: none; min-width: 11rem; }
+.oc-link .form-control { min-height: 36px; font-size: 12.5px; }
+.oc-edit li { display: flex; align-items: center; gap: 6px; }
+.oc-edit .form-control { flex: 1; }

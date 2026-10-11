@@ -4,6 +4,7 @@ import { startExpiredRequestAttachmentCleanup } from "./lib/expired-request-atta
 import { ensureRequestTrackingGuide } from "./lib/portal-usage-information";
 import { startDocumentReminders } from "./lib/document-reminders";
 import { startPaymentReconciliation } from "./routes/billing";
+import { startInvoiceReminders } from "./lib/invoice-reminders";
 
 const rawPort = process.env["PORT"];
 
@@ -29,6 +30,7 @@ ensureRequestTrackingGuide().then(() => app.listen(port, (err) => {
   startExpiredRequestAttachmentCleanup();
   startDocumentReminders();
   startPaymentReconciliation();
+  startInvoiceReminders();
 })).catch(err => {
   logger.error({ err }, "Failed to initialize portal usage information");
   process.exitCode = 1;

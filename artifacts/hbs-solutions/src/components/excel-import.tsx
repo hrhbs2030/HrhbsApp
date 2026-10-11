@@ -1,8 +1,31 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { Download, FileSpreadsheet, Upload, X } from 'lucide-react';
+import { Download, FileSpreadsheet, Printer, Upload, X } from 'lucide-react';
 import type { ImportResult } from '@workspace/api-client-react';
 import { columns, sheetToRows, type CellValue, type ImportKind, type ParsedSheet } from '@/lib/excel-rows';
+import { exportRows, printTable, type ExportColumn, type ExportRow } from '@/lib/export';
 import { formatNumber } from '@/lib/format';
+
+// "Excel" and "print / PDF" for any table on the site. `rows` is read when
+// the button is pressed, so callers pass the list they currently show.
+export function ExportButtons({ name, columns: cols, rows, compact = false }: { name: string; columns: ExportColumn[]; rows: () => ExportRow[]; compact?: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function excel() {
+    setBusy(true); setError(null);
+    try { await exportRows(name, cols, rows()); } catch { setError('تعذّر إنشاء ملف Excel.'); } finally { setBusy(false); }
+  }
+  function print() {
+    setError(printTable(name, cols, rows()) ? null : 'اسمح بالنوافذ المنبثقة لفتح صفحة الطباعة.');
+  }
+  return <span className="inline-flex flex-wrap items-center gap-1">
+    {compact
+      ? <><button type="button" className="rf-btn" onClick={excel} disabled={busy} aria-label={`تصدير ${name} إلى Excel`} title="تصدير Excel"><FileSpreadsheet size={16}/></button>
+        <button type="button" className="rf-btn" onClick={print} aria-label={`طباعة ${name}`} title="طباعة / PDF"><Printer size={16}/></button></>
+      : <><button type="button" className="btn btn-outline btn-sm" onClick={excel} disabled={busy}><FileSpreadsheet size={16}/>تصدير Excel</button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={print}><Printer size={16}/>طباعة / PDF</button></>}
+    {error && <span role="alert" className="text-xs text-danger">{error}</span>}
+  </span>;
+}
 
 const titles: Record<ImportKind, string> = { employees: 'الموظفين', licenses: 'التراخيص' };
 const valueNames: Record<string, string> = {

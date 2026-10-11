@@ -1770,6 +1770,165 @@ paths:
               schema: { $ref: "#/components/schemas/AssignmentRule" }
         "400": { description: Invalid rule or not an office member }
         "403": { description: Office owner access required }
+  /office/service-requests/{id}/quote:
+    post:
+      operationId: sendOfficeQuote
+      tags: [billing]
+      summary: Staff-only send (or revise) a price quote on a request before work starts
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuoteInput" }
+      responses:
+        "200":
+          description: The request with its quote
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OfficeServiceRequest" }
+        "400": { description: Invalid quote }
+        "403": { description: Office access required }
+        "404": { description: Not found }
+        "409": { description: The request is completed }
+  /service-requests/{id}/quote/accept:
+    post:
+      operationId: acceptQuote
+      tags: [billing]
+      summary: Accept the office quote on the customer's own request; an invoice is issued for the quoted amount
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      responses:
+        "200":
+          description: The request with the accepted quote
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceRequest" }
+        "404": { description: Not found }
+        "409": { description: "No quote, or the quote was already accepted" }
+  /service-requests/{id}/quote/decline:
+    post:
+      operationId: declineQuote
+      tags: [billing]
+      summary: Decline the office quote on the customer's own request, optionally with a reason sent as a message
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuoteDeclineInput" }
+      responses:
+        "200":
+          description: The request with the declined quote
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceRequest" }
+        "404": { description: Not found }
+        "409": { description: "No quote, or the quote was already accepted or declined" }
+  /office/service-requests/{id}/checklist:
+    put:
+      operationId: saveOfficeChecklist
+      tags: [portal]
+      summary: Staff-only replace the document checklist on a request (attachment links are kept by key)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChecklistInput" }
+      responses:
+        "200":
+          description: The request with its checklist
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OfficeServiceRequest" }
+        "400": { description: Invalid checklist }
+        "403": { description: Office access required }
+        "404": { description: Not found }
+  /service-requests/{id}/attachments/{attachmentId}/checklist:
+    put:
+      operationId: linkAttachmentToChecklist
+      tags: [portal]
+      summary: Link (or unlink with null) one of the customer's own attachments to a checklist item on their request
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+        - { name: attachmentId, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChecklistLinkInput" }
+      responses:
+        "200":
+          description: The request with its checklist
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceRequest" }
+        "400": { description: Unknown checklist key }
+        "404": { description: Not found }
+  /office/service-requests/{id}/attachments/{attachmentId}/checklist:
+    put:
+      operationId: linkOfficeAttachmentToChecklist
+      tags: [portal]
+      summary: Staff-only link (or unlink with null) an attachment to a checklist item on a request
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+        - { name: attachmentId, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChecklistLinkInput" }
+      responses:
+        "200":
+          description: The request with its checklist
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OfficeServiceRequest" }
+        "400": { description: Unknown checklist key }
+        "403": { description: Office access required }
+        "404": { description: Not found }
+  /company/cr-lookup:
+    get:
+      operationId: lookupCommercialRegister
+      tags: [company]
+      summary: Look up a commercial register number at Wathq for the signed-in customer
+      parameters:
+        - { name: number, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, description: "10-digit CR number; Arabic digits accepted" }
+      responses:
+        "200":
+          description: Register details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommercialRegisterLookup" }
+        "400": { description: Not a 10-digit number }
+        "404": { description: No register with that number }
+        "429": { description: Too many lookups }
+        "502": { description: Wathq failed }
+        "503": { description: Wathq lookup is not configured }
+  /office/customers/{userId}/cr-lookup:
+    get:
+      operationId: lookupOfficeCommercialRegister
+      tags: [company]
+      summary: Staff-only commercial register lookup at Wathq while editing a customer's file
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
+        - { name: number, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, description: "10-digit CR number; Arabic digits accepted" }
+      responses:
+        "200":
+          description: Register details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommercialRegisterLookup" }
+        "400": { description: Not a 10-digit number }
+        "403": { description: Office access required }
+        "404": { description: No register with that number }
+        "429": { description: Too many lookups }
+        "502": { description: Wathq failed }
+        "503": { description: Wathq lookup is not configured }
 components:
   schemas:
     OfficeStaffInput:
@@ -1798,7 +1957,7 @@ components:
         actorEmail: { type: ["string", "null"], format: email }
         action:
           type: string
-          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge, registration.approve, registration.reject, information.review, information.publish, information.unpublish, attachment.extract, invoice.issue, invoice.mark_paid, invoice.cancel, invoice.paid_online, offer.update, reminder.create, company.update, employee.create, employee.update, employee.delete, employee.reveal, license.create, license.update, license.delete, employee.import, license.import, automation.update]
+          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge, registration.approve, registration.reject, information.review, information.publish, information.unpublish, attachment.extract, invoice.issue, invoice.mark_paid, invoice.cancel, invoice.paid_online, offer.update, reminder.create, company.update, employee.create, employee.update, employee.delete, employee.reveal, license.create, license.update, license.delete, employee.import, license.import, automation.update, service_request.quote, service_request.quote_accept, service_request.quote_decline, service_request.checklist]
         targetType: { type: string }
         targetId: { type: string }
         details:
@@ -1974,9 +2133,73 @@ components:
           type: string
           enum: [approved, rejected]
         reason: { type: ["string", "null"], maxLength: 1000 }
+    RequestQuote:
+      type: object
+      required: [amount, vat, total, note, quotedAt, acceptedAt, declinedAt]
+      properties:
+        amount: { type: integer, description: "Halalas before VAT" }
+        vat: { type: integer }
+        total: { type: integer }
+        note: { type: ["string", "null"] }
+        quotedAt: { type: string, format: date-time }
+        acceptedAt: { type: ["string", "null"], format: date-time }
+        declinedAt: { type: ["string", "null"], format: date-time }
+    QuoteInput:
+      type: object
+      additionalProperties: false
+      required: [amount]
+      properties:
+        amount: { type: integer, minimum: 100, maximum: 100000000, description: "Halalas before VAT" }
+        note: { type: string, maxLength: 500 }
+        markWaiting: { type: boolean, description: "Also move the request to waiting on customer (default true)" }
+    QuoteDeclineInput:
+      type: object
+      additionalProperties: false
+      properties:
+        reason: { type: string, maxLength: 500 }
+    ChecklistItem:
+      type: object
+      required: [key, label, attachmentId, attachmentName]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        attachmentId: { type: ["integer", "null"] }
+        attachmentName: { type: ["string", "null"] }
+    ChecklistInput:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            additionalProperties: false
+            required: [label]
+            properties:
+              key: { type: string, minLength: 1, maxLength: 40, description: "Omit for a new item; keeps attachment links when given" }
+              label: { type: string, minLength: 1, maxLength: 120 }
+    ChecklistLinkInput:
+      type: object
+      additionalProperties: false
+      required: [key]
+      properties:
+        key: { type: ["string", "null"], maxLength: 40, description: "Null unlinks the attachment" }
+    CommercialRegisterLookup:
+      type: object
+      required: [name, unifiedNumber, status, activity, city, issuedOn, expiresOn]
+      properties:
+        name: { type: string }
+        unifiedNumber: { type: ["string", "null"] }
+        status: { type: ["string", "null"] }
+        activity: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        issuedOn: { type: ["string", "null"], description: "Date as given by Wathq" }
+        expiresOn: { type: ["string", "null"], description: "Date as given by Wathq" }
     ServiceRequest:
       type: object
-      required: [id, reference, category, service, description, contactPhone, status, customerMessage, clientRequestId, createdAt, updatedAt, attachments, rating, ratingComment, ratedAt, subject, lastMessage]
+      required: [id, reference, category, service, description, contactPhone, status, customerMessage, clientRequestId, createdAt, updatedAt, attachments, rating, ratingComment, ratedAt, subject, lastMessage, quote, checklist]
       properties:
         id: { type: integer }
         reference: { type: string }
@@ -2007,6 +2230,13 @@ components:
           oneOf:
             - $ref: "#/components/schemas/RequestLastMessage"
             - type: "null"
+        quote:
+          oneOf:
+            - $ref: "#/components/schemas/RequestQuote"
+            - type: "null"
+        checklist:
+          type: array
+          items: { $ref: "#/components/schemas/ChecklistItem" }
     ServiceRequestStatusEvent:
       type: object
       required: [status, at]
@@ -2023,7 +2253,7 @@ components:
         email: { type: string, format: email }
     OfficeServiceRequest:
       type: object
-      required: [id, reference, category, service, description, contactPhone, status, customerMessage, createdAt, updatedAt, attachments, customer, assignedTo, dueAt, rating, ratingComment, ratedAt, subject, lastMessage, userId]
+      required: [id, reference, category, service, description, contactPhone, status, customerMessage, createdAt, updatedAt, attachments, customer, assignedTo, dueAt, rating, ratingComment, ratedAt, subject, lastMessage, userId, quote, checklist]
       properties:
         id: { type: integer }
         reference: { type: string }
@@ -2061,6 +2291,13 @@ components:
             - $ref: "#/components/schemas/RequestLastMessage"
             - type: "null"
         userId: { type: string, description: "The customer's user ID, for opening their file" }
+        quote:
+          oneOf:
+            - $ref: "#/components/schemas/RequestQuote"
+            - type: "null"
+        checklist:
+          type: array
+          items: { $ref: "#/components/schemas/ChecklistItem" }
     OfficeServiceRequestPage:
       type: object
       required: [items, total, page, pageSize]
@@ -2093,6 +2330,17 @@ components:
           minItems: 1
           maxItems: 10
           items: { type: integer, minimum: 1 }
+        checklist:
+          type: array
+          maxItems: 10
+          description: "Link uploaded files to checklist items in the same call"
+          items:
+            type: object
+            additionalProperties: false
+            required: [attachmentId, key]
+            properties:
+              attachmentId: { type: integer, minimum: 1 }
+              key: { type: string, minLength: 1, maxLength: 40 }
     AttachmentUploadInput:
       type: object
       additionalProperties: false
@@ -2127,6 +2375,7 @@ components:
           items: { type: integer, minimum: 1 }
         employeeId: { type: ["integer", "null"], minimum: 1, description: "An employee in the customer's company file" }
         licenseId: { type: ["integer", "null"], minimum: 1, description: "A license in the customer's company file" }
+        serviceSlug: { type: string, pattern: "^[a-z0-9-]{2,60}$", description: "Catalogue slug of the chosen service; its published required documents become the request's checklist" }
     ServiceRequestUpdate:
       type: object
       required: [status, expectedUpdatedAt]
