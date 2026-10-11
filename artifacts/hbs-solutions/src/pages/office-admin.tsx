@@ -138,6 +138,8 @@ const actionNames: Record<AuditLogEntry['action'], string> = {
   'subscription.start': 'بدء اشتراك',
   'subscription.update': 'تعديل اشتراك',
   'service_request.auto_renew': 'طلب تجديد تلقائي ضمن الاشتراك',
+  'notification.preferences': 'تعديل تفضيلات الإشعارات',
+  'whatsapp.reply': 'رد على رسالة واتساب',
 };
 
 function auditSummary(entry: AuditLogEntry): string {

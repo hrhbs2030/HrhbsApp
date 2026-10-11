@@ -15,7 +15,9 @@ import {
 import { customerEmail } from "../lib/customer-contact";
 import { requireOfficeStaff } from "../lib/office-access";
 import { verifiedEmailOf } from "../lib/office-access-rules";
-import { companyInviteMail, notify } from "../lib/notify";
+import { notifyCustomer } from "../lib/customer-contact";
+import { mailOnly } from "../lib/notifications";
+import { companyInviteMail } from "../lib/notify";
 
 // Company members (multi-user company). The owner is implicit: ownership is
 // hbs_companies.user_id itself, reported first as role 'owner' with id 0.
@@ -134,7 +136,14 @@ router.post("/company/members", ownerOnly, async (req, res): Promise<void> => {
     db.select({ fullName: hbsRegistrationRequests.fullName }).from(hbsRegistrationRequests)
       .where(eq(hbsRegistrationRequests.userId, companyUserId)).limit(1),
   ]);
-  notify(companyInviteMail(email, company?.name ?? null, row.role, registration?.fullName ?? null));
+  // An invitee with an account sees the invitation in the portal too; the
+  // mail goes to the invited address either way.
+  const invite = () => companyInviteMail(email, company?.name ?? null, row.role, registration?.fullName ?? null);
+  if (existingUserId) {
+    void notifyCustomer(existingUserId, invite, { kind: "company.invite", targetType: "company", targetId: companyUserId, dedupeKey: `company-invite:${row.id}` });
+  } else {
+    mailOnly(invite());
+  }
 });
 
 router.patch("/company/members/:id", ownerOnly, async (req, res): Promise<void> => {

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
-import { BellRing, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Bell, BellRing, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   getGetPortalSettingsQueryKey, getListRemindersQueryKey,
   useCreateReminder, useDeleteReminder, useGetPortalSettings, useListReminders, useSavePortalSettings, useUpdateReminder,
@@ -83,7 +83,7 @@ export function NotificationSettings() {
     } catch { /* shown below */ }
   }
   return <PortalLayout>
-    <PageHeading eyebrow="الإعدادات" title="الإشعارات" subtitle="تصلك رسائل البريد دائمًا عند تحديث طلباتك. اختر إن كنت تريد رسائل واتساب أيضًا."/>
+    <PageHeading eyebrow="الإعدادات" title="رسائل واتساب" subtitle="تصلك رسائل البريد دائمًا عند تحديث طلباتك. اختر إن كنت تريد رسائل واتساب أيضًا." action={<Link href="/notifications" className="btn btn-outline"><Bell size={18} aria-hidden="true"/>مركز الإشعارات وتفضيلاتها</Link>}/>
     {settings.isLoading ? <LoadingBlock/> : settings.isError ? <ErrorBlock retry={() => settings.refetch()}/> : settings.data && <form onSubmit={submit} className="surface max-w-[640px] space-y-5 p-5 sm:p-7">
       {!settings.data.whatsappAvailable && <p className="rounded-lg bg-sunk p-4 text-sm leading-7 text-quiet">رسائل واتساب غير مفعّلة من المكتب حاليًا. يمكنك حفظ رقمك الآن، وتصلك الرسائل عند تفعيلها.</p>}
       <label className="flex items-start gap-3 text-sm leading-7"><input type="checkbox" className="mt-1.5" checked={optIn} onChange={e => setOptIn(e.target.checked)}/><span><strong>أوافق على استلام رسائل واتساب</strong> عن حالة طلباتي والفواتير وتنبيهات انتهاء الوثائق. يمكنني إيقافها في أي وقت.</span></label>

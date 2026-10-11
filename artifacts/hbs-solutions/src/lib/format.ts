@@ -68,3 +68,19 @@ export function parseRiyals(text: string): number | null {
   if (!/^\d+(\.\d{1,2})?$/.test(latin)) return null;
   return Math.round(Number(latin) * 100);
 }
+
+// "قبل 5 دقائق" / "أمس": how long ago something happened, in Arabic with
+// Latin digits like every other number. Beyond a week the full date reads better.
+const relativeFormat = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' });
+export function formatRelative(value: string | Date | null | undefined, now: number = Date.now()): string {
+  if (!value) return '-';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  const seconds = Math.round((date.getTime() - now) / 1000);
+  const abs = Math.abs(seconds);
+  if (abs < 45) return 'الآن';
+  if (abs < 3600) return relativeFormat.format(Math.round(seconds / 60), 'minute');
+  if (abs < 86_400) return relativeFormat.format(Math.round(seconds / 3600), 'hour');
+  if (abs < 7 * 86_400) return relativeFormat.format(Math.round(seconds / 86_400), 'day');
+  return formatDate(date);
+}

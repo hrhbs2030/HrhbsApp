@@ -147,6 +147,8 @@ export function createRateLimitMiddleware({
 }
 const RATE_LIMIT_MESSAGE = "طلبات كثيرة خلال وقت قصير. حاول مرة أخرى بعد قليل.";
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+// Push subscriptions are registered with PUT; everything else sensitive is a POST.
+const SENSITIVE_METHODS = new Set(["POST", "PUT"]);
 // Payment provider and WhatsApp callbacks are verified by their own secret
 // (an HMAC for WhatsApp) and may arrive in bursts from a few addresses, so
 // the per-visitor limits leave them alone.
@@ -164,6 +166,10 @@ const SENSITIVE_WRITES = [
   /^\/(company|office\/customers\/[^/]+)\/(employees|licenses)\/import$/,
   /^\/company\/members$/,
   /^\/company\/subscription$/,
+  // A push subscription is an outside endpoint the server will later call;
+  // a WhatsApp reply sends a message to a customer.
+  /^\/notifications\/push\/subscriptions$/,
+  /^\/office\/whatsapp\/inbox\/[^/]+\/reply$/,
 ];
 
 export const API_REQUEST_LIMIT = 600;
@@ -186,7 +192,7 @@ export function createApiRateLimits({
     }),
     createRateLimitMiddleware({
       limit: API_SENSITIVE_WRITE_LIMIT, windowMs, now, message: RATE_LIMIT_MESSAGE,
-      skip: (req) => req.method !== "POST" || !SENSITIVE_WRITES.some((pattern) => pattern.test(req.path)),
+      skip: (req) => !SENSITIVE_METHODS.has(req.method) || !SENSITIVE_WRITES.some((pattern) => pattern.test(req.path)),
     }),
   ];
 }

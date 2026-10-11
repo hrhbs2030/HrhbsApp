@@ -93,6 +93,19 @@ test("inviting members and starting a subscription share the sensitive-write cei
   });
 });
 
+test("push subscriptions and WhatsApp replies share the sensitive-write ceiling; the event stream is an ordinary read", async () => {
+  await withServer(async (base) => {
+    const pushes = await hit(`${base}/api/notifications/push/subscriptions`, "PUT", API_SENSITIVE_WRITE_LIMIT);
+    assert.ok(pushes.every((status) => status === 200));
+    assert.equal((await fetch(`${base}/api/office/whatsapp/inbox/wamid.1/reply`, { method: "POST" })).status, 429);
+    assert.equal((await fetch(`${base}/api/notifications/push/subscriptions`, { method: "PUT" })).status, 429);
+    // Removing a subscription, reading notifications and the live stream are not sensitive.
+    assert.equal((await fetch(`${base}/api/notifications/push/subscriptions`, { method: "DELETE" })).status, 200);
+    assert.equal((await fetch(`${base}/api/notifications/1/read`, { method: "POST" })).status, 200);
+    assert.equal((await fetch(`${base}/api/notifications/stream`)).status, 200);
+  });
+});
+
 test("writes and all requests have their own ceilings; health and the signed webhooks are exempt", async () => {
   await withServer(async (base) => {
     const writes = await hit(`${base}/api/company`, "PUT", API_WRITE_LIMIT + 1);

@@ -1,8 +1,11 @@
 import { clerkClient } from "@clerk/express";
 import { eq } from "drizzle-orm";
-import { db, hbsCustomerSettings, hbsRegistrationRequests } from "@workspace/db";
-import { notify, sendMailNow, type Mail } from "./notify";
-import { saudiMobile, sendWhatsApp, whatsappConfigured, whatsappText } from "./whatsapp";
+import type { NotificationKind } from "@workspace/api-zod";
+import { db, hbsRegistrationRequests } from "@workspace/db";
+import { logger } from "./logger";
+import type { PrioritySignals } from "./notification-intelligence";
+import { kindLabel, publishCustomer, publishOffice, type PublishInput } from "./notifications";
+import { sendMailNow, type Mail } from "./notify";
 
 // The address the customer registered with, for notifications.
 // Runs after the response is sent, so a lookup failure only skips the email.
@@ -20,38 +23,70 @@ export async function customerEmail(userId: string): Promise<string | null> {
   }
 }
 
-const siteUrl = () => (process.env.PUBLIC_SITE_URL ?? "https://hrhbs.com").replace(/\/$/, "");
+// What the pipeline needs to know about the event besides its copy.
+export type NotifyMeta = {
+  kind: NotificationKind;
+  targetType?: string | null;
+  targetId?: string | number | null;
+  signals?: PrioritySignals;
+  dedupeKey?: string | null;
+};
 
-// Email, plus WhatsApp when the customer has opted in. The mail builder gets
-// the customer's email (or null) so the same message serves both channels.
-export async function notifyCustomer(userId: string, build: (to: string | null) => Mail | null): Promise<void> {
+export type OfficeNotifyMeta = NotifyMeta & {
+  // Which staff members get the in-app row; everyone in hbs_office_staff when omitted.
+  recipients?: string[];
+  // Copy for the in-app row when there is no mail to take it from.
+  copy?: { title: string; body: string; path?: string | null };
+};
+
+// The mail builders return null without an address. Built once more with a
+// placeholder so the in-app row (and WhatsApp) still get the copy.
+const PLACEHOLDER_ADDRESS = "in-app-only";
+
+async function customerInput(userId: string, build: (to: string | null) => Mail | null, meta: NotifyMeta): Promise<PublishInput | null> {
   const email = await customerEmail(userId);
   const mail = build(email);
-  if (mail) notify(mail);
-  await whatsappCustomer(userId, mail, build);
+  const copy = mail ?? build(PLACEHOLDER_ADDRESS);
+  if (!copy) return null;
+  return { ...meta, title: copy.heading, body: copy.lines.join(" "), path: copy.action?.path ?? null, action: copy.action ?? null, mail, whatsapp: true };
+}
+
+// In-app, email, push and WhatsApp (when opted in) through the pipeline, in
+// the background: nothing here fails the request that caused it.
+export async function notifyCustomer(userId: string, build: (to: string | null) => Mail | null, meta: NotifyMeta): Promise<void> {
+  try {
+    const input = await customerInput(userId, build, meta);
+    if (input) await publishCustomer(userId, input);
+  } catch (err) {
+    logger.warn({ err, kind: meta.kind }, "Customer notification failed");
+  }
 }
 
 // Like notifyCustomer, but rejects when the email cannot be sent, so a
-// reminder sweep can give its claim back and try again later. WhatsApp is
-// still best effort.
-export async function notifyCustomerNow(userId: string, build: (to: string | null) => Mail | null, send: typeof sendMailNow = sendMailNow): Promise<void> {
-  const email = await customerEmail(userId);
-  const mail = build(email);
-  if (mail) await send(mail);
-  await whatsappCustomer(userId, mail, build);
+// reminder sweep can give its claim back and try again later. WhatsApp and
+// push are still best effort.
+export async function notifyCustomerNow(userId: string, build: (to: string | null) => Mail | null, meta: NotifyMeta, send: typeof sendMailNow = sendMailNow): Promise<void> {
+  const input = await customerInput(userId, build, meta);
+  if (input) await publishCustomer(userId, input, { sendMail: mail => send(mail) });
 }
 
-async function whatsappCustomer(userId: string, mail: Mail | null, build: (to: string | null) => Mail | null): Promise<void> {
-  if (!whatsappConfigured()) return;
+// The office: one row per staff member and the office inbox mail the
+// builder returns (null when no inbox is configured; the row still gets
+// the kind's label as copy). Background, like notifyCustomer.
+export async function notifyOffice(build: () => Mail | null, meta: OfficeNotifyMeta): Promise<void> {
   try {
-    const [settings] = await db.select().from(hbsCustomerSettings).where(eq(hbsCustomerSettings.userId, userId)).limit(1);
-    const phone = settings?.whatsappOptIn && settings.whatsappPhone ? saudiMobile(settings.whatsappPhone) : null;
-    // With no email address the builder returns null; build the text again
-    // with a placeholder address (only the text is used for WhatsApp).
-    const message = mail ?? build("whatsapp-only");
-    // A customer who wrote to the office within 24 hours gets plain text instead of the template.
-    if (phone && message) await sendWhatsApp(phone, whatsappText(message, siteUrl()), settings?.lastInboundAt);
-  } catch {
-    // Logged inside sendWhatsApp; a settings lookup failure only skips WhatsApp.
+    const mail = build();
+    const copy = meta.copy ?? (mail ? { title: mail.heading, body: mail.lines.join(" "), path: mail.action?.path ?? null } : null);
+    const { copy: _copy, ...rest } = meta;
+    await publishOffice({
+      ...rest,
+      title: copy?.title ?? kindLabel(meta.kind),
+      body: copy?.body ?? "",
+      path: copy?.path ?? mail?.action?.path ?? null,
+      action: mail?.action ?? null,
+      mail,
+    });
+  } catch (err) {
+    logger.warn({ err, kind: meta.kind }, "Office notification failed");
   }
 }

@@ -241,7 +241,8 @@ router.post("/company/subscription", requireBilling, async (req, res): Promise<v
     throw err;
   }
   res.status(201).json(StartCompanySubscriptionResponse.parse(subscriptionView(result.subscription, plan, result.invoice)));
-  void notifyCustomer(companyUserId, to => subscriptionStartedMail(to, plan.name, invoiceInfo(result.invoice), riyadhDateText(result.subscription.renewsAt)));
+  void notifyCustomer(companyUserId, to => subscriptionStartedMail(to, plan.name, invoiceInfo(result.invoice), riyadhDateText(result.subscription.renewsAt)),
+    { kind: "subscription.started", targetType: "subscription", targetId: result.subscription.id, signals: { amountHalalas: result.invoice.totalHalalas } });
 });
 
 router.patch("/company/subscription", requireBilling, async (req, res): Promise<void> => {

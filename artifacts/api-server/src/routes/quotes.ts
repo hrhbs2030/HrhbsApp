@@ -8,9 +8,9 @@ import {
 } from "@workspace/api-zod";
 import { recordAudit } from "../lib/audit";
 import { AUTOMATION_ACTOR, resumeAfterCustomerReply } from "../lib/automations";
-import { notifyCustomer } from "../lib/customer-contact";
+import { notifyCustomer, notifyOffice } from "../lib/customer-contact";
 import { invoiceReference, requestReference, riyals, vatFor } from "../lib/money";
-import { notify, quoteAcceptedMail, quoteDeclinedMail, quoteSentMail } from "../lib/notify";
+import { quoteAcceptedMail, quoteDeclinedMail, quoteSentMail } from "../lib/notify";
 import { requireOfficeStaff } from "../lib/office-access";
 import { canTransition } from "../lib/request-status";
 import { issueInvoice } from "./billing";
@@ -61,7 +61,8 @@ router.post("/office/service-requests/:id/quote", requireOfficeStaff, async (req
   if (outcome === "completed") { res.status(409).json({ error: "The request is completed" }); return; }
   const details = (await detailsFor([outcome])).get(outcome.id);
   res.json(SendOfficeQuoteResponse.parse(officeRequest(outcome, details, await customerOf(outcome.userId))));
-  void notifyCustomer(outcome.userId, to => quoteSentMail(to, info(outcome), total, note));
+  void notifyCustomer(outcome.userId, to => quoteSentMail(to, info(outcome), total, note),
+    { kind: "quote.sent", targetType: "service_request", targetId: outcome.id, signals: { amountHalalas: outcome.quoteHalalas ?? undefined } });
 });
 
 // The customer's own request with a quote still open to a decision, locked.
@@ -99,8 +100,10 @@ router.post("/service-requests/:id/quote/accept", requireApprovedCustomer, async
   // Accepting answers the office, like a message would.
   const current = (await resumeAfterCustomerReply(outcome.request.id, "quote_accepted")) ?? outcome.request;
   res.json(AcceptQuoteResponse.parse(publicRequest(current, (await detailsFor([current])).get(current.id))));
-  notify(quoteAcceptedMail(current.assignedTo ? await staffEmail(current.assignedTo) : null, info(current),
-    `${riyals(outcome.invoice.totalHalalas)} (${invoiceReference(outcome.invoice.id, outcome.invoice.issuedAt)})`));
+  const acceptedEmail = current.assignedTo ? await staffEmail(current.assignedTo) : null;
+  void notifyOffice(() => quoteAcceptedMail(acceptedEmail, info(current),
+    `${riyals(outcome.invoice.totalHalalas)} (${invoiceReference(outcome.invoice.id, outcome.invoice.issuedAt)})`),
+  { kind: "office.quote_answered", targetType: "service_request", targetId: current.id, signals: { amountHalalas: outcome.invoice.totalHalalas } });
 });
 
 router.post("/service-requests/:id/quote/decline", requireApprovedCustomer, async (req, res): Promise<void> => {
@@ -131,7 +134,8 @@ router.post("/service-requests/:id/quote/decline", requireApprovedCustomer, asyn
   if (outcome === "closed") { res.status(409).json({ error: "There is no quote waiting for your decision." }); return; }
   const current = (await resumeAfterCustomerReply(outcome.id, "quote_declined")) ?? outcome;
   res.json(DeclineQuoteResponse.parse(publicRequest(current, (await detailsFor([current])).get(current.id))));
-  notify(quoteDeclinedMail(current.assignedTo ? await staffEmail(current.assignedTo) : null, info(current)));
+  const declinedEmail = current.assignedTo ? await staffEmail(current.assignedTo) : null;
+  void notifyOffice(() => quoteDeclinedMail(declinedEmail, info(current)), { kind: "office.quote_answered", targetType: "service_request", targetId: current.id });
 });
 
 export default router;

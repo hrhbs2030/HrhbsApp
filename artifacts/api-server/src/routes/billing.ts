@@ -13,12 +13,12 @@ import {
 } from "@workspace/api-zod";
 import { recordAudit } from "../lib/audit";
 import { COMPANY_ACCESS_DENIED, companyPermissions, hasCustomerApproval, resolveCompanyAccess } from "../lib/company-access";
-import { notifyCustomer } from "../lib/customer-contact";
+import { notifyCustomer, notifyOffice } from "../lib/customer-contact";
 import { invoiceReference, requestReference, riyals, vatFor, VAT_RATE_BASIS_POINTS } from "../lib/money";
 import {
   cancelGatewayInvoice, createGatewayInvoice, fetchGatewayInvoice, moyasarConfigured, type GatewayInvoice,
 } from "../lib/moyasar";
-import { closedInvoicePaidMail, invoiceIssuedMail, invoicePaidOfficeMail, notify } from "../lib/notify";
+import { closedInvoicePaidMail, invoiceIssuedMail, invoicePaidOfficeMail } from "../lib/notify";
 import { logger } from "../lib/logger";
 import { requireOfficeStaff } from "../lib/office-access";
 import { resumeAfterPayment } from "../lib/automations";
@@ -113,7 +113,8 @@ export async function settleFromGateway(row: HbsInvoice, request: HbsServiceRequ
     // not go unnoticed. Logged and emailed so the office can refund or match it.
     if (gateway && gateway.id === row.gatewayInvoiceId && gateway.status === "paid") {
       logger.error({ invoiceId: row.id, gatewayInvoiceId: gateway.id, status: row.status }, "Online payment received for a closed invoice");
-      notify(closedInvoicePaidMail(subjectInfo(row, request), invoiceReference(row.id, row.issuedAt), riyals(gateway.amount)));
+      void notifyOffice(() => closedInvoicePaidMail(subjectInfo(row, request), invoiceReference(row.id, row.issuedAt), riyals(gateway.amount)),
+        { kind: "office.invoice_paid", targetType: "invoice", targetId: row.id, signals: { amountHalalas: gateway.amount, repeated: true } });
     }
     return row;
   }
@@ -136,7 +137,8 @@ export async function settleFromGateway(row: HbsInvoice, request: HbsServiceRequ
   // reactivates a past-due subscription without waiting for the daily sweep.
   if (request) await resumeAfterPayment(request.id);
   else await onSubscriptionInvoicePaid(updated);
-  notify(invoicePaidOfficeMail(subjectInfo(row, request), invoiceReference(updated.id, updated.issuedAt), riyals(updated.totalHalalas)));
+  void notifyOffice(() => invoicePaidOfficeMail(subjectInfo(row, request), invoiceReference(updated.id, updated.issuedAt), riyals(updated.totalHalalas)),
+    { kind: "office.invoice_paid", targetType: "invoice", targetId: updated.id, signals: { amountHalalas: updated.totalHalalas } });
   return updated;
 }
 
@@ -384,7 +386,8 @@ router.post("/office/service-requests/:id/invoices", requireOfficeStaff, async (
   res.status(201).json(IssueOfficeInvoiceResponse.parse(invoice(row, request)));
   void notifyCustomer(request.userId, to => invoiceIssuedMail(to,
     { id: request.id, reference: requestReference(request.id, request.createdAt), service: request.service },
-    invoiceReference(row.id, row.issuedAt), riyals(row.totalHalalas)));
+    invoiceReference(row.id, row.issuedAt), riyals(row.totalHalalas)),
+  { kind: "invoice.issued", targetType: "invoice", targetId: row.id, signals: { amountHalalas: row.totalHalalas } });
 });
 
 router.patch("/office/invoices/:id", requireOfficeStaff, async (req, res): Promise<void> => {

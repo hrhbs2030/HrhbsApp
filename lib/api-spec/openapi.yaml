@@ -28,6 +28,10 @@ tags:
     description: Company members invited by the owner
   - name: subscriptions
     description: Plans and monthly subscriptions
+  - name: notifications
+    description: In-app notification center, preferences, Web Push and the smart brief
+  - name: office
+    description: Office tools (WhatsApp inbox)
   - name: webhooks
     description: Inbound webhooks from third parties (no authentication)
 paths:
@@ -2240,6 +2244,184 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/Invoice" }
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: The signed-in user's notifications, newest first, with the unread count
+      parameters:
+        - { name: unread, in: query, required: false, schema: { type: boolean }, description: "Only unread notifications" }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 30 } }
+        - { name: before, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 2147483647 }, description: "Cursor: only notifications with a smaller id" }
+      responses:
+        "200":
+          description: Notifications and the unread count
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationList" }
+        "401": { description: Authentication required }
+  /notifications/{id}/read:
+    post:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark one of the signed-in user's notifications as read
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      responses:
+        "200":
+          description: The notification, now read
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Notification" }
+        "401": { description: Authentication required }
+        "404": { description: Not found }
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all of the signed-in user's notifications as read
+      responses:
+        "200":
+          description: How many notifications were marked read
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReadAllResult" }
+        "401": { description: Authentication required }
+  /notifications/stream:
+    get:
+      operationId: streamNotifications
+      tags: [notifications]
+      summary: "Live notifications as server-sent events: `notification` (Notification JSON), `unread` ({count}) and a comment heartbeat every 25 s"
+      responses:
+        "200":
+          description: Event stream
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "401": { description: Authentication required }
+  /notifications/brief:
+    get:
+      operationId: getNotificationBrief
+      tags: [notifications]
+      summary: "The smart brief: what needs the signed-in user's attention today, ranked"
+      responses:
+        "200":
+          description: The brief
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationBrief" }
+        "401": { description: Authentication required }
+  /notifications/preferences:
+    get:
+      operationId: getNotificationPreferences
+      tags: [notifications]
+      summary: The signed-in user's delivery preferences
+      responses:
+        "200":
+          description: Preferences
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationPreferences" }
+        "401": { description: Authentication required }
+    put:
+      operationId: saveNotificationPreferences
+      tags: [notifications]
+      summary: Save the signed-in user's delivery preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationPreferencesInput" }
+      responses:
+        "200":
+          description: Saved preferences
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationPreferences" }
+        "400": { description: Invalid preferences }
+        "401": { description: Authentication required }
+  /notifications/push/key:
+    get:
+      operationId: getPushKey
+      tags: [notifications]
+      summary: The VAPID public key browsers subscribe with (null when Web Push is off)
+      responses:
+        "200":
+          description: Public key
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushKey" }
+        "401": { description: Authentication required }
+  /notifications/push/subscriptions:
+    put:
+      operationId: savePushSubscription
+      tags: [notifications]
+      summary: Register (or refresh) this browser's Web Push subscription for the signed-in user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushSubscriptionInput" }
+      responses:
+        "204": { description: Saved }
+        "400": { description: Invalid subscription }
+        "401": { description: Authentication required }
+        "503": { description: Web Push is not configured }
+    delete:
+      operationId: deletePushSubscription
+      tags: [notifications]
+      summary: Remove this browser's Web Push subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushUnsubscribeInput" }
+      responses:
+        "204": { description: Removed (or was not registered) }
+        "400": { description: Invalid endpoint }
+        "401": { description: Authentication required }
+  /office/whatsapp/inbox:
+    get:
+      operationId: listWhatsappInbox
+      tags: [office]
+      summary: Inbound WhatsApp messages with their detected intent and suggested replies (office staff)
+      parameters:
+        - { name: handled, in: query, required: false, schema: { type: string, enum: [unmatched, all], default: unmatched } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 30 } }
+      responses:
+        "200":
+          description: Messages, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WhatsappInboxItem" }
+        "401": { description: Authentication required }
+        "403": { description: Office staff access required }
+  /office/whatsapp/inbox/{waMessageId}/reply:
+    post:
+      operationId: replyWhatsappInbox
+      tags: [office]
+      summary: Reply to an inbound WhatsApp message (free text inside the 24 h window, otherwise the configured template)
+      parameters:
+        - { name: waMessageId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhatsappReplyInput" }
+      responses:
+        "202":
+          description: Reply queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhatsappReplyResult" }
+        "400": { description: Invalid reply }
+        "401": { description: Authentication required }
+        "403": { description: Office staff access required }
+        "404": { description: Message not found }
+        "409": { description: The 24 h free-text window is closed and no template is configured }
+        "503": { description: WhatsApp is not configured }
   /webhooks/whatsapp:
     get:
       operationId: whatsappWebhookVerify
@@ -2298,7 +2480,7 @@ components:
         actorEmail: { type: ["string", "null"], format: email }
         action:
           type: string
-          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge, registration.approve, registration.reject, information.review, information.publish, information.unpublish, attachment.extract, invoice.issue, invoice.mark_paid, invoice.cancel, invoice.paid_online, offer.update, reminder.create, company.update, employee.create, employee.update, employee.delete, employee.reveal, license.create, license.update, license.delete, employee.import, license.import, automation.update, service_request.quote, service_request.quote_accept, service_request.quote_decline, service_request.checklist, company.member_invite, company.member_update, company.member_remove, company.member_leave, service_request.employee_item, plan.create, plan.update, subscription.start, subscription.update, service_request.auto_renew]
+          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge, registration.approve, registration.reject, information.review, information.publish, information.unpublish, attachment.extract, invoice.issue, invoice.mark_paid, invoice.cancel, invoice.paid_online, offer.update, reminder.create, company.update, employee.create, employee.update, employee.delete, employee.reveal, license.create, license.update, license.delete, employee.import, license.import, automation.update, service_request.quote, service_request.quote_accept, service_request.quote_decline, service_request.checklist, company.member_invite, company.member_update, company.member_remove, company.member_leave, service_request.employee_item, plan.create, plan.update, subscription.start, subscription.update, service_request.auto_renew, notification.preferences, whatsapp.reply]
         targetType: { type: string }
         targetId: { type: string }
         details:
@@ -3538,6 +3720,161 @@ components:
       properties:
         autoRenewRequests: { type: boolean }
         cancel: { type: boolean, enum: [true], description: "Cancel at once; renewals stop and the plan ends at renewsAt" }
+    NotificationKind:
+      type: string
+      enum: [request.status, request.message, request.file, request.assigned, quote.sent, invoice.issued, invoice.overdue, reminder.expiring, registration.decision, inquiry.answered, company.invite, subscription.started, subscription.invoice, subscription.past_due, subscription.cancelled, office.request_new, office.registration_new, office.inquiry_new, office.file_new, office.message_new, office.quote_answered, office.invoice_paid, office.whatsapp_unmatched, office.whatsapp_message]
+    NotificationPriority:
+      type: string
+      enum: [urgent, high, normal, low]
+    Notification:
+      type: object
+      required: [id, audience, kind, title, body, path, priority, count, targetType, targetId, createdAt, readAt]
+      properties:
+        id: { type: integer }
+        audience:
+          type: string
+          enum: [customer, office]
+        kind: { $ref: "#/components/schemas/NotificationKind" }
+        title: { type: string }
+        body: { type: string }
+        path: { type: ["string", "null"], description: "Portal path the notification opens, e.g. /requests/12" }
+        priority: { $ref: "#/components/schemas/NotificationPriority" }
+        count: { type: integer, description: "How many events were coalesced into this notification" }
+        targetType: { type: ["string", "null"] }
+        targetId: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        readAt: { type: ["string", "null"], format: date-time }
+    NotificationList:
+      type: object
+      required: [items, unreadCount]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Notification" }
+        unreadCount: { type: integer }
+    ReadAllResult:
+      type: object
+      required: [updated]
+      properties:
+        updated: { type: integer }
+    BriefItem:
+      type: object
+      required: [kind, priority, title, reason, path]
+      properties:
+        kind: { type: string }
+        priority: { $ref: "#/components/schemas/NotificationPriority" }
+        title: { type: string }
+        reason: { type: string }
+        path: { type: ["string", "null"] }
+    NotificationBrief:
+      type: object
+      required: [generatedAt, headline, items]
+      properties:
+        generatedAt: { type: string, format: date-time }
+        headline: { type: string }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/BriefItem" }
+    NotificationPreferences:
+      type: object
+      required: [emailEnabled, pushEnabled, quietStart, quietEnd, digest, mutedKinds, pushAvailable, whatsappAvailable]
+      properties:
+        emailEnabled: { type: boolean }
+        pushEnabled: { type: boolean }
+        quietStart: { type: ["integer", "null"], minimum: 0, maximum: 23, description: "Hour (Asia/Riyadh) quiet hours begin; null with quietEnd null means none" }
+        quietEnd: { type: ["integer", "null"], minimum: 0, maximum: 23, description: "Hour (Asia/Riyadh) quiet hours end; may be before quietStart (wraps past midnight)" }
+        digest:
+          type: string
+          enum: [instant, daily]
+        mutedKinds:
+          type: array
+          items: { $ref: "#/components/schemas/NotificationKind" }
+        pushAvailable: { type: boolean, description: "Whether Web Push is configured on the server" }
+        whatsappAvailable: { type: boolean, description: "Whether the office has WhatsApp messages turned on" }
+    NotificationPreferencesInput:
+      type: object
+      additionalProperties: false
+      required: [emailEnabled, pushEnabled, quietStart, quietEnd, digest, mutedKinds]
+      properties:
+        emailEnabled: { type: boolean }
+        pushEnabled: { type: boolean }
+        quietStart: { type: ["integer", "null"], minimum: 0, maximum: 23 }
+        quietEnd: { type: ["integer", "null"], minimum: 0, maximum: 23 }
+        digest:
+          type: string
+          enum: [instant, daily]
+        mutedKinds:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/NotificationKind" }
+    PushKey:
+      type: object
+      required: [publicKey]
+      properties:
+        publicKey: { type: ["string", "null"] }
+    PushSubscriptionInput:
+      type: object
+      additionalProperties: false
+      required: [endpoint, keys]
+      properties:
+        endpoint: { type: string, format: uri, maxLength: 2048 }
+        keys:
+          type: object
+          additionalProperties: false
+          required: [p256dh, auth]
+          properties:
+            p256dh: { type: string, minLength: 1, maxLength: 512 }
+            auth: { type: string, minLength: 1, maxLength: 512 }
+        userAgent: { type: string, maxLength: 512 }
+    PushUnsubscribeInput:
+      type: object
+      additionalProperties: false
+      required: [endpoint]
+      properties:
+        endpoint: { type: string, format: uri, maxLength: 2048 }
+    MessageIntent:
+      type: object
+      required: [intent, confidence, urgent, reference]
+      properties:
+        intent:
+          type: string
+          enum: [status_question, payment, document, complaint, new_request, thanks, greeting, other]
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        urgent: { type: boolean }
+        reference: { type: ["string", "null"], description: "Request reference mentioned in the message, e.g. HBS-12" }
+    WhatsappInboxItem:
+      type: object
+      required: [waMessageId, fromPhoneMasked, userId, customerName, requestId, body, receivedAt, handled, intent, suggestedReplies, canReplyFreeText]
+      properties:
+        waMessageId: { type: string }
+        fromPhoneMasked: { type: string, description: "Sender number with the middle digits hidden" }
+        userId: { type: ["string", "null"] }
+        customerName: { type: ["string", "null"] }
+        requestId: { type: ["integer", "null"] }
+        body: { type: string }
+        receivedAt: { type: string, format: date-time }
+        handled:
+          type: string
+          enum: [request_message, inquiry, unmatched, ignored]
+        intent: { $ref: "#/components/schemas/MessageIntent" }
+        suggestedReplies:
+          type: array
+          maxItems: 3
+          items: { type: string }
+        canReplyFreeText: { type: boolean, description: "Whether the 24 h free-text window is still open" }
+    WhatsappReplyInput:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 1024 }
+    WhatsappReplyResult:
+      type: object
+      required: [sentAs]
+      properties:
+        sentAs:
+          type: string
+          enum: [text, template]
     WhatsappWebhookPayload:
       type: object
       description: "Meta's WhatsApp Business webhook body, passed through as sent"

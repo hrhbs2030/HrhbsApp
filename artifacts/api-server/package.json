@@ -18,6 +18,8 @@
     "test:attachment-storage": "HBS_OFFICE_EMAIL=attachment-storage-office@example.invalid node ../../scripts/run-db-test.mjs tests/request-attachment-storage.test.ts",
     "test:assistant-retrieval": "tsx --test tests/assistant-retrieval.test.ts",
     "test:notifications": "tsx --test tests/notifications.test.ts",
+    "test:notification-intelligence": "tsx --test tests/notification-intelligence.test.ts",
+    "test:notification-pipeline": "HBS_OFFICE_EMAIL=notification-pipeline-owner@example.invalid node ../../scripts/run-db-test.mjs tests/notification-pipeline.test.ts",
     "test:assistant-citations": "node ../../scripts/run-db-test.mjs tests/assistant-citations.test.ts",
     "test:approved-information-history": "HBS_OFFICE_EMAIL=history-test-office@example.invalid node ../../scripts/run-db-test.mjs tests/approved-information-history.test.ts",
     "test:api-security": "tsx --test tests/openai-security.test.ts tests/api-hardening.test.ts",
@@ -34,7 +36,8 @@
     "test:package-c": "HBS_OFFICE_EMAIL=package-c-owner@example.invalid node ../../scripts/run-db-test.mjs tests/package-c.test.ts",
     "test:package-d-subscriptions": "HBS_OFFICE_EMAIL=package-d-owner@example.invalid node ../../scripts/run-db-test.mjs tests/package-d-subscriptions.test.ts",
     "test:whatsapp-inbound": "tsx --test tests/whatsapp-inbound.test.ts",
-    "test:package-d-members": "HBS_OFFICE_EMAIL=package-d-members-office@example.invalid node ../../scripts/run-db-test.mjs tests/package-d-members.test.ts"
+    "test:package-d-members": "HBS_OFFICE_EMAIL=package-d-members-office@example.invalid node ../../scripts/run-db-test.mjs tests/package-d-members.test.ts",
+    "test:notifications-api": "HBS_OFFICE_EMAIL=notifications-api-office@example.invalid node ../../scripts/run-db-test.mjs tests/notifications-api.test.ts"
   },
   "dependencies": {
     "@clerk/express": "^2.1.72",
@@ -53,6 +56,7 @@
     "nodemailer": "^10.0.12",
     "pino": "^9.14.0",
     "pino-http": "^10.5.0",
+    "web-push": "^3.6.7",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -61,6 +65,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "catalog:",
     "@types/nodemailer": "^8.0.2",
+    "@types/web-push": "^3.6.4",
     "esbuild": "0.28.2",
     "esbuild-plugin-pino": "^2.3.3",
     "pino-pretty": "^13.1.3",

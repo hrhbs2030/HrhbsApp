@@ -55,4 +55,6 @@ export const AuditLogEntryAction = {
   subscriptionstart: 'subscription.start',
   subscriptionupdate: 'subscription.update',
   service_requestauto_renew: 'service_request.auto_renew',
+  notificationpreferences: 'notification.preferences',
+  whatsappreply: 'whatsapp.reply',
 } as const;
