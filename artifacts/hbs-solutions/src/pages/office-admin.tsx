@@ -4,7 +4,7 @@ import { ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { getListOfficeAuditLogQueryKey, getListOfficeStaffQueryKey, useAddOfficeStaff, useListOfficeAuditLog, useListOfficeStaff, useRemoveOfficeStaff, type AuditLogEntry, type OfficeStaffMember } from '@workspace/api-client-react';
 import { EmptyBlock, ErrorBlock, LoadingBlock, PageHeading, PortalLayout, dateText } from '@/components/portal-ui';
 import { PrintButton } from '@/components/brand/print';
-import { LOCALE } from '@/lib/format';
+import { LOCALE, formatMoney } from '@/lib/format';
 
 function serverMessage(error: unknown, fallback: string): string {
   const data = (error as { data?: unknown } | null)?.data;
@@ -96,6 +96,13 @@ const actionNames: Record<AuditLogEntry['action'], string> = {
   'information.review': 'مراجعة معلومة للمساعد',
   'information.publish': 'نشر معلومة للمساعد',
   'information.unpublish': 'سحب معلومة من المساعد',
+  'attachment.extract': 'قراءة مستند آليًا',
+  'invoice.issue': 'إصدار فاتورة',
+  'invoice.mark_paid': 'تسجيل سداد فاتورة',
+  'invoice.cancel': 'إلغاء فاتورة',
+  'invoice.paid_online': 'سداد إلكتروني لفاتورة',
+  'offer.update': 'تحديث سعر ومتطلبات خدمة',
+  'reminder.create': 'إضافة تنبيه وثيقة لعميل',
 };
 
 function auditSummary(entry: AuditLogEntry): string {
@@ -103,6 +110,13 @@ function auditSummary(entry: AuditLogEntry): string {
     const name = typeof entry.details.name === 'string' ? `«${entry.details.name}»` : 'مستند';
     return `طلب رقم ${entry.targetId}: ${name}${entry.action === 'attachment.purge' ? ' بعد 90 يومًا من اكتمال الطلب' : ''}`;
   }
+  if (entry.action.startsWith('invoice.')) {
+    const total = typeof entry.details.total === 'number' ? ` · ${formatMoney(entry.details.total)}` : '';
+    return `طلب رقم ${entry.targetId}: فاتورة رقم ${String(entry.details.invoiceId ?? '-')}${total}`;
+  }
+  if (entry.action === 'reminder.create') return `طلب رقم ${entry.targetId}: تنتهي في ${String(entry.details.expiresOn ?? '-')}`;
+  if (entry.action === 'offer.update') return `خدمة ${entry.targetId}${entry.details.published ? ' (منشورة)' : ''}`;
+  if (entry.action === 'service_request.update') return `طلب رقم ${entry.targetId}`;
   if (entry.action.startsWith('information.')) return typeof entry.details.title === 'string' ? `«${entry.details.title}»` : `معلومة رقم ${entry.targetId}`;
   return typeof entry.details.email === 'string' ? entry.details.email : entry.targetId;
 }
@@ -117,7 +131,7 @@ export function OfficeAuditLog() {
         <ul className="m-0 list-none p-0">{log.data.map(entry => <li key={entry.id} className="grid gap-1.5 border-b border-line px-5 py-4 last:border-0 sm:px-6 lg:grid-cols-[140px_minmax(0,1fr)_220px_170px] lg:items-center lg:gap-4">
           <span className="flex items-center justify-between gap-3 lg:block"><span className="inline-flex w-fit rounded-md bg-copper-soft px-2 py-0.5 text-xs font-bold text-copper">{actionNames[entry.action]}</span><span className="text-xs text-subtle lg:hidden">{timeText(entry.createdAt)}</span></span>
           <span className="min-w-0 text-sm leading-7">{auditSummary(entry)}</span>
-          <span className="min-w-0 truncate text-xs text-quiet" dir="ltr" style={{ textAlign: 'right' }}>{entry.actorId === 'system' ? 'النظام' : entry.actorEmail ?? entry.actorId}</span>
+          <span className="min-w-0 truncate text-xs text-quiet" dir="ltr" style={{ textAlign: 'right' }}>{entry.actorId === 'system' ? 'النظام' : entry.actorId === 'payment-gateway' ? 'بوابة الدفع' : entry.actorEmail ?? entry.actorId}</span>
           <span className="hidden text-xs text-subtle lg:block">{timeText(entry.createdAt)}</span>
         </li>)}</ul>
       </div>}

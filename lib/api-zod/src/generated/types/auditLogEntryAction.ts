@@ -23,4 +23,11 @@ export const AuditLogEntryAction = {
   informationreview: 'information.review',
   informationpublish: 'information.publish',
   informationunpublish: 'information.unpublish',
+  attachmentextract: 'attachment.extract',
+  invoiceissue: 'invoice.issue',
+  invoicemark_paid: 'invoice.mark_paid',
+  invoicecancel: 'invoice.cancel',
+  invoicepaid_online: 'invoice.paid_online',
+  offerupdate: 'offer.update',
+  remindercreate: 'reminder.create',
 } as const;

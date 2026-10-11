@@ -16,6 +16,12 @@ tags:
     description: Customer-facing Anthropic assistant
   - name: portal
     description: Customer portal and office inbox
+  - name: catalog
+    description: Published service prices and requirements
+  - name: billing
+    description: Invoices and online payment
+  - name: reminders
+    description: Document expiry reminders
 paths:
   /healthz:
     get:
@@ -625,9 +631,11 @@ paths:
         - { name: page, in: query, description: "1-based page; defaults to 1", schema: { type: integer, minimum: 1, maximum: 1000000 } }
         - { name: pageSize, in: query, description: "Defaults to 20; capped at 100", schema: { type: integer, minimum: 1, maximum: 100 } }
         - { name: q, in: query, description: "Case-insensitive literal substring of reference, service, description or contact phone", schema: { type: string, minLength: 1, maxLength: 120 } }
-        - { name: status, in: query, schema: { type: string, enum: [received, reviewing, waiting_on_customer, completed] } }
+        - { name: status, in: query, schema: { type: string, enum: [received, reviewing, waiting_on_customer, submitted_to_authority, awaiting_payment, completed] } }
         - { name: category, in: query, schema: { type: string, enum: [passports, labor, business, other] } }
-        - { name: sort, in: query, description: "Newest created first or oldest updated first; ID breaks ties", schema: { type: string, enum: [newest, oldest_update] } }
+        - { name: sort, in: query, description: "Newest created first, oldest updated first, or soonest due date first; ID breaks ties", schema: { type: string, enum: [newest, oldest_update, due_soon] } }
+        - { name: assignee, in: query, description: "me, unassigned, or an office member's user ID", schema: { type: string, minLength: 1, maxLength: 120 } }
+        - { name: overdue, in: query, description: "Only open requests past their due date", schema: { type: boolean } }
       responses:
         "200":
           description: Matching page and total count across all matching records
@@ -905,6 +913,350 @@ paths:
           description: Authentication required
         "403":
           description: Office owner access required
+  /service-offers:
+    get:
+      operationId: listServiceOffers
+      tags: [catalog]
+      summary: Published prices, processing times and required documents for catalogue services
+      description: Public. Only offers the office owner has published are returned.
+      responses:
+        "200":
+          description: Published offers
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ServiceOffer" }
+  /office/service-offers:
+    get:
+      operationId: listOfficeServiceOffers
+      tags: [catalog]
+      summary: Owner-only list of every saved offer, published or not
+      responses:
+        "200":
+          description: Saved offers
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ServiceOffer" }
+        "401": { description: Authentication required }
+        "403": { description: Office owner access required }
+  /office/service-offers/{slug}:
+    put:
+      operationId: saveOfficeServiceOffer
+      tags: [catalog]
+      summary: Owner-only create or replace the offer for a catalogue service
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{1,63}$" } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ServiceOfferInput" }
+      responses:
+        "200":
+          description: Saved offer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceOffer" }
+        "400": { description: Invalid offer }
+        "401": { description: Authentication required }
+        "403": { description: Office owner access required }
+  /service-requests/{id}/rating:
+    post:
+      operationId: rateServiceRequest
+      tags: [portal]
+      summary: Rate a completed request owned by the signed-in customer (once)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RatingInput" }
+      responses:
+        "200":
+          description: Rated request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceRequest" }
+        "400": { description: Invalid rating }
+        "404": { description: Not found }
+        "409": { description: The request is not completed or is already rated }
+  /service-requests/{id}/invoices:
+    get:
+      operationId: listServiceRequestInvoices
+      tags: [billing]
+      summary: Invoices on a request owned by the signed-in customer
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Invoices, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Invoice" }
+        "404": { description: Not found }
+  /invoices/{id}/pay:
+    post:
+      operationId: startInvoicePayment
+      tags: [billing]
+      summary: Open the payment gateway's hosted page for an unpaid invoice of the signed-in customer
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Address of the hosted payment page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentStart" }
+        "404": { description: Not found }
+        "409": { description: The invoice is not payable }
+        "502": { description: Payment gateway failed }
+        "503": { description: Online payment is not configured }
+  /invoices/{id}/refresh:
+    post:
+      operationId: refreshInvoicePayment
+      tags: [billing]
+      summary: Re-check the payment gateway for an invoice of the signed-in customer
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Invoice with its current status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+        "404": { description: Not found }
+  /office/service-requests/{id}/invoices:
+    get:
+      operationId: listOfficeServiceRequestInvoices
+      tags: [billing]
+      summary: Staff-only invoices on a request
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Invoices, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Invoice" }
+        "403": { description: Office access required }
+        "404": { description: Not found }
+    post:
+      operationId: issueOfficeInvoice
+      tags: [billing]
+      summary: Staff-only issue an invoice on a request
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceInput" }
+      responses:
+        "201":
+          description: Issued invoice
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+        "400": { description: Invalid invoice }
+        "403": { description: Office access required }
+        "404": { description: Not found }
+  /office/invoices/{id}:
+    patch:
+      operationId: updateOfficeInvoice
+      tags: [billing]
+      summary: Staff-only record a manual payment or cancel an unpaid invoice
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceAction" }
+      responses:
+        "200":
+          description: Updated invoice
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+        "400": { description: Invalid action }
+        "403": { description: Office access required }
+        "404": { description: Not found }
+        "409": { description: The invoice is no longer unpaid }
+  /reminders:
+    get:
+      operationId: listReminders
+      tags: [reminders]
+      summary: The signed-in customer's document expiry reminders, soonest first
+      responses:
+        "200":
+          description: Reminders
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Reminder" }
+    post:
+      operationId: createReminder
+      tags: [reminders]
+      summary: Add a document expiry reminder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReminderInput" }
+      responses:
+        "201":
+          description: Saved reminder
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Reminder" }
+        "400": { description: Invalid reminder }
+        "409": { description: Too many reminders }
+  /reminders/{id}:
+    put:
+      operationId: updateReminder
+      tags: [reminders]
+      summary: Replace one of the signed-in customer's reminders
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReminderInput" }
+      responses:
+        "200":
+          description: Saved reminder
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Reminder" }
+        "400": { description: Invalid reminder }
+        "404": { description: Not found }
+    delete:
+      operationId: deleteReminder
+      tags: [reminders]
+      summary: Remove one of the signed-in customer's reminders
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Removed }
+        "404": { description: Not found }
+  /office/reminders:
+    get:
+      operationId: listOfficeReminders
+      tags: [reminders]
+      summary: Staff-only customer documents expiring soon, soonest first
+      parameters:
+        - { name: withinDays, in: query, description: "Defaults to 60", schema: { type: integer, minimum: 1, maximum: 365 } }
+      responses:
+        "200":
+          description: Expiring documents with their customer
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/OfficeReminder" }
+        "403": { description: Office access required }
+  /office/service-requests/{id}/reminders:
+    post:
+      operationId: createOfficeReminder
+      tags: [reminders]
+      summary: Staff-only add a reminder for the customer who owns the request
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReminderInput" }
+      responses:
+        "201":
+          description: Saved reminder
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Reminder" }
+        "400": { description: Invalid reminder }
+        "403": { description: Office access required }
+        "404": { description: Not found }
+  /office/service-requests/attachments/{attachmentId}/extract:
+    post:
+      operationId: extractOfficeAttachmentDocument
+      tags: [reminders]
+      summary: Staff-only read an attached document's type, holder and expiry date with AI (audited)
+      parameters:
+        - { name: attachmentId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Suggested reminder fields, to be checked by staff before saving
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExtractedDocument" }
+        "403": { description: Office access required }
+        "404": { description: Attachment not found }
+        "502": { description: AI service failed or returned invalid data }
+  /portal/settings:
+    get:
+      operationId: getPortalSettings
+      tags: [portal]
+      summary: The signed-in customer's notification settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PortalSettings" }
+    put:
+      operationId: savePortalSettings
+      tags: [portal]
+      summary: Save the signed-in customer's notification settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PortalSettingsInput" }
+      responses:
+        "200":
+          description: Saved settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PortalSettings" }
+        "400": { description: Invalid settings }
+  /office/assignees:
+    get:
+      operationId: listOfficeAssignees
+      tags: [portal]
+      summary: Staff-only list of office members a request can be assigned to
+      responses:
+        "200":
+          description: Office members
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/OfficeAssignee" }
+        "403": { description: Office access required }
+  /office/reports:
+    get:
+      operationId: getOfficeReport
+      tags: [portal]
+      summary: Owner-only performance report for a period
+      parameters:
+        - { name: days, in: query, description: "Period length ending now; defaults to 30", schema: { type: integer, enum: [7, 30, 90, 365] } }
+      responses:
+        "200":
+          description: Report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OfficeReport" }
+        "403": { description: Office owner access required }
 components:
   schemas:
     OfficeStaffInput:
@@ -933,7 +1285,7 @@ components:
         actorEmail: { type: ["string", "null"], format: email }
         action:
           type: string
-          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge, registration.approve, registration.reject, information.review, information.publish, information.unpublish]
+          enum: [staff.add, staff.remove, service_request.update, inquiry.answer, attachment.upload, attachment.download, attachment.delete, attachment.purge, registration.approve, registration.reject, information.review, information.publish, information.unpublish, attachment.extract, invoice.issue, invoice.mark_paid, invoice.cancel, invoice.paid_online, offer.update, reminder.create]
         targetType: { type: string }
         targetId: { type: string }
         details:
@@ -1111,7 +1463,7 @@ components:
         reason: { type: ["string", "null"], maxLength: 1000 }
     ServiceRequest:
       type: object
-      required: [id, reference, category, service, description, contactPhone, status, customerMessage, clientRequestId, createdAt, updatedAt, attachments]
+      required: [id, reference, category, service, description, contactPhone, status, customerMessage, clientRequestId, createdAt, updatedAt, attachments, rating, ratingComment, ratedAt]
       properties:
         id: { type: integer }
         reference: { type: string }
@@ -1123,7 +1475,7 @@ components:
         contactPhone: { type: string }
         status:
           type: string
-          enum: [received, reviewing, waiting_on_customer, completed]
+          enum: [received, reviewing, waiting_on_customer, submitted_to_authority, awaiting_payment, completed]
         customerMessage: { type: ["string", "null"] }
         clientRequestId: { type: ["string", "null"] }
         createdAt: { type: string, format: date-time }
@@ -1131,13 +1483,16 @@ components:
         attachments:
           type: array
           items: { $ref: "#/components/schemas/ServiceAttachment" }
+        rating: { type: ["integer", "null"], minimum: 1, maximum: 5 }
+        ratingComment: { type: ["string", "null"] }
+        ratedAt: { type: ["string", "null"], format: date-time }
     ServiceRequestStatusEvent:
       type: object
       required: [status, at]
       properties:
         status:
           type: string
-          enum: [received, reviewing, waiting_on_customer, completed]
+          enum: [received, reviewing, waiting_on_customer, submitted_to_authority, awaiting_payment, completed]
         at: { type: string, format: date-time }
     OfficeCustomer:
       type: object
@@ -1147,7 +1502,7 @@ components:
         email: { type: string, format: email }
     OfficeServiceRequest:
       type: object
-      required: [id, reference, category, service, description, contactPhone, status, customerMessage, createdAt, updatedAt, attachments, customer]
+      required: [id, reference, category, service, description, contactPhone, status, customerMessage, createdAt, updatedAt, attachments, customer, assignedTo, dueAt, rating, ratingComment, ratedAt]
       properties:
         id: { type: integer }
         reference: { type: string }
@@ -1159,7 +1514,7 @@ components:
         contactPhone: { type: string }
         status:
           type: string
-          enum: [received, reviewing, waiting_on_customer, completed]
+          enum: [received, reviewing, waiting_on_customer, submitted_to_authority, awaiting_payment, completed]
         officeNote: { type: ["string", "null"] }
         customerMessage: { type: ["string", "null"] }
         createdAt: { type: string, format: date-time }
@@ -1171,6 +1526,11 @@ components:
           oneOf:
             - $ref: "#/components/schemas/OfficeCustomer"
             - type: "null"
+        assignedTo: { type: ["string", "null"], description: "User ID of the responsible office member" }
+        dueAt: { type: ["string", "null"], format: date-time }
+        rating: { type: ["integer", "null"], minimum: 1, maximum: 5 }
+        ratingComment: { type: ["string", "null"] }
+        ratedAt: { type: ["string", "null"], format: date-time }
     OfficeServiceRequestPage:
       type: object
       required: [items, total, page, pageSize]
@@ -1242,9 +1602,11 @@ components:
         expectedUpdatedAt: { type: string, format: date-time }
         status:
           type: string
-          enum: [received, reviewing, waiting_on_customer, completed]
+          enum: [received, reviewing, waiting_on_customer, submitted_to_authority, awaiting_payment, completed]
         officeNote: { type: ["string", "null"], maxLength: 2000 }
         customerMessage: { type: ["string", "null"], maxLength: 2000 }
+        assignedTo: { type: ["string", "null"], maxLength: 120, description: "Omit to keep; null to unassign" }
+        dueAt: { type: ["string", "null"], format: date-time, description: "Omit to keep; null to clear" }
     Inquiry:
       type: object
       required: [id, subject, message, status, createdAt, linkedServiceRequestReference]
@@ -1295,7 +1657,7 @@ components:
         description: { type: string }
         status:
           type: string
-          enum: [received, reviewing, waiting_on_customer, completed]
+          enum: [received, reviewing, waiting_on_customer, submitted_to_authority, awaiting_payment, completed]
     InquiryInput:
       type: object
       required: [subject, message]
@@ -1326,8 +1688,11 @@ components:
             $ref: "#/components/schemas/Inquiry"
     OfficeSummary:
       type: object
-      required: [totalRequests, newRequests, activeRequests, staleRequests, openInquiries]
+      required: [totalRequests, newRequests, activeRequests, staleRequests, openInquiries, myRequests, overdueRequests, expiringDocuments]
       properties:
+        myRequests: { type: integer, description: "Open requests assigned to the signed-in member" }
+        overdueRequests: { type: integer, description: "Open requests past their due date" }
+        expiringDocuments: { type: integer, description: "Customer documents expiring in the next 30 days" }
         totalRequests: { type: integer }
         newRequests: { type: integer }
         activeRequests: { type: integer }
@@ -1386,3 +1751,220 @@ components:
           type: string
       required:
         - status
+    ServiceOffer:
+      type: object
+      required: [slug, price, governmentFeesNote, processingDays, requiredDocuments, published, updatedAt]
+      properties:
+        slug: { type: string }
+        price: { type: ["integer", "null"], minimum: 0, description: "Office fee in halalas before VAT; null when priced after review" }
+        governmentFeesNote: { type: ["string", "null"] }
+        processingDays: { type: ["integer", "null"] }
+        requiredDocuments:
+          type: array
+          items: { type: string }
+        published: { type: boolean }
+        updatedAt: { type: string, format: date-time }
+    ServiceOfferInput:
+      type: object
+      additionalProperties: false
+      required: [price, governmentFeesNote, processingDays, requiredDocuments, published]
+      properties:
+        price: { type: ["integer", "null"], minimum: 0, maximum: 100000000 }
+        governmentFeesNote: { type: ["string", "null"], maxLength: 300 }
+        processingDays: { type: ["integer", "null"], minimum: 1, maximum: 365 }
+        requiredDocuments:
+          type: array
+          maxItems: 15
+          items: { type: string, minLength: 2, maxLength: 160 }
+        published: { type: boolean }
+    RatingInput:
+      type: object
+      additionalProperties: false
+      required: [rating]
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: ["string", "null"], maxLength: 1000 }
+    InvoiceSeller:
+      type: object
+      required: [name, vatNumber]
+      properties:
+        name: { type: string }
+        vatNumber: { type: ["string", "null"] }
+    Invoice:
+      type: object
+      required: [id, reference, requestId, requestReference, description, amount, vatRateBasisPoints, vat, total, status, paymentMethod, paymentReference, issuedAt, paidAt, cancelledAt, canPayOnline, seller]
+      properties:
+        id: { type: integer }
+        reference: { type: string }
+        requestId: { type: integer }
+        requestReference: { type: string }
+        description: { type: string }
+        amount: { type: integer, description: "Halalas before VAT" }
+        vatRateBasisPoints: { type: integer, description: "1500 means 15%" }
+        vat: { type: integer }
+        total: { type: integer }
+        status:
+          type: string
+          enum: [issued, paid, cancelled]
+        paymentMethod:
+          type: ["string", "null"]
+          enum: [manual, online, null]
+        paymentReference: { type: ["string", "null"] }
+        issuedAt: { type: string, format: date-time }
+        paidAt: { type: ["string", "null"], format: date-time }
+        cancelledAt: { type: ["string", "null"], format: date-time }
+        canPayOnline: { type: boolean }
+        seller: { $ref: "#/components/schemas/InvoiceSeller" }
+    InvoiceInput:
+      type: object
+      additionalProperties: false
+      required: [description, amount]
+      properties:
+        description: { type: string, minLength: 2, maxLength: 300 }
+        amount: { type: integer, minimum: 100, maximum: 100000000, description: "Halalas before VAT" }
+        markAwaitingPayment: { type: boolean, description: "Also move the request to awaiting payment" }
+    InvoiceAction:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [mark_paid, cancel]
+        paymentReference: { type: ["string", "null"], maxLength: 120 }
+    PaymentStart:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string, format: uri }
+    ReminderKind:
+      type: string
+      enum: [iqama, passport, commercial_register, work_permit, other]
+    ReminderInput:
+      type: object
+      additionalProperties: false
+      required: [kind, label, expiresOn]
+      properties:
+        kind: { $ref: "#/components/schemas/ReminderKind" }
+        label: { type: string, minLength: 2, maxLength: 120 }
+        expiresOn: { type: string, format: date }
+        note: { type: ["string", "null"], maxLength: 500 }
+    Reminder:
+      type: object
+      required: [id, kind, label, expiresOn, note, addedBy, createdAt]
+      properties:
+        id: { type: integer }
+        kind: { $ref: "#/components/schemas/ReminderKind" }
+        label: { type: string }
+        expiresOn: { type: string, format: date }
+        note: { type: ["string", "null"] }
+        addedBy:
+          type: string
+          enum: [customer, office]
+        createdAt: { type: string, format: date-time }
+    OfficeReminder:
+      allOf:
+        - $ref: "#/components/schemas/Reminder"
+        - type: object
+          required: [customer, contactPhone]
+          properties:
+            customer:
+              oneOf:
+                - $ref: "#/components/schemas/OfficeCustomer"
+                - type: "null"
+            contactPhone: { type: ["string", "null"] }
+    ExtractedDocument:
+      type: object
+      required: [kind, label, expiresOn, expiresOnText, notes]
+      properties:
+        kind:
+          oneOf:
+            - $ref: "#/components/schemas/ReminderKind"
+            - type: "null"
+        label: { type: ["string", "null"], maxLength: 120 }
+        expiresOn: { type: ["string", "null"], format: date, description: "Gregorian date, converted from Hijri if needed" }
+        expiresOnText: { type: ["string", "null"], maxLength: 80, description: "The date exactly as written on the document" }
+        notes: { type: ["string", "null"], maxLength: 500 }
+    PortalSettings:
+      type: object
+      required: [whatsappOptIn, whatsappPhone, whatsappAvailable]
+      properties:
+        whatsappOptIn: { type: boolean }
+        whatsappPhone: { type: ["string", "null"] }
+        whatsappAvailable: { type: boolean, description: "Whether the office has WhatsApp messages turned on" }
+    PortalSettingsInput:
+      type: object
+      additionalProperties: false
+      required: [whatsappOptIn, whatsappPhone]
+      properties:
+        whatsappOptIn: { type: boolean }
+        whatsappPhone: { type: ["string", "null"], maxLength: 24 }
+    OfficeAssignee:
+      type: object
+      required: [userId, email, role]
+      properties:
+        userId: { type: string }
+        email: { type: ["string", "null"] }
+        role:
+          type: string
+          enum: [owner, staff]
+    ReportCount:
+      type: object
+      required: [key, count]
+      properties:
+        key: { type: string }
+        count: { type: integer }
+    ReportService:
+      type: object
+      required: [service, created, completed]
+      properties:
+        service: { type: string }
+        created: { type: integer }
+        completed: { type: integer }
+    ReportStaff:
+      type: object
+      required: [userId, email, active, completed, overdue]
+      properties:
+        userId: { type: ["string", "null"], description: "Null for unassigned requests" }
+        email: { type: ["string", "null"] }
+        active: { type: integer }
+        completed: { type: integer }
+        overdue: { type: integer }
+    OfficeReport:
+      type: object
+      required: [days, created, completed, averageCompletionDays, byStatus, byCategory, topServices, staff, ratings, revenue]
+      properties:
+        days: { type: integer }
+        created: { type: integer }
+        completed: { type: integer }
+        averageCompletionDays: { type: ["number", "null"] }
+        byStatus:
+          type: array
+          items: { $ref: "#/components/schemas/ReportCount" }
+        byCategory:
+          type: array
+          items: { $ref: "#/components/schemas/ReportCount" }
+        topServices:
+          type: array
+          items: { $ref: "#/components/schemas/ReportService" }
+        staff:
+          type: array
+          items: { $ref: "#/components/schemas/ReportStaff" }
+        ratings:
+          type: object
+          required: [count, average, distribution]
+          properties:
+            count: { type: integer }
+            average: { type: ["number", "null"] }
+            distribution:
+              type: array
+              items: { $ref: "#/components/schemas/ReportCount" }
+        revenue:
+          type: object
+          required: [paidTotal, paidVat, paidCount, outstandingTotal, outstandingCount]
+          properties:
+            paidTotal: { type: integer }
+            paidVat: { type: integer }
+            paidCount: { type: integer }
+            outstandingTotal: { type: integer }
+            outstandingCount: { type: integer }

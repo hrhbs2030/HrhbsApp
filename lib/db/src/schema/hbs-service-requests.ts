@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { check, index, integer, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -14,13 +14,22 @@ export const hbsServiceRequests = pgTable("hbs_service_requests", {
   officeNote: text("office_note"),
   customerMessage: text("customer_message"),
   clientRequestId: text("client_request_id"),
+  // Office staff member responsible for the request, and the date it should be done by.
+  assignedTo: text("assigned_to"),
+  dueAt: timestamp("due_at", { withTimezone: true }),
+  // The customer's rating (1-5) once the request is completed; given once.
+  rating: integer("rating"),
+  ratingComment: text("rating_comment"),
+  ratedAt: timestamp("rated_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("hbs_service_requests_user_idx").on(table.userId),
+  index("hbs_service_requests_assigned_idx").on(table.assignedTo),
   uniqueIndex("hbs_service_requests_user_client_request_idx").on(table.userId, table.clientRequestId),
   check("hbs_service_requests_category_check", sql`${table.category} in ('passports', 'labor', 'business', 'other')`),
-  check("hbs_service_requests_status_check", sql`${table.status} in ('received', 'reviewing', 'waiting_on_customer', 'completed')`),
+  check("hbs_service_requests_status_check", sql`${table.status} in ('received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed')`),
+  check("hbs_service_requests_rating_check", sql`${table.rating} is null or ${table.rating} between 1 and 5`),
 ]);
 
 export const insertHbsServiceRequestSchema = createInsertSchema(hbsServiceRequests).omit({

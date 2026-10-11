@@ -8,6 +8,7 @@ import { CustomerAssistant } from '@/components/customer-assistant';
 import { PrintButton } from '@/components/brand/print';
 import { LOCALE, formatDateTime } from '@/lib/format';
 import { RequestFiles } from '@/components/request-files';
+import { CustomerInvoices, RatingPanel } from '@/components/request-billing';
 
 const count = (value: number) => new Intl.NumberFormat(LOCALE).format(value);
 
@@ -75,7 +76,7 @@ export function Dashboard() {
     </div>
   </PortalLayout>;
 }
-const requestFilters = ['all', 'received', 'reviewing', 'waiting_on_customer', 'completed'] as const;
+const requestFilters = ['all', 'received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed'] as const;
 export function Requests() {
   const q = useListServiceRequests({query:{queryKey:getListServiceRequestsQueryKey(),refetchInterval:30000}}); const [filter,setFilter] = useState('all');
   const filtered = q.data?.filter(r => filter === 'all' || r.status === filter) ?? [];
@@ -94,7 +95,7 @@ function BackLink({ href, children }: { href: string; children: ReactNode }) {
 }
 
 export function RequestDetail() {
-  const {id} = useParams<{id:string}>(); const parsed = Number(id); const justSent = new URLSearchParams(useSearch()).get('sent') === '1'; const q = useGetServiceRequest(parsed,{query:{enabled:Number.isInteger(parsed)&&parsed>0,queryKey:getGetServiceRequestQueryKey(parsed),refetchInterval:30000}});
+  const {id} = useParams<{id:string}>(); const parsed = Number(id); const search = new URLSearchParams(useSearch()); const justSent = search.get('sent') === '1'; const returnedInvoiceId = Number(search.get('invoice')) || null; const q = useGetServiceRequest(parsed,{query:{enabled:Number.isInteger(parsed)&&parsed>0,queryKey:getGetServiceRequestQueryKey(parsed),refetchInterval:30000}});
   return <PortalLayout><div className="max-w-[860px]"><BackLink href="/requests">طلباتي</BackLink>
     {!Number.isInteger(parsed)||parsed<=0 ? <EmptyBlock title="الطلب غير متاح" text="تحقق من رابط الطلب وحاول مرة أخرى."/> : q.isLoading ? <LoadingBlock/> : q.error?.status === 404 ? <EmptyBlock title="الطلب غير متاح" text="هذا الطلب غير موجود في حسابك."/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : q.data && <>
       {justSent && <div role="status" className="rise mb-6 flex items-start gap-3 rounded-2xl border border-sage-2 bg-ok-soft p-4 text-ok sm:p-5"><CircleCheck className="mt-0.5 shrink-0" size={22}/><div><strong className="block text-ink">تم إرسال طلبك إلى المكتب</strong><span className="text-sm leading-7">الرقم المرجعي <span dir="ltr" className="nums font-bold">{q.data.reference}</span>. تابع حالته من هذه الصفحة.</span></div></div>}
@@ -112,10 +113,17 @@ export function RequestDetail() {
         </dl>
         <div className="border-t border-line px-5 py-6 sm:px-8"><h2 className="mb-2 text-xs font-bold text-subtle">تفاصيل الطلب</h2><p className="whitespace-pre-wrap text-sm leading-8">{q.data.description}</p></div>
         <div className="border-t border-line px-5 py-6 sm:px-8"><RequestFiles scope="customer" requestId={q.data.id} attachments={q.data.attachments} canUpload={q.data.status !== 'completed'} onChanged={() => q.refetch()}/></div>
+        <InvoicesSlot requestId={q.data.id} returnedInvoiceId={returnedInvoiceId}/>
+        {q.data.status === 'completed' && <div className="border-t border-line px-5 py-6 sm:px-8"><RatingPanel requestId={q.data.id} rating={q.data.rating} comment={q.data.ratingComment} onRated={() => q.refetch()}/></div>}
       </div>
     </>}
   </div></PortalLayout>;
 }
+// Invoices appear only when the office has issued one.
+function InvoicesSlot({ requestId, returnedInvoiceId }: { requestId: number; returnedInvoiceId: number | null }) {
+  return <div className="border-t border-line px-5 py-6 empty:hidden sm:px-8"><CustomerInvoices requestId={requestId} returnedInvoiceId={returnedInvoiceId}/></div>;
+}
+
 // Every status change with its date and time, oldest first. Refetched when the
 // request's updatedAt changes, so it follows the page's own polling.
 function StatusHistory({ id, updatedAt }: { id: number; updatedAt: string }) {

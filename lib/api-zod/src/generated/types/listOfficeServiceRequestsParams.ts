@@ -31,7 +31,17 @@ q?: string;
 status?: ListOfficeServiceRequestsStatus;
 category?: ListOfficeServiceRequestsCategory;
 /**
- * Newest created first or oldest updated first; ID breaks ties
+ * Newest created first, oldest updated first, or soonest due date first; ID breaks ties
  */
 sort?: ListOfficeServiceRequestsSort;
+/**
+ * me, unassigned, or an office member's user ID
+ * @minLength 1
+ * @maxLength 120
+ */
+assignee?: string;
+/**
+ * Only open requests past their due date
+ */
+overdue?: boolean;
 };

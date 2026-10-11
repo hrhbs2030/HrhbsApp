@@ -20,4 +20,15 @@ export interface ServiceRequestUpdate {
      * @nullable
      */
   customerMessage?: string | null;
+  /**
+     * Omit to keep; null to unassign
+     * @maxLength 120
+     * @nullable
+     */
+  assignedTo?: string | null;
+  /**
+     * Omit to keep; null to clear
+     * @nullable
+     */
+  dueAt?: Date | null;
 }

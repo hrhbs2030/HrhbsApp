@@ -10,11 +10,11 @@ import { createServer } from 'vite';
 const apiNames = [
   'useGetOfficeSummary', 'useListOfficeServiceRequests', 'useUpdateOfficeServiceRequest',
   'useListOfficeInquiries', 'useAnswerOfficeInquiry', 'useListOfficeStaff',
-  'useAddOfficeStaff', 'useRemoveOfficeStaff', 'useListOfficeAuditLog',
+  'useAddOfficeStaff', 'useRemoveOfficeStaff', 'useListOfficeAuditLog', 'useListOfficeAssignees',
 ];
 const keys = [
   'getGetOfficeSummaryQueryKey', 'getListOfficeServiceRequestsQueryKey',
-  'getListOfficeInquiriesQueryKey', 'getListOfficeStaffQueryKey', 'getListOfficeAuditLogQueryKey',
+  'getListOfficeInquiriesQueryKey', 'getListOfficeStaffQueryKey', 'getListOfficeAuditLogQueryKey', 'getListOfficeAssigneesQueryKey',
 ];
 const uiNames = [
   'PortalLayout', 'PageHeading', 'LoadingBlock', 'ErrorBlock', 'EmptyBlock',
@@ -34,6 +34,8 @@ const server = await createServer({
       if (id === '@workspace/api-client-react') return '\0office-api';
       if (id === '@/components/portal-ui' || id.endsWith('/src/components/portal-ui')) return '\0office-ui';
       if (id === '@tanstack/react-query') return '\0office-query';
+      // Invoices and document reading have their own API suites.
+      if (/(^@|\/src)\/components\/(request-billing|office-request-extras)(\.tsx)?$/.test(id)) return '\0office-extras';
       if (id === 'wouter') return '\0office-router';
     },
     load(id) {
@@ -47,6 +49,7 @@ const server = await createServer({
         'export const statusOptions = ["received", "reviewing", "waiting_on_customer", "completed"];',
         'export const statusNames = { received: "جديد", reviewing: "مراجعة", waiting_on_customer: "بانتظار العميل", completed: "مكتمل" };',
       ].join('\n');
+      if (id === '\0office-extras') return 'export const OfficeInvoices = () => null; export const ExtractReminder = () => null;';
       if (id === '\0office-query') return 'export const useQueryClient = () => globalThis.__office.qc;';
       if (id === '\0office-router') return 'export const useSearch = () => globalThis.__office.search; export const Link = ({children}) => children;';
     },
@@ -116,6 +119,7 @@ function setup() {
       useAddOfficeStaff: () => mutation(async input => { calls.add.push(input); return { email: input.data.email }; }),
       useRemoveOfficeStaff: () => mutation(async input => { calls.remove.push(input); }),
       useListOfficeAuditLog: () => query(state.audit),
+      useListOfficeAssignees: () => query(state.staff.map(({ userId, email, role }) => ({ userId, email, role }))),
     },
   };
   return { calls, state };
@@ -145,13 +149,14 @@ test('requests use the paged API envelope, preserve filter inputs, reset paginat
   await change(nodes(tree, 'input')[0], '  REQ-1  ');
   assert.deepEqual(calls.requests.at(-1), { page: 1, pageSize: 20, q: 'REQ-1', status: 'reviewing', category: 'labor', sort: 'oldest_update' });
   await click(nodes(tree, 'button').find(n => text(n).includes('خدمة 1')));
-  await change(nodes(tree, 'select')[3], 'waiting_on_customer');
+  // Filters: status, category, sort, assignee; then the editor's status.
+  await change(nodes(tree, 'select')[4], 'waiting_on_customer');
   await change(nodes(tree, 'textarea')[0], '  أحضر المستند  ');
   await change(nodes(tree, 'textarea')[1], '  للفريق  ');
   await submit(nodes(tree, 'form')[0]);
   assert.deepEqual(calls.updates[0], { id: 1, data: {
     expectedUpdatedAt: date, status: 'waiting_on_customer', officeNote: 'للفريق', customerMessage: 'أحضر المستند',
-  } });
+  } }, 'unchanged assignment and due date are not sent');
   assert.ok(calls.invalidated.some(key => key[0] === 'getListOfficeServiceRequestsQueryKey'));
   const latest = { ...request(1, '2026-09-22T12:00:00.000Z'), status: 'waiting_on_customer', customerMessage: 'أحضر المستند' };
   state.requests = params => ({ items: [latest], total: 1, page: params.page, pageSize: 20 });
@@ -160,6 +165,15 @@ test('requests use the paged API envelope, preserve filter inputs, reset paginat
   await click(nodes(tree, 'button').find(n => text(n) === 'مراجعة النسخة الجديدة'));
   await submit(nodes(tree, 'form')[0]);
   assert.equal(calls.updates[1].data.expectedUpdatedAt, '2026-09-22T12:00:00.000Z');
+  // Assigning sends only the new assignee (the list now has the saved version).
+  state.requests = params => ({ items: [{ ...latest, updatedAt: '2026-09-21T12:00:00.000Z' }], total: 1, page: params.page, pageSize: 20 });
+  await act(async () => tree.update(React.createElement(OfficeRequests)));
+  await change(nodes(tree, 'select')[5], 'staff');
+  await submit(nodes(tree, 'form')[0]);
+  assert.equal(calls.updates[2].data.assignedTo, 'staff');
+  assert.ok(!('dueAt' in calls.updates[2].data));
+  await change(nodes(tree, 'select')[3], 'me');
+  assert.equal(calls.requests.at(-1).assignee, 'me');
   await act(async () => tree.unmount());
 });
 

@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { Download, FileImage, FileText, Paperclip, Trash2, X } from 'lucide-react';
+import { Download, FileImage, FileText, Paperclip, ScanText, Trash2, X } from 'lucide-react';
 import {
   attachOfficeServiceRequestFiles,
   attachServiceRequestFiles,
@@ -67,12 +67,14 @@ export function uploadError(error: unknown, name: string): string {
   return `«${name}»: تعذّر رفع الملف. تحقق من الملف وحاول مرة أخرى.`;
 }
 
-export function RequestFiles({ scope, requestId, attachments, canUpload, onChanged }: {
+export function RequestFiles({ scope, requestId, attachments, canUpload, onChanged, onExtract }: {
   scope: Scope;
   requestId: number;
   attachments: ServiceAttachment[];
   canUpload: boolean;
   onChanged: () => void | Promise<unknown>;
+  // Office only: read a document's expiry date to add a renewal reminder.
+  onExtract?: (file: ServiceAttachment) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState<string[]>([]);
@@ -170,6 +172,7 @@ export function RequestFiles({ scope, requestId, attachments, canUpload, onChang
                   <button type="button" className="rf-btn" onClick={() => setConfirming(null)} aria-label="إلغاء"><X size={16} /></button>
                 </> : <>
                   <button type="button" className="rf-btn" onClick={() => download(file)} disabled={busy === file.id} aria-label={`تنزيل ${file.name}`}><Download size={17} /></button>
+                  {onExtract && <button type="button" className="rf-btn" onClick={() => onExtract(file)} aria-label={`قراءة تاريخ انتهاء ${file.name} وإضافة تنبيه`} title="قراءة تاريخ الانتهاء وإضافة تنبيه"><ScanText size={17} /></button>}
                   {mayDelete(file) && <button type="button" className="rf-btn" onClick={() => setConfirming(file.id)} aria-label={`حذف ${file.name}`}><Trash2 size={16} /></button>}
                 </>}
               </span>

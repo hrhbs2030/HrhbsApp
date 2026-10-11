@@ -27,3 +27,7 @@ export * from "./hbs-registration-requests";
 export * from "./hbs-legacy";
 export * from "./hbs-approved-information";
 export * from "./hbs-audit-log";
+export * from "./hbs-service-offers";
+export * from "./hbs-invoices";
+export * from "./hbs-document-reminders";
+export * from "./hbs-customer-settings";

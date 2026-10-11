@@ -313,6 +313,10 @@ export const SubmitPortalRegistrationResponse = zod.object({
 /**
  * @summary Customer dashboard with recent activity
  */
+export const getPortalSummaryResponseRecentRequestsItemRatingMax = 5;
+
+
+
 export const GetPortalSummaryResponse = zod.object({
   "totalRequests": zod.number().int(),
   "activeRequests": zod.number().int(),
@@ -325,7 +329,7 @@ export const GetPortalSummaryResponse = zod.object({
   "service": zod.string(),
   "description": zod.string(),
   "contactPhone": zod.string(),
-  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
   "customerMessage": zod.string().nullable(),
   "clientRequestId": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
@@ -337,7 +341,10 @@ export const GetPortalSummaryResponse = zod.object({
   "size": zod.number().int(),
   "uploadedBy": zod.enum(['customer', 'office']),
   "createdAt": zod.coerce.date()
-}))
+})),
+  "rating": zod.number().int().min(1).max(getPortalSummaryResponseRecentRequestsItemRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable()
 })),
   "recentInquiries": zod.array(zod.object({
   "id": zod.number().int(),
@@ -355,6 +362,10 @@ export const GetPortalSummaryResponse = zod.object({
 /**
  * @summary List the signed-in customer's service requests
  */
+export const listServiceRequestsResponseRatingMax = 5;
+
+
+
 export const ListServiceRequestsResponseItem = zod.object({
   "id": zod.number().int(),
   "reference": zod.string(),
@@ -362,7 +373,7 @@ export const ListServiceRequestsResponseItem = zod.object({
   "service": zod.string(),
   "description": zod.string(),
   "contactPhone": zod.string(),
-  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
   "customerMessage": zod.string().nullable(),
   "clientRequestId": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
@@ -374,7 +385,10 @@ export const ListServiceRequestsResponseItem = zod.object({
   "size": zod.number().int(),
   "uploadedBy": zod.enum(['customer', 'office']),
   "createdAt": zod.coerce.date()
-}))
+})),
+  "rating": zod.number().int().min(1).max(listServiceRequestsResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable()
 })
 export const ListServiceRequestsResponse = zod.array(ListServiceRequestsResponseItem)
 
@@ -405,6 +419,10 @@ export const CreateServiceRequestBody = zod.object({
   "attachmentIds": zod.array(zod.number().int().min(1)).max(createServiceRequestBodyAttachmentIdsMax).optional()
 })
 
+export const createServiceRequestResponseRatingMax = 5;
+
+
+
 export const CreateServiceRequestResponse = zod.object({
   "id": zod.number().int(),
   "reference": zod.string(),
@@ -412,7 +430,7 @@ export const CreateServiceRequestResponse = zod.object({
   "service": zod.string(),
   "description": zod.string(),
   "contactPhone": zod.string(),
-  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
   "customerMessage": zod.string().nullable(),
   "clientRequestId": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
@@ -424,7 +442,10 @@ export const CreateServiceRequestResponse = zod.object({
   "size": zod.number().int(),
   "uploadedBy": zod.enum(['customer', 'office']),
   "createdAt": zod.coerce.date()
-}))
+})),
+  "rating": zod.number().int().min(1).max(createServiceRequestResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable()
 })
 
 
@@ -465,6 +486,10 @@ export const AttachServiceRequestFilesBody = zod.object({
   "attachmentIds": zod.array(zod.number().int().min(1)).min(1).max(attachServiceRequestFilesBodyAttachmentIdsMax)
 })
 
+export const attachServiceRequestFilesResponseRatingMax = 5;
+
+
+
 export const AttachServiceRequestFilesResponse = zod.object({
   "id": zod.number().int(),
   "reference": zod.string(),
@@ -472,7 +497,7 @@ export const AttachServiceRequestFilesResponse = zod.object({
   "service": zod.string(),
   "description": zod.string(),
   "contactPhone": zod.string(),
-  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
   "customerMessage": zod.string().nullable(),
   "clientRequestId": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
@@ -484,7 +509,10 @@ export const AttachServiceRequestFilesResponse = zod.object({
   "size": zod.number().int(),
   "uploadedBy": zod.enum(['customer', 'office']),
   "createdAt": zod.coerce.date()
-}))
+})),
+  "rating": zod.number().int().min(1).max(attachServiceRequestFilesResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable()
 })
 
 
@@ -545,6 +573,10 @@ export const AttachOfficeServiceRequestFilesBody = zod.object({
   "attachmentIds": zod.array(zod.number().int().min(1)).min(1).max(attachOfficeServiceRequestFilesBodyAttachmentIdsMax)
 })
 
+export const attachOfficeServiceRequestFilesResponseRatingMax = 5;
+
+
+
 export const AttachOfficeServiceRequestFilesResponse = zod.object({
   "id": zod.number().int(),
   "reference": zod.string(),
@@ -552,7 +584,7 @@ export const AttachOfficeServiceRequestFilesResponse = zod.object({
   "service": zod.string(),
   "description": zod.string(),
   "contactPhone": zod.string(),
-  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
   "officeNote": zod.string().nullish(),
   "customerMessage": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
@@ -568,7 +600,12 @@ export const AttachOfficeServiceRequestFilesResponse = zod.object({
   "customer": zod.union([zod.object({
   "fullName": zod.string(),
   "email": zod.string().email()
-}),zod.null()])
+}),zod.null()]),
+  "assignedTo": zod.string().nullable().describe('User ID of the responsible office member'),
+  "dueAt": zod.coerce.date().nullable(),
+  "rating": zod.number().int().min(1).max(attachOfficeServiceRequestFilesResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable()
 })
 
 
@@ -599,6 +636,10 @@ export const GetServiceRequestParams = zod.object({
   "id": zod.coerce.number().int()
 })
 
+export const getServiceRequestResponseRatingMax = 5;
+
+
+
 export const GetServiceRequestResponse = zod.object({
   "id": zod.number().int(),
   "reference": zod.string(),
@@ -606,7 +647,7 @@ export const GetServiceRequestResponse = zod.object({
   "service": zod.string(),
   "description": zod.string(),
   "contactPhone": zod.string(),
-  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
   "customerMessage": zod.string().nullable(),
   "clientRequestId": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
@@ -618,7 +659,10 @@ export const GetServiceRequestResponse = zod.object({
   "size": zod.number().int(),
   "uploadedBy": zod.enum(['customer', 'office']),
   "createdAt": zod.coerce.date()
-}))
+})),
+  "rating": zod.number().int().min(1).max(getServiceRequestResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable()
 })
 
 
@@ -630,7 +674,7 @@ export const GetServiceRequestHistoryParams = zod.object({
 })
 
 export const GetServiceRequestHistoryResponseItem = zod.object({
-  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
   "at": zod.coerce.date()
 })
 export const GetServiceRequestHistoryResponse = zod.array(GetServiceRequestHistoryResponseItem)
@@ -687,6 +731,9 @@ export const CreateInquiryResponse = zod.object({
  * @summary Staff-only intake overview
  */
 export const GetOfficeSummaryResponse = zod.object({
+  "myRequests": zod.number().int().describe('Open requests assigned to the signed-in member'),
+  "overdueRequests": zod.number().int().describe('Open requests past their due date'),
+  "expiringDocuments": zod.number().int().describe('Customer documents expiring in the next 30 days'),
   "totalRequests": zod.number().int(),
   "newRequests": zod.number().int(),
   "activeRequests": zod.number().int(),
@@ -704,16 +751,22 @@ export const listOfficeServiceRequestsQueryPageSizeMax = 100;
 
 export const listOfficeServiceRequestsQueryQMax = 120;
 
+export const listOfficeServiceRequestsQueryAssigneeMax = 120;
+
 
 
 export const ListOfficeServiceRequestsQueryParams = zod.object({
   "page": zod.coerce.number().int().min(1).max(listOfficeServiceRequestsQueryPageMax).optional().describe('1-based page; defaults to 1'),
   "pageSize": zod.coerce.number().int().min(1).max(listOfficeServiceRequestsQueryPageSizeMax).optional().describe('Defaults to 20; capped at 100'),
   "q": zod.coerce.string().min(1).max(listOfficeServiceRequestsQueryQMax).optional().describe('Case-insensitive literal substring of reference, service, description or contact phone'),
-  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']).optional(),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']).optional(),
   "category": zod.enum(['passports', 'labor', 'business', 'other']).optional(),
-  "sort": zod.enum(['newest', 'oldest_update']).optional().describe('Newest created first or oldest updated first; ID breaks ties')
+  "sort": zod.enum(['newest', 'oldest_update', 'due_soon']).optional().describe('Newest created first, oldest updated first, or soonest due date first; ID breaks ties'),
+  "assignee": zod.coerce.string().min(1).max(listOfficeServiceRequestsQueryAssigneeMax).optional().describe('me, unassigned, or an office member\'s user ID'),
+  "overdue": zod.coerce.boolean().optional().describe('Only open requests past their due date')
 })
+
+export const listOfficeServiceRequestsResponseItemsItemRatingMax = 5;
 
 export const listOfficeServiceRequestsResponseTotalMin = 0;
 
@@ -729,7 +782,7 @@ export const ListOfficeServiceRequestsResponse = zod.object({
   "service": zod.string(),
   "description": zod.string(),
   "contactPhone": zod.string(),
-  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
   "officeNote": zod.string().nullish(),
   "customerMessage": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
@@ -745,7 +798,12 @@ export const ListOfficeServiceRequestsResponse = zod.object({
   "customer": zod.union([zod.object({
   "fullName": zod.string(),
   "email": zod.string().email()
-}),zod.null()])
+}),zod.null()]),
+  "assignedTo": zod.string().nullable().describe('User ID of the responsible office member'),
+  "dueAt": zod.coerce.date().nullable(),
+  "rating": zod.number().int().min(1).max(listOfficeServiceRequestsResponseItemsItemRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable()
 })),
   "total": zod.number().int().min(listOfficeServiceRequestsResponseTotalMin),
   "page": zod.number().int().min(1),
@@ -814,14 +872,22 @@ export const updateOfficeServiceRequestBodyOfficeNoteMax = 2000;
 
 export const updateOfficeServiceRequestBodyCustomerMessageMax = 2000;
 
+export const updateOfficeServiceRequestBodyAssignedToMax = 120;
+
 
 
 export const UpdateOfficeServiceRequestBody = zod.object({
   "expectedUpdatedAt": zod.coerce.date(),
-  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
   "officeNote": zod.string().max(updateOfficeServiceRequestBodyOfficeNoteMax).nullish(),
-  "customerMessage": zod.string().max(updateOfficeServiceRequestBodyCustomerMessageMax).nullish()
+  "customerMessage": zod.string().max(updateOfficeServiceRequestBodyCustomerMessageMax).nullish(),
+  "assignedTo": zod.string().max(updateOfficeServiceRequestBodyAssignedToMax).nullish().describe('Omit to keep; null to unassign'),
+  "dueAt": zod.coerce.date().nullish().describe('Omit to keep; null to clear')
 })
+
+export const updateOfficeServiceRequestResponseRatingMax = 5;
+
+
 
 export const UpdateOfficeServiceRequestResponse = zod.object({
   "id": zod.number().int(),
@@ -830,7 +896,7 @@ export const UpdateOfficeServiceRequestResponse = zod.object({
   "service": zod.string(),
   "description": zod.string(),
   "contactPhone": zod.string(),
-  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed']),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
   "officeNote": zod.string().nullish(),
   "customerMessage": zod.string().nullable(),
   "createdAt": zod.coerce.date(),
@@ -846,7 +912,12 @@ export const UpdateOfficeServiceRequestResponse = zod.object({
   "customer": zod.union([zod.object({
   "fullName": zod.string(),
   "email": zod.string().email()
-}),zod.null()])
+}),zod.null()]),
+  "assignedTo": zod.string().nullable().describe('User ID of the responsible office member'),
+  "dueAt": zod.coerce.date().nullable(),
+  "rating": zod.number().int().min(1).max(updateOfficeServiceRequestResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable()
 })
 
 
@@ -890,7 +961,7 @@ export const ListOfficeInquiriesResponse = zod.object({
   "category": zod.enum(['passports', 'labor', 'business', 'other']),
   "service": zod.string(),
   "description": zod.string(),
-  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed'])
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed'])
 }),zod.null()]),
   "customer": zod.union([zod.object({
   "fullName": zod.string(),
@@ -934,7 +1005,7 @@ export const AnswerOfficeInquiryResponse = zod.object({
   "category": zod.enum(['passports', 'labor', 'business', 'other']),
   "service": zod.string(),
   "description": zod.string(),
-  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'completed'])
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed'])
 }),zod.null()]),
   "customer": zod.union([zod.object({
   "fullName": zod.string(),
@@ -1088,12 +1159,598 @@ export const ListOfficeAuditLogResponseItem = zod.object({
   "id": zod.number().int(),
   "actorId": zod.string(),
   "actorEmail": zod.string().email().nullable(),
-  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge', 'registration.approve', 'registration.reject', 'information.review', 'information.publish', 'information.unpublish']),
+  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge', 'registration.approve', 'registration.reject', 'information.review', 'information.publish', 'information.unpublish', 'attachment.extract', 'invoice.issue', 'invoice.mark_paid', 'invoice.cancel', 'invoice.paid_online', 'offer.update', 'reminder.create']),
   "targetType": zod.string(),
   "targetId": zod.string(),
   "details": zod.record(zod.string(), zod.unknown()),
   "createdAt": zod.coerce.date()
 })
 export const ListOfficeAuditLogResponse = zod.array(ListOfficeAuditLogResponseItem)
+
+
+/**
+ * Public. Only offers the office owner has published are returned.
+ * @summary Published prices, processing times and required documents for catalogue services
+ */
+export const listServiceOffersResponsePriceMin = 0;
+
+
+
+export const ListServiceOffersResponseItem = zod.object({
+  "slug": zod.string(),
+  "price": zod.number().int().min(listServiceOffersResponsePriceMin).nullable().describe('Office fee in halalas before VAT; null when priced after review'),
+  "governmentFeesNote": zod.string().nullable(),
+  "processingDays": zod.number().int().nullable(),
+  "requiredDocuments": zod.array(zod.string()),
+  "published": zod.boolean(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListServiceOffersResponse = zod.array(ListServiceOffersResponseItem)
+
+
+/**
+ * @summary Owner-only list of every saved offer, published or not
+ */
+export const listOfficeServiceOffersResponsePriceMin = 0;
+
+
+
+export const ListOfficeServiceOffersResponseItem = zod.object({
+  "slug": zod.string(),
+  "price": zod.number().int().min(listOfficeServiceOffersResponsePriceMin).nullable().describe('Office fee in halalas before VAT; null when priced after review'),
+  "governmentFeesNote": zod.string().nullable(),
+  "processingDays": zod.number().int().nullable(),
+  "requiredDocuments": zod.array(zod.string()),
+  "published": zod.boolean(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListOfficeServiceOffersResponse = zod.array(ListOfficeServiceOffersResponseItem)
+
+
+/**
+ * @summary Owner-only create or replace the offer for a catalogue service
+ */
+export const saveOfficeServiceOfferPathSlugRegExp = new RegExp('^[a-z0-9][a-z0-9-]{1,63}$');
+
+
+export const SaveOfficeServiceOfferParams = zod.object({
+  "slug": zod.coerce.string().regex(saveOfficeServiceOfferPathSlugRegExp)
+})
+
+export const saveOfficeServiceOfferBodyPriceMin = 0;
+export const saveOfficeServiceOfferBodyPriceMax = 100000000;
+
+export const saveOfficeServiceOfferBodyGovernmentFeesNoteMax = 300;
+
+export const saveOfficeServiceOfferBodyProcessingDaysMax = 365;
+
+export const saveOfficeServiceOfferBodyRequiredDocumentsItemMin = 2;
+export const saveOfficeServiceOfferBodyRequiredDocumentsItemMax = 160;
+
+export const saveOfficeServiceOfferBodyRequiredDocumentsMax = 15;
+
+
+
+export const SaveOfficeServiceOfferBody = zod.object({
+  "price": zod.number().int().min(saveOfficeServiceOfferBodyPriceMin).max(saveOfficeServiceOfferBodyPriceMax).nullable(),
+  "governmentFeesNote": zod.string().max(saveOfficeServiceOfferBodyGovernmentFeesNoteMax).nullable(),
+  "processingDays": zod.number().int().min(1).max(saveOfficeServiceOfferBodyProcessingDaysMax).nullable(),
+  "requiredDocuments": zod.array(zod.string().min(saveOfficeServiceOfferBodyRequiredDocumentsItemMin).max(saveOfficeServiceOfferBodyRequiredDocumentsItemMax)).max(saveOfficeServiceOfferBodyRequiredDocumentsMax),
+  "published": zod.boolean()
+})
+
+export const saveOfficeServiceOfferResponsePriceMin = 0;
+
+
+
+export const SaveOfficeServiceOfferResponse = zod.object({
+  "slug": zod.string(),
+  "price": zod.number().int().min(saveOfficeServiceOfferResponsePriceMin).nullable().describe('Office fee in halalas before VAT; null when priced after review'),
+  "governmentFeesNote": zod.string().nullable(),
+  "processingDays": zod.number().int().nullable(),
+  "requiredDocuments": zod.array(zod.string()),
+  "published": zod.boolean(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Rate a completed request owned by the signed-in customer (once)
+ */
+export const RateServiceRequestParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const rateServiceRequestBodyRatingMax = 5;
+
+export const rateServiceRequestBodyCommentMax = 1000;
+
+
+
+export const RateServiceRequestBody = zod.object({
+  "rating": zod.number().int().min(1).max(rateServiceRequestBodyRatingMax),
+  "comment": zod.string().max(rateServiceRequestBodyCommentMax).nullish()
+})
+
+export const rateServiceRequestResponseRatingMax = 5;
+
+
+
+export const RateServiceRequestResponse = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "category": zod.enum(['passports', 'labor', 'business', 'other']),
+  "service": zod.string(),
+  "description": zod.string(),
+  "contactPhone": zod.string(),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
+  "customerMessage": zod.string().nullable(),
+  "clientRequestId": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+})),
+  "rating": zod.number().int().min(1).max(rateServiceRequestResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Invoices on a request owned by the signed-in customer
+ */
+export const ListServiceRequestInvoicesParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const ListServiceRequestInvoicesResponseItem = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "requestId": zod.number().int(),
+  "requestReference": zod.string(),
+  "description": zod.string(),
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "status": zod.enum(['issued', 'paid', 'cancelled']),
+  "paymentMethod": zod.union([zod.literal('manual'),zod.literal('online'),zod.literal(null)]).nullable(),
+  "paymentReference": zod.string().nullable(),
+  "issuedAt": zod.coerce.date(),
+  "paidAt": zod.coerce.date().nullable(),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "canPayOnline": zod.boolean(),
+  "seller": zod.object({
+  "name": zod.string(),
+  "vatNumber": zod.string().nullable()
+})
+})
+export const ListServiceRequestInvoicesResponse = zod.array(ListServiceRequestInvoicesResponseItem)
+
+
+/**
+ * @summary Open the payment gateway's hosted page for an unpaid invoice of the signed-in customer
+ */
+export const StartInvoicePaymentParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const StartInvoicePaymentResponse = zod.object({
+  "url": zod.string().url()
+})
+
+
+/**
+ * @summary Re-check the payment gateway for an invoice of the signed-in customer
+ */
+export const RefreshInvoicePaymentParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const RefreshInvoicePaymentResponse = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "requestId": zod.number().int(),
+  "requestReference": zod.string(),
+  "description": zod.string(),
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "status": zod.enum(['issued', 'paid', 'cancelled']),
+  "paymentMethod": zod.union([zod.literal('manual'),zod.literal('online'),zod.literal(null)]).nullable(),
+  "paymentReference": zod.string().nullable(),
+  "issuedAt": zod.coerce.date(),
+  "paidAt": zod.coerce.date().nullable(),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "canPayOnline": zod.boolean(),
+  "seller": zod.object({
+  "name": zod.string(),
+  "vatNumber": zod.string().nullable()
+})
+})
+
+
+/**
+ * @summary Staff-only invoices on a request
+ */
+export const ListOfficeServiceRequestInvoicesParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const ListOfficeServiceRequestInvoicesResponseItem = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "requestId": zod.number().int(),
+  "requestReference": zod.string(),
+  "description": zod.string(),
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "status": zod.enum(['issued', 'paid', 'cancelled']),
+  "paymentMethod": zod.union([zod.literal('manual'),zod.literal('online'),zod.literal(null)]).nullable(),
+  "paymentReference": zod.string().nullable(),
+  "issuedAt": zod.coerce.date(),
+  "paidAt": zod.coerce.date().nullable(),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "canPayOnline": zod.boolean(),
+  "seller": zod.object({
+  "name": zod.string(),
+  "vatNumber": zod.string().nullable()
+})
+})
+export const ListOfficeServiceRequestInvoicesResponse = zod.array(ListOfficeServiceRequestInvoicesResponseItem)
+
+
+/**
+ * @summary Staff-only issue an invoice on a request
+ */
+export const IssueOfficeInvoiceParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const issueOfficeInvoiceBodyDescriptionMin = 2;
+export const issueOfficeInvoiceBodyDescriptionMax = 300;
+
+export const issueOfficeInvoiceBodyAmountMin = 100;
+export const issueOfficeInvoiceBodyAmountMax = 100000000;
+
+
+
+export const IssueOfficeInvoiceBody = zod.object({
+  "description": zod.string().min(issueOfficeInvoiceBodyDescriptionMin).max(issueOfficeInvoiceBodyDescriptionMax),
+  "amount": zod.number().int().min(issueOfficeInvoiceBodyAmountMin).max(issueOfficeInvoiceBodyAmountMax).describe('Halalas before VAT'),
+  "markAwaitingPayment": zod.boolean().optional().describe('Also move the request to awaiting payment')
+})
+
+export const IssueOfficeInvoiceResponse = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "requestId": zod.number().int(),
+  "requestReference": zod.string(),
+  "description": zod.string(),
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "status": zod.enum(['issued', 'paid', 'cancelled']),
+  "paymentMethod": zod.union([zod.literal('manual'),zod.literal('online'),zod.literal(null)]).nullable(),
+  "paymentReference": zod.string().nullable(),
+  "issuedAt": zod.coerce.date(),
+  "paidAt": zod.coerce.date().nullable(),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "canPayOnline": zod.boolean(),
+  "seller": zod.object({
+  "name": zod.string(),
+  "vatNumber": zod.string().nullable()
+})
+})
+
+
+/**
+ * @summary Staff-only record a manual payment or cancel an unpaid invoice
+ */
+export const UpdateOfficeInvoiceParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const updateOfficeInvoiceBodyPaymentReferenceMax = 120;
+
+
+
+export const UpdateOfficeInvoiceBody = zod.object({
+  "action": zod.enum(['mark_paid', 'cancel']),
+  "paymentReference": zod.string().max(updateOfficeInvoiceBodyPaymentReferenceMax).nullish()
+})
+
+export const UpdateOfficeInvoiceResponse = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "requestId": zod.number().int(),
+  "requestReference": zod.string(),
+  "description": zod.string(),
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vatRateBasisPoints": zod.number().int().describe('1500 means 15%'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "status": zod.enum(['issued', 'paid', 'cancelled']),
+  "paymentMethod": zod.union([zod.literal('manual'),zod.literal('online'),zod.literal(null)]).nullable(),
+  "paymentReference": zod.string().nullable(),
+  "issuedAt": zod.coerce.date(),
+  "paidAt": zod.coerce.date().nullable(),
+  "cancelledAt": zod.coerce.date().nullable(),
+  "canPayOnline": zod.boolean(),
+  "seller": zod.object({
+  "name": zod.string(),
+  "vatNumber": zod.string().nullable()
+})
+})
+
+
+/**
+ * @summary The signed-in customer's document expiry reminders, soonest first
+ */
+export const ListRemindersResponseItem = zod.object({
+  "id": zod.number().int(),
+  "kind": zod.enum(['iqama', 'passport', 'commercial_register', 'work_permit', 'other']),
+  "label": zod.string(),
+  "expiresOn": zod.coerce.date(),
+  "note": zod.string().nullable(),
+  "addedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+})
+export const ListRemindersResponse = zod.array(ListRemindersResponseItem)
+
+
+/**
+ * @summary Add a document expiry reminder
+ */
+export const createReminderBodyLabelMin = 2;
+export const createReminderBodyLabelMax = 120;
+
+export const createReminderBodyNoteMax = 500;
+
+
+
+export const CreateReminderBody = zod.object({
+  "kind": zod.enum(['iqama', 'passport', 'commercial_register', 'work_permit', 'other']),
+  "label": zod.string().min(createReminderBodyLabelMin).max(createReminderBodyLabelMax),
+  "expiresOn": zod.coerce.date(),
+  "note": zod.string().max(createReminderBodyNoteMax).nullish()
+})
+
+export const CreateReminderResponse = zod.object({
+  "id": zod.number().int(),
+  "kind": zod.enum(['iqama', 'passport', 'commercial_register', 'work_permit', 'other']),
+  "label": zod.string(),
+  "expiresOn": zod.coerce.date(),
+  "note": zod.string().nullable(),
+  "addedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Replace one of the signed-in customer's reminders
+ */
+export const UpdateReminderParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const updateReminderBodyLabelMin = 2;
+export const updateReminderBodyLabelMax = 120;
+
+export const updateReminderBodyNoteMax = 500;
+
+
+
+export const UpdateReminderBody = zod.object({
+  "kind": zod.enum(['iqama', 'passport', 'commercial_register', 'work_permit', 'other']),
+  "label": zod.string().min(updateReminderBodyLabelMin).max(updateReminderBodyLabelMax),
+  "expiresOn": zod.coerce.date(),
+  "note": zod.string().max(updateReminderBodyNoteMax).nullish()
+})
+
+export const UpdateReminderResponse = zod.object({
+  "id": zod.number().int(),
+  "kind": zod.enum(['iqama', 'passport', 'commercial_register', 'work_permit', 'other']),
+  "label": zod.string(),
+  "expiresOn": zod.coerce.date(),
+  "note": zod.string().nullable(),
+  "addedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Remove one of the signed-in customer's reminders
+ */
+export const DeleteReminderParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DeleteReminderResponse = zod.void()
+
+
+/**
+ * @summary Staff-only customer documents expiring soon, soonest first
+ */
+export const listOfficeRemindersQueryWithinDaysMax = 365;
+
+
+
+export const ListOfficeRemindersQueryParams = zod.object({
+  "withinDays": zod.coerce.number().int().min(1).max(listOfficeRemindersQueryWithinDaysMax).optional().describe('Defaults to 60')
+})
+
+export const ListOfficeRemindersResponseItem = zod.object({
+  "id": zod.number().int(),
+  "kind": zod.enum(['iqama', 'passport', 'commercial_register', 'work_permit', 'other']),
+  "label": zod.string(),
+  "expiresOn": zod.coerce.date(),
+  "note": zod.string().nullable(),
+  "addedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+}).and(zod.object({
+  "customer": zod.union([zod.object({
+  "fullName": zod.string(),
+  "email": zod.string().email()
+}),zod.null()]),
+  "contactPhone": zod.string().nullable()
+}))
+export const ListOfficeRemindersResponse = zod.array(ListOfficeRemindersResponseItem)
+
+
+/**
+ * @summary Staff-only add a reminder for the customer who owns the request
+ */
+export const CreateOfficeReminderParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const createOfficeReminderBodyLabelMin = 2;
+export const createOfficeReminderBodyLabelMax = 120;
+
+export const createOfficeReminderBodyNoteMax = 500;
+
+
+
+export const CreateOfficeReminderBody = zod.object({
+  "kind": zod.enum(['iqama', 'passport', 'commercial_register', 'work_permit', 'other']),
+  "label": zod.string().min(createOfficeReminderBodyLabelMin).max(createOfficeReminderBodyLabelMax),
+  "expiresOn": zod.coerce.date(),
+  "note": zod.string().max(createOfficeReminderBodyNoteMax).nullish()
+})
+
+export const CreateOfficeReminderResponse = zod.object({
+  "id": zod.number().int(),
+  "kind": zod.enum(['iqama', 'passport', 'commercial_register', 'work_permit', 'other']),
+  "label": zod.string(),
+  "expiresOn": zod.coerce.date(),
+  "note": zod.string().nullable(),
+  "addedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Staff-only read an attached document's type, holder and expiry date with AI (audited)
+ */
+export const ExtractOfficeAttachmentDocumentParams = zod.object({
+  "attachmentId": zod.coerce.number().int()
+})
+
+export const extractOfficeAttachmentDocumentResponseLabelMax = 120;
+
+export const extractOfficeAttachmentDocumentResponseExpiresOnTextMax = 80;
+
+export const extractOfficeAttachmentDocumentResponseNotesMax = 500;
+
+
+
+export const ExtractOfficeAttachmentDocumentResponse = zod.object({
+  "kind": zod.union([zod.enum(['iqama', 'passport', 'commercial_register', 'work_permit', 'other']),zod.null()]),
+  "label": zod.string().max(extractOfficeAttachmentDocumentResponseLabelMax).nullable(),
+  "expiresOn": zod.coerce.date().nullable().describe('Gregorian date, converted from Hijri if needed'),
+  "expiresOnText": zod.string().max(extractOfficeAttachmentDocumentResponseExpiresOnTextMax).nullable().describe('The date exactly as written on the document'),
+  "notes": zod.string().max(extractOfficeAttachmentDocumentResponseNotesMax).nullable()
+})
+
+
+/**
+ * @summary The signed-in customer's notification settings
+ */
+export const GetPortalSettingsResponse = zod.object({
+  "whatsappOptIn": zod.boolean(),
+  "whatsappPhone": zod.string().nullable(),
+  "whatsappAvailable": zod.boolean().describe('Whether the office has WhatsApp messages turned on')
+})
+
+
+/**
+ * @summary Save the signed-in customer's notification settings
+ */
+export const savePortalSettingsBodyWhatsappPhoneMax = 24;
+
+
+
+export const SavePortalSettingsBody = zod.object({
+  "whatsappOptIn": zod.boolean(),
+  "whatsappPhone": zod.string().max(savePortalSettingsBodyWhatsappPhoneMax).nullable()
+})
+
+export const SavePortalSettingsResponse = zod.object({
+  "whatsappOptIn": zod.boolean(),
+  "whatsappPhone": zod.string().nullable(),
+  "whatsappAvailable": zod.boolean().describe('Whether the office has WhatsApp messages turned on')
+})
+
+
+/**
+ * @summary Staff-only list of office members a request can be assigned to
+ */
+export const ListOfficeAssigneesResponseItem = zod.object({
+  "userId": zod.string(),
+  "email": zod.string().nullable(),
+  "role": zod.enum(['owner', 'staff'])
+})
+export const ListOfficeAssigneesResponse = zod.array(ListOfficeAssigneesResponseItem)
+
+
+/**
+ * @summary Owner-only performance report for a period
+ */
+export const GetOfficeReportQueryParams = zod.object({
+  "days": zod.union([zod.literal(7),zod.literal(30),zod.literal(90),zod.literal(365)]).optional().describe('Period length ending now; defaults to 30')
+})
+
+export const GetOfficeReportResponse = zod.object({
+  "days": zod.number().int(),
+  "created": zod.number().int(),
+  "completed": zod.number().int(),
+  "averageCompletionDays": zod.number().nullable(),
+  "byStatus": zod.array(zod.object({
+  "key": zod.string(),
+  "count": zod.number().int()
+})),
+  "byCategory": zod.array(zod.object({
+  "key": zod.string(),
+  "count": zod.number().int()
+})),
+  "topServices": zod.array(zod.object({
+  "service": zod.string(),
+  "created": zod.number().int(),
+  "completed": zod.number().int()
+})),
+  "staff": zod.array(zod.object({
+  "userId": zod.string().nullable().describe('Null for unassigned requests'),
+  "email": zod.string().nullable(),
+  "active": zod.number().int(),
+  "completed": zod.number().int(),
+  "overdue": zod.number().int()
+})),
+  "ratings": zod.object({
+  "count": zod.number().int(),
+  "average": zod.number().nullable(),
+  "distribution": zod.array(zod.object({
+  "key": zod.string(),
+  "count": zod.number().int()
+}))
+}),
+  "revenue": zod.object({
+  "paidTotal": zod.number().int(),
+  "paidVat": zod.number().int(),
+  "paidCount": zod.number().int(),
+  "outstandingTotal": zod.number().int(),
+  "outstandingCount": zod.number().int()
+})
+})
 
 

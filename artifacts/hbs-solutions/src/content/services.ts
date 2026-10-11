@@ -2,7 +2,8 @@
 //
 // DRAFT CONTENT — the office must review it before launch. It names services
 // only; it deliberately states no prices, processing times, official
-// requirements or government integrations. What a customer "should write"
+// requirements or government integrations. Prices, times and documents come
+// only from what the office owner publishes (/office/catalog, hbs_service_offers). What a customer "should write"
 // is guidance for describing their case, not a list of required documents:
 // the office decides what it needs after reviewing each request.
 //

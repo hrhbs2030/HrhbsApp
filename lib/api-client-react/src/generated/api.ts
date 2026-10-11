@@ -32,31 +32,48 @@ import type {
   CustomerAIAnswer,
   CustomerAIQuestion,
   ExtractTransactionRequest,
+  ExtractedDocument,
   ExtractedTransaction,
+  GetOfficeReportParams,
   HealthStatus,
   Inquiry,
   InquiryAnswer,
   InquiryInput,
+  Invoice,
+  InvoiceAction,
+  InvoiceInput,
   LegacyBackupInput,
   LegacyBackupSummary,
   LegacyImportInput,
   LegacyImportSummary,
   ListOfficeInquiriesParams,
+  ListOfficeRemindersParams,
   ListOfficeServiceRequestsParams,
+  OfficeAssignee,
   OfficeInquiry,
   OfficeInquiryPage,
   OfficeRegistration,
+  OfficeReminder,
+  OfficeReport,
   OfficeServiceRequest,
   OfficeServiceRequestPage,
   OfficeStaffInput,
   OfficeStaffMember,
   OfficeSummary,
+  PaymentStart,
   PortalRegistration,
   PortalRegistrationResult,
+  PortalSettings,
+  PortalSettingsInput,
   PortalSummary,
   PortalUser,
+  RatingInput,
   RegistrationRequestInput,
   RegistrationReview,
+  Reminder,
+  ReminderInput,
+  ServiceOffer,
+  ServiceOfferInput,
   ServiceRequest,
   ServiceRequestInput,
   ServiceRequestStatusEvent,
@@ -3548,6 +3565,1720 @@ export function useListOfficeAuditLog<TData = Awaited<ReturnType<typeof listOffi
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListOfficeAuditLogQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListServiceOffersUrl = () => {
+
+
+
+
+  return `/api/service-offers`
+}
+
+/**
+ * Public. Only offers the office owner has published are returned.
+ * @summary Published prices, processing times and required documents for catalogue services
+ */
+export const listServiceOffers = async ( options?: Parameters<typeof customFetch>[1]): Promise<ServiceOffer[]> => {
+
+  return customFetch<ServiceOffer[]>(getListServiceOffersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListServiceOffersQueryKey = () => {
+    return [
+    `/api/service-offers`
+    ] as const;
+    }
+
+
+export const getListServiceOffersQueryOptions = <TData = Awaited<ReturnType<typeof listServiceOffers>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listServiceOffers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListServiceOffersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listServiceOffers>>> = ({ signal }) => listServiceOffers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listServiceOffers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListServiceOffersQueryResult = NonNullable<Awaited<ReturnType<typeof listServiceOffers>>>
+export type ListServiceOffersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Published prices, processing times and required documents for catalogue services
+ */
+
+export function useListServiceOffers<TData = Awaited<ReturnType<typeof listServiceOffers>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listServiceOffers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListServiceOffersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListOfficeServiceOffersUrl = () => {
+
+
+
+
+  return `/api/office/service-offers`
+}
+
+/**
+ * @summary Owner-only list of every saved offer, published or not
+ */
+export const listOfficeServiceOffers = async ( options?: Parameters<typeof customFetch>[1]): Promise<ServiceOffer[]> => {
+
+  return customFetch<ServiceOffer[]>(getListOfficeServiceOffersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeServiceOffersQueryKey = () => {
+    return [
+    `/api/office/service-offers`
+    ] as const;
+    }
+
+
+export const getListOfficeServiceOffersQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeServiceOffers>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceOffers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeServiceOffersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeServiceOffers>>> = ({ signal }) => listOfficeServiceOffers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceOffers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeServiceOffersQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeServiceOffers>>>
+export type ListOfficeServiceOffersQueryError = ErrorType<void>
+
+
+/**
+ * @summary Owner-only list of every saved offer, published or not
+ */
+
+export function useListOfficeServiceOffers<TData = Awaited<ReturnType<typeof listOfficeServiceOffers>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceOffers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeServiceOffersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveOfficeServiceOfferUrl = (slug: string,) => {
+
+
+
+
+  return `/api/office/service-offers/${slug}`
+}
+
+/**
+ * @summary Owner-only create or replace the offer for a catalogue service
+ */
+export const saveOfficeServiceOffer = async (slug: string,
+    serviceOfferInput: ServiceOfferInput, options?: Parameters<typeof customFetch>[1]): Promise<ServiceOffer> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ServiceOffer>(getSaveOfficeServiceOfferUrl(slug),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(serviceOfferInput)
+  }
+);}
+
+
+
+
+
+export const getSaveOfficeServiceOfferMutationKey = () => ['saveOfficeServiceOffer'] as const;
+
+export const getSaveOfficeServiceOfferMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveOfficeServiceOffer>>, TError,SaveOfficeServiceOfferMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveOfficeServiceOffer>>, TError,SaveOfficeServiceOfferMutationVariables, TContext> => {
+
+const mutationKey = getSaveOfficeServiceOfferMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveOfficeServiceOffer>>, SaveOfficeServiceOfferMutationVariables> = (props) => {
+          const {slug,data} = props ?? {};
+
+          return  saveOfficeServiceOffer(slug,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveOfficeServiceOfferMutationResult = NonNullable<Awaited<ReturnType<typeof saveOfficeServiceOffer>>>
+    export type SaveOfficeServiceOfferMutationBody = BodyType<ServiceOfferInput>
+    export type SaveOfficeServiceOfferMutationError = ErrorType<void>
+    export type SaveOfficeServiceOfferMutationVariables = {slug: string;data: BodyType<ServiceOfferInput>}
+
+    /**
+ * @summary Owner-only create or replace the offer for a catalogue service
+ */
+export const useSaveOfficeServiceOffer = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveOfficeServiceOffer>>, TError,SaveOfficeServiceOfferMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveOfficeServiceOffer>>,
+        TError,
+        SaveOfficeServiceOfferMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSaveOfficeServiceOfferMutationOptions(options));
+    }
+
+export const getRateServiceRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/service-requests/${id}/rating`
+}
+
+/**
+ * @summary Rate a completed request owned by the signed-in customer (once)
+ */
+export const rateServiceRequest = async (id: number,
+    ratingInput: RatingInput, options?: Parameters<typeof customFetch>[1]): Promise<ServiceRequest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ServiceRequest>(getRateServiceRequestUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(ratingInput)
+  }
+);}
+
+
+
+
+
+export const getRateServiceRequestMutationKey = () => ['rateServiceRequest'] as const;
+
+export const getRateServiceRequestMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rateServiceRequest>>, TError,RateServiceRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rateServiceRequest>>, TError,RateServiceRequestMutationVariables, TContext> => {
+
+const mutationKey = getRateServiceRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rateServiceRequest>>, RateServiceRequestMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  rateServiceRequest(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RateServiceRequestMutationResult = NonNullable<Awaited<ReturnType<typeof rateServiceRequest>>>
+    export type RateServiceRequestMutationBody = BodyType<RatingInput>
+    export type RateServiceRequestMutationError = ErrorType<void>
+    export type RateServiceRequestMutationVariables = {id: number;data: BodyType<RatingInput>}
+
+    /**
+ * @summary Rate a completed request owned by the signed-in customer (once)
+ */
+export const useRateServiceRequest = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rateServiceRequest>>, TError,RateServiceRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rateServiceRequest>>,
+        TError,
+        RateServiceRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRateServiceRequestMutationOptions(options));
+    }
+
+export const getListServiceRequestInvoicesUrl = (id: number,) => {
+
+
+
+
+  return `/api/service-requests/${id}/invoices`
+}
+
+/**
+ * @summary Invoices on a request owned by the signed-in customer
+ */
+export const listServiceRequestInvoices = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<Invoice[]> => {
+
+  return customFetch<Invoice[]>(getListServiceRequestInvoicesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListServiceRequestInvoicesQueryKey = (id: number,) => {
+    return [
+    `/api/service-requests/${id}/invoices`
+    ] as const;
+    }
+
+
+export const getListServiceRequestInvoicesQueryOptions = <TData = Awaited<ReturnType<typeof listServiceRequestInvoices>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listServiceRequestInvoices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListServiceRequestInvoicesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listServiceRequestInvoices>>> = ({ signal }) => listServiceRequestInvoices(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listServiceRequestInvoices>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListServiceRequestInvoicesQueryResult = NonNullable<Awaited<ReturnType<typeof listServiceRequestInvoices>>>
+export type ListServiceRequestInvoicesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Invoices on a request owned by the signed-in customer
+ */
+
+export function useListServiceRequestInvoices<TData = Awaited<ReturnType<typeof listServiceRequestInvoices>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listServiceRequestInvoices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListServiceRequestInvoicesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStartInvoicePaymentUrl = (id: number,) => {
+
+
+
+
+  return `/api/invoices/${id}/pay`
+}
+
+/**
+ * @summary Open the payment gateway's hosted page for an unpaid invoice of the signed-in customer
+ */
+export const startInvoicePayment = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<PaymentStart> => {
+
+  return customFetch<PaymentStart>(getStartInvoicePaymentUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getStartInvoicePaymentMutationKey = () => ['startInvoicePayment'] as const;
+
+export const getStartInvoicePaymentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startInvoicePayment>>, TError,StartInvoicePaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startInvoicePayment>>, TError,StartInvoicePaymentMutationVariables, TContext> => {
+
+const mutationKey = getStartInvoicePaymentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startInvoicePayment>>, StartInvoicePaymentMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  startInvoicePayment(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartInvoicePaymentMutationResult = NonNullable<Awaited<ReturnType<typeof startInvoicePayment>>>
+
+    export type StartInvoicePaymentMutationError = ErrorType<void>
+    export type StartInvoicePaymentMutationVariables = {id: number}
+
+    /**
+ * @summary Open the payment gateway's hosted page for an unpaid invoice of the signed-in customer
+ */
+export const useStartInvoicePayment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startInvoicePayment>>, TError,StartInvoicePaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startInvoicePayment>>,
+        TError,
+        StartInvoicePaymentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getStartInvoicePaymentMutationOptions(options));
+    }
+
+export const getRefreshInvoicePaymentUrl = (id: number,) => {
+
+
+
+
+  return `/api/invoices/${id}/refresh`
+}
+
+/**
+ * @summary Re-check the payment gateway for an invoice of the signed-in customer
+ */
+export const refreshInvoicePayment = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<Invoice> => {
+
+  return customFetch<Invoice>(getRefreshInvoicePaymentUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRefreshInvoicePaymentMutationKey = () => ['refreshInvoicePayment'] as const;
+
+export const getRefreshInvoicePaymentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshInvoicePayment>>, TError,RefreshInvoicePaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refreshInvoicePayment>>, TError,RefreshInvoicePaymentMutationVariables, TContext> => {
+
+const mutationKey = getRefreshInvoicePaymentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshInvoicePayment>>, RefreshInvoicePaymentMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  refreshInvoicePayment(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RefreshInvoicePaymentMutationResult = NonNullable<Awaited<ReturnType<typeof refreshInvoicePayment>>>
+
+    export type RefreshInvoicePaymentMutationError = ErrorType<void>
+    export type RefreshInvoicePaymentMutationVariables = {id: number}
+
+    /**
+ * @summary Re-check the payment gateway for an invoice of the signed-in customer
+ */
+export const useRefreshInvoicePayment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshInvoicePayment>>, TError,RefreshInvoicePaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof refreshInvoicePayment>>,
+        TError,
+        RefreshInvoicePaymentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRefreshInvoicePaymentMutationOptions(options));
+    }
+
+export const getListOfficeServiceRequestInvoicesUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/service-requests/${id}/invoices`
+}
+
+/**
+ * @summary Staff-only invoices on a request
+ */
+export const listOfficeServiceRequestInvoices = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<Invoice[]> => {
+
+  return customFetch<Invoice[]>(getListOfficeServiceRequestInvoicesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeServiceRequestInvoicesQueryKey = (id: number,) => {
+    return [
+    `/api/office/service-requests/${id}/invoices`
+    ] as const;
+    }
+
+
+export const getListOfficeServiceRequestInvoicesQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeServiceRequestInvoices>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceRequestInvoices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeServiceRequestInvoicesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeServiceRequestInvoices>>> = ({ signal }) => listOfficeServiceRequestInvoices(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceRequestInvoices>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeServiceRequestInvoicesQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeServiceRequestInvoices>>>
+export type ListOfficeServiceRequestInvoicesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Staff-only invoices on a request
+ */
+
+export function useListOfficeServiceRequestInvoices<TData = Awaited<ReturnType<typeof listOfficeServiceRequestInvoices>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeServiceRequestInvoices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeServiceRequestInvoicesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getIssueOfficeInvoiceUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/service-requests/${id}/invoices`
+}
+
+/**
+ * @summary Staff-only issue an invoice on a request
+ */
+export const issueOfficeInvoice = async (id: number,
+    invoiceInput: InvoiceInput, options?: Parameters<typeof customFetch>[1]): Promise<Invoice> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Invoice>(getIssueOfficeInvoiceUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(invoiceInput)
+  }
+);}
+
+
+
+
+
+export const getIssueOfficeInvoiceMutationKey = () => ['issueOfficeInvoice'] as const;
+
+export const getIssueOfficeInvoiceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof issueOfficeInvoice>>, TError,IssueOfficeInvoiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof issueOfficeInvoice>>, TError,IssueOfficeInvoiceMutationVariables, TContext> => {
+
+const mutationKey = getIssueOfficeInvoiceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof issueOfficeInvoice>>, IssueOfficeInvoiceMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  issueOfficeInvoice(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type IssueOfficeInvoiceMutationResult = NonNullable<Awaited<ReturnType<typeof issueOfficeInvoice>>>
+    export type IssueOfficeInvoiceMutationBody = BodyType<InvoiceInput>
+    export type IssueOfficeInvoiceMutationError = ErrorType<void>
+    export type IssueOfficeInvoiceMutationVariables = {id: number;data: BodyType<InvoiceInput>}
+
+    /**
+ * @summary Staff-only issue an invoice on a request
+ */
+export const useIssueOfficeInvoice = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof issueOfficeInvoice>>, TError,IssueOfficeInvoiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof issueOfficeInvoice>>,
+        TError,
+        IssueOfficeInvoiceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getIssueOfficeInvoiceMutationOptions(options));
+    }
+
+export const getUpdateOfficeInvoiceUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/invoices/${id}`
+}
+
+/**
+ * @summary Staff-only record a manual payment or cancel an unpaid invoice
+ */
+export const updateOfficeInvoice = async (id: number,
+    invoiceAction: InvoiceAction, options?: Parameters<typeof customFetch>[1]): Promise<Invoice> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Invoice>(getUpdateOfficeInvoiceUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(invoiceAction)
+  }
+);}
+
+
+
+
+
+export const getUpdateOfficeInvoiceMutationKey = () => ['updateOfficeInvoice'] as const;
+
+export const getUpdateOfficeInvoiceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficeInvoice>>, TError,UpdateOfficeInvoiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateOfficeInvoice>>, TError,UpdateOfficeInvoiceMutationVariables, TContext> => {
+
+const mutationKey = getUpdateOfficeInvoiceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOfficeInvoice>>, UpdateOfficeInvoiceMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateOfficeInvoice(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateOfficeInvoiceMutationResult = NonNullable<Awaited<ReturnType<typeof updateOfficeInvoice>>>
+    export type UpdateOfficeInvoiceMutationBody = BodyType<InvoiceAction>
+    export type UpdateOfficeInvoiceMutationError = ErrorType<void>
+    export type UpdateOfficeInvoiceMutationVariables = {id: number;data: BodyType<InvoiceAction>}
+
+    /**
+ * @summary Staff-only record a manual payment or cancel an unpaid invoice
+ */
+export const useUpdateOfficeInvoice = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficeInvoice>>, TError,UpdateOfficeInvoiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateOfficeInvoice>>,
+        TError,
+        UpdateOfficeInvoiceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateOfficeInvoiceMutationOptions(options));
+    }
+
+export const getListRemindersUrl = () => {
+
+
+
+
+  return `/api/reminders`
+}
+
+/**
+ * @summary The signed-in customer's document expiry reminders, soonest first
+ */
+export const listReminders = async ( options?: Parameters<typeof customFetch>[1]): Promise<Reminder[]> => {
+
+  return customFetch<Reminder[]>(getListRemindersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRemindersQueryKey = () => {
+    return [
+    `/api/reminders`
+    ] as const;
+    }
+
+
+export const getListRemindersQueryOptions = <TData = Awaited<ReturnType<typeof listReminders>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReminders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRemindersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listReminders>>> = ({ signal }) => listReminders({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listReminders>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRemindersQueryResult = NonNullable<Awaited<ReturnType<typeof listReminders>>>
+export type ListRemindersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The signed-in customer's document expiry reminders, soonest first
+ */
+
+export function useListReminders<TData = Awaited<ReturnType<typeof listReminders>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReminders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRemindersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateReminderUrl = () => {
+
+
+
+
+  return `/api/reminders`
+}
+
+/**
+ * @summary Add a document expiry reminder
+ */
+export const createReminder = async (reminderInput: ReminderInput, options?: Parameters<typeof customFetch>[1]): Promise<Reminder> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Reminder>(getCreateReminderUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(reminderInput)
+  }
+);}
+
+
+
+
+
+export const getCreateReminderMutationKey = () => ['createReminder'] as const;
+
+export const getCreateReminderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReminder>>, TError,CreateReminderMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createReminder>>, TError,CreateReminderMutationVariables, TContext> => {
+
+const mutationKey = getCreateReminderMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createReminder>>, CreateReminderMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createReminder(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateReminderMutationResult = NonNullable<Awaited<ReturnType<typeof createReminder>>>
+    export type CreateReminderMutationBody = BodyType<ReminderInput>
+    export type CreateReminderMutationError = ErrorType<void>
+    export type CreateReminderMutationVariables = {data: BodyType<ReminderInput>}
+
+    /**
+ * @summary Add a document expiry reminder
+ */
+export const useCreateReminder = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReminder>>, TError,CreateReminderMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createReminder>>,
+        TError,
+        CreateReminderMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateReminderMutationOptions(options));
+    }
+
+export const getUpdateReminderUrl = (id: number,) => {
+
+
+
+
+  return `/api/reminders/${id}`
+}
+
+/**
+ * @summary Replace one of the signed-in customer's reminders
+ */
+export const updateReminder = async (id: number,
+    reminderInput: ReminderInput, options?: Parameters<typeof customFetch>[1]): Promise<Reminder> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Reminder>(getUpdateReminderUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(reminderInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateReminderMutationKey = () => ['updateReminder'] as const;
+
+export const getUpdateReminderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReminder>>, TError,UpdateReminderMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateReminder>>, TError,UpdateReminderMutationVariables, TContext> => {
+
+const mutationKey = getUpdateReminderMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateReminder>>, UpdateReminderMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateReminder(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateReminderMutationResult = NonNullable<Awaited<ReturnType<typeof updateReminder>>>
+    export type UpdateReminderMutationBody = BodyType<ReminderInput>
+    export type UpdateReminderMutationError = ErrorType<void>
+    export type UpdateReminderMutationVariables = {id: number;data: BodyType<ReminderInput>}
+
+    /**
+ * @summary Replace one of the signed-in customer's reminders
+ */
+export const useUpdateReminder = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReminder>>, TError,UpdateReminderMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateReminder>>,
+        TError,
+        UpdateReminderMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateReminderMutationOptions(options));
+    }
+
+export const getDeleteReminderUrl = (id: number,) => {
+
+
+
+
+  return `/api/reminders/${id}`
+}
+
+/**
+ * @summary Remove one of the signed-in customer's reminders
+ */
+export const deleteReminder = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteReminderUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteReminderMutationKey = () => ['deleteReminder'] as const;
+
+export const getDeleteReminderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteReminder>>, TError,DeleteReminderMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteReminder>>, TError,DeleteReminderMutationVariables, TContext> => {
+
+const mutationKey = getDeleteReminderMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteReminder>>, DeleteReminderMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteReminder(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteReminderMutationResult = NonNullable<Awaited<ReturnType<typeof deleteReminder>>>
+
+    export type DeleteReminderMutationError = ErrorType<void>
+    export type DeleteReminderMutationVariables = {id: number}
+
+    /**
+ * @summary Remove one of the signed-in customer's reminders
+ */
+export const useDeleteReminder = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteReminder>>, TError,DeleteReminderMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteReminder>>,
+        TError,
+        DeleteReminderMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteReminderMutationOptions(options));
+    }
+
+export const getListOfficeRemindersUrl = (params?: ListOfficeRemindersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/office/reminders?${stringifiedParams}` : `/api/office/reminders`
+}
+
+/**
+ * @summary Staff-only customer documents expiring soon, soonest first
+ */
+export const listOfficeReminders = async (params?: ListOfficeRemindersParams, options?: Parameters<typeof customFetch>[1]): Promise<OfficeReminder[]> => {
+
+  return customFetch<OfficeReminder[]>(getListOfficeRemindersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeRemindersQueryKey = (params?: ListOfficeRemindersParams,) => {
+    return [
+    `/api/office/reminders`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListOfficeRemindersQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeReminders>>, TError = ErrorType<void>>(params?: ListOfficeRemindersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeReminders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeRemindersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeReminders>>> = ({ signal }) => listOfficeReminders(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeReminders>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeRemindersQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeReminders>>>
+export type ListOfficeRemindersQueryError = ErrorType<void>
+
+
+/**
+ * @summary Staff-only customer documents expiring soon, soonest first
+ */
+
+export function useListOfficeReminders<TData = Awaited<ReturnType<typeof listOfficeReminders>>, TError = ErrorType<void>>(
+ params?: ListOfficeRemindersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeReminders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeRemindersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateOfficeReminderUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/service-requests/${id}/reminders`
+}
+
+/**
+ * @summary Staff-only add a reminder for the customer who owns the request
+ */
+export const createOfficeReminder = async (id: number,
+    reminderInput: ReminderInput, options?: Parameters<typeof customFetch>[1]): Promise<Reminder> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Reminder>(getCreateOfficeReminderUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(reminderInput)
+  }
+);}
+
+
+
+
+
+export const getCreateOfficeReminderMutationKey = () => ['createOfficeReminder'] as const;
+
+export const getCreateOfficeReminderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOfficeReminder>>, TError,CreateOfficeReminderMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createOfficeReminder>>, TError,CreateOfficeReminderMutationVariables, TContext> => {
+
+const mutationKey = getCreateOfficeReminderMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createOfficeReminder>>, CreateOfficeReminderMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createOfficeReminder(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateOfficeReminderMutationResult = NonNullable<Awaited<ReturnType<typeof createOfficeReminder>>>
+    export type CreateOfficeReminderMutationBody = BodyType<ReminderInput>
+    export type CreateOfficeReminderMutationError = ErrorType<void>
+    export type CreateOfficeReminderMutationVariables = {id: number;data: BodyType<ReminderInput>}
+
+    /**
+ * @summary Staff-only add a reminder for the customer who owns the request
+ */
+export const useCreateOfficeReminder = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOfficeReminder>>, TError,CreateOfficeReminderMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createOfficeReminder>>,
+        TError,
+        CreateOfficeReminderMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateOfficeReminderMutationOptions(options));
+    }
+
+export const getExtractOfficeAttachmentDocumentUrl = (attachmentId: number,) => {
+
+
+
+
+  return `/api/office/service-requests/attachments/${attachmentId}/extract`
+}
+
+/**
+ * @summary Staff-only read an attached document's type, holder and expiry date with AI (audited)
+ */
+export const extractOfficeAttachmentDocument = async (attachmentId: number, options?: Parameters<typeof customFetch>[1]): Promise<ExtractedDocument> => {
+
+  return customFetch<ExtractedDocument>(getExtractOfficeAttachmentDocumentUrl(attachmentId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getExtractOfficeAttachmentDocumentMutationKey = () => ['extractOfficeAttachmentDocument'] as const;
+
+export const getExtractOfficeAttachmentDocumentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractOfficeAttachmentDocument>>, TError,ExtractOfficeAttachmentDocumentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof extractOfficeAttachmentDocument>>, TError,ExtractOfficeAttachmentDocumentMutationVariables, TContext> => {
+
+const mutationKey = getExtractOfficeAttachmentDocumentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof extractOfficeAttachmentDocument>>, ExtractOfficeAttachmentDocumentMutationVariables> = (props) => {
+          const {attachmentId} = props ?? {};
+
+          return  extractOfficeAttachmentDocument(attachmentId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExtractOfficeAttachmentDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof extractOfficeAttachmentDocument>>>
+
+    export type ExtractOfficeAttachmentDocumentMutationError = ErrorType<void>
+    export type ExtractOfficeAttachmentDocumentMutationVariables = {attachmentId: number}
+
+    /**
+ * @summary Staff-only read an attached document's type, holder and expiry date with AI (audited)
+ */
+export const useExtractOfficeAttachmentDocument = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractOfficeAttachmentDocument>>, TError,ExtractOfficeAttachmentDocumentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof extractOfficeAttachmentDocument>>,
+        TError,
+        ExtractOfficeAttachmentDocumentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getExtractOfficeAttachmentDocumentMutationOptions(options));
+    }
+
+export const getGetPortalSettingsUrl = () => {
+
+
+
+
+  return `/api/portal/settings`
+}
+
+/**
+ * @summary The signed-in customer's notification settings
+ */
+export const getPortalSettings = async ( options?: Parameters<typeof customFetch>[1]): Promise<PortalSettings> => {
+
+  return customFetch<PortalSettings>(getGetPortalSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortalSettingsQueryKey = () => {
+    return [
+    `/api/portal/settings`
+    ] as const;
+    }
+
+
+export const getGetPortalSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getPortalSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortalSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalSettings>>> = ({ signal }) => getPortalSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortalSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortalSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getPortalSettings>>>
+export type GetPortalSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The signed-in customer's notification settings
+ */
+
+export function useGetPortalSettings<TData = Awaited<ReturnType<typeof getPortalSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortalSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSavePortalSettingsUrl = () => {
+
+
+
+
+  return `/api/portal/settings`
+}
+
+/**
+ * @summary Save the signed-in customer's notification settings
+ */
+export const savePortalSettings = async (portalSettingsInput: PortalSettingsInput, options?: Parameters<typeof customFetch>[1]): Promise<PortalSettings> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<PortalSettings>(getSavePortalSettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(portalSettingsInput)
+  }
+);}
+
+
+
+
+
+export const getSavePortalSettingsMutationKey = () => ['savePortalSettings'] as const;
+
+export const getSavePortalSettingsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof savePortalSettings>>, TError,SavePortalSettingsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof savePortalSettings>>, TError,SavePortalSettingsMutationVariables, TContext> => {
+
+const mutationKey = getSavePortalSettingsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof savePortalSettings>>, SavePortalSettingsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  savePortalSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SavePortalSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof savePortalSettings>>>
+    export type SavePortalSettingsMutationBody = BodyType<PortalSettingsInput>
+    export type SavePortalSettingsMutationError = ErrorType<void>
+    export type SavePortalSettingsMutationVariables = {data: BodyType<PortalSettingsInput>}
+
+    /**
+ * @summary Save the signed-in customer's notification settings
+ */
+export const useSavePortalSettings = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof savePortalSettings>>, TError,SavePortalSettingsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof savePortalSettings>>,
+        TError,
+        SavePortalSettingsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSavePortalSettingsMutationOptions(options));
+    }
+
+export const getListOfficeAssigneesUrl = () => {
+
+
+
+
+  return `/api/office/assignees`
+}
+
+/**
+ * @summary Staff-only list of office members a request can be assigned to
+ */
+export const listOfficeAssignees = async ( options?: Parameters<typeof customFetch>[1]): Promise<OfficeAssignee[]> => {
+
+  return customFetch<OfficeAssignee[]>(getListOfficeAssigneesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeAssigneesQueryKey = () => {
+    return [
+    `/api/office/assignees`
+    ] as const;
+    }
+
+
+export const getListOfficeAssigneesQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeAssignees>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeAssignees>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeAssigneesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeAssignees>>> = ({ signal }) => listOfficeAssignees({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeAssignees>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeAssigneesQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeAssignees>>>
+export type ListOfficeAssigneesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Staff-only list of office members a request can be assigned to
+ */
+
+export function useListOfficeAssignees<TData = Awaited<ReturnType<typeof listOfficeAssignees>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeAssignees>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeAssigneesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetOfficeReportUrl = (params?: GetOfficeReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/office/reports?${stringifiedParams}` : `/api/office/reports`
+}
+
+/**
+ * @summary Owner-only performance report for a period
+ */
+export const getOfficeReport = async (params?: GetOfficeReportParams, options?: Parameters<typeof customFetch>[1]): Promise<OfficeReport> => {
+
+  return customFetch<OfficeReport>(getGetOfficeReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOfficeReportQueryKey = (params?: GetOfficeReportParams,) => {
+    return [
+    `/api/office/reports`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetOfficeReportQueryOptions = <TData = Awaited<ReturnType<typeof getOfficeReport>>, TError = ErrorType<void>>(params?: GetOfficeReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOfficeReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOfficeReport>>> = ({ signal }) => getOfficeReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOfficeReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOfficeReportQueryResult = NonNullable<Awaited<ReturnType<typeof getOfficeReport>>>
+export type GetOfficeReportQueryError = ErrorType<void>
+
+
+/**
+ * @summary Owner-only performance report for a period
+ */
+
+export function useGetOfficeReport<TData = Awaited<ReturnType<typeof getOfficeReport>>, TError = ErrorType<void>>(
+ params?: GetOfficeReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOfficeReportQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

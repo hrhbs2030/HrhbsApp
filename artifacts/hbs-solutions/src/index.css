@@ -175,8 +175,10 @@ textarea.form-control { resize: vertical; min-height: 145px; line-height: 1.8; }
 .pill { display: inline-flex; align-items: center; gap: .4rem; width: fit-content; border-radius: 100px; padding: .3rem .75rem; font-size: .75rem; font-weight: 700; white-space: nowrap; }
 .pill-received, .pill-open { background: var(--color-copper-soft); color: var(--color-copper); }
 .pill-reviewing { background: var(--color-info-soft); color: var(--color-info); }
-.pill-waiting_on_customer { background: var(--color-warn-soft); color: var(--color-warn); }
-.pill-completed, .pill-answered { background: var(--color-ok-soft); color: var(--color-ok); }
+.pill-waiting_on_customer, .pill-awaiting_payment, .pill-issued { background: var(--color-warn-soft); color: var(--color-warn); }
+.pill-submitted_to_authority { background: var(--color-info-soft); color: var(--color-info); }
+.pill-cancelled { background: var(--color-sunk); color: var(--color-quiet); }
+.pill-completed, .pill-answered, .pill-paid { background: var(--color-ok-soft); color: var(--color-ok); }
 .skeleton { background: linear-gradient(100deg, var(--color-sunk) 20%, var(--color-surface) 45%, var(--color-sunk) 70%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
 @keyframes shimmer { to { background-position-x: -200%; } }
 .rise { animation: rise var(--duration-reveal) var(--ease-out-soft) both; }

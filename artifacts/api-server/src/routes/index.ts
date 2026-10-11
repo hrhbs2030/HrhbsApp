@@ -5,6 +5,10 @@ import portalRouter from "./portal";
 import anthropicRouter from "./anthropic";
 import approvedInformationRouter from "./approved-information";
 import officeAdminRouter from "./office-admin";
+import billingRouter from "./billing";
+import catalogRouter from "./catalog";
+import remindersRouter from "./reminders";
+import reportsRouter from "./reports";
 import { requireOfficeStaff } from "../lib/office-access";
 
 const router: IRouter = Router();
@@ -16,5 +20,9 @@ router.use("/anthropic", anthropicRouter);
 router.use(portalRouter);
 router.use(approvedInformationRouter);
 router.use(officeAdminRouter);
+router.use(catalogRouter);
+router.use(billingRouter);
+router.use(remindersRouter);
+router.use(reportsRouter);
 
 export default router;
