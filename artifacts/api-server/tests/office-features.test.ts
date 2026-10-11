@@ -99,6 +99,13 @@ test("assignment, statuses, ratings, invoices, reminders, catalogue and reports"
       assert.ok(assignees.data.some((a: any) => a.userId === owner && a.role === "owner" && a.email === officeEmail));
       assert.equal((await call(customerA, "GET", "/office/assignees")).status, 403);
 
+      const single = await call(staff, "GET", `/office/service-requests/${reqA.id}`);
+      assert.equal(single.status, 200, JSON.stringify(single.data));
+      assert.equal(single.data.id, reqA.id);
+      assert.equal(single.data.reference, (await call(staff, "GET", `/office/service-requests?q=${single.data.reference}`)).data.items[0].reference, "the same row the inbox lists");
+      assert.equal((await call(staff, "GET", "/office/service-requests/2147483000")).status, 404);
+      assert.equal((await call(staff, "GET", "/office/service-requests/x")).status, 404);
+      assert.equal((await call(customerA, "GET", `/office/service-requests/${reqA.id}`)).status, 403, "customers use their own route");
       const rejected = await call(owner, "PATCH", `/office/service-requests/${reqA.id}`, {
         status: "reviewing", expectedUpdatedAt: reqA.updatedAt.toISOString(), assignedTo: outsider,
       });

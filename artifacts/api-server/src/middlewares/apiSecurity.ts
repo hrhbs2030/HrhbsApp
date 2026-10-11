@@ -147,9 +147,10 @@ export function createRateLimitMiddleware({
 }
 const RATE_LIMIT_MESSAGE = "طلبات كثيرة خلال وقت قصير. حاول مرة أخرى بعد قليل.";
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-// Payment provider callbacks are verified by their own secret and may arrive
-// in bursts from a few addresses, so the per-visitor limits leave them alone.
-const UNLIMITED_PATHS = new Set(["/healthz", "/payments/moyasar/webhook"]);
+// Payment provider and WhatsApp callbacks are verified by their own secret
+// (an HMAC for WhatsApp) and may arrive in bursts from a few addresses, so
+// the per-visitor limits leave them alone.
+const UNLIMITED_PATHS = new Set(["/healthz", "/payments/moyasar/webhook", "/webhooks/whatsapp"]);
 
 // Endpoints that create something on behalf of a visitor (and may notify the
 // office by email or WhatsApp): kept to a human pace.
@@ -161,6 +162,8 @@ const SENSITIVE_WRITES = [
   /^\/service-requests\/attachments\/upload-url$/,
   /^\/invoices\/[^/]+\/(pay|refresh)$/,
   /^\/(company|office\/customers\/[^/]+)\/(employees|licenses)\/import$/,
+  /^\/company\/members$/,
+  /^\/company\/subscription$/,
 ];
 
 export const API_REQUEST_LIMIT = 600;

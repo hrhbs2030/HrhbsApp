@@ -131,6 +131,7 @@ const actionNames: Record<AuditLogEntry['action'], string> = {
   'company.member_invite': 'دعوة عضو لمنشأة عميل',
   'company.member_update': 'تعديل عضو في منشأة عميل',
   'company.member_remove': 'إزالة عضو من منشأة عميل',
+  'company.member_leave': 'مغادرة عضو لمنشأة عميل',
   'service_request.employee_item': 'تحديث موظف على طلب',
   'plan.create': 'إنشاء باقة',
   'plan.update': 'تعديل باقة',

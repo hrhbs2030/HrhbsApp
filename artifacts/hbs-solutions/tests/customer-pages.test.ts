@@ -13,7 +13,7 @@ import { createServer } from 'vite';
 const hooks = [
   'useGetPortalSummary', 'useListServiceRequests', 'useGetServiceRequest', 'useListInquiries', 'useCreateInquiry',
   'useGetServiceRequestHistory', 'useAcceptQuote', 'useDeclineQuote', 'useCreateServiceRequest', 'useGetCompanyFile', 'useListServiceOffers',
-  'useGetCompanyMembership', 'useListCompanyMembers', 'useInviteCompanyMember', 'useUpdateCompanyMember', 'useRemoveCompanyMember',
+  'useGetCompanyMembership', 'useListCompanyMembers', 'useInviteCompanyMember', 'useUpdateCompanyMember', 'useRemoveCompanyMember', 'useLeaveCompanyMembership',
   'useListPlans', 'useGetCompanySubscription', 'useStartCompanySubscription', 'useUpdateCompanySubscription', 'useListCompanyInvoices',
   'useGetOfficeCustomerFile', 'useListOfficeCustomers',
 ];
@@ -91,7 +91,8 @@ const mutation = fn => ({ isPending: false, isError: false, mutateAsync: fn, res
 const plan = (id, extra = {}) => ({ id, slug: `plan-${id}`, name: `باقة ${id}`, description: `وصف الباقة ${id}`, price: 100000, vat: 15000, total: 115000, employeeCap: 25, requestsPerMonth: null, autoRenewals: id === 1, active: true, sort: id, ...extra });
 const employee = (id, extra = {}) => ({ id, fullName: `موظف ${id}`, nationality: null, occupation: null, idNumberMasked: null, passportNumberMasked: null, iqamaExpiresOn: null, passportExpiresOn: null, workPermitExpiresOn: null, phone: null, status: 'active', notes: null, addedBy: 'customer', createdAt: date, updatedAt: date, ...extra });
 function setup(state) {
-  const log = { accept: [], decline: [], link: [], attach: [], invalidated: [], invite: [], updateMember: [], removeMember: [], start: [], updateSub: [], create: [] };
+  const log = { accept: [], decline: [], link: [], attach: [], invalidated: [], invite: [], updateMember: [], removeMember: [], leave: 0, reloaded: 0, start: [], updateSub: [], create: [] };
+  globalThis.window.location.reload = () => { log.reloaded += 1; };
   globalThis.__c = {
     search: state.search ?? '', params: { id: '1' },
     qc: { invalidateQueries: async value => { log.invalidated.push(value.queryKey); } },
@@ -112,6 +113,7 @@ function setup(state) {
       useInviteCompanyMember: () => mutation(async input => { log.invite.push(input); return { id: 99, ...input.data, memberUserId: null, invitedAt: date, acceptedAt: null }; }),
       useUpdateCompanyMember: () => mutation(async input => { log.updateMember.push(input); return {}; }),
       useRemoveCompanyMember: () => mutation(async input => { log.removeMember.push(input); }),
+      useLeaveCompanyMembership: () => mutation(async () => { log.leave += 1; }),
       useGetCompanySubscription: () => state.subscription === undefined ? failed() : query({ subscription: state.subscription }),
       useListPlans: () => query(state.plans ?? []),
       useStartCompanySubscription: () => mutation(async input => { log.start.push(input); return state.subscription; }),
@@ -286,6 +288,25 @@ test('members see the company file per their role, and no tabs they cannot use',
   assert.deepEqual(await open('owner'), { tabs: ['المنشأة والموظفون', 'أعضاء المنشأة', 'الاشتراك والفواتير'], roleLine: null, canAddEmployee: true, canAddLicense: true, canEditCompany: true });
   // Until the server answers about membership, the page behaves as the owner's own file.
   assert.deepEqual((await open(undefined)).tabs, ['المنشأة والموظفون', 'أعضاء المنشأة', 'الاشتراك والفواتير']);
+});
+
+test('a member leaves the company through a confirmation; the owner has no such button', async () => {
+  const ownerLog = setup({ summary: summary(), requests: [], company: companyFile(), membership: { role: 'owner', companyUserId: 'u1', companyName: 'شركة الاختبار' }, members: [] });
+  const ownerTree = await mount(React.createElement(CompanyPage));
+  assert.equal(button(ownerTree, 'مغادرة المنشأة'), undefined);
+  await act(async () => ownerTree.unmount());
+  assert.equal(ownerLog.leave, 0);
+  const log = setup({ summary: summary(), requests: [], company: companyFile(), membership: { role: 'viewer', companyUserId: 'u1', companyName: 'شركة الاختبار' }, members: [] });
+  const tree = await mount(React.createElement(CompanyPage));
+  assert.equal(nodes(tree, 'button').find(b => b.props['data-dialog']), undefined, 'nothing asked yet');
+  await click(button(tree, 'مغادرة المنشأة'));
+  const confirm = nodes(tree, 'button').find(b => b.props['data-dialog']);
+  assert.equal(text(confirm), 'مغادرة');
+  await click(confirm);
+  assert.equal(log.leave, 1);
+  assert.ok(log.invalidated.some(k => k[0] === 'getGetCompanyMembershipQueryKey'));
+  assert.equal(log.reloaded, 1);
+  await act(async () => tree.unmount());
 });
 
 test('without a subscription the plans are offered; subscribing refreshes the subscription and invoices', async () => {

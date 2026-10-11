@@ -484,7 +484,9 @@ export const createServiceRequestBodyContactPhoneMax = 24;
 
 export const createServiceRequestBodyAttachmentIdsMax = 10;
 
+export const createServiceRequestBodyEmployeeIdMax = 2147483647;
 
+export const createServiceRequestBodyEmployeeIdsItemMax = 2147483647;
 
 export const createServiceRequestBodyEmployeeIdsMax = 50;
 
@@ -499,8 +501,8 @@ export const CreateServiceRequestBody = zod.object({
   "contactPhone": zod.string().min(createServiceRequestBodyContactPhoneMin).max(createServiceRequestBodyContactPhoneMax),
   "clientRequestId": zod.string().uuid().optional(),
   "attachmentIds": zod.array(zod.number().int().min(1)).max(createServiceRequestBodyAttachmentIdsMax).optional(),
-  "employeeId": zod.number().int().min(1).nullish().describe('An employee in the customer\'s company file'),
-  "employeeIds": zod.array(zod.number().int().min(1)).max(createServiceRequestBodyEmployeeIdsMax).optional().describe('Employees of the customer\'s company file for a bulk request, tracked one by one; may be combined with employeeId'),
+  "employeeId": zod.number().int().min(1).max(createServiceRequestBodyEmployeeIdMax).nullish().describe('An employee in the customer\'s company file'),
+  "employeeIds": zod.array(zod.number().int().min(1).max(createServiceRequestBodyEmployeeIdsItemMax)).max(createServiceRequestBodyEmployeeIdsMax).optional().describe('Employees of the customer\'s company file for a bulk request, tracked one by one; may be combined with employeeId'),
   "licenseId": zod.number().int().min(1).nullish().describe('A license in the customer\'s company file'),
   "serviceSlug": zod.string().regex(createServiceRequestBodyServiceSlugRegExp).optional().describe('Catalogue slug of the chosen service; its published required documents become the request\'s checklist')
 })
@@ -1132,6 +1134,84 @@ export const ReviewOfficeRegistrationResponse = zod.object({
 
 
 /**
+ * @summary Staff-only one customer request with its customer, attachments, checklist and employees
+ */
+export const getOfficeServiceRequestPathIdMax = 2147483647;
+
+
+
+export const GetOfficeServiceRequestParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(getOfficeServiceRequestPathIdMax)
+})
+
+export const getOfficeServiceRequestResponseRatingMax = 5;
+
+
+
+export const GetOfficeServiceRequestResponse = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "category": zod.enum(['passports', 'labor', 'business', 'other']),
+  "service": zod.string(),
+  "description": zod.string(),
+  "contactPhone": zod.string(),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
+  "officeNote": zod.string().nullish(),
+  "customerMessage": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+})),
+  "customer": zod.union([zod.object({
+  "fullName": zod.string(),
+  "email": zod.string().email()
+}),zod.null()]),
+  "assignedTo": zod.string().nullable().describe('User ID of the responsible office member'),
+  "dueAt": zod.coerce.date().nullable(),
+  "rating": zod.number().int().min(1).max(getOfficeServiceRequestResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable(),
+  "subject": zod.union([zod.object({
+  "type": zod.enum(['employee', 'license']),
+  "id": zod.number().int(),
+  "label": zod.string()
+}),zod.null()]),
+  "lastMessage": zod.union([zod.object({
+  "by": zod.enum(['customer', 'office']),
+  "at": zod.coerce.date()
+}),zod.null()]),
+  "userId": zod.string().describe('The customer\'s user ID, for opening their file'),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})
+
+
+/**
  * @summary Staff-only update of request progress
  */
 export const updateOfficeServiceRequestPathIdMax = 2147483647;
@@ -1468,7 +1548,7 @@ export const ListOfficeAuditLogResponseItem = zod.object({
   "id": zod.number().int(),
   "actorId": zod.string(),
   "actorEmail": zod.string().email().nullable(),
-  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge', 'registration.approve', 'registration.reject', 'information.review', 'information.publish', 'information.unpublish', 'attachment.extract', 'invoice.issue', 'invoice.mark_paid', 'invoice.cancel', 'invoice.paid_online', 'offer.update', 'reminder.create', 'company.update', 'employee.create', 'employee.update', 'employee.delete', 'employee.reveal', 'license.create', 'license.update', 'license.delete', 'employee.import', 'license.import', 'automation.update', 'service_request.quote', 'service_request.quote_accept', 'service_request.quote_decline', 'service_request.checklist', 'company.member_invite', 'company.member_update', 'company.member_remove', 'service_request.employee_item', 'plan.create', 'plan.update', 'subscription.start', 'subscription.update', 'service_request.auto_renew']),
+  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge', 'registration.approve', 'registration.reject', 'information.review', 'information.publish', 'information.unpublish', 'attachment.extract', 'invoice.issue', 'invoice.mark_paid', 'invoice.cancel', 'invoice.paid_online', 'offer.update', 'reminder.create', 'company.update', 'employee.create', 'employee.update', 'employee.delete', 'employee.reveal', 'license.create', 'license.update', 'license.delete', 'employee.import', 'license.import', 'automation.update', 'service_request.quote', 'service_request.quote_accept', 'service_request.quote_decline', 'service_request.checklist', 'company.member_invite', 'company.member_update', 'company.member_remove', 'company.member_leave', 'service_request.employee_item', 'plan.create', 'plan.update', 'subscription.start', 'subscription.update', 'service_request.auto_renew']),
   "targetType": zod.string(),
   "targetId": zod.string(),
   "details": zod.record(zod.string(), zod.unknown()),
@@ -3927,6 +4007,12 @@ export const GetCompanyMembershipResponse = zod.object({
   "companyUserId": zod.string().describe('The owner\'s user ID, which identifies the company'),
   "companyName": zod.string().nullable()
 })
+
+
+/**
+ * @summary Leave the company the signed-in user was accepted into (the owner cannot leave)
+ */
+export const LeaveCompanyMembershipResponse = zod.void()
 
 
 /**

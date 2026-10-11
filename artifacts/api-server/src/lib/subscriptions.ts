@@ -10,7 +10,7 @@ import { notifyCustomerNow } from "./customer-contact";
 import { logger } from "./logger";
 import { invoiceReference, requestReference, riyals, vatFor, VAT_RATE_BASIS_POINTS } from "./money";
 import { moyasarConfigured } from "./moyasar";
-import { subscriptionInvoiceMail, subscriptionPastDueMail } from "./notify";
+import { subscriptionCancelledUnpaidMail, subscriptionInvoiceMail, subscriptionPastDueMail } from "./notify";
 
 // Monthly plans and subscriptions (package D). A subscription is invoiced
 // once when it starts and again at each renews_at by the daily sweep; an
@@ -21,19 +21,19 @@ import { subscriptionInvoiceMail, subscriptionPastDueMail } from "./notify";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-// Audit actions of this package. TODO(contract): AuditLogEntry.action in
-// lib/api-spec/openapi.yaml does not list them yet; they are written as
-// given here and must be added to the enum before /office/audit-log can
-// parse rows that carry them.
+// Audit actions of this package.
 export const SUBSCRIPTION_AUDIT = {
-  planCreate: "plan.create" as AuditLogEntryAction,
-  planUpdate: "plan.update" as AuditLogEntryAction,
-  start: "subscription.start" as AuditLogEntryAction,
-  update: "subscription.update" as AuditLogEntryAction,
-  autoRenew: "service_request.auto_renew" as AuditLogEntryAction,
-};
+  planCreate: "plan.create",
+  planUpdate: "plan.update",
+  start: "subscription.start",
+  update: "subscription.update",
+  autoRenew: "service_request.auto_renew",
+} as const satisfies Record<string, AuditLogEntryAction>;
 
 export const PAST_DUE_AFTER_DAYS = 14;
+// A past-due subscription whose invoice is still unpaid this long after
+// issue is closed by the sweep.
+export const CANCEL_UNPAID_AFTER_DAYS = 60;
 const SWEEP_INTERVAL_MS = 24 * 60 * 60_000;
 const BATCH_SIZE = 200;
 export const OPEN_SUBSCRIPTION_STATUSES = ["active", "past_due"] as const;
@@ -42,15 +42,18 @@ export const OPEN_SUBSCRIPTION_STATUSES = ["active", "past_due"] as const;
 
 // Riyadh keeps UTC+3 all year, so a month is added on the office's calendar
 // by shifting into that offset, stepping the month (clamped to the last day
-// of a shorter month) and shifting back.
+// of a shorter month) and shifting back. The day of month is `anchor`'s
+// (the subscription's start) so a renewal on the 31st clamped to the 28th
+// in February returns to the 31st in March instead of drifting.
 const RIYADH_OFFSET_MS = 3 * 60 * 60_000;
 
-export function addRiyadhMonth(date: Date): Date {
+export function addRiyadhMonth(date: Date, anchor: Date = date): Date {
   const local = new Date(date.getTime() + RIYADH_OFFSET_MS);
   const year = local.getUTCFullYear();
   const month = local.getUTCMonth();
   const lastDayOfNext = new Date(Date.UTC(year, month + 2, 0)).getUTCDate();
-  const next = Date.UTC(year, month + 1, Math.min(local.getUTCDate(), lastDayOfNext),
+  const day = new Date(anchor.getTime() + RIYADH_OFFSET_MS).getUTCDate();
+  const next = Date.UTC(year, month + 1, Math.min(day, lastDayOfNext),
     local.getUTCHours(), local.getUTCMinutes(), local.getUTCSeconds(), local.getUTCMilliseconds());
   return new Date(next - RIYADH_OFFSET_MS);
 }
@@ -208,16 +211,28 @@ export async function issueSubscriptionInvoice(
 // A paid subscription invoice brings a past-due subscription back. Safe to
 // call for any invoice: request invoices and active subscriptions are left
 // alone. The billing path may call it after marking an invoice paid; the
-// daily sweep also applies it to whatever it finds.
-export async function onSubscriptionInvoicePaid(invoice: Pick<HbsInvoice, "id" | "subscriptionId">, actorId = AUTOMATION_ACTOR): Promise<HbsSubscription | null> {
+// daily sweep also applies it to whatever it finds. The next renewal is a
+// month after the payment (on the start's day of month): a late payment
+// buys the month ahead rather than the months missed.
+export async function onSubscriptionInvoicePaid(
+  invoice: Pick<HbsInvoice, "id" | "subscriptionId"> & { paidAt?: Date | null }, actorId = AUTOMATION_ACTOR,
+): Promise<HbsSubscription | null> {
   if (!invoice.subscriptionId) return null;
   return db.transaction(async tx => {
-    const [updated] = await tx.update(hbsSubscriptions).set({ status: "active", updatedAt: new Date() })
-      .where(and(eq(hbsSubscriptions.id, invoice.subscriptionId!), eq(hbsSubscriptions.status, "past_due"))).returning();
+    const [current] = await tx.select().from(hbsSubscriptions)
+      .where(and(eq(hbsSubscriptions.id, invoice.subscriptionId!), eq(hbsSubscriptions.status, "past_due"))).for("update");
+    if (!current) return null;
+    const paidAt = invoice.paidAt ?? new Date();
+    const renewsAt = addRiyadhMonth(paidAt, current.startsAt);
+    const [updated] = await tx.update(hbsSubscriptions).set({ status: "active", renewsAt, updatedAt: new Date() })
+      .where(and(eq(hbsSubscriptions.id, current.id), eq(hbsSubscriptions.status, "past_due"))).returning();
     if (updated) {
       await recordAudit(tx, {
         actorId, action: SUBSCRIPTION_AUDIT.update, targetType: "subscription", targetId: updated.id,
-        details: { fromStatus: "past_due", toStatus: "active", automatic: "invoice_paid", invoiceId: invoice.id, userId: updated.userId },
+        details: {
+          fromStatus: "past_due", toStatus: "active", automatic: "invoice_paid", invoiceId: invoice.id, userId: updated.userId,
+          renewsAt: updated.renewsAt, previousRenewsAt: current.renewsAt,
+        },
       });
     }
     return updated ?? null;
@@ -229,13 +244,14 @@ export async function onSubscriptionInvoicePaid(invoice: Pick<HbsInvoice, "id" |
 // The newest invoice of the subscription in the outer query.
 const latestInvoiceId = () => sql`(select i.id from ${hbsInvoices} i where i.subscription_id = ${hbsSubscriptions.id} order by i.issued_at desc, i.id desc limit 1)`;
 
-export type RenewalOutcome = { issued: number; pastDue: number; reactivated: number };
+export type RenewalOutcome = { issued: number; pastDue: number; reactivated: number; cancelled: number };
 
-// Three passes, each a conditional update so two servers never do a step
+// Four passes, each a conditional update so two servers never do a step
 // twice: invoices for renewals that are due, past due for invoices unpaid
-// 14 days after issue, and back to active once that invoice is paid.
+// 14 days after issue, back to active once that invoice is paid, and
+// cancelled when it is still unpaid 60 days after issue.
 export async function renewSubscriptions(send: typeof notifyCustomerNow = notifyCustomerNow, now = new Date()): Promise<RenewalOutcome> {
-  const outcome: RenewalOutcome = { issued: 0, pastDue: 0, reactivated: 0 };
+  const outcome: RenewalOutcome = { issued: 0, pastDue: 0, reactivated: 0, cancelled: 0 };
 
   const due = await db.select({ subscription: hbsSubscriptions, plan: hbsPlans }).from(hbsSubscriptions)
     .innerJoin(hbsPlans, eq(hbsSubscriptions.planId, hbsPlans.id))
@@ -245,7 +261,7 @@ export async function renewSubscriptions(send: typeof notifyCustomerNow = notify
     const result = await db.transaction(async tx => {
       // Moving renews_at is the claim; the invoice goes in the same transaction.
       const [claimed] = await tx.update(hbsSubscriptions)
-        .set({ renewsAt: addRiyadhMonth(subscription.renewsAt), updatedAt: now })
+        .set({ renewsAt: addRiyadhMonth(subscription.renewsAt, subscription.startsAt), updatedAt: now })
         .where(and(eq(hbsSubscriptions.id, subscription.id), eq(hbsSubscriptions.status, "active"), eq(hbsSubscriptions.renewsAt, subscription.renewsAt)))
         .returning();
       if (!claimed) return null;
@@ -297,6 +313,34 @@ export async function renewSubscriptions(send: typeof notifyCustomerNow = notify
     if (await onSubscriptionInvoicePaid(invoice)) outcome.reactivated++;
   }
 
+  // Still unpaid two months after issue: the subscription is closed, told once.
+  const lapsed = await db.select({ subscription: hbsSubscriptions, plan: hbsPlans, invoice: hbsInvoices }).from(hbsSubscriptions)
+    .innerJoin(hbsPlans, eq(hbsSubscriptions.planId, hbsPlans.id))
+    .innerJoin(hbsInvoices, eq(hbsInvoices.id, latestInvoiceId()))
+    .where(and(eq(hbsSubscriptions.status, "past_due"), eq(hbsInvoices.status, "issued"),
+      sql`${hbsInvoices.issuedAt} < ${now}::timestamptz - make_interval(days => ${CANCEL_UNPAID_AFTER_DAYS})`))
+    .orderBy(asc(hbsInvoices.issuedAt), asc(hbsSubscriptions.id)).limit(BATCH_SIZE);
+  for (const { subscription, plan, invoice } of lapsed) {
+    const closed = await db.transaction(async tx => {
+      const [updated] = await tx.update(hbsSubscriptions).set({ status: "cancelled", cancelledAt: now, updatedAt: now })
+        .where(and(eq(hbsSubscriptions.id, subscription.id), eq(hbsSubscriptions.status, "past_due"))).returning();
+      if (updated) {
+        await recordAudit(tx, {
+          actorId: AUTOMATION_ACTOR, action: SUBSCRIPTION_AUDIT.update, targetType: "subscription", targetId: updated.id,
+          details: { fromStatus: "past_due", toStatus: "cancelled", automatic: "invoice_unpaid", invoiceId: invoice.id, userId: updated.userId },
+        });
+      }
+      return updated ?? null;
+    });
+    if (!closed) continue;
+    outcome.cancelled++;
+    try {
+      await send(subscription.userId, to => subscriptionCancelledUnpaidMail(to, plan.name, invoiceInfo(invoice)));
+    } catch (err) {
+      logger.warn({ err, subscriptionId: subscription.id }, "Subscription cancellation email was not sent");
+    }
+  }
+
   return outcome;
 }
 
@@ -305,7 +349,7 @@ export function startSubscriptionRenewals() {
     setTimeout(async () => {
       try {
         const outcome = await renewSubscriptions();
-        if (outcome.issued || outcome.pastDue || outcome.reactivated) logger.info(outcome, "Subscription renewal sweep done");
+        if (outcome.issued || outcome.pastDue || outcome.reactivated || outcome.cancelled) logger.info(outcome, "Subscription renewal sweep done");
       } catch (err) {
         logger.error({ err }, "Subscription renewal sweep failed");
       } finally {

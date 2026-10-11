@@ -28,14 +28,16 @@ const hr = `pkg-d-hr-${randomUUID()}`;
 const finance = `pkg-d-finance-${randomUUID()}`;
 const viewer = `pkg-d-viewer-${randomUUID()}`;
 const stranger = `pkg-d-stranger-${randomUUID()}`;
-const customers = [owner, other];
+// An approved customer who never saved the company file.
+const bare = `pkg-d-bare-${randomUUID()}`;
+const customers = [owner, other, bare];
 const emailOf = (id: string) => `${id}@example.invalid`;
-const people = new Map([office, owner, other, hr, finance, viewer, stranger].map(id => [id, {
+const people = new Map([office, owner, other, hr, finance, viewer, stranger, bare].map(id => [id, {
   id, primaryEmailAddressId: "primary",
   emailAddresses: [{ id: "primary", emailAddress: id === office ? officeEmail : emailOf(id), verification: { status: "verified" } }],
 }]));
 // Who already has an account when invited: hr and finance; the viewer signs up later.
-const accounts = new Set([office, owner, other, hr, finance, stranger]);
+const accounts = new Set([office, owner, other, hr, finance, stranger, bare]);
 
 function testApp() {
   const app = express();
@@ -95,6 +97,10 @@ test("company members, roles, bulk requests and invoice quantities", async (t) =
     await t.test("the owner invites by email; accounts join at once, others when they sign in with that email", async () => {
       assert.equal((await call(viewer, "GET", "/company")).status, 403, "not a customer, not a member");
       assert.equal((await call(viewer, "GET", "/company/membership")).status, 404);
+      assert.equal((await call(viewer, "GET", "/portal/me")).data.registrationStatus, null, "no registration of their own");
+      const noFile = await call(bare, "POST", "/company/members", { email: emailOf(viewer), role: "viewer" });
+      assert.equal(noFile.status, 409, JSON.stringify(noFile.data));
+      assert.equal(noFile.data.error, "احفظ ملف المنشأة أولًا ثم ادعُ الأعضاء.");
       assert.equal((await call(owner, "POST", "/company/members", { email: "nope", role: "viewer" })).status, 400);
       assert.equal((await call(owner, "POST", "/company/members", { email: emailOf(viewer), role: "owner" })).status, 400);
       assert.equal((await call(owner, "POST", "/company/members", { email: emailOf(owner), role: "hr" })).status, 400, "the owner is not a member");
@@ -110,6 +116,11 @@ test("company members, roles, bulk requests and invoice quantities", async (t) =
       assert.equal(joined.status, 201);
       assert.equal(joined.data.memberUserId, hr, "an existing verified account joins at once");
       assert.ok(joined.data.acceptedAt);
+      // Another company's owner, like any approved customer, is never made a member.
+      const customer = await call(owner, "POST", "/company/members", { email: emailOf(other), role: "viewer" });
+      assert.equal(customer.status, 409, JSON.stringify(customer.data));
+      assert.match(customer.data.error, /عميل مسجّل/);
+      assert.equal((await db.select().from(hbsCompanyMembers).where(eq(hbsCompanyMembers.email, emailOf(other)))).length, 0, "nothing stays pending");
       financeMemberId = (await call(owner, "POST", "/company/members", { email: emailOf(finance), role: "finance" })).data.id;
 
       // Signing in with the invited address accepts the invitation.
@@ -120,6 +131,12 @@ test("company members, roles, bulk requests and invoice quantities", async (t) =
       assert.equal(row.memberUserId, viewer);
       assert.ok(row.acceptedAt);
       assert.deepEqual((await call(hr, "GET", "/company/membership")).data.role, "hr");
+      // The shell lets a member in without a registration: /portal/me reports them approved.
+      const me = await call(viewer, "GET", "/portal/me");
+      assert.equal(me.status, 200, JSON.stringify(me.data));
+      assert.deepEqual(me.data, { role: "customer", officeRole: null, registrationStatus: "approved" });
+      assert.equal((await call(viewer, "GET", "/company")).status, 200, "the file opens for a viewer");
+      assert.equal((await call(viewer, "PUT", "/company", { name: "x" })).status, 403, "read only");
       assert.deepEqual((await call(owner, "GET", "/company/membership")).data, { role: "owner", companyUserId: owner, companyName: "شركة الاختبار" });
       assert.equal((await call(stranger, "GET", "/company/membership")).status, 404);
 
@@ -129,6 +146,23 @@ test("company members, roles, bulk requests and invoice quantities", async (t) =
       assert.deepEqual({ id: list.data[0].id, email: list.data[0].email, memberUserId: list.data[0].memberUserId },
         { id: 0, email: emailOf(owner), memberUserId: owner });
       assert.equal((await call(stranger, "GET", "/company/members")).status, 404);
+    });
+
+    await t.test("a member may leave; the owner and outsiders cannot", async () => {
+      assert.equal((await call(stranger, "DELETE", "/company/membership")).status, 404);
+      const refused = await call(owner, "DELETE", "/company/membership");
+      assert.equal(refused.status, 403);
+      assert.equal(refused.data.error, "مالك المنشأة لا يمكنه مغادرتها.");
+      const [extraRow] = await db.insert(hbsCompanyMembers).values({ companyUserId: owner, email: emailOf(stranger), role: "viewer", invitedBy: owner }).returning();
+      assert.equal((await call(stranger, "GET", "/company/membership")).status, 200, "the stranger is now a member");
+      assert.equal((await call(stranger, "DELETE", "/company/membership")).status, 204);
+      assert.equal((await call(stranger, "GET", "/company/membership")).status, 404);
+      assert.equal((await call(stranger, "DELETE", "/company/membership")).status, 404, "nothing to leave twice");
+      assert.equal((await db.select().from(hbsCompanyMembers).where(eq(hbsCompanyMembers.id, extraRow.id))).length, 0);
+      const [left] = (await auditsFor(owner)).filter(a => a.action === "company.member_leave");
+      assert.ok(left, "audited under the company");
+      assert.equal(left.actorId, stranger);
+      assert.deepEqual(left.details, { memberId: extraRow.id, role: "viewer" });
     });
 
     await t.test("only the owner manages members, up to ten", async () => {
@@ -304,11 +338,20 @@ test("company members, roles, bulk requests and invoice quantities", async (t) =
         assert.deepEqual({ requestId: refreshed.data.requestId, requestReference: refreshed.data.requestReference, subscriptionId: refreshed.data.subscriptionId, quantity: refreshed.data.quantity },
           { requestId: null, requestReference: null, subscriptionId: subscription.id, quantity: 1 });
         assert.equal((await call(other, "POST", `/invoices/${invoice.id}/refresh`)).status, 404, "another customer");
-        assert.equal((await call(hr, "POST", `/invoices/${invoice.id}/pay`)).status, 403, "members are not approved customers");
+        assert.equal((await call(hr, "POST", `/invoices/${invoice.id}/pay`)).status, 403, "hr does not cover billing");
+        assert.equal((await call(viewer, "POST", `/invoices/${invoice.id}/pay`)).status, 403);
+        assert.equal((await call(viewer, "POST", `/invoices/${invoice.id}/refresh`)).status, 403);
         assert.equal((await call(other, "POST", `/invoices/${invoice.id}/pay`)).status, 404);
         const started = await call(owner, "POST", `/invoices/${invoice.id}/pay`);
         assert.equal(started.status, 200, JSON.stringify(started.data));
         assert.match(started.data.url, /^https:\/\/pay\.example\.invalid\//);
+        // A finance member acts on the company's subscription invoices as the owner would.
+        const byFinance = await call(finance, "POST", `/invoices/${invoice.id}/refresh`);
+        assert.equal(byFinance.status, 200, JSON.stringify(byFinance.data));
+        assert.equal(byFinance.data.subscriptionId, subscription.id);
+        const financePays = await call(finance, "POST", `/invoices/${invoice.id}/pay`);
+        assert.equal(financePays.status, 200, JSON.stringify(financePays.data));
+        assert.equal(financePays.data.url, started.data.url, "the same payment page");
         const created = gateway.find(c => c.url.startsWith("POST "));
         assert.ok(created, gateway.map(c => c.url).join(", "));
         const site = (process.env.PUBLIC_SITE_URL ?? "https://hrhbs.com").replace(/\/$/, "");

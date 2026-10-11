@@ -8,13 +8,13 @@ import { createServer } from 'vite';
 // Load the real page modules, replacing only their API and shared presentation
 // boundary. This keeps state, effects, form submission and list rendering real.
 const apiNames = [
-  'useGetOfficeSummary', 'useListOfficeServiceRequests', 'useUpdateOfficeServiceRequest',
+  'useGetOfficeSummary', 'useListOfficeServiceRequests', 'useGetOfficeServiceRequest', 'useUpdateOfficeServiceRequest',
   'useListOfficeInquiries', 'useAnswerOfficeInquiry', 'useListOfficeStaff',
   'useAddOfficeStaff', 'useRemoveOfficeStaff', 'useListOfficeAuditLog', 'useListOfficeAssignees', 'useListOfficeServiceRequestInvoices',
   'useListOfficePlans', 'useCreateOfficePlan', 'useUpdateOfficePlan', 'useListOfficeSubscriptions', 'useUpdateOfficeSubscription',
 ];
 const keys = [
-  'getGetOfficeSummaryQueryKey', 'getListOfficeServiceRequestsQueryKey', 'getListOfficeServiceRequestInvoicesQueryKey',
+  'getGetOfficeSummaryQueryKey', 'getListOfficeServiceRequestsQueryKey', 'getGetOfficeServiceRequestQueryKey', 'getListOfficeServiceRequestInvoicesQueryKey',
   'getListOfficeInquiriesQueryKey', 'getListOfficeStaffQueryKey', 'getListOfficeAuditLogQueryKey', 'getListOfficeAssigneesQueryKey',
   'getListOfficePlansQueryKey', 'getListOfficeSubscriptionsQueryKey',
 ];
@@ -69,7 +69,7 @@ const server = await createServer({
 after(async () => server.close());
 const { OfficeRequests, OfficeInquiries } = await server.ssrLoadModule('/src/pages/office.tsx');
 const { OfficeStaff, OfficeAuditLog, OfficePlans, OfficeSubscriptions, planInput } = await server.ssrLoadModule('/src/pages/office-admin.tsx');
-const { OfficeRequestPage, siblingIds, neighbours, shortcutOf, lookupParams } = await server.ssrLoadModule('/src/pages/office-request.tsx');
+const { OfficeRequestPage, siblingIds, neighbours, shortcutOf } = await server.ssrLoadModule('/src/pages/office-request.tsx');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 // The request page's shortcuts listen on the window; tests press keys by calling the listeners.
 const keyListeners = new Set();
@@ -87,13 +87,14 @@ const inquiry = (id) => ({
   linkedServiceRequestReference: null, linkedServiceRequest: null, createdAt: date, answeredAt: null,
 });
 function setup() {
-  const calls = { requests: [], inquiries: [], updates: [], answers: [], add: [], remove: [], invalidated: [], plans: [], planUpdates: [], subscriptions: [], subscriptionUpdates: [], navigations: [] };
+  const calls = { requests: [], request: [], inquiries: [], updates: [], answers: [], add: [], remove: [], invalidated: [], plans: [], planUpdates: [], subscriptions: [], subscriptionUpdates: [], navigations: [] };
   const state = {
     invoices: [],
     plans: [],
     subscriptions: params => ({ items: [], total: 0, page: params.page }),
     cachedPages: [],
     requests: params => ({ items: [request(params.page)], total: params.q || params.status || params.category ? 1 : 41, page: params.page, pageSize: 20 }),
+    request: id => query(request(id)),
     inquiries: params => ({ items: [inquiry(params.page)], total: params.q ? 1 : 41, page: params.page, pageSize: 20 }),
     staff: [
       { userId: 'owner', email: 'owner@example.test', role: 'owner', createdAt: date },
@@ -130,6 +131,7 @@ function setup() {
     hooks: {
       useGetOfficeSummary: () => query({ totalRequests: 0, newRequests: 0, activeRequests: 0, staleRequests: 0, openInquiries: 0 }),
       useListOfficeServiceRequests: params => { calls.requests.push(params); return query(state.requests(params)); },
+      useGetOfficeServiceRequest: id => { calls.request.push(id); return state.request(id); },
       useListOfficeInquiries: params => { calls.inquiries.push(params); return query(state.inquiries(params)); },
       useUpdateOfficeServiceRequest: () => mutation(async input => { calls.updates.push(input); return { ...request(input.id), updatedAt: '2026-09-21T12:00:00.000Z' }; }),
       useAnswerOfficeInquiry: () => mutation(async input => { calls.answers.push(input); return inquiry(input.id); }),
@@ -304,16 +306,17 @@ test('request page helpers: list order from the address or the cached inbox page
   assert.equal(shortcutOf({ code: 'KeyS', key: 'س' }), 'save');
   assert.equal(shortcutOf({ key: 'Escape' }), 'close');
   assert.equal(shortcutOf({ key: 'x' }), null);
-  assert.deepEqual(lookupParams(42), { q: '00042', page: 1, pageSize: 10 });
 });
 
 test('the request page shows the header, tabs and update bar; J/K move through the list, S saves, Esc closes the drawer', async () => {
   const { calls, state } = setup();
   globalThis.__office.search = 'list=3,1,2';
   const current = { ...request(1), customer: { fullName: 'سارة', email: 's@example.test' }, assignedTo: 'staff', employees: [{ employeeId: 1, fullName: 'أ', itemStatus: 'done', note: null }, { employeeId: 2, fullName: 'ب', itemStatus: 'pending', note: null }] };
-  state.requests = params => ({ items: [current], total: 1, page: params.page, pageSize: 20 });
+  const loaded = data => ({ data, isLoading: false, isError: false, refetch() {} });
+  state.request = () => loaded(current);
   const tree = await mount(OfficeRequestPage);
-  assert.deepEqual(calls.requests.at(-1), { q: '00001', page: 1, pageSize: 10 }, 'the request is found through a reference search');
+  assert.deepEqual(calls.request.at(-1), 1, 'the request is fetched by id');
+  assert.equal(calls.requests.length, 0, 'no inbox search');
   const header = tree.root.findByType('header');
   assert.match(text(header), /REQ-1/);
   assert.match(text(header), /خدمة 1/);
@@ -351,7 +354,8 @@ test('the request page shows the header, tabs and update bar; J/K move through t
   assert.deepEqual(calls.updates, [{ id: 1, data: { expectedUpdatedAt: date, status: 'reviewing', officeNote: 'للفريق', customerMessage: null } }]);
   assert.ok(calls.invalidated.some(key => key[0] === 'getGetOfficeSummaryQueryKey'));
   // The refreshed list carries the saved version, so the page is not "changed since opened".
-  state.requests = params => ({ items: [{ ...current, status: 'reviewing', officeNote: 'للفريق', updatedAt: '2026-09-21T12:00:00.000Z' }], total: 1, page: params.page, pageSize: 20 });
+  assert.ok(calls.invalidated.some(key => key[0] === 'getGetOfficeServiceRequestQueryKey' && key[1] === 1), 'the request itself is refetched');
+  state.request = () => loaded({ ...current, status: 'reviewing', officeNote: 'للفريق', updatedAt: '2026-09-21T12:00:00.000Z' });
   await act(async () => tree.update(React.createElement(OfficeRequestPage)));
   assert.match(text(nodes(tree, 'form')[0]), /تم حفظ التحديث/);
   // Waiting on the customer needs their message: the drawer opens on it instead of saving.
@@ -376,10 +380,19 @@ test('the request page shows the header, tabs and update bar; J/K move through t
   assert.match(text(bad.root), /الطلب غير متاح/);
   await act(async () => bad.unmount());
   globalThis.__office.params = { id: '77' };
-  state.requests = params => ({ items: [], total: 0, page: params.page, pageSize: 20 });
+  state.request = () => ({ data: undefined, isLoading: false, isError: true, error: { status: 404 }, refetch() {} });
   const missing = await mount(OfficeRequestPage);
   assert.match(text(missing.root), /الطلب غير موجود/);
   await act(async () => missing.unmount());
+  // Any other failure offers a retry; a cached inbox row still shows meanwhile.
+  state.request = () => ({ data: undefined, isLoading: false, isError: true, error: { status: 500 }, refetch() {} });
+  const broken = await mount(OfficeRequestPage);
+  assert.match(text(broken.root), /error/);
+  await act(async () => broken.unmount());
+  state.cachedPages = [{ queryKey: ['getListOfficeServiceRequestsQueryKey', { page: 1 }], state: { data: { items: [{ ...current, id: 77, reference: 'REQ-77' }] }, dataUpdatedAt: 1 } }];
+  const fromCache = await mount(OfficeRequestPage);
+  assert.match(text(fromCache.root.findByType('header')), /REQ-77/);
+  await act(async () => fromCache.unmount());
 });
 
 test('plan form: validation messages, riyals to halalas, blanks as unlimited; the page creates and edits plans', async () => {

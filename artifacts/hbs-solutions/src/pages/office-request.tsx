@@ -3,8 +3,8 @@ import { Link, useLocation, useParams, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, ChevronDown, ChevronUp, Contact, FileText, Keyboard, MessagesSquare, ReceiptText, Save, UserRound, UsersRound } from 'lucide-react';
 import {
-  getGetOfficeSummaryQueryKey, getListOfficeServiceRequestInvoicesQueryKey, getListOfficeServiceRequestsQueryKey,
-  useListOfficeServiceRequestInvoices, useListOfficeServiceRequests, useUpdateOfficeServiceRequest,
+  getGetOfficeServiceRequestQueryKey, getGetOfficeSummaryQueryKey, getListOfficeServiceRequestInvoicesQueryKey, getListOfficeServiceRequestsQueryKey,
+  useGetOfficeServiceRequest, useListOfficeServiceRequestInvoices, useUpdateOfficeServiceRequest,
   type OfficeServiceRequest, type OfficeServiceRequestPage, type ServiceAttachment, type ServiceRequestUpdateStatus,
 } from '@workspace/api-client-react';
 import { EmptyBlock, ErrorBlock, LoadingBlock, PortalLayout, StaleBadge, Status, categoryNames, dateText, isStale, statusNames } from '@/components/portal-ui';
@@ -25,11 +25,8 @@ type Tab = 'request' | 'conversation' | 'files' | 'invoices' | 'employees';
 const tabNames: Record<Tab, string> = { request: 'الطلب', conversation: 'المحادثة', files: 'المستندات', invoices: 'الفواتير', employees: 'الموظفون' };
 const tabIcons: Record<Tab, typeof FileText> = { request: FileText, conversation: MessagesSquare, files: Contact, invoices: ReceiptText, employees: UsersRound };
 
-// There is no single-request office endpoint: the row comes from the inbox
-// list the person just left (any cached page holding it shows at once) and a
-// reference search keeps it fresh. The reference ends in the zero-padded id,
-// so the search narrows to a handful of rows and the id picks the right one.
-export const lookupParams = (id: number) => ({ q: String(id).padStart(5, '0'), page: 1, pageSize: 10 });
+// The request is fetched by id; until it answers, the row from the inbox list
+// the person just left (any cached page holding it) shows at once.
 function cachedListPages(qc: ReturnType<typeof useQueryClient>): { params: Record<string, unknown> | undefined; items: OfficeServiceRequest[]; at: number }[] {
   return qc.getQueryCache().findAll({ queryKey: getListOfficeServiceRequestsQueryKey() })
     .map(q => ({ params: q.queryKey[1] as Record<string, unknown> | undefined, items: (q.state.data as OfficeServiceRequestPage | undefined)?.items ?? [], at: q.state.dataUpdatedAt }))
@@ -38,11 +35,12 @@ function cachedListPages(qc: ReturnType<typeof useQueryClient>): { params: Recor
 }
 export function useOfficeRequest(id: number) {
   const qc = useQueryClient();
-  const params = lookupParams(id);
-  const lookup = useListOfficeServiceRequests(params, { query: { queryKey: getListOfficeServiceRequestsQueryKey(params), enabled: id > 0, refetchInterval: 30_000 } });
+  const lookup = useGetOfficeServiceRequest(id, { query: { queryKey: getGetOfficeServiceRequestQueryKey(id), enabled: id > 0, refetchInterval: 30_000, retry: false } });
   const cached = useMemo(() => cachedListPages(qc).flatMap(p => p.items).find(r => r.id === id), [qc, id, lookup.dataUpdatedAt]);
-  const request = lookup.data?.items.find(r => r.id === id) ?? cached;
-  return { request, isLoading: lookup.isLoading && !cached, isError: lookup.isError && !cached, notFound: !!lookup.data && !request, refetch: lookup.refetch };
+  const request = lookup.data ?? cached;
+  // Gone (or never existed): said so even when an old list page still holds it.
+  const notFound = (lookup.error as { status?: number } | null)?.status === 404;
+  return { request: notFound ? undefined : request, isLoading: lookup.isLoading && !cached, isError: lookup.isError && !notFound && !cached, notFound, refetch: lookup.refetch };
 }
 
 // The order J/K move through: the ids the list page put in `?list=`, or,
@@ -94,6 +92,7 @@ function RequestWorkspace({ request, nav }: { request: OfficeServiceRequest; nav
   const mutation = useUpdateOfficeServiceRequest();
   const invoices = useListOfficeServiceRequestInvoices(request.id, { query: { queryKey: getListOfficeServiceRequestInvoicesQueryKey(request.id) } });
   const refreshOffice = () => Promise.all([
+    qc.invalidateQueries({ queryKey: getGetOfficeServiceRequestQueryKey(request.id) }),
     qc.invalidateQueries({ queryKey: getListOfficeServiceRequestsQueryKey() }),
     qc.invalidateQueries({ queryKey: getGetOfficeSummaryQueryKey() }),
   ]);
@@ -142,6 +141,7 @@ function RequestWorkspace({ request, nav }: { request: OfficeServiceRequest; nav
         // The version check (fixed English text) or a rule the API enforces, in Arabic, shown as is.
         const reason = failure.data?.error;
         if (reason && !/^This request changed/.test(reason)) setRejected(reason); else setConflict(true);
+        await qc.invalidateQueries({ queryKey: getGetOfficeServiceRequestQueryKey(request.id) });
         await qc.invalidateQueries({ queryKey: getListOfficeServiceRequestsQueryKey() });
       }
     }

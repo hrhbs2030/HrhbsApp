@@ -67,6 +67,8 @@ import {
   ListOfficeInquiriesQueryParams,
   ListOfficeRegistrationsResponse,
   ListOfficeServiceRequestsResponse,
+  GetOfficeServiceRequestParams,
+  GetOfficeServiceRequestResponse,
   ListOfficeServiceRequestsQueryParams,
   PreviewLegacyBackupBody,
   PreviewLegacyBackupResponse,
@@ -104,7 +106,7 @@ import {
 import { statusHistory } from "../lib/request-history";
 import { notifyCustomer } from "../lib/customer-contact";
 import { subjectLabels, subjectOf } from "../lib/company";
-import { hasCustomerApproval, hasLegacyCustomerData, resolveCompanyAccess } from "../lib/company-access";
+import { hasCustomerApproval, hasLegacyCustomerData, resolveCompanyAccess, resolveCompanyAccessFor } from "../lib/company-access";
 import { applyAssignmentRule, resumeAfterCustomerReply } from "../lib/automations";
 import { checklistForService, checklistOf, linkChecklist, resumeIfChecklistComplete } from "../lib/checklist";
 import { requestReference, vatFor } from "../lib/money";
@@ -453,9 +455,14 @@ router.get("/portal/me", requirePortalAuth, async (req, res): Promise<void> => {
     .from(hbsRegistrationRequests)
     .where(eq(hbsRegistrationRequests.userId, userId))
     .limit(1);
-  const status = registration?.status === "approved" || await hasLegacyCustomerData(userId)
+  let status: string | null = registration?.status === "approved" || await hasLegacyCustomerData(userId)
     ? "approved"
     : registration?.status ?? null;
+  // A company member needs no registration of their own: an accepted
+  // membership (or a pending invitation to one of their verified emails,
+  // accepted here as /company/membership would) opens the portal like an
+  // approved registration, so the shell does not send them to register.
+  if (status !== "approved" && await resolveCompanyAccessFor(userId)) status = "approved";
   res.json(GetPortalMeResponse.parse({
     role: officeRole ? "staff" : "customer",
     officeRole,
@@ -1326,6 +1333,17 @@ router.get("/office/service-requests", requireOfficeStaff, async (req, res): Pro
   };
   ListOfficeServiceRequestsResponse.parse(response);
   res.json(response);
+});
+
+// One request for the office's request page, so opening it does not go
+// through a reference search of the inbox.
+router.get("/office/service-requests/:id", requireOfficeStaff, async (req, res): Promise<void> => {
+  const params = GetOfficeServiceRequestParams.safeParse(req.params);
+  if (!params.success) { res.status(404).json({ error: "Request not found" }); return; }
+  const [record] = await db.select().from(hbsServiceRequests).where(eq(hbsServiceRequests.id, params.data.id)).limit(1);
+  if (!record) { res.status(404).json({ error: "Request not found" }); return; }
+  const [attached, customers] = await Promise.all([detailsFor([record]), customersOf([record.userId])]);
+  res.json(GetOfficeServiceRequestResponse.parse(officeRequest(record, attached.get(record.id), customers.get(record.userId) ?? null)));
 });
 
 router.patch("/office/service-requests/:id", requireOfficeStaff, async (req, res): Promise<void> => {

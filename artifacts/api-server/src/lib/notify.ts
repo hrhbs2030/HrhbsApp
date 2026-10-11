@@ -372,7 +372,8 @@ export function companyInviteMail(to: string | null, companyName: string | null,
     heading: "دعوة للانضمام إلى منشأة",
     lines: [
       `${who} إلى ${company} بصلاحية «${companyRoleLabels[role] ?? role}».`,
-      "سجّل الدخول أو أنشئ حسابًا بهذا البريد نفسه، وستجد ملف المنشأة في بوابتك مباشرة.",
+      "أنشئ حسابًا على البوابة بهذا البريد نفسه وتحقق منه (أو سجّل الدخول إن كان لديك حساب به)، ولا تحتاج إلى تقديم طلب تسجيل.",
+      "بعد الدخول افتح صفحة «منشأتي» وستجد ملف المنشأة فيها مباشرة بحسب صلاحيتك.",
     ],
     action: { label: "إنشاء حساب", path: "/sign-up" },
   };
@@ -409,6 +410,19 @@ export function subscriptionInvoiceMail(to: string | null, planName: string, inv
         : `رقم الفاتورة: ${invoice.reference} · الإجمالي شامل الضريبة: ${invoice.total}`,
       "يمكنك السداد إلكترونيًا من صفحة الاشتراك، أو التواصل مع المكتب لترتيب السداد."],
     action: { label: "سدّد الفاتورة", path: `/company?tab=subscription&invoice=${invoice.id}` },
+  };
+}
+
+// Past due for two months with the invoice still unpaid: the subscription is closed.
+export function subscriptionCancelledUnpaidMail(to: string | null, planName: string, invoice: SubscriptionInvoiceInfo): Mail | null {
+  if (!to) return null;
+  return {
+    to,
+    subject: `أُلغي اشتراكك لعدم السداد · ${invoice.reference}`,
+    heading: "أُلغي اشتراكك لعدم السداد",
+    lines: [`لم تُسدد فاتورة اشتراكك في باقة «${planName}» ${invoice.reference} بقيمة ${invoice.total} خلال 60 يومًا من صدورها، فأُلغي الاشتراك.`,
+      "يمكنك الاشتراك مجددًا من صفحة الاشتراك متى شئت، أو التواصل مع المكتب لترتيب السداد."],
+    action: { label: "اعرض الاشتراك", path: "/company?tab=subscription" },
   };
 }
 

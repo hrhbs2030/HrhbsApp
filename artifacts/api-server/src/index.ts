@@ -6,6 +6,7 @@ import { startDocumentReminders } from "./lib/document-reminders";
 import { startPaymentReconciliation } from "./routes/billing";
 import { startInvoiceReminders } from "./lib/invoice-reminders";
 import { startSubscriptionRenewals } from "./lib/subscriptions";
+import { startWhatsappInboundPurge } from "./routes/whatsapp-webhook";
 
 const rawPort = process.env["PORT"];
 
@@ -33,6 +34,7 @@ ensureRequestTrackingGuide().then(() => app.listen(port, (err) => {
   startPaymentReconciliation();
   startInvoiceReminders();
   startSubscriptionRenewals();
+  startWhatsappInboundPurge();
 })).catch(err => {
   logger.error({ err }, "Failed to initialize portal usage information");
   process.exitCode = 1;

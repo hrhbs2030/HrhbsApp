@@ -43,6 +43,15 @@ jobs:
       - run: pnpm --filter @workspace/hbs-solutions exec playwright install --with-deps chromium
       - run: ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1 >> "$GITHUB_PATH"
       - run: pnpm run typecheck
+      - name: Check generated API clients match the spec
+        run: |
+          pnpm --filter @workspace/api-spec run codegen
+          if [ -n "$(git status --porcelain -- lib/api-zod lib/api-client-react)" ]; then
+            echo "::error::lib/api-spec/openapi.yaml changed without regenerating the clients. Run: pnpm --filter @workspace/api-spec run codegen"
+            git status --porcelain -- lib/api-zod lib/api-client-react
+            git diff --exit-code -- lib/api-zod lib/api-client-react
+            exit 1
+          fi
       - name: Check migrations match the schema
         run: |
           pnpm --filter @workspace/db run generate

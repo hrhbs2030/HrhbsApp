@@ -65,6 +65,14 @@ async function clerkUserWithVerifiedEmail(email: string): Promise<string | null>
   return data.find(candidate => verifiedEmailOf(candidate, email))?.id ?? null;
 }
 
+// The same rule lib/company-access applies on sign-in: a company owner or an
+// approved customer is never turned into another company's member, so such an
+// invitation would stay pending forever and is refused instead.
+async function ownsOwnCompany(userId: string): Promise<boolean> {
+  const [own] = await db.select({ userId: hbsCompanies.userId }).from(hbsCompanies).where(eq(hbsCompanies.userId, userId)).limit(1);
+  return !!own || hasCustomerApproval(userId);
+}
+
 function memberId(req: Request, res: Response): number | null {
   const params = UpdateCompanyMemberParams.safeParse(req.params);
   if (!params.success) { res.status(404).json({ error: "Member not found" }); return null; }
@@ -88,6 +96,11 @@ router.post("/company/members", ownerOnly, async (req, res): Promise<void> => {
   if (!body.success) { res.status(400).json({ error: "اكتب بريدًا صحيحًا واختر صلاحية." }); return; }
   const companyUserId = companyAccessOf(res).companyUserId;
   const email = body.data.email;
+  // Members hang off the company row (company_user_id references it): an
+  // approved customer who has not saved the company file yet is told so
+  // instead of tripping the foreign key.
+  const [file] = await db.select({ userId: hbsCompanies.userId }).from(hbsCompanies).where(eq(hbsCompanies.userId, companyUserId)).limit(1);
+  if (!file) { res.status(409).json({ error: "احفظ ملف المنشأة أولًا ثم ادعُ الأعضاء." }); return; }
   const ownEmail = await customerEmail(companyUserId);
   if (ownEmail && normalizeEmail(ownEmail) === email) { res.status(400).json({ error: "هذا بريدك أنت؛ أنت مالك المنشأة." }); return; }
   const [duplicate] = await db.select({ id: hbsCompanyMembers.id }).from(hbsCompanyMembers)
@@ -97,6 +110,9 @@ router.post("/company/members", ownerOnly, async (req, res): Promise<void> => {
     res.status(409).json({ error: `يمكن إضافة ${MAX_COMPANY_MEMBERS} أعضاء على الأكثر.` }); return;
   }
   const existingUserId = await clerkUserWithVerifiedEmail(email);
+  if (existingUserId && await ownsOwnCompany(existingUserId)) {
+    res.status(409).json({ error: "هذا البريد لعميل مسجّل لدى المكتب بمنشأته؛ لا يمكن ضمّه عضوًا في منشأة أخرى." }); return;
+  }
   const row = await db.transaction(async tx => {
     const [created] = await tx.insert(hbsCompanyMembers).values({
       companyUserId, email, role: body.data.role, invitedBy: owner(req),
@@ -165,6 +181,28 @@ router.get("/company/membership", async (req, res): Promise<void> => {
   if (!access || !COMPANY_ROLES.includes(access.role)) { res.status(404).json({ error: "Not a company owner or member" }); return; }
   const [company] = await db.select({ name: hbsCompanies.name }).from(hbsCompanies).where(eq(hbsCompanies.userId, access.companyUserId)).limit(1);
   res.json(GetCompanyMembershipResponse.parse({ role: access.role, companyUserId: access.companyUserId, companyName: company?.name ?? null }));
+});
+
+// A member leaves on their own; the owner is the company itself and cannot.
+router.delete("/company/membership", async (req, res): Promise<void> => {
+  const userId = getAuth(req).userId;
+  if (!userId) { res.status(401).json({ error: "Sign in to continue" }); return; }
+  const access = await resolveCompanyAccess(req);
+  if (!access || !COMPANY_ROLES.includes(access.role)) { res.status(404).json({ error: "Not a company member" }); return; }
+  if (access.role === "owner") { res.status(403).json({ error: "مالك المنشأة لا يمكنه مغادرتها." }); return; }
+  const row = await db.transaction(async tx => {
+    const [left] = await tx.delete(hbsCompanyMembers)
+      .where(and(eq(hbsCompanyMembers.companyUserId, access.companyUserId), eq(hbsCompanyMembers.memberUserId, userId))).returning();
+    if (!left) return null;
+    await recordAudit(tx, {
+      actorId: userId, action: "company.member_leave", targetType: "customer", targetId: access.companyUserId,
+      details: { memberId: left.id, role: left.role },
+    });
+    return left;
+  });
+  if (!row) { res.status(404).json({ error: "Not a company member" }); return; }
+  forgetVerifiedEmails(userId);
+  res.status(204).end();
 });
 
 // ---- office ------------------------------------------------------------------------------
