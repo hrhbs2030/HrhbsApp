@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { Download, FileImage, FileText, Paperclip, ScanText, Trash2, X } from 'lucide-react';
+import { Camera, Check, Circle, Download, FileImage, FileText, ListChecks, Paperclip, ScanText, Trash2, Upload, X } from 'lucide-react';
 import {
   attachOfficeServiceRequestFiles,
   attachServiceRequestFiles,
@@ -7,12 +7,16 @@ import {
   deleteServiceRequestFile,
   downloadOfficeServiceAttachment,
   downloadServiceAttachment,
+  linkAttachmentToChecklist,
+  linkOfficeAttachmentToChecklist,
   requestOfficeServiceAttachmentUpload,
   requestServiceAttachmentUpload,
   type AttachmentUploadInputContentType,
+  type ChecklistItem,
   type ServiceAttachment,
 } from '@workspace/api-client-react';
 import { formatDateTime, formatNumber } from '@/lib/format';
+import { compressImage } from '@/lib/image';
 import './request-files.css';
 
 // Documents on a request, for the customer's request page and the office
@@ -49,6 +53,28 @@ export function checkFile(file: File): string | null {
   return null;
 }
 
+// A picked file ready to upload; `originalSize` is set when a photo was compressed.
+export type Prepared = { file: File; originalSize: number | null };
+
+// Type check, then photo compression, then the size limit on what will be sent:
+// a 6 MB camera shot becomes a ~1 MB JPEG and a 12 MB one is accepted after
+// shrinking. Returns Arabic problems for the files that are not usable.
+export async function prepareFiles(picked: File[]): Promise<{ files: Prepared[]; problems: string[] }> {
+  const files: Prepared[] = [];
+  const problems: string[] = [];
+  for (const original of picked) {
+    const file = typeOf(original) ? await compressImage(original) : original;
+    const problem = checkFile(file);
+    if (problem) problems.push(problem);
+    else files.push({ file, originalSize: file === original ? null : original.size });
+  }
+  return { files, problems };
+}
+
+// Camera capture on phones: a separate input, since `capture` on the main one
+// would hide the gallery and files on some browsers.
+export const CAMERA_ACCEPT = 'image/*';
+
 // Reserves and uploads one file; returns the reservation id to attach.
 export async function uploadFile(scope: Scope, file: File): Promise<number> {
   const input = { name: file.name.replace(/[\\/\u0000-\u001f\u007f]/g, '_').slice(0, 160), size: file.size, contentType: typeOf(file)! };
@@ -67,37 +93,47 @@ export function uploadError(error: unknown, name: string): string {
   return `«${name}»: تعذّر رفع الملف. تحقق من الملف وحاول مرة أخرى.`;
 }
 
-export function RequestFiles({ scope, requestId, attachments, canUpload, onChanged, onExtract }: {
+export function RequestFiles({ scope, requestId, attachments, checklist = [], canUpload, onChanged, onExtract }: {
   scope: Scope;
   requestId: number;
   attachments: ServiceAttachment[];
+  // The office's list of required documents; each links to one uploaded file.
+  checklist?: ChecklistItem[];
   canUpload: boolean;
   onChanged: () => void | Promise<unknown>;
   // Office only: read a document's expiry date to add a renewal reminder.
   onExtract?: (file: ServiceAttachment) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState<string[]>([]);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState<Prepared[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [confirming, setConfirming] = useState<number | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
+  // The checklist item the next picked file is for ("ارفع" opened the picker).
+  const forKey = useRef<string | null>(null);
+  const [linking, setLinking] = useState<string | null>(null);
   const room = MAX_FILES - attachments.length;
 
   async function pick(event: ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(event.target.files ?? []);
     event.target.value = '';
+    const key = forKey.current; forKey.current = null;
     if (!picked.length) return;
-    const problems: string[] = [];
-    const valid = picked.filter((file) => { const p = checkFile(file); if (p) problems.push(p); return !p; });
+    setErrors([]);
+    setUploading(picked.map((file) => ({ file, originalSize: null })));
+    const { files: valid, problems } = await prepareFiles(picked);
     if (valid.length > room) problems.push(`يمكن إضافة ${formatNumber(Math.max(room, 0))} ملفات أخرى فقط لهذا الطلب.`);
     const queue = valid.slice(0, Math.max(room, 0));
     setErrors(problems);
-    setUploading(queue.map((f) => f.name));
-    for (const file of queue) {
+    setUploading(queue);
+    for (const [index, { file }] of queue.entries()) {
       try {
         const id = await uploadFile(scope, file);
-        if (scope === 'office') await attachOfficeServiceRequestFiles(requestId, { attachmentIds: [id] });
-        else await attachServiceRequestFiles(requestId, { attachmentIds: [id] });
+        // Picked for a checklist item: the first file is linked in the same call.
+        const body = { attachmentIds: [id], ...(key && index === 0 ? { checklist: [{ attachmentId: id, key }] } : {}) };
+        if (scope === 'office') await attachOfficeServiceRequestFiles(requestId, body);
+        else await attachServiceRequestFiles(requestId, body);
       } catch (error) {
         problems.push(uploadError(error, file.name));
         setErrors([...problems]);
@@ -135,6 +171,18 @@ export function RequestFiles({ scope, requestId, attachments, canUpload, onChang
     } finally { setBusy(null); setConfirming(null); }
   }
 
+  function pickFor(key: string) { forKey.current = key; inputRef.current?.click(); }
+  async function unlink(item: ChecklistItem) {
+    if (item.attachmentId === null) return;
+    setLinking(item.key);
+    try {
+      if (scope === 'office') await linkOfficeAttachmentToChecklist(requestId, item.attachmentId, { key: null });
+      else await linkAttachmentToChecklist(requestId, item.attachmentId, { key: null });
+      await onChanged();
+    } catch { setErrors([`«${item.label}»: تعذّر فك الربط.`]); } finally { setLinking(null); }
+  }
+  const linked = checklist.filter(i => i.attachmentId !== null).length;
+
   const who = (file: ServiceAttachment) => file.uploadedBy === 'office' ? 'المكتب' : scope === 'office' ? 'العميل' : 'أنت';
   const mayDelete = (file: ServiceAttachment) => scope === 'office' || (file.uploadedBy === 'customer' && canUpload);
   const newestFirst = [...attachments].reverse();
@@ -147,16 +195,31 @@ export function RequestFiles({ scope, requestId, attachments, canUpload, onChang
           <button type="button" className="btn btn-outline btn-sm" onClick={() => inputRef.current?.click()} disabled={uploading.length > 0}>
             <Paperclip size={15} aria-hidden="true" />{scope === 'office' ? 'إرفاق ملف للعميل' : 'إرفاق ملف'}
           </button>
+          <button type="button" className="btn btn-outline btn-sm rf-camera" onClick={() => cameraRef.current?.click()} disabled={uploading.length > 0}>
+            <Camera size={15} aria-hidden="true" />التقط بالكاميرا
+          </button>
           <input ref={inputRef} type="file" accept={ACCEPT_ATTR} multiple hidden onChange={pick} aria-label="اختر ملفات لإرفاقها" />
+          <input ref={cameraRef} type="file" accept={CAMERA_ACCEPT} capture="environment" hidden onChange={pick} aria-label="التقط صورة للمستند" />
         </>}
       </div>
+
+      {checklist.length > 0 && <div className="rf-check" role="group" aria-label="المستندات المطلوبة">
+        <div className="rf-check-head"><ListChecks size={15} aria-hidden="true"/>المستندات المطلوبة <span className="nums">{formatNumber(linked)}/{formatNumber(checklist.length)}</span></div>
+        <ul>{checklist.map(item => { const done = item.attachmentId !== null; return <li key={item.key} data-done={done || undefined}>
+          <span className={`rf-check-mark ${done ? 'is-done' : ''}`} aria-hidden="true">{done ? <Check size={14} strokeWidth={3}/> : <Circle size={10}/>}</span>
+          <span className="rf-check-main"><strong>{item.label}</strong>{done ? <small>{item.attachmentName}</small> : <small>{canUpload ? 'لم يُرفع بعد' : 'غير مرفوع'}</small>}</span>
+          {canUpload && (done
+            ? <button type="button" className="rf-btn rf-btn--text" onClick={() => unlink(item)} disabled={linking === item.key || uploading.length > 0}>فك الربط</button>
+            : room > 0 && <button type="button" className="btn btn-outline btn-sm" onClick={() => pickFor(item.key)} disabled={uploading.length > 0}><Upload size={14} aria-hidden="true"/>ارفع</button>)}
+        </li>; })}</ul>
+      </div>}
 
       {attachments.length === 0 && uploading.length === 0
         ? <p className="rf-empty">{canUpload ? (scope === 'office' ? 'لا توجد مستندات. يمكنك إرفاق ملف يصل إلى العميل.' : 'لا توجد مستندات بعد. أرفق ما يطلبه المكتب.') : 'لا توجد مستندات.'}</p>
         : <ul className="rf-list">
-          {uploading.map((name, index) => <li key={`up-${index}-${name}`} className="rf-row" aria-live="polite">
+          {uploading.map(({ file, originalSize }, index) => <li key={`up-${index}-${file.name}`} className="rf-row" aria-live="polite">
             <span className="rf-icon"><span className="rf-spinner" aria-hidden="true" /></span>
-            <span className="rf-main"><strong>{name}</strong><small>جارٍ الرفع…</small></span>
+            <span className="rf-main"><strong>{file.name}</strong><small>جارٍ الرفع… · {sizeText(file.size)}{originalSize !== null && ` (ضُغطت من ${sizeText(originalSize)})`}</small></span>
           </li>)}
           {newestFirst.map((file) => {
             const Icon = file.contentType === 'application/pdf' ? FileText : FileImage;

@@ -1,18 +1,20 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'wouter';
-import { BadgeCheck, Building2, Eye, EyeOff, FileBadge, Pencil, Plus, RefreshCw, Trash2, UsersRound } from 'lucide-react';
+import { BadgeCheck, Building2, Eye, EyeOff, FileBadge, Pencil, Plus, RefreshCw, SearchCheck, Trash2, UsersRound } from 'lucide-react';
 import {
   createEmployee, createLicense, createOfficeCustomerEmployee, createOfficeCustomerLicense,
   deleteEmployee, deleteLicense, deleteOfficeCustomerEmployee, deleteOfficeCustomerLicense,
   getEmployeeNumbers, getOfficeCustomerEmployeeNumbers, saveCompany, saveOfficeCustomerCompany,
   importEmployees, importLicenses, importOfficeCustomerEmployees, importOfficeCustomerLicenses,
+  lookupCommercialRegister, lookupOfficeCommercialRegister,
   updateEmployee, updateLicense, updateOfficeCustomerEmployee, updateOfficeCustomerLicense,
   type Company, type CompanyFile, type CompanyInput, type Employee, type EmployeeInput, type License,
-  type LicenseInput, type LicenseKind, type ImportResult,
+  type LicenseInput, type LicenseKind, type ImportResult, type CommercialRegisterLookup,
 } from '@workspace/api-client-react';
-import { ExcelImport } from '@/components/excel-import';
+import { ExcelImport, ExportButtons } from '@/components/excel-import';
 import { ExpiryBadge } from '@/components/reminder-ui';
 import { ConfirmDialog } from '@/components/request-billing';
+import { employeeColumns, employeeRows, licenseColumns, licenseRows } from '@/lib/export';
 import { daysUntil, formatCalendarDate, formatNumber } from '@/lib/format';
 import { normalizePhone } from '@/lib/phone';
 import './company-file.css';
@@ -31,6 +33,8 @@ export type CompanyApi = {
   deleteLicense: (id: number) => Promise<unknown>;
   importEmployees: (rows: Record<string, unknown>[]) => Promise<ImportResult>;
   importLicenses: (rows: Record<string, unknown>[]) => Promise<ImportResult>;
+  // Wathq, the national commercial register. Fails with 503 when not configured.
+  lookupRegister: (number: string) => Promise<CommercialRegisterLookup>;
 };
 
 export const customerCompanyApi: CompanyApi = {
@@ -39,6 +43,7 @@ export const customerCompanyApi: CompanyApi = {
   // Rows are normalised spreadsheet cells; the server checks each one.
   importEmployees: rows => importEmployees({ rows: rows as unknown as EmployeeInput[] }),
   importLicenses: rows => importLicenses({ rows: rows as unknown as LicenseInput[] }),
+  lookupRegister: number => lookupCommercialRegister({ number }),
 };
 
 export function officeCompanyApi(userId: string): CompanyApi {
@@ -53,6 +58,7 @@ export function officeCompanyApi(userId: string): CompanyApi {
     deleteLicense: id => deleteOfficeCustomerLicense(userId, id),
     importEmployees: rows => importOfficeCustomerEmployees(userId, { rows: rows as unknown as EmployeeInput[] }),
     importLicenses: rows => importOfficeCustomerLicenses(userId, { rows: rows as unknown as LicenseInput[] }),
+    lookupRegister: number => lookupOfficeCommercialRegister(userId, { number }),
   };
 }
 
@@ -93,11 +99,52 @@ const phoneValue = (v: string): string | null | false => v.trim() ? (normalizePh
 
 // ---- company ---------------------------------------------------------------------
 
+// Arabic keyboards type ٠-٩; the register number is sent in 0-9 (as phone.ts does).
+export const asciiDigits = (text: string) => text.replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660)).replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06f0)).trim();
+export const registerFields = ['name', 'unifiedNumber', 'activity', 'city'] as const;
+// Fields the lookup fills: blanks are filled right away; a different stored
+// value is never overwritten without the person asking (see `conflicts`).
+export function applyRegister<T extends Record<(typeof registerFields)[number], string>>(form: T, found: CommercialRegisterLookup, overwrite: boolean): { form: T; conflicts: (typeof registerFields)[number][] } {
+  const next = { ...form };
+  const conflicts: (typeof registerFields)[number][] = [];
+  for (const key of registerFields) {
+    const value = found[key]?.trim();
+    if (!value) continue;
+    if (!form[key].trim() || overwrite) next[key] = value as T[typeof key];
+    else if (form[key].trim() !== value) conflicts.push(key);
+  }
+  return { form: next, conflicts };
+}
+export function lookupError(error: unknown): string {
+  const status = (error as { status?: number })?.status;
+  if (status === 503) return 'التحقق غير متاح حاليًا.';
+  if (status === 404) return 'لم يُعثر على السجل.';
+  if (status === 400) return 'رقم السجل التجاري 10 أرقام.';
+  if (status === 429) return 'محاولات كثيرة. انتظر قليلًا ثم حاول.';
+  return 'تعذّر التحقق من السجل. حاول بعد قليل.';
+}
+const registerLabels: Record<(typeof registerFields)[number], string> = { name: 'الاسم', unifiedNumber: 'الرقم الموحد', activity: 'النشاط', city: 'المدينة' };
+
 function CompanyForm({ company, api, onSaved, onCancel }: { company: Company | null; api: CompanyApi; onSaved: () => void; onCancel?: () => void }) {
   const blank = { name: '', crNumber: '', unifiedNumber: '', vatNumber: '', city: '', address: '', activity: '', contactName: '', contactPhone: '', notes: '' };
   const [v, setV] = useState(blank);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [found, setFound] = useState<{ data: CommercialRegisterLookup; conflicts: (typeof registerFields)[number][] } | null>(null);
+  const [lookupProblem, setLookupProblem] = useState<string | null>(null);
+  async function verify() {
+    const number = asciiDigits(v.crNumber);
+    setLookupProblem(null); setFound(null);
+    if (!/^\d{10}$/.test(number)) { setLookupProblem('رقم السجل التجاري 10 أرقام.'); return; }
+    setChecking(true);
+    try {
+      const data = await api.lookupRegister(number);
+      const applied = applyRegister({ ...v, crNumber: number }, data, false);
+      setV(applied.form);
+      setFound({ data, conflicts: applied.conflicts });
+    } catch (err) { setLookupProblem(lookupError(err)); } finally { setChecking(false); }
+  }
   useEffect(() => setV(company ? Object.fromEntries(Object.keys(blank).map(k => [k, (company as unknown as Record<string, unknown>)[k] ?? ''])) as typeof blank : blank), [company?.updatedAt]);
   const set = (k: keyof typeof blank) => (e: { target: { value: string } }) => setV({ ...v, [k]: e.target.value });
   async function submit(e: FormEvent) {
@@ -112,7 +159,14 @@ function CompanyForm({ company, api, onSaved, onCancel }: { company: Company | n
   }
   return <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
     <Field label="اسم المنشأة" wide><input className="form-control" value={v.name} onChange={set('name')} required minLength={2} maxLength={160}/></Field>
-    <Field label="رقم السجل التجاري"><input className="form-control" dir="ltr" inputMode="numeric" value={v.crNumber} onChange={set('crNumber')} maxLength={20}/></Field>
+    <Field label="رقم السجل التجاري"><span className="cf-verify"><input className="form-control" dir="ltr" inputMode="numeric" value={v.crNumber} onChange={e => { set('crNumber')(e); setFound(null); setLookupProblem(null); }} maxLength={20}/>
+      <button type="button" className="btn btn-outline btn-sm" onClick={verify} disabled={checking || !v.crNumber.trim()}><SearchCheck size={15}/>{checking ? 'جارٍ التحقق…' : 'تحقق من السجل'}</button></span>
+      {lookupProblem && <span role="alert" className="text-xs font-normal text-danger">{lookupProblem}</span>}</Field>
+    {found && <div role="status" className="cf-found md:col-span-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1"><BadgeCheck size={15} className="text-teal" aria-hidden="true"/><strong>{found.data.name}</strong>{found.data.status && <span className="cf-tag">{found.data.status}</span>}{found.data.expiresOn && <span className="text-xs text-subtle">ينتهي {found.data.expiresOn}</span>}{found.data.issuedOn && <span className="text-xs text-subtle">أُصدر {found.data.issuedOn}</span>}</div>
+      {found.conflicts.length > 0 && <div className="mt-2 flex flex-wrap items-center gap-2 text-xs"><span>بيانات السجل تختلف عن المدخلة في: {found.conflicts.map(k => `${registerLabels[k]} «${found.data[k]}»`).join('، ')}.</span>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => { setV(applyRegister(v, found.data, true).form); setFound({ ...found, conflicts: [] }); }}>استخدم هذه البيانات</button></div>}
+    </div>}
     <Field label="الرقم الموحد (700)"><input className="form-control" dir="ltr" inputMode="numeric" value={v.unifiedNumber} onChange={set('unifiedNumber')} maxLength={20}/></Field>
     <Field label="الرقم الضريبي"><input className="form-control" dir="ltr" inputMode="numeric" value={v.vatNumber} onChange={set('vatNumber')} maxLength={20}/></Field>
     <Field label="المدينة"><input className="form-control" value={v.city} onChange={set('city')} maxLength={80}/></Field>
@@ -237,7 +291,7 @@ function EmployeesSection({ employees, api, office, onChanged }: { employees: Em
   }
   return <section className="surface overflow-hidden" aria-labelledby="cf-employees">
     <div className="cf-head"><h2 id="cf-employees" className="display text-lg font-semibold"><UsersRound size={19} aria-hidden="true"/>الموظفون</h2>
-      {!editing && <div className="flex flex-wrap gap-2"><ExcelImport kind="employees" onImport={api.importEmployees} onDone={onChanged}/><button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16}/>إضافة موظف</button></div>}</div>
+      {!editing && <div className="flex flex-wrap gap-2">{employees.length > 0 && <ExportButtons name="الموظفون" columns={employeeColumns} rows={() => employeeRows(shown)}/>}<ExcelImport kind="employees" onImport={api.importEmployees} onDone={onChanged}/><button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16}/>إضافة موظف</button></div>}</div>
     {editing && <div className="border-b border-line bg-paper p-5 sm:p-6"><EmployeeForm key={editing === 'new' ? 'new' : editing.id} employee={editing === 'new' ? null : editing} api={api} onDone={saved => { setEditing(null); if (saved) onChanged(); }}/></div>}
     <div className="cf-tools">
       <div className="flex flex-wrap gap-2" role="group" aria-label="تصفية الموظفين">{([['active', 'على رأس العمل'], ['expiring', 'وثائق تنتهي خلال 60 يومًا'], ['left', 'غادروا']] as const).map(([key, label]) =>
@@ -301,7 +355,7 @@ function LicensesSection({ licenses, api, office, onChanged }: { licenses: Licen
   }
   return <section className="surface overflow-hidden" aria-labelledby="cf-licenses">
     <div className="cf-head"><h2 id="cf-licenses" className="display text-lg font-semibold"><FileBadge size={19} aria-hidden="true"/>التراخيص والشهادات</h2>
-      {!editing && <div className="flex flex-wrap gap-2"><ExcelImport kind="licenses" onImport={api.importLicenses} onDone={onChanged}/><button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16}/>إضافة ترخيص</button></div>}</div>
+      {!editing && <div className="flex flex-wrap gap-2">{licenses.length > 0 && <ExportButtons name="التراخيص والشهادات" columns={licenseColumns} rows={() => licenseRows(licenses, licenseKindNames)}/>}<ExcelImport kind="licenses" onImport={api.importLicenses} onDone={onChanged}/><button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16}/>إضافة ترخيص</button></div>}</div>
     {editing && <div className="border-b border-line bg-paper p-5 sm:p-6"><LicenseForm key={editing === 'new' ? 'new' : editing.id} license={editing === 'new' ? null : editing} api={api} onDone={saved => { setEditing(null); if (saved) onChanged(); }}/></div>}
     {!licenses.length ? <p className="px-6 py-10 text-center text-sm text-subtle">أضف السجل التجاري ورخصة البلدية والشهادات لتتابع تواريخ انتهائها.</p>
       : <ul className="cf-list">{licenses.map(l => <li key={l.id} className="cf-row">

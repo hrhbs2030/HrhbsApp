@@ -25,6 +25,9 @@ export const hbsInvoices = pgTable("hbs_invoices", {
   issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  // Overdue reminders sent by the daily sweep: once after 3 days, once after 7.
+  remindedAt: timestamp("reminded_at", { withTimezone: true }),
+  reminderCount: integer("reminder_count").notNull().default(0),
 }, (table) => [
   index("hbs_invoices_request_idx").on(table.requestId),
   // Open invoices by date: reports, reconciliation and the customer's summary.

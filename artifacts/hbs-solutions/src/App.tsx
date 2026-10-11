@@ -8,6 +8,7 @@ import { CityScene } from '@/components/city-scene';
 import { SceneWindow } from '@/components/scene-window';
 import { hasSessionHint } from '@/lib/session-hint';
 import Landing from '@/pages/landing';
+import NotFound from '@/pages/not-found';
 
 // Public pages load on demand, so landing-page visitors download only the
 // landing page. Everything that needs Clerk (auth screens, role gate, portal
@@ -24,6 +25,10 @@ const PrivacyPage = lazy(() => legalPages().then(m => ({ default: m.PrivacyPage 
 const TermsPage = lazy(() => legalPages().then(m => ({ default: m.TermsPage })));
 
 export const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+// The public origin of the site, fixed at build time (SITE_URL → `define` in
+// vite.config.ts), so canonical and structured-data URLs stay on the real host
+// whichever host served the page (bare domain, preview).
+export const siteUrl = (import.meta.env.VITE_SITE_URL || 'https://hrhbs.com').replace(/\/$/, '');
 const officeDeniedEvent = 'hbs:office-access-denied';
 export const authChangedEvent = 'hbs:auth-changed';
 function isOfficeDenied(error: unknown): boolean {
@@ -77,13 +82,16 @@ function OfficeAccessProvider({ children }: { children: ReactNode }) {
   const restore = () => { setDenied(false); lastRole.current = null; };
   return <OfficeAccessContext.Provider value={{ denied, restore }}>{children}</OfficeAccessContext.Provider>;
 }
-export function Missing() { return <main dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center p-6 text-center text-on-dark"><SceneWindow edge="top"/><div className="relative rounded-[22px] bg-night/70 px-8 py-10 backdrop-blur"><div className="display text-7xl font-semibold text-copper-light">404</div><h1 className="display mt-5 text-2xl">الصفحة غير موجودة</h1><p className="mt-3 text-sm text-on-dark-2">قد يكون الرابط غير صحيح أو تغيّر مكان الصفحة.</p><a href={basePath || '/'} className="btn btn-light mt-7">العودة للرئيسية</a></div></main>; }
+export function Missing() { return <NotFound/>; }
 const isPublicPath = (location: string) => location === '/' || location === '/services' || location.startsWith('/services/') || location === '/trust' || location === '/help' || location === '/privacy' || location === '/terms';
 const isPortalPath = (location: string) => ['/registration', '/dashboard', '/requests', '/inquiries', '/documents', '/settings', '/company', '/office'].some((p) => location === p || location.startsWith(p + '/'));
 const routeTitles: Record<string,string> = {'/':'الرئيسية','/services':'دليل الخدمات','/trust':'الخصوصية والأمان','/help':'المساعدة','/privacy':'سياسة الخصوصية','/terms':'شروط الاستخدام','/registration':'طلب التسجيل','/dashboard':'نظرة عامة','/requests':'طلباتي','/requests/new':'طلب جديد','/inquiries':'استفساراتي','/office':'مساحة المكتب','/office/registrations':'طلبات التسجيل','/office/requests':'طلبات العملاء','/office/inquiries':'استفسارات العملاء','/office/legacy':'الأرشيف القديم','/office/staff':'فريق المكتب','/office/audit':'سجل التدقيق','/documents':'تنبيهات وثائقي','/settings':'الإشعارات','/office/reminders':'وثائق تنتهي قريبًا','/office/catalog':'الأسعار والمتطلبات','/office/reports':'التقارير','/company':'ملف المنشأة','/office/customers':'ملفات العملاء'};
 const isAuthPath = (location: string) => location.startsWith('/sign-in') || location.startsWith('/sign-up');
+const staleJsonLdTypes = new Set(['BreadcrumbList', 'Service', 'WebSite', 'FAQPage']);
 function Routes() {
   const [location]=useLocation();
+  // The route the document was served for (null before the first effect, '' once its static JSON-LD is gone).
+  const landed = useRef<string | null>(null);
   // A session cookie hint stands in for Clerk's isSignedIn on public routes;
   // it only decides which tree to show, the shell still verifies the session.
   const isSignedIn = hasSessionHint();
@@ -93,7 +101,7 @@ function Routes() {
     : location.startsWith('/sign-in') || location.startsWith('/sign-up') ? 'full'
     : isPublicPath(location) ? 'band' : isPortalPath(location) ? 'portal' : 'full';
   useEffect(()=>{
-    const title = routeTitles[location] || (location.startsWith('/services/')?(serviceBySlug[location.slice(10)]?.name ?? 'الخدمة'):location.startsWith('/requests/')?'تفاصيل الطلب':location.startsWith('/office/customers/')?'ملف عميل':location.startsWith('/sign-in')?'تسجيل الدخول':location.startsWith('/sign-up')?'إنشاء حساب':'الصفحة');
+    const title = routeTitles[location] || (location.startsWith('/services/')?(serviceBySlug[location.slice(10)]?.name ?? 'الخدمة'):location.startsWith('/requests/')?'تفاصيل الطلب':location.startsWith('/office/customers/')?'ملف عميل':location.startsWith('/sign-in')?'تسجيل الدخول':location.startsWith('/sign-up')?'إنشاء حساب':'الصفحة غير موجودة');
     document.title=`${title} | HBS حلول الغد`;
     const service = location.startsWith('/services/') ? serviceBySlug[location.slice(10)] : undefined;
     // A service address that does not exist is a "not found" page: keep it out of search results.
@@ -113,15 +121,27 @@ function Routes() {
     document.querySelector('meta[property="og:description"]')?.setAttribute('content', description);
     document.querySelector('meta[name="twitter:title"]')?.setAttribute('content', `${title} | HBS حلول الغد`);
     document.querySelector('meta[name="twitter:description"]')?.setAttribute('content', description);
-    // Canonical URL without query strings, for public pages only.
+    // Canonical URL without query strings, on the site host, for public pages only.
     let canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
     if (isPublic) {
       if (!canonical) { canonical = document.createElement('link'); canonical.rel = 'canonical'; document.head.appendChild(canonical); }
-      canonical.href = `${window.location.origin}${basePath}${location === '/' ? '/' : location}`;
+      canonical.href = `${siteUrl}${basePath}${location === '/' ? '/' : location}`;
       document.querySelector('meta[property="og:url"]')?.setAttribute('content', canonical.href);
     } else {
       canonical?.remove();
       document.querySelector('meta[property="og:url"]')?.removeAttribute('content');
+    }
+    // The prerendered page shipped structured data for the route it was built
+    // for (un-id'd scripts; scripts/prerender.mjs). They describe that page
+    // only, so the first client-side navigation drops them; the pages inject
+    // their own id'd scripts (useJsonLd in pages/public.tsx). The organisation
+    // block (ProfessionalService) is true on every route and stays.
+    if (landed.current === null) landed.current = location;
+    else if (location !== landed.current) {
+      for (const script of document.querySelectorAll('script[type="application/ld+json"]:not([id])')) {
+        try { if (staleJsonLdTypes.has((JSON.parse(script.textContent || 'null') as { '@type'?: string } | null)?.['@type'] ?? '')) script.remove(); } catch { /* not ours */ }
+      }
+      landed.current = '';
     }
   },[location]);
   // The top window: the first screen (full), the dark band (public pages) or

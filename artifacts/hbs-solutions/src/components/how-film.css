@@ -97,6 +97,8 @@
   .hf-sub--office { justify-self: end; border-radius: 14px 14px 4px 14px; background: #e5a27b; color: #173e42; transform-origin: 0 100%; }
   .hf-sub--status { justify-self: center; border-radius: 999px; background: #10292c; color: #8fd0c6; border: 1px solid rgb(143 208 198 / .5); }
   .hf-label { display: none; }
+  /* The phone-screen labels render at ~6px on a 390px stage: unreadable, so hidden; the subtitle strip carries the words. */
+  .hf-ui { display: none; }
   .hf-chapters button { min-height: 44px; align-content: center; }
   .hf-chapters { min-width: 0; }
   .hf-caption { font-size: 15px; }

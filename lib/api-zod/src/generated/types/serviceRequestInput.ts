@@ -42,4 +42,9 @@ export interface ServiceRequestInput {
      * @nullable
      */
   licenseId?: number | null;
+  /**
+     * Catalogue slug of the chosen service; its published required documents become the request's checklist
+     * @pattern ^[a-z0-9-]{2,60}$
+     */
+  serviceSlug?: string;
 }

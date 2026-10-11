@@ -57,6 +57,13 @@
       "when": 1791696721850,
       "tag": "0007_indexes_and_gateway_claim",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791700989028,
+      "tag": "0008_quotes_checklist_reminders",
+      "breakpoints": true
     }
   ]
 }

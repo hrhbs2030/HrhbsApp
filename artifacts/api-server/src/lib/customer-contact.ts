@@ -1,7 +1,7 @@
 import { clerkClient } from "@clerk/express";
 import { eq } from "drizzle-orm";
 import { db, hbsCustomerSettings, hbsRegistrationRequests } from "@workspace/db";
-import { notify, type Mail } from "./notify";
+import { notify, sendMailNow, type Mail } from "./notify";
 import { saudiMobile, sendWhatsApp, whatsappConfigured, whatsappText } from "./whatsapp";
 
 // The address the customer registered with, for notifications.
@@ -28,6 +28,20 @@ export async function notifyCustomer(userId: string, build: (to: string | null) 
   const email = await customerEmail(userId);
   const mail = build(email);
   if (mail) notify(mail);
+  await whatsappCustomer(userId, mail, build);
+}
+
+// Like notifyCustomer, but rejects when the email cannot be sent, so a
+// reminder sweep can give its claim back and try again later. WhatsApp is
+// still best effort.
+export async function notifyCustomerNow(userId: string, build: (to: string | null) => Mail | null, send: typeof sendMailNow = sendMailNow): Promise<void> {
+  const email = await customerEmail(userId);
+  const mail = build(email);
+  if (mail) await send(mail);
+  await whatsappCustomer(userId, mail, build);
+}
+
+async function whatsappCustomer(userId: string, mail: Mail | null, build: (to: string | null) => Mail | null): Promise<void> {
   if (!whatsappConfigured()) return;
   try {
     const [settings] = await db.select().from(hbsCustomerSettings).where(eq(hbsCustomerSettings.userId, userId)).limit(1);

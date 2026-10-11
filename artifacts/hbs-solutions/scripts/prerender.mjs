@@ -41,7 +41,11 @@ export const publicRouteDescriptions = {
 export const portalRoutePrefixes = ['/registration', '/dashboard', '/requests', '/inquiries', '/documents', '/settings', '/company', '/office'];
 export const authRoutePrefixes = ['/sign-in', '/sign-up'];
 
-export const missingPageTitle = 'الصفحة';
+export const missingPageTitle = 'الصفحة غير موجودة';
+
+// The origin index.html is written against. The build rewrites it to SITE_URL
+// (rehost) so a preview or bare-domain build never advertises the wrong host.
+export const shellOrigin = 'https://hrhbs.com';
 
 // Lazy page modules in src/App.tsx, by the public routes that render them, so a
 // prerendered page can modulepreload its chunk instead of discovering it after
@@ -133,8 +137,8 @@ export function buildPages({ services, categoryById, siteUrl, city, provider }) 
           name: service.name,
           description: service.summary,
           url: url(route),
-          serviceType: service.name,
-          ...(category ? { category: category.name } : {}),
+          // Same shape as useJsonLd in src/pages/public.tsx: the category is the serviceType.
+          serviceType: category?.name ?? service.name,
           inLanguage: 'ar',
           areaServed: city ? { '@type': 'City', name: city, containedInPlace: { '@type': 'Country', name: 'SA' } } : 'SA',
           provider,
@@ -207,6 +211,16 @@ export function renderPage(shell, page) {
   return html;
 }
 
+// Points every absolute site URL in the head (canonical, og:url, og:image,
+// twitter:image, JSON-LD url/logo/image) at the build's site URL. Body untouched.
+export function rehost(shell, siteUrl) {
+  const base = siteUrl.replace(/\/$/, '');
+  if (base === shellOrigin) return shell;
+  const end = shell.indexOf('</head>');
+  if (end === -1) throw new Error('prerender: built index.html has no </head>');
+  return shell.slice(0, end).replaceAll(`${shellOrigin}/`, `${base}/`).replaceAll(`"${shellOrigin}"`, `"${base}"`) + shell.slice(end);
+}
+
 // Reads the ProfessionalService block from the shell so Service pages name the
 // same provider as the home page (one source: index.html).
 export function readProvider(shell) {
@@ -263,7 +277,7 @@ export async function precompress(outDir) {
 
 export async function postBuild({ outDir, basePath = '/', siteUrl, services, categoryById, city, log = () => {} }) {
   const shellFile = join(outDir, 'index.html');
-  const shell = await readFile(shellFile, 'utf8');
+  const shell = rehost(await readFile(shellFile, 'utf8'), siteUrl);
   if (!/<div id="root"><\/div>/.test(shell)) throw new Error('prerender: built index.html has no #root mount');
   const provider = readProvider(shell);
   const manifest = await readFile(join(outDir, '.vite', 'manifest.json'), 'utf8').then(JSON.parse).catch(() => null);

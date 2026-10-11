@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useParams, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, CircleAlert, CircleCheck, Link2, MessagesSquare, Paperclip, Plus, Send } from 'lucide-react';
-import { getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, getListInquiriesQueryKey, getGetServiceRequestQueryKey, getGetServiceRequestHistoryQueryKey, useGetServiceRequestHistory, useGetPortalSummary, useListServiceRequests, useGetServiceRequest, useListInquiries, useCreateInquiry, type Inquiry, type Reminder } from '@workspace/api-client-react';
+import { ArrowLeft, ArrowRight, CircleAlert, CircleCheck, CreditCard, FileClock, FileSignature, Link2, MessageSquareText, MessagesSquare, Paperclip, Plus, Send, UserRoundCheck } from 'lucide-react';
+import { getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, getListInquiriesQueryKey, getGetServiceRequestQueryKey, getGetServiceRequestHistoryQueryKey, getListServiceRequestInvoicesQueryKey, useGetServiceRequestHistory, useGetPortalSummary, useListServiceRequests, useGetServiceRequest, useListInquiries, useCreateInquiry, useAcceptQuote, useDeclineQuote, type Inquiry, type PortalSummary, type Reminder, type RequestQuote } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock, RequestRow, Status, StatusTrack, dateText, categoryNames, statusNames } from '@/components/portal-ui';
 import { CustomerAssistant } from '@/components/customer-assistant';
 import { PrintButton } from '@/components/brand/print';
@@ -11,6 +11,7 @@ import { ExpiryBadge, reminderKindNames } from '@/components/reminder-ui';
 import { RequestConversation, SubjectChip, focusComposer } from '@/components/request-conversation';
 import { RequestFiles } from '@/components/request-files';
 import { CustomerInvoices, RatingPanel } from '@/components/request-billing';
+import { customerTasks, type TaskKind } from '@/lib/tasks';
 
 const count = (value: number) => new Intl.NumberFormat(LOCALE).format(value);
 
@@ -52,13 +53,23 @@ function InquiryLine({ inquiry }: { inquiry: Inquiry }) {
   </Link>;
 }
 
-function WaitingOnYou() {
+const taskIcons: Record<TaskKind, typeof CircleAlert> = { quote: FileSignature, request: MessagesSquare, invoice: CreditCard, document: FileClock, registration: UserRoundCheck };
+// Everything that waits on the customer, as links: a price quote to accept, a
+// request needing a reply or a document, an unpaid invoice, a document to
+// renew. Built from the requests list and the summary the page already loads.
+function NeedsYou({ summary }: { summary: PortalSummary | undefined }) {
   const q = useListServiceRequests({query:{queryKey:getListServiceRequestsQueryKey(),refetchInterval:30000}});
-  const waiting = q.data?.filter(r => r.status === 'waiting_on_customer') ?? [];
-  if (!waiting.length) return null;
-  return <section aria-labelledby="waiting-title" className="rounded-2xl border border-warn-line bg-warn-soft p-4 sm:p-5">
-    <div className="flex items-start gap-3 px-1"><CircleAlert className="mt-0.5 shrink-0 text-warn" size={20}/><div><h2 id="waiting-title" className="font-bold text-warn">{waiting.length === 1 ? 'طلب ينتظر إجراءً منك' : `${count(waiting.length)} طلبات تنتظر إجراءً منك`}</h2><p className="mt-1 text-sm leading-7 text-warn">{waiting.length === 1 && waiting[0].customerMessage ? <>المكتب يحتاج منك: <span className="break-words">{waiting[0].customerMessage}</span></> : 'افتح الطلب لترى ما يحتاجه المكتب لإكماله.'}</p></div></div>
-    <div className="mt-4 overflow-hidden rounded-xl border border-warn-line bg-field">{waiting.map(r => <RequestRow key={r.id} request={r}/>)}</div>
+  if (!q.data && !summary) return null;
+  const tasks = customerTasks({ requests: q.data, summary });
+  if (!tasks.length) return <p className="flex items-center gap-2 rounded-2xl border border-sage-2 bg-ok-soft px-5 py-4 text-sm font-bold text-ok" role="status"><CircleCheck size={18} aria-hidden="true"/>لا شيء مطلوب منك الآن.</p>;
+  return <section aria-labelledby="needs-you-title" className="rounded-2xl border border-warn-line bg-warn-soft p-4 sm:p-5">
+    <div className="flex items-center gap-3 px-1"><CircleAlert className="shrink-0 text-warn" size={20} aria-hidden="true"/><h2 id="needs-you-title" className="font-bold text-warn">مطلوب منك الآن <span className="nums font-normal">({count(tasks.length)})</span></h2></div>
+    <ul className="m-0 mt-4 list-none overflow-hidden rounded-xl border border-warn-line bg-field p-0">{tasks.map(t => { const Icon = taskIcons[t.kind]; return <li key={t.key} className="border-b border-line last:border-0">
+      <Link href={t.href} className="group flex items-center gap-3 px-4 py-3.5 text-inherit no-underline transition-colors hover:bg-paper sm:px-5">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-copper-soft text-copper"><Icon size={17} aria-hidden="true"/></span>
+        <span className="min-w-0 flex-1"><strong className="block">{t.title}</strong><span className="mt-0.5 line-clamp-2 block text-xs leading-6 text-quiet">{t.reason}</span></span>
+        <ArrowLeft size={16} className="shrink-0 text-subtle transition-transform group-hover:-translate-x-1" aria-hidden="true"/>
+      </Link></li>; })}</ul>
   </section>;
 }
 // What needs the customer now comes first: requests waiting on them, unpaid
@@ -68,7 +79,7 @@ export function Dashboard() {
   const d = q.data;
   return <PortalLayout><PageHeading eyebrow="" title="نظرة عامة" action={<Link href="/requests/new" className="btn btn-primary"><Plus size={18}/>طلب خدمة جديد</Link>}/>
     <div className="space-y-8">
-      <WaitingOnYou/>
+      <NeedsYou summary={d}/>
       {q.isLoading ? <LoadingBlock/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : d && <>
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <Tile label="طلبات قيد المتابعة" value={count(d.activeRequests)} href="/requests" accent/>
@@ -148,7 +159,7 @@ export function RequestDetail() {
     {!Number.isInteger(parsed)||parsed<=0 ? <EmptyBlock title="الطلب غير متاح" text="تحقق من رابط الطلب وحاول مرة أخرى."/> : q.isLoading ? <LoadingBlock/> : q.error?.status === 404 ? <EmptyBlock title="الطلب غير متاح" text="هذا الطلب غير موجود في حسابك."/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : q.data && <>
       {justSent && <div role="status" className="rise mb-6 flex items-start gap-3 rounded-2xl border border-sage-2 bg-ok-soft p-4 text-ok sm:p-5"><CircleCheck className="mt-0.5 shrink-0" size={22}/><div><strong className="block text-ink">تم إرسال طلبك إلى المكتب</strong><span className="text-sm leading-7">الرقم المرجعي <span dir="ltr" className="nums font-bold">{q.data.reference}</span>. تابع حالته من هذه الصفحة.</span></div></div>}
       {/* One channel per request: the conversation below. Questions unrelated to a request go through the Inquiries page. */}
-      <PageHeading eyebrow={`طلب رقم ${q.data.reference}`} title={q.data.service} action={<div className="flex flex-wrap gap-2"><PrintButton label="طباعة الطلب"/>{q.data.status !== 'completed' && <button type="button" className="btn btn-primary" onClick={() => focusComposer(q.data!.id)}><MessagesSquare size={17}/>ردّ على المكتب</button>}</div>}/>
+      <PageHeading eyebrow={`طلب رقم ${q.data.reference}`} title={q.data.service} action={<div className="flex flex-wrap gap-2"><PrintButton label="طباعة الطلب"/>{/* One reply CTA per page: the waiting banner below carries it when the request waits on the customer. */}{q.data.status !== 'completed' && q.data.status !== 'waiting_on_customer' && <button type="button" className="btn btn-primary" onClick={() => focusComposer(q.data!.id)}><MessagesSquare size={17}/>ردّ على المكتب</button>}</div>}/>
       <div className="surface overflow-hidden">
         <section aria-label="مراحل الطلب" className="px-5 py-6 sm:px-8">
           <StatusTrack status={q.data.status} createdAt={q.data.createdAt} updatedAt={q.data.updatedAt}/>
@@ -157,12 +168,13 @@ export function RequestDetail() {
             : 'اسأل المكتب في المحادثة عمّا يلزم لإكمال الطلب.'}</span><span className="flex flex-wrap gap-2"><button type="button" className="btn btn-primary btn-sm" onClick={() => focusComposer(q.data!.id)}><MessagesSquare size={15}/>ردّ على المكتب</button><button type="button" className="btn btn-outline btn-sm !text-warn" onClick={scrollToDocuments}><Paperclip size={15}/>أرفق المستندات</button></span></div>}
           <StatusHistory id={q.data.id} updatedAt={q.data.updatedAt}/>
         </section>
+        {q.data.quote && <QuoteCard requestId={q.data.id} quote={q.data.quote}/>}
         <dl className="m-0 grid gap-x-8 gap-y-5 border-t border-line bg-paper px-5 py-6 sm:grid-cols-3 sm:px-8">
           {q.data.subject && <div className="sm:col-span-3"><SubjectChip subject={q.data.subject}/></div>}
           <Info label="مجال الخدمة" value={categoryNames[q.data.category]}/><Info label="رقم التواصل" value={q.data.contactPhone} ltr/><Info label="آخر تحديث" value={dateText(q.data.updatedAt)}/>
         </dl>
         <div className="border-t border-line px-5 py-6 sm:px-8"><h2 className="mb-2 text-xs font-bold text-subtle">تفاصيل الطلب</h2><p className="whitespace-pre-wrap text-sm leading-8">{q.data.description}</p></div>
-        <div id="documents" className="scroll-mt-24 border-t border-line px-5 py-6 sm:px-8"><RequestFiles scope="customer" requestId={q.data.id} attachments={q.data.attachments} canUpload={q.data.status !== 'completed'} onChanged={() => q.refetch()}/></div>
+        <div id="documents" className="scroll-mt-24 border-t border-line px-5 py-6 sm:px-8"><RequestFiles scope="customer" requestId={q.data.id} attachments={q.data.attachments} checklist={q.data.checklist} canUpload={q.data.status !== 'completed'} onChanged={() => q.refetch()}/></div>
         <InvoicesSlot requestId={q.data.id} returnedInvoiceId={returnedInvoiceId}/>
         <div className="border-t border-line px-5 py-6 sm:px-8"><RequestConversation requestId={q.data.id} scope="customer" closed={q.data.status === 'completed'}/></div>
         {q.data.status === 'completed' && <div className="border-t border-line px-5 py-6 sm:px-8"><RatingPanel requestId={q.data.id} rating={q.data.rating} comment={q.data.ratingComment} onRated={() => q.refetch()}/></div>}
@@ -170,9 +182,44 @@ export function RequestDetail() {
     </>}
   </div></PortalLayout>;
 }
+// The office's price before work starts. Accepting issues the invoice (the
+// invoices section below picks it up), declining sends the note as a message.
+function QuoteCard({ requestId, quote }: { requestId: number; quote: RequestQuote }) {
+  const qc = useQueryClient();
+  const accept = useAcceptQuote();
+  const decline = useDeclineQuote();
+  const [noting, setNoting] = useState(false);
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const refresh = () => Promise.all([getGetServiceRequestQueryKey(requestId), getListServiceRequestInvoicesQueryKey(requestId), getListServiceRequestsQueryKey(), getGetPortalSummaryQueryKey()].map(queryKey => qc.invalidateQueries({ queryKey })));
+  async function run(action: () => Promise<unknown>) {
+    setError(null);
+    try { await action(); await refresh(); setNoting(false); }
+    catch (e) { setError((e as { status?: number })?.status === 409 ? 'تغيّرت حالة العرض. أعد تحميل الصفحة.' : 'تعذّر إرسال ردّك. حاول مجددًا.'); }
+  }
+  const busy = accept.isPending || decline.isPending;
+  const amounts = <dl className="m-0 mt-3 grid grid-cols-3 gap-3 text-sm"><div><dt className="text-xs text-subtle">المبلغ</dt><dd className="nums m-0 font-semibold">{formatMoney(quote.amount)}</dd></div><div><dt className="text-xs text-subtle">الضريبة</dt><dd className="nums m-0 font-semibold">{formatMoney(quote.vat)}</dd></div><div><dt className="text-xs text-subtle">الإجمالي</dt><dd className="nums display m-0 text-lg font-semibold">{formatMoney(quote.total)}</dd></div></dl>;
+  if (quote.acceptedAt) return <p id="quote" className="flex items-center gap-2 border-t border-line bg-ok-soft px-5 py-3 text-sm font-bold text-ok sm:px-8"><CircleCheck size={16} aria-hidden="true"/>وافقت على العرض ({formatMoney(quote.total)}) بتاريخ {formatDateTime(quote.acceptedAt)}.</p>;
+  if (quote.declinedAt) return <p id="quote" className="flex items-center gap-2 border-t border-line bg-sunk px-5 py-3 text-sm text-quiet sm:px-8"><MessageSquareText size={16} aria-hidden="true"/>أرسلت ملاحظتك؛ المكتب سيراجعها ويعود إليك.</p>;
+  return <section id="quote" aria-labelledby={`quote-${requestId}`} className="scroll-mt-24 border-t border-line bg-copper-soft px-5 py-6 sm:px-8">
+    <h2 id={`quote-${requestId}`} className="display flex items-center gap-2 text-lg font-semibold"><FileSignature size={18} className="text-copper" aria-hidden="true"/>عرض السعر</h2>
+    <p className="mt-1 text-sm leading-7 text-quiet">أرسل المكتب سعر هذه الخدمة بتاريخ {formatDateTime(quote.quotedAt)}. بموافقتك تُصدر الفاتورة ويبدأ العمل.</p>
+    {amounts}
+    {quote.note && <p className="mt-3 whitespace-pre-wrap rounded-lg bg-surface px-4 py-3 text-sm leading-7">{quote.note}</p>}
+    {noting ? <form className="mt-4" onSubmit={e => { e.preventDefault(); void run(() => decline.mutateAsync({ id: requestId, data: reason.trim() ? { reason: reason.trim() } : {} })); }}>
+      <label className="form-field">ملاحظتك على العرض<textarea className="form-control !min-h-20" value={reason} onChange={e => setReason(e.target.value)} maxLength={500} placeholder="مثال: هل يشمل السعر رسوم الجهة؟" autoFocus/></label>
+      <div className="mt-3 flex flex-wrap gap-2"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{decline.isPending ? 'جارٍ الإرسال…' : 'إرسال الملاحظة'}</button><button type="button" className="btn btn-outline btn-sm" onClick={() => setNoting(false)} disabled={busy}>رجوع</button></div>
+    </form> : <div className="mt-4 flex flex-wrap gap-2">
+      <button type="button" className="btn btn-primary" disabled={busy} onClick={() => run(() => accept.mutateAsync({ id: requestId }))}><CircleCheck size={17} aria-hidden="true"/>{accept.isPending ? 'جارٍ التأكيد…' : 'أوافق وابدأ'}</button>
+      <button type="button" className="btn btn-outline" disabled={busy} onClick={() => setNoting(true)}><MessageSquareText size={17} aria-hidden="true"/>لديّ ملاحظة</button>
+    </div>}
+    {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
+  </section>;
+}
+
 // Invoices appear only when the office has issued one.
 function InvoicesSlot({ requestId, returnedInvoiceId }: { requestId: number; returnedInvoiceId: number | null }) {
-  return <div className="border-t border-line px-5 py-6 empty:hidden sm:px-8"><CustomerInvoices requestId={requestId} returnedInvoiceId={returnedInvoiceId}/></div>;
+  return <div id="invoices" className="scroll-mt-24 border-t border-line px-5 py-6 empty:hidden sm:px-8"><CustomerInvoices requestId={requestId} returnedInvoiceId={returnedInvoiceId}/></div>;
 }
 
 // Every status change with its date and time, oldest first. Refetched when the

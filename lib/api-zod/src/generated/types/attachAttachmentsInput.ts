@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AttachAttachmentsInputChecklistItem } from './attachAttachmentsInputChecklistItem';
 
 export interface AttachAttachmentsInput {
   /**
@@ -13,4 +14,9 @@ export interface AttachAttachmentsInput {
      * @items.minimum 1
      */
   attachmentIds: number[];
+  /**
+     * Link uploaded files to checklist items in the same call
+     * @maxItems 10
+     */
+  checklist?: AttachAttachmentsInputChecklistItem[];
 }

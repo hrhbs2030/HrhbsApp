@@ -69,9 +69,16 @@ function sitemap(siteUrl: string): Plugin {
         throw new Error(`HBS sitemap: services module exports ${moduleSlugs.size} slugs but the source scan found ${uniqueSlugs.size}.`);
       }
       const base = siteUrl.replace(/\/$/, '');
-      const lastmod = catalogueLastModified();
+      // <lastmod> per page: the last commit touching what renders it. A service
+      // page changes with its catalogue entry; a static page with its source.
+      const coreSet = new Set(coreSlugs);
+      const sources = (route: string): string[] => route === '/' ? ['src/pages/landing.tsx']
+        : route === '/services' ? ['src/pages/public.tsx', 'src/content/services.ts', 'src/content/platform-services.ts']
+        : route === '/privacy' || route === '/terms' ? ['src/pages/legal.tsx']
+        : route.startsWith('/services/') ? [coreSet.has(route.slice(10)) ? 'src/content/services.ts' : 'src/content/platform-services.ts']
+        : ['src/pages/public.tsx'];
       const paths = ['/', '/services', '/trust', '/help', '/privacy', '/terms', ...slugs.map((slug) => `/services/${slug}`)];
-      const body = paths.map((route) => `  <url><loc>${base}${route}</loc><lastmod>${lastmod}</lastmod></url>`).join('\n');
+      const body = paths.map((route) => `  <url><loc>${base}${route}</loc><lastmod>${lastModified(sources(route))}</lastmod></url>`).join('\n');
       this.emitFile({
         type: 'asset',
         fileName: 'sitemap.xml',
@@ -96,31 +103,44 @@ function sitemap(siteUrl: string): Plugin {
   };
 }
 
-// <lastmod> for every sitemap entry: the last commit touching the catalogue,
-// or the build time when git history is unavailable (for example on Replit).
-function catalogueLastModified(): string {
+// <lastmod> for a sitemap entry: the newest commit touching any of its source
+// files (one git call per distinct file set, memoised), or the build time when
+// git history is unavailable (for example on Replit).
+const buildTime = new Date().toISOString();
+const lastModifiedCache = new Map<string, string>();
+function lastModified(files: string[]): string {
+  const key = files.join(' ');
+  const cached = lastModifiedCache.get(key);
+  if (cached) return cached;
+  let date = buildTime;
   try {
-    const date = execFileSync('git', ['log', '-1', '--format=%cI', '--', 'src/content/services.ts'], {
+    const stamp = execFileSync('git', ['log', '-1', '--format=%cI', '--', ...files], {
       cwd: import.meta.dirname,
       stdio: ['ignore', 'pipe', 'ignore'],
       encoding: 'utf8',
     }).trim();
-    if (/^\d{4}-\d{2}-\d{2}T/.test(date)) return date;
+    if (/^\d{4}-\d{2}-\d{2}T/.test(stamp)) date = stamp;
   } catch {
-    // Fall through to the build date.
+    // Keep the build date.
   }
-  return new Date().toISOString();
+  lastModifiedCache.set(key, date);
+  return date;
 }
+
+// One public origin for the sitemap, robots.txt, the prerendered meta and the
+// SPA's own canonical (import.meta.env.VITE_SITE_URL, see src/App.tsx).
+const siteUrl = (process.env.SITE_URL ?? 'https://hrhbs.com').replace(/\/$/, '');
 
 export default defineConfig({
   base: basePath,
+  define: { 'import.meta.env.VITE_SITE_URL': JSON.stringify(siteUrl) },
   plugins: [
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
     reactQueryBuildCheck(),
     reactBuildCheck(),
-    sitemap(process.env.SITE_URL ?? 'https://hrhbs.com'),
+    sitemap(siteUrl),
     ...(process.env.NODE_ENV !== 'production' &&
     process.env.REPL_ID !== undefined
       ? [

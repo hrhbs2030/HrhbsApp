@@ -5,10 +5,12 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ChecklistItem } from './checklistItem';
 import type { OfficeCustomer } from './officeCustomer';
 import type { OfficeServiceRequestCategory } from './officeServiceRequestCategory';
 import type { OfficeServiceRequestStatus } from './officeServiceRequestStatus';
 import type { RequestLastMessage } from './requestLastMessage';
+import type { RequestQuote } from './requestQuote';
 import type { RequestSubject } from './requestSubject';
 import type { ServiceAttachment } from './serviceAttachment';
 
@@ -49,4 +51,6 @@ export interface OfficeServiceRequest {
   lastMessage: RequestLastMessage | null;
   /** The customer's user ID, for opening their file */
   userId: string;
+  quote: RequestQuote | null;
+  checklist: ChecklistItem[];
 }

@@ -132,6 +132,8 @@
       "payment_method": "text",
       "payment_reference": "text",
       "payment_url": "text",
+      "reminded_at": "timestamp with time zone",
+      "reminder_count": "integer not null",
       "request_id": "integer not null",
       "status": "text not null",
       "total_halalas": "integer not null",
@@ -172,6 +174,7 @@
       "user_id": "text not null"
     },
     "hbs_request_attachments": {
+      "checklist_key": "text",
       "content_type": "text not null",
       "created_at": "timestamp with time zone not null",
       "expires_at": "timestamp with time zone not null",
@@ -208,11 +211,18 @@
       "created_at": "timestamp with time zone not null",
       "customer_message": "text",
       "description": "text not null",
+      "document_checklist": "jsonb not null",
       "due_at": "timestamp with time zone",
       "employee_id": "integer",
       "id": "integer not null",
       "license_id": "integer",
       "office_note": "text",
+      "quote_accepted_at": "timestamp with time zone",
+      "quote_declined_at": "timestamp with time zone",
+      "quote_halalas": "integer",
+      "quote_note": "text",
+      "quoted_at": "timestamp with time zone",
+      "quoted_by": "text",
       "rated_at": "timestamp with time zone",
       "rating": "integer",
       "rating_comment": "text",
@@ -285,6 +295,10 @@
     "hbs_service_requests_category_check": {
       "table": "hbs_service_requests",
       "definition": "CHECK ((category = ANY (ARRAY['passports'::text, 'labor'::text, 'business'::text, 'other'::text])))"
+    },
+    "hbs_service_requests_quote_check": {
+      "table": "hbs_service_requests",
+      "definition": "CHECK (((quote_halalas IS NULL) OR (quote_halalas > 0)))"
     },
     "hbs_service_requests_rating_check": {
       "table": "hbs_service_requests",

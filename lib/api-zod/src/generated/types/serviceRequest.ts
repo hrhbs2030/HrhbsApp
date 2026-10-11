@@ -5,7 +5,9 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ChecklistItem } from './checklistItem';
 import type { RequestLastMessage } from './requestLastMessage';
+import type { RequestQuote } from './requestQuote';
 import type { RequestSubject } from './requestSubject';
 import type { ServiceAttachment } from './serviceAttachment';
 import type { ServiceRequestCategory } from './serviceRequestCategory';
@@ -38,4 +40,6 @@ export interface ServiceRequest {
   ratedAt: Date | null;
   subject: RequestSubject | null;
   lastMessage: RequestLastMessage | null;
+  quote: RequestQuote | null;
+  checklist: ChecklistItem[];
 }

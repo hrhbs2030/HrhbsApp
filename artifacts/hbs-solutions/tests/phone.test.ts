@@ -27,3 +27,10 @@ test('anything else is rejected', () => {
     assert.equal(normalizePhone(input), null, JSON.stringify(input));
   }
 });
+
+test('Saudi landlines are kept in the local form', () => {
+  assert.equal(normalizePhone('0112345678'), '0112345678');
+  assert.equal(normalizePhone('+966 11 234 5678'), '0112345678');
+  assert.equal(normalizePhone('٠١١٢٣٤٥٦٧٨'), '0112345678');
+  assert.equal(normalizePhone('0212345678'), null);
+});

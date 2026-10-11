@@ -309,7 +309,10 @@ const server = createServer(async (request, response) => {
 
     // Dot-directories (.vite/manifest.json) and build internals stay private.
     const extension = extname(pathname).toLowerCase();
-    if (pathname.includes('/.') || precompressedSuffixes.has(extension) || reservedFiles.has(pathname)) {
+    // Dot paths are build internals (.vite/) except /.well-known, which browsers
+    // and verifiers expect to be reachable.
+    const hiddenPath = pathname.includes('/.') && !pathname.startsWith('/.well-known/');
+    if (hiddenPath || precompressedSuffixes.has(extension) || reservedFiles.has(pathname)) {
       respond(response, 404, 'Not found');
       return;
     }

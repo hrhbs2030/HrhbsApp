@@ -138,7 +138,7 @@ function SceneVisual({ scene }: { scene: IntroScene['key'] }) {
 // `pageRef` is the page root the film covers: it is made inert while the film
 // plays so focus and taps cannot reach the page underneath. The film itself
 // renders in a portal on <body>, outside that root. `focusRef` (the replay
-// button, or several of which one is visible) gets focus back when the film
+// button, or several of which one is on screen) gets focus back when the film
 // ends; otherwise focus returns to where it was, or to #main.
 type FocusRef = RefObject<HTMLElement | null>;
 type IntroProps = { onDone: () => void; pageRef?: RefObject<HTMLElement | null>; focusRef?: FocusRef | FocusRef[] };
@@ -191,10 +191,18 @@ export function IntroSequence({ onDone, pageRef, focusRef }: IntroProps) {
       // Restored on every exit path, including an unmount mid-fade.
       document.documentElement.style.overflow = overflow;
       if (page) page.inert = false;
-      const visible = (el: HTMLElement | null | undefined): el is HTMLElement => !!el && el.isConnected && el.offsetParent !== null;
+      // Only a target inside the viewport may take focus: the page is still at
+      // the top, and focusing an off-screen button (the journey section's
+      // replay on phones) would strand the focus ring out of view. Otherwise
+      // the page root takes it, without scrolling.
+      const onScreen = (el: HTMLElement | null | undefined): el is HTMLElement => {
+        if (!el || !el.isConnected || el.offsetParent === null) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.bottom > 0 && rect.top < window.innerHeight && rect.right > 0 && rect.left < window.innerWidth;
+      };
       const replays = (Array.isArray(focusRef) ? focusRef : [focusRef]).map((ref) => ref?.current);
-      const target = [...replays, previous !== document.body ? previous : null].find(visible) ?? document.getElementById('main');
-      target?.focus({ preventScroll: true });
+      const target = [...replays, previous !== document.body ? previous : null].find(onScreen) ?? document.getElementById('main') ?? document.querySelector('h1');
+      (target as HTMLElement | null)?.focus({ preventScroll: true });
     };
   }, [leave, pageRef, focusRef]);
 

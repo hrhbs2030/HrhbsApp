@@ -28,9 +28,9 @@ async function move(requestId: number, from: string, to: string, reason: string)
   });
 }
 
-// The customer answered (a message or a document): the request goes back
-// to the office's review queue.
-export async function resumeAfterCustomerReply(requestId: number, reason: "customer_message" | "customer_file") {
+// The customer answered (a message, a document, the last checklist item or
+// a decision on the quote): the request goes back to the office's review queue.
+export async function resumeAfterCustomerReply(requestId: number, reason: "customer_message" | "customer_file" | "checklist_complete" | "quote_accepted" | "quote_declined") {
   try { return await move(requestId, "waiting_on_customer", "reviewing", reason); }
   catch (err) { logger.warn({ err, requestId }, "Automatic status change failed"); return null; }
 }

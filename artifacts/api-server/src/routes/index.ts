@@ -10,6 +10,9 @@ import catalogRouter from "./catalog";
 import remindersRouter from "./reminders";
 import reportsRouter from "./reports";
 import companyRouter from "./company";
+import quotesRouter from "./quotes";
+import checklistRouter from "./checklist";
+import wathqRouter from "./wathq";
 import { requireOfficeStaff } from "../lib/office-access";
 
 const router: IRouter = Router();
@@ -26,5 +29,8 @@ router.use(billingRouter);
 router.use(remindersRouter);
 router.use(reportsRouter);
 router.use(companyRouter);
+router.use(quotesRouter);
+router.use(checklistRouter);
+router.use(wathqRouter);
 
 export default router;

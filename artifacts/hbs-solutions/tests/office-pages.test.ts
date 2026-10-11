@@ -49,7 +49,11 @@ const server = await createServer({
         'export const statusOptions = ["received", "reviewing", "waiting_on_customer", "completed"];',
         'export const statusNames = { received: "جديد", reviewing: "مراجعة", waiting_on_customer: "بانتظار العميل", completed: "مكتمل" };',
       ].join('\n');
-      if (id === '\0office-extras') return 'export const OfficeInvoices = () => null; export const ExtractReminder = () => null; export const RequestConversation = () => null; export const ReplyBadge = () => null; export const SubjectChip = () => null;';
+      if (id === '\0office-extras') return [
+        'export const OfficeInvoices = () => null; export const ExtractReminder = () => null; export const QuotePanel = () => null; export const ChecklistEditor = () => null; export const RequestConversation = () => null; export const ReplyBadge = () => null; export const SubjectChip = () => null;',
+        // The confirmation dialog, reduced to its confirm button while open.
+        'import React from "react"; export const ConfirmDialog = ({ open, confirmLabel, onConfirm }) => open ? React.createElement("button", { "data-confirm": true, onClick: onConfirm }, confirmLabel) : null;',
+      ].join('\n');
       if (id === '\0office-query') return 'export const useQueryClient = () => globalThis.__office.qc;';
       if (id === '\0office-router') return 'export const useSearch = () => globalThis.__office.search; export const Link = ({children}) => children;';
     },
@@ -61,7 +65,7 @@ after(async () => server.close());
 const { OfficeRequests, OfficeInquiries } = await server.ssrLoadModule('/src/pages/office.tsx');
 const { OfficeStaff, OfficeAuditLog } = await server.ssrLoadModule('/src/pages/office-admin.tsx');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-globalThis.window = { matchMedia: () => ({ matches: true }), confirm: () => true };
+globalThis.window = { matchMedia: () => ({ matches: true }) };
 
 const date = '2026-09-20T12:00:00.000Z';
 const request = (id, updatedAt = date) => ({
@@ -241,6 +245,8 @@ test('staff and audit render direct API arrays, showing actions and actor fallba
   await submit(nodes(staff, 'form')[0]);
   assert.deepEqual(calls.add, [{ data: { email: 'new@example.test' } }]);
   await click(nodes(staff, 'button').find(n => text(n) === 'إزالة الصلاحية'));
+  assert.equal(calls.remove.length, 0, 'nothing is removed before the in-page confirmation');
+  await click(nodes(staff, 'button').find(n => n.props['data-confirm']));
   assert.deepEqual(calls.remove, [{ userId: 'staff' }]);
   assert.ok(calls.invalidated.some(key => key[0] === 'getListOfficeAuditLogQueryKey'));
   await act(async () => staff.unmount());

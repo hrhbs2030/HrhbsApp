@@ -1,23 +1,25 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { AlertCircle } from 'lucide-react';
+import { Link } from 'wouter';
+import { ArrowLeft, CircleHelp } from 'lucide-react';
+import { PublicPage } from '@/components/site-chrome';
+import '@/pages/public.css';
 
+// Unknown address (the server answers 404 with the SPA shell; the SPA then
+// renders this). Same chrome as the other public pages so the visitor can
+// navigate on from here instead of hitting a dead end.
 export default function NotFound() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">
-              404 Page Not Found
-            </h1>
+    <PublicPage intro={<header className="pub-intro"><p className="eyebrow">404</p><h1 className="display">الصفحة غير موجودة</h1><p className="pub-intro-lead">قد يكون الرابط غير صحيح أو تغيّر مكان الصفحة. تصفّح دليل الخدمات أو عد إلى الرئيسية.</p></header>}>
+      <div className="site-wrap pub-page">
+        <div className="surface pub-empty">
+          <CircleHelp size={28} strokeWidth={1.5} aria-hidden="true" />
+          <h2 className="display">لم نعثر على هذه الصفحة</h2>
+          <p>تأكد من الرابط، أو ابحث عمّا تحتاجه في دليل الخدمات.</p>
+          <div className="pub-help-actions">
+            <Link href="/services" className="btn btn-primary">دليل الخدمات <ArrowLeft size={17} strokeWidth={1.75} aria-hidden="true" /></Link>
+            <Link href="/" className="btn btn-outline">العودة للرئيسية</Link>
           </div>
-
-          <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </div>
+    </PublicPage>
   );
 }

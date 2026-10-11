@@ -156,6 +156,12 @@
 .pub-help-actions { display: grid; gap: 10px; }
 @media (max-width: 1180px) { .pub-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 860px) { .pub-split { grid-template-columns: minmax(0, 1fr); } .pub-aside { position: static; } }
+/* The wizard and the toolbar swap places on phones (see ServicesDirectory). */
+.pub-directory-top { display: flex; flex-direction: column; }
+@media (max-width: 900px) {
+  .pub-directory-top .pub-toolbar { order: -1; margin-bottom: 36px; }
+  .pub-directory-top .service-discovery { margin-bottom: 28px; }
+}
 @media (max-width: 600px) {
   .pub-intro .pub-intro-lead, .pub-detail-lead { font-size: 16.5px; }
   .pub-crumbs { gap: 4px 8px; margin-bottom: 14px; }
@@ -182,7 +188,7 @@
 .pub-group-head p { margin: 0; color: var(--color-subtle); font-size: 14px; line-height: 1.7; }
 .pub-group-count { color: var(--color-copper); font-weight: 700; }
 .pub-detail-intro { max-width: 40em; margin: 0 0 20px; color: var(--color-ink); font-size: 17.5px; line-height: 1.95; }
-.pub-cta-inline { display: none; align-items: center; flex-wrap: wrap; gap: 12px 16px; margin: 0 0 24px; color: var(--color-subtle); font-size: 14px; }
+.pub-cta-inline { display: none; align-items: center; flex-wrap: wrap; gap: 12px 16px; margin: 0 0 22px; color: var(--color-subtle); font-size: 14px; }
 .pub-cta-inline .btn { min-height: 50px; }
 .pub-flow-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: none; }
 .pub-flow-list li { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: start; column-gap: 12px; font-size: 16px; line-height: 1.8; }

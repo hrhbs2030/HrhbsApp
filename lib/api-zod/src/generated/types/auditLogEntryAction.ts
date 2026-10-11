@@ -41,4 +41,8 @@ export const AuditLogEntryAction = {
   employeeimport: 'employee.import',
   licenseimport: 'license.import',
   automationupdate: 'automation.update',
+  service_requestquote: 'service_request.quote',
+  service_requestquote_accept: 'service_request.quote_accept',
+  service_requestquote_decline: 'service_request.quote_decline',
+  service_requestchecklist: 'service_request.checklist',
 } as const;

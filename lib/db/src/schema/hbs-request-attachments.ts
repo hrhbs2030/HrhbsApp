@@ -13,6 +13,8 @@ export const hbsRequestAttachments = pgTable("hbs_request_attachments", {
   contentType: text("content_type").notNull(),
   size: integer("size").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  // The request's document_checklist item this file fulfils, if any.
+  checklistKey: text("checklist_key"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("hbs_request_attachments_request_idx").on(table.requestId),

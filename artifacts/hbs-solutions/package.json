@@ -19,8 +19,10 @@
     "test:react-build-check": "tsx --test tests/react-build-check.test.ts",
     "test:react-query-build-check": "tsx --test tests/react-query-build-check.test.ts",
     "test:excel": "tsx --test tests/excel-rows.test.ts",
-    "test:lib": "tsx --test tests/phone.test.ts tests/days-until.test.ts",
-    "test:content": "tsx --test tests/service-content.test.ts"
+    "test:lib": "tsx --test tests/phone.test.ts tests/days-until.test.ts tests/tasks.test.ts tests/image.test.ts tests/export.test.ts",
+    "test:content": "tsx --test tests/service-content.test.ts",
+    "test:customer": "tsx --test tests/customer-pages.test.ts",
+    "test:office-extras": "tsx --test tests/office-extras.test.ts"
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",
