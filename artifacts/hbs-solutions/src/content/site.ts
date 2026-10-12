@@ -1,7 +1,30 @@
 // Public-site copy. Every statement here describes what the code actually does;
 // keep it that way when editing (no prices, times, counts or endorsements).
+//
+// The copy speaks to the owner of an establishment who has a problem: a
+// document that expires, an indicator that changed, a note from an authority.
+// It says what the office does and what the portal shows, and never promises
+// the authority's decision or an indicator going up.
 
+// The landing page shows the first five questions, so the problem-oriented
+// ones come first; the help page shows them all.
 export const faqs = [
+  {
+    question: 'ظهرت ملاحظة على ملف الأجور، ماذا أرسل؟',
+    answer: 'أرسل طلب «متابعة الالتزام بحماية الأجور» من حسابك، واكتب الملاحظة كما تظهر لك في مُدد مع الفترة المعنية، وأرفق صورة منها إن أمكن. يحدد المكتب سببها ويعدّ التصحيح، وإن احتاج مستندًا تجده في قائمة المستندات داخل الطلب. لا ترسل بيانات دخول أي منصة.',
+  },
+  {
+    question: 'تغيّر مؤشر منشأتي، هل تعرفون السبب؟',
+    answer: 'نفحصه. أرسل طلبًا واكتب ما تراه: اسم المنصة، والمؤشر الذي تغيّر، ومتى لاحظت ذلك. يراجع المكتب ما يظهر على منشأتك في قوى ومُدد والتأمينات الاجتماعية، ويكتب لك في محادثة الطلب ما وجده وما يلزم من طرفك. لا نعد بتغيير المؤشر؛ نعالج سببه.',
+  },
+  {
+    question: 'كيف أتابع معالجة الملاحظة؟',
+    answer: 'من صفحة الطلب في «طلباتي». ترى الحالة تتغير من «تم الاستلام» إلى «قيد المراجعة» ثم «تم الرفع للجهة» ثم «مكتملة»، وكل ما كتبه المكتب في محادثة الطلب. إن احتاج منك شيئًا تصبح الحالة «بانتظار العميل» ويصلك تنبيه بالبريد.',
+  },
+  {
+    question: 'عندي إقامات ورخص تنتهي في تواريخ متفرقة، كيف أضبطها؟',
+    answer: 'سجّل تواريخ الانتهاء في «تنبيهات وثائقي» أو في ملف المنشأة مع موظفيها ورخصها، ويصلك تذكير بالبريد قبل الانتهاء بـ30 يومًا ثم 7 أيام ثم يوم واحد. وعندما يحين التجديد، أرسل طلبه من حسابك واسم الخدمة معبّأ مسبقًا.',
+  },
   {
     question: 'كيف أبدأ باستخدام البوابة؟',
     answer: 'أنشئ حسابك بالبريد الإلكتروني وأكّده، ثم قدّم طلب التسجيل. يراجعه المكتب، وبعد الموافقة تُتاح لك الخدمات. ترى حالة طلب التسجيل في حسابك.',
@@ -50,63 +73,124 @@ export const faqs = [
 // covers them and the owner keeps the option on. No prices live here; they
 // come from the plans the office publishes.
 export const plansCopy = {
-  title: 'باقات الاشتراك',
-  intro: 'اشتراك شهري يغطي متابعة ملف منشأتك وموظفيها. تصدر الفاتورة الأولى فور الاشتراك، ثم فاتورة كل شهر في موعد التجديد.',
+  title: 'متابعة الالتزام شهريًا',
+  intro: 'اشتراك شهري يتابع فيه المكتب التزام منشأتك: إقامات موظفيك ورخصك وعقودك المسجّلة في ملف المنشأة، قبل أن يصبح انتهاؤها تأخيرًا. تصدر الفاتورة الأولى فور الاشتراك، ثم فاتورة كل شهر في موعد التجديد.',
   empty: 'لا توجد باقات منشورة حاليًا',
-  emptyText: 'عندما ينشر المكتب باقاته تظهر هنا مع أسعارها.',
+  emptyText: 'عندما ينشر المكتب باقاته تظهر هنا مع أسعارها وما تغطيه كل باقة.',
   autoRenewals: 'تجديد تلقائي',
-  autoRenewalsHint: 'تفتح البوابة طلب تجديد تلقائيًا قبل انتهاء وثائق الموظفين والتراخيص المسجّلة في ملف المنشأة.',
+  autoRenewalsHint: 'تفتح البوابة طلب تجديد تلقائيًا قبل انتهاء وثائق الموظفين والتراخيص المسجّلة في ملف المنشأة، فلا تنتظر حتى تظهر الملاحظة.',
   autoRenewalsToggle: 'افتح طلبات التجديد تلقائيًا قبل انتهاء الوثائق',
   cancelTitle: 'إلغاء الاشتراك؟',
-  cancelText: 'تتوقف الفواتير الشهرية، وتبقى مزايا الباقة حتى نهاية الفترة المدفوعة.',
+  cancelText: 'تتوقف الفواتير الشهرية، وتبقى مزايا الباقة حتى نهاية الفترة المدفوعة. تبقى تنبيهات الوثائق في حسابك كما هي.',
 };
 
 // How any request moves through this portal. Service pages show it unless the
 // service declares its own `steps`; the wording matches the milestones in
 // content/milestones.ts and the pauses the request page really shows.
+// No digits here: the service-content test checks it.
 export const portalFlow = [
-  'أرسل الطلب من حسابك، واسم الخدمة معبّأ مسبقًا، واكتب ما تعرفه عن حالتك.',
-  'يراجع المكتب الطلب ويحدّث حالته، وتصلك رسالة بريد مع كل تحديث.',
-  'إن احتاج المكتب معلومة أو مستندًا، يكتب لك في محادثة الطلب وترفع المطلوب من صفحته.',
-  'تتابع الحالة من «طلباتي» حتى «تم الرفع للجهة» ثم «مكتملة».',
+  'أرسل الطلب من حسابك، واسم الخدمة معبّأ مسبقًا، واكتب حالتك كما هي: الوثيقة التي تنتهي، أو الملاحظة كما وصلتك، أو المؤشر الذي تغيّر.',
+  'يراجع المكتب الطلب ويحدد ما يلزم، ويحدّث حالته، وتصلك رسالة بريد مع كل تحديث.',
+  'إن احتاج المكتب معلومة أو مستندًا، يكتب لك في محادثة الطلب وتجد المطلوب في قائمة المستندات، فترفعه من صفحة الطلب.',
+  'تتابع الحالة من «طلباتي» حتى «تم الرفع للجهة» ثم «مكتملة»، ومعها تفسير المكتب لما جرى.',
   'عند إصدار فاتورة تظهر في صفحة الطلب، وتسدّدها إلكترونيًا أو لدى المكتب.',
 ];
 
 // The journey, in the order a customer lives it. `stage` is the milestone
 // index in content/milestones.ts (a `pause` sits on the review milestone).
 export const journey = [
-  { stage: 0, kicker: 'قبل الطلب', title: 'اختر الخدمة من الدليل', text: 'ابحث في الدليل أو اختر المجال، وستجد لكل خدمة ما يفيد المكتب أن تذكره في طلبك.' },
-  { stage: 0, kicker: 'الطلب', title: 'اكتب التفاصيل وراجعها', text: 'ثلاث خطوات: الخدمة، ثم التفاصيل ورقم التواصل، ثم مراجعة أخيرة قبل الإرسال.' },
-  { stage: 0, kicker: 'فور الإرسال', title: 'رقم مرجعي فور الإرسال', text: 'يصل الطلب إلى المكتب في اللحظة نفسها، ويظهر في حسابك بحالة «تم الاستلام».' },
-  { stage: 1, kicker: 'أثناء العمل', title: 'المكتب يراجع ويحدّث الحالة', text: 'كل تحديث يظهر في صفحة طلبك ويصلك بالبريد، حتى «تم الرفع للجهة»، فلا تحتاج إلى الاتصال للسؤال.' },
-  { stage: 1, pause: 'waiting_on_customer', kicker: 'عند الحاجة', title: 'إن احتاج المكتب شيئًا، تعرف فورًا', text: 'تصبح الحالة «بانتظار العميل» ويظهر تنبيه في حسابك، فتردّ أو ترفع المستند من صفحة الطلب.' },
-  { stage: 3, kicker: 'النهاية', title: 'اكتمل الطلب', text: 'تصبح الحالة «مكتملة»، ويبقى الطلب بتفاصيله في سجلك، ويمكنك تقييم الخدمة.' },
+  { stage: 0, kicker: 'قبل الطلب', title: 'ابدأ من المشكلة لا من اسم الخدمة', text: 'ملاحظة وصلتك، أو مؤشر تغيّر، أو وثيقة تنتهي قريبًا. ابحث في الدليل بما تراه أمامك، وستجد الخدمة المناسبة وما يفيد المكتب أن تذكره.' },
+  { stage: 0, kicker: 'الطلب', title: 'اكتب ما تراه كما هو', text: 'الخدمة، ثم التفاصيل ورقم التواصل، ثم مراجعة أخيرة. انسخ نص الملاحظة أو اسم المؤشر كما يظهر لك، فهذا ما يبدأ به المكتب.' },
+  { stage: 0, kicker: 'فور الإرسال', title: 'رقم مرجعي وحالة «تم الاستلام»', text: 'يصل الطلب إلى المكتب في اللحظة نفسها، ويظهر في حسابك برقمه وحالته، فلا تتساءل هل وصل.' },
+  { stage: 1, kicker: 'أثناء العمل', title: 'المكتب يحدد السبب ويعالج', text: 'يفحص المكتب ما يظهر على منشأتك، ويعدّ التصحيح أو التجديد أو الاعتراض، ويرفعه إلى الجهة المختصة. كل تحديث يظهر في صفحة طلبك ويصلك بالبريد.' },
+  { stage: 1, pause: 'waiting_on_customer', kicker: 'عند الحاجة', title: 'إن احتاج المكتب شيئًا منك، تعرف فورًا', text: 'تصبح الحالة «بانتظار العميل»، وتجد ما يلزم في قائمة المستندات أو في محادثة الطلب، فترفعه من الصفحة نفسها ويستأنف المكتب العمل.' },
+  { stage: 3, kicker: 'النهاية', title: 'تُغلق الملاحظة أو تُجدَّد الوثيقة', text: 'تصبح الحالة «مكتملة»، ويبقى الطلب بتفاصيله وتفسير المكتب في سجلك، ويمكنك تقييم الخدمة.' },
 ];
 
 export const trustFacts = [
-  { title: 'طلباتك لك وحدك', text: 'كل طلب واستفسار مرتبط بحسابك، ولا يطّلع عليه إلا فريق المكتب المخوّل.' },
-  { title: 'إجراءات المكتب مسجّلة', text: 'كل تحديث للحالة وكل رد ومراجعة تسجيل يُحفظ في سجل تدقيق داخلي بوقته ومنفّذه.' },
+  { title: 'ملاحظات منشأتك لا يراها غيرك', text: 'كل طلب واستفسار مرتبط بحسابك، ولا يطّلع على ملاحظاتك ومستنداتك إلا فريق المكتب المخوّل.' },
+  { title: 'ما فعله المكتب في طلبك مسجّل', text: 'كل تحديث للحالة وكل رد يُحفظ في سجل تدقيق داخلي بوقته ومنفّذه، فتعرف ما جرى في معالجة ملاحظتك ومتى.' },
   { title: 'رقم مرجعي لكل طلب', text: 'يصدر لحظة الإرسال، واذكره في أي تواصل مع المكتب ليصل إلى طلبك مباشرة.' },
 ];
 
 // Public examples only. The live assistant answers from office-reviewed
 // published guidance and redirects to the office when no verified answer exists.
+// It never sees a customer's requests and never executes anything, so each
+// example says what to send and where to follow it, not what will happen.
 export const assistantName = 'أم مشعل';
 export const assistantExamples = [
   {
+    question: 'ظهرت ملاحظة على ملف الأجور، ماذا أفعل؟',
+    answer: 'أرسل طلب «متابعة الالتزام بحماية الأجور» من حسابك، واكتب الملاحظة كما تظهر لك مع الفترة المعنية. أنا لا أرى طلباتك ولا أعالج الملاحظة؛ فريق المكتب يحدد سببها ويكتب لك في محادثة الطلب.',
+  },
+  {
+    question: 'تغيّر مؤشر منشأتي، لماذا؟',
+    answer: 'لا أستطيع الاطلاع على منشأتك في المنصات. أرسل طلبًا واكتب اسم المنصة والمؤشر الذي تغيّر، وسيفحصه فريق المكتب ويخبرك بما وجده وما يلزم من طرفك.',
+  },
+  {
+    question: 'رخصة البلدية تنتهي قريبًا، كيف أجدّدها؟',
+    answer: 'أرسل طلب «تجديد رخصة نشاط تجاري» من حسابك مع تاريخ الانتهاء، وسجّل التاريخ في «تنبيهات وثائقي» ليصلك تذكير قبله. المكتب ينفّذ التجديد، وأنا أرشدك إلى الخطوات فقط.',
+  },
+  {
     question: 'كيف أتابع حالة طلبي؟',
     answer: 'افتح «طلباتي» من حسابك. يظهر كل طلب برقمه المرجعي وحالته الحالية، وتتغير الحالة عندما يحدّثها المكتب.',
-  },
-  {
-    question: 'ماذا تعني حالة «بانتظار العميل»؟',
-    answer: 'يحتاج المكتب معلومة منك لإكمال الطلب. افتح الطلب وأرسل استفسارًا مرتبطًا به لمعرفة المطلوب.',
-  },
-  {
-    question: 'هل يمكنك تأسيس شركتي الآن؟',
-    answer: 'لا أستطيع تنفيذ أي معاملة. أرسل طلب «تأسيس شركة» من حسابك، وسيراجعه فريق المكتب ويتواصل معك.',
   },
   {
     question: 'هل أرفق صور المستندات مع الطلب؟',
     answer: 'نعم، أرفقها عند إرسال الطلب أو من صفحة الطلب لاحقًا: PDF أو صور JPG وPNG حتى 10 ميغابايت للملف. يطّلع عليها فريق المكتب فقط.',
   },
 ];
+
+// The three problems establishments bring to the office most, in the words
+// they use. Landing page, service guide and discovery wizard all read from
+// here so the story stays one. Rules as above: what the office does and what
+// the portal shows, no promises about the authority's decision, no digits.
+export type ProblemKey = 'compliance' | 'indicator' | 'observations';
+export type Problem = {
+  key: ProblemKey;
+  title: string;
+  // The situation as the owner feels it.
+  pain: string;
+  // What the office does about it, through this portal.
+  approach: string;
+  // Where it shows in the portal (status, conversation, checklist, reminders).
+  portal: string;
+  // Service slugs (content/services.ts) that address it, most relevant first.
+  services: string[];
+  cta: string;
+};
+export const problems: Problem[] = [
+  {
+    key: 'compliance',
+    title: 'التزام المنشأة',
+    pain: 'إقامات ورخص عمل وعقود وتأمينات ورخص بلدية تنتهي في تواريخ متفرقة، وكل واحدة تتأخر توقف معها معاملة أخرى تحتاجها.',
+    approach: 'يراجع المكتب وضع منشأتك كما تصفه، ويرتّب التجديدات والتوثيقات عبر المنصات المختصة، ويخبرك بما يلزم من طرفك قبل أن يصبح الانتهاء تأخيرًا.',
+    portal: 'ملف المنشأة يحفظ موظفيك ورخصك وتواريخ انتهائها، وتنبيهات الوثائق تذكّرك قبلها، وكل طلب تجديد يظهر بحالته في حسابك.',
+    services: ['work-permit', 'iqama-renewal', 'contract-documentation', 'social-insurance', 'balady-license-renewal'],
+    cta: 'ابدأ بملف منشأتك',
+  },
+  {
+    key: 'indicator',
+    title: 'مؤشرات المنشأة في المنصات',
+    pain: 'نطاق المنشأة أو مؤشر الالتزام يتغيّر دون أن تعرف السبب، وتتعطل معه خدمات تحتاجها الآن.',
+    approach: 'يفحص المكتب ما يظهر على منشأتك في قوى ومُدد والتأمينات الاجتماعية، ويحدد ما يؤثر في المؤشر، ثم يعالج ما يمكن معالجته من جهته ويخبرك بما يحتاج قرارًا منك.',
+    portal: 'تتابع المعالجة خطوة بخطوة من صفحة الطلب، وتجد تفسير المكتب لكل ما وجده في محادثة الطلب نفسه.',
+    services: ['mudad-payroll-followup', 'wage-protection', 'qiwa-contract-management', 'gosi-wage-update', 'service-transfer'],
+    cta: 'أرسل ما يظهر لك',
+  },
+  {
+    key: 'observations',
+    title: 'معالجة الملاحظات',
+    pain: 'ملاحظة على ملف الأجور، أو من زيارة تفتيشية، أو رفض في منصة، وأنت لا تعرف من أين تبدأ ولا ماذا يُطلب منك.',
+    approach: 'أرسل الملاحظة كما وصلتك. يحدد المكتب سببها، ويعدّ ما يلزم لتصحيحها أو الاعتراض عليها، ويتابعها مع الجهة المختصة حتى تُغلق، ويخبرك بما يلزم من طرفك في كل مرحلة.',
+    portal: 'قائمة المستندات المطلوبة داخل الطلب، وحالة «بانتظار العميل» عندما يحتاج المكتب شيئًا منك، وتنبيه بالبريد وواتساب عند كل تحديث.',
+    services: ['mudad-payroll-followup', 'wage-protection', 'work-permit', 'balady-license-amendment', 'zatca-tax-data-update'],
+    cta: 'أرسل الملاحظة',
+  },
+];
+
+// Where each problem's call to action lands. Compliance starts in the company
+// file, where the expiry dates live («ابدأ بملف منشأتك»); the other two start
+// with a request carrying what the owner sees. Landing page, service guide and
+// discovery wizard all read from here so the button and its destination match.
+export const problemHref: Record<ProblemKey, string> = { compliance: '/company', indicator: '/requests/new', observations: '/requests/new' };

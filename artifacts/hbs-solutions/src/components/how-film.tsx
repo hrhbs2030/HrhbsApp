@@ -8,12 +8,14 @@ import { formatNumber } from '@/lib/format';
 import { useReducedMotion } from '@/lib/motion';
 import './how-film.css';
 
-// A short illustrated film for «كيف تعمل البوابة»: one request, from choosing
-// a service to completion. Motion is CSS only (transform/opacity); each scene
+// A short illustrated film for «كيف تعمل البوابة»: one concrete story. A note
+// appears on an establishment's wage file in مُدد; the owner sends it, the
+// office finds the cause, asks for one document, submits the correction and
+// the note is closed. Motion is CSS only (transform/opacity); each scene
 // remounts so its animations start fresh, and the progress bar of the current
 // scene decides when to move on, so pausing stops everything together.
-// Data shown is illustrative (the reference number is an example). Stage
-// names come from content/milestones.ts, the same list the portal shows.
+// Data shown is illustrative (the reference number and the cause are examples).
+// Stage names come from content/milestones.ts, the same list the portal shows.
 
 const P = 'hf';
 const REF = 'HBS-2026-00041';
@@ -22,22 +24,25 @@ const waiting = pauses.waiting_on_customer.label;
 
 // `lines` are what the characters say, in order, with the second each line
 // appears: the SVG bubbles read them, and under 720px they double as an HTML
-// subtitle strip (the SVG text is too small to read on a phone).
+// subtitle strip (the SVG text is too small to read on a phone). Keep each
+// line at eight words or fewer: Bubble widens with text length (7.7px a
+// character) and a client-side line longer than ~36 characters runs off the
+// 960px stage.
 type Line = { text: string; at: number; who?: 'office' | 'status' };
 type Scene = { title: string; text: string; seconds: number; rail: number | null; pause?: PauseKey; pose: Pose; lines: Line[] };
 const scenes: Scene[] = [
-  { title: 'اختر الخدمة', text: 'تبحث في دليل الخدمات وتختار ما تحتاجه، ثم تكتب تفاصيل طلبك وتراجعها.', seconds: 4.4, rail: null, pose: 'phone',
-    lines: [{ text: 'أختار الخدمة من الدليل', at: 0.3 }] },
-  { title: 'أرسل الطلب', text: `يصل الطلب إلى المكتب فورًا برقم مرجعي، وحالته «${received}».`, seconds: 4.4, rail: 0, pose: 'talk',
-    lines: [{ text: 'أرسلت الطلب', at: 0.1 }, { text: `${REF} · ${received}`, at: 2.1, who: 'status' }] },
-  { title: 'المكتب يراجع', text: 'يعمل فريق المكتب على طلبك، وتتحدّث الحالة في حسابك أولًا بأول.', seconds: 4.4, rail: 1, pose: 'phone',
-    lines: [{ text: 'نراجع طلبك الآن', at: 0.5, who: 'office' }, { text: `الحالة: ${reviewing}`, at: 2.2, who: 'status' }] },
-  { title: 'عند الحاجة إليك', text: `إن احتاج المكتب مستندًا تصبح الحالة «${waiting}» ويصلك تنبيه، فترفعه من صفحة الطلب نفسها.`, seconds: 5.2, rail: 1, pause: 'waiting_on_customer', pose: 'phone',
-    lines: [{ text: 'المكتب يحتاج صورة الإقامة', at: 1.4 }, { text: 'وصل المستند', at: 4.3, who: 'status' }] },
-  { title: 'رُفع للجهة', text: `يرفع المكتب طلبك إلى الجهة المختصة ويتابعه، والحالة «${submitted}».`, seconds: 4.4, rail: 2, pose: 'talk',
-    lines: [{ text: 'رفعنا طلبك للجهة المختصة', at: 0.4, who: 'office' }, { text: `الحالة: ${submitted}`, at: 2.3, who: 'status' }] },
-  { title: 'اكتمل الطلب', text: `تصبح الحالة «${completed}» ويصلك بريد بذلك، ويبقى الطلب في سجلك.`, seconds: 4.6, rail: 3, pose: 'talk',
-    lines: [{ text: 'وصلني بريد: اكتمل طلبك', at: 2.7 }] },
+  { title: 'ظهرت ملاحظة', text: 'تظهر على ملف الأجور في مُدد ملاحظة لا تعرف سببها، فتبحث في دليل الخدمات وتختار متابعة الالتزام بحماية الأجور.', seconds: 4.4, rail: null, pose: 'phone',
+    lines: [{ text: 'ظهرت ملاحظة على ملف الأجور', at: 0.3 }] },
+  { title: 'أرسل الملاحظة', text: `تكتب الملاحظة كما ظهرت لك مع تاريخها، فيصل الطلب إلى المكتب فورًا برقم مرجعي وحالته «${received}».`, seconds: 4.4, rail: 0, pose: 'talk',
+    lines: [{ text: 'أرسلت الملاحظة كما ظهرت لي', at: 0.1 }, { text: `${REF} · ${received}`, at: 2.1, who: 'status' }] },
+  { title: 'المكتب يحدد السبب', text: 'يفحص المكتب ما يظهر على منشأتك في مُدد ويحدد سبب الملاحظة، وتقرأ تفسيره في محادثة الطلب.', seconds: 4.4, rail: 1, pose: 'phone',
+    lines: [{ text: 'السبب: أجر موظف يخالف عقده', at: 0.5, who: 'office' }, { text: `الحالة: ${reviewing}`, at: 2.2, who: 'status' }] },
+  { title: 'مستند واحد منك', text: `يحتاج المكتب كشف رواتب ذلك الشهر، فتصبح الحالة «${waiting}» ويصلك تنبيه، وترفعه من قائمة المستندات في الطلب نفسه.`, seconds: 5.2, rail: 1, pause: 'waiting_on_customer', pose: 'phone',
+    lines: [{ text: 'المكتب يطلب كشف رواتب الشهر', at: 1.4 }, { text: 'وصل كشف الرواتب', at: 4.3, who: 'status' }] },
+  { title: 'رُفع التصحيح', text: `يعدّ المكتب التصحيح ويرفعه إلى الجهة المختصة ويتابعه، والحالة «${submitted}».`, seconds: 4.4, rail: 2, pose: 'talk',
+    lines: [{ text: 'رفعنا التصحيح للجهة المختصة ونتابعه', at: 0.4, who: 'office' }, { text: `الحالة: ${submitted}`, at: 2.3, who: 'status' }] },
+  { title: 'أُغلقت الملاحظة', text: `حين تُغلق الملاحظة تصبح الحالة «${completed}» ويصلك بريد بذلك، ويبقى الطلب في سجلك.`, seconds: 4.6, rail: 3, pose: 'talk',
+    lines: [{ text: 'وصلني بريد: أُغلقت الملاحظة', at: 2.7 }] },
 ];
 
 // Office and client positions in the 960 × 540 stage.
@@ -120,9 +125,9 @@ function SceneLayer({ index }: { index: number }) {
             <rect x="-24" y="-130" width="48" height="6" rx="3" fill="#1f3a3d" />
             <text x="0" y="-98" textAnchor="middle" direction="rtl" className="hf-ui hf-ui--head">دليل الخدمات</text>
             <rect x="-62" y="-84" width="124" height="22" rx="11" fill="#10292c" stroke="#376064" />
-            <text x="48" y="-68.5" textAnchor="start" direction="rtl" className="hf-ui hf-ui--dim">ابحث عن خدمة…</text>
+            <text x="48" y="-68.5" textAnchor="start" direction="rtl" className="hf-ui hf-ui--query">ملاحظة ملف الأجور</text>
             <g className="hf-pick"><rect x="-66" y="-50" width="132" height="38" rx="10" fill="#e5a27b" opacity=".22" stroke="#e5a27b" strokeOpacity=".7" /></g>
-            {['تجديد إقامة', 'تأسيس شركة', 'إدارة المنصات'].map((label, i) => (
+            {['متابعة الالتزام', 'حماية الأجور', 'ملفات الرواتب'].map((label, i) => (
               <text key={label} x="54" y={-25 + i * 46} textAnchor="start" direction="rtl" className="hf-ui">{label}</text>
             ))}
             <g className="hf-pop" style={{ animationDelay: '2.1s' }} transform="translate(-44 17)"><circle r="9" fill="#2f6446" /><path d="M-4 0 L-1 3.4 L4.4 -3" fill="none" stroke="#f6efe3" strokeWidth="2" strokeLinecap="round" /></g>
@@ -254,7 +259,7 @@ export function HowFilm() {
   else control = <><Play size={17} aria-hidden="true" />تشغيل</>;
 
   return (
-    <figure ref={ref} className="hf" aria-label="فيلم قصير يوضّح رحلة طلب في البوابة من اختيار الخدمة حتى اكتماله">
+    <figure ref={ref} className="hf" aria-label="فيلم قصير يوضّح معالجة ملاحظة على ملف الأجور عبر البوابة، من إرسالها حتى إغلاقها">
       <div className="hf-stage" data-running={running ? 'true' : 'false'} data-still={reduced ? 'true' : undefined}>
         <svg className="hf-svg" viewBox="0 0 960 540" role="img" aria-hidden="true">
           <Defs p={P} />

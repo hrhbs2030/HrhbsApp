@@ -8,7 +8,7 @@ import { ContactCard } from '@/components/contact-card';
 import { ServiceDiscovery } from '@/components/service-discovery';
 import { ServiceOffer } from '@/components/service-offer';
 import { categories, categoryById, platforms, searchServices, serviceBySlug, services, type ServiceCategory, type ServiceEntry } from '@/content/services';
-import { faqs, portalFlow, trustFacts } from '@/content/site';
+import { faqs, portalFlow, problemHref, problems, trustFacts } from '@/content/site';
 import { contact } from '@/content/contact';
 import { milestones, pauses } from '@/content/milestones';
 import { formatNumber } from '@/lib/format';
@@ -112,7 +112,7 @@ export function ServicesDirectory() {
   }, [query, category, platform, cityPin, navigate]);
 
   return (
-    <PublicPage intro={<PageIntro kicker="دليل الخدمات" title="ما الخدمة التي تحتاجها؟" text="ابحث باسم المعاملة أو المنصة، أو صفِّ حسب المجال والمنصة. يستقبل المكتب طلبك ويراجع إمكانية المساعدة قبل البدء." />}>
+    <PublicPage intro={<PageIntro kicker="دليل الخدمات" title="ما الخدمة التي تحتاجها؟" text="ابحث باسم المعاملة أو المنصة، أو ابدأ من مشكلتك: وثيقة تنتهي قريبًا، أو مؤشر تغيّر، أو ملاحظة وصلتك. يستقبل المكتب طلبك ويراجع إمكانية المساعدة قبل البدء." />}>
       <div className="site-wrap pub-page">
         {/* On phones the toolbar comes first (CSS order): the search is the primary tool, the wizard an alternative. */}
         <div className="pub-directory-top">
@@ -143,7 +143,15 @@ export function ServicesDirectory() {
           </div>
         </div>
         </div>
-        <p className="pub-directory-intro">يجمع هذا الدليل الخدمات التي يقدّمها {ORG}، مكتب خدمات عامة في {contact.city}، للمنشآت والأفراد: معاملات الجوازات والإقامة، وشؤون العمل والرواتب، وتأسيس الشركات والتراخيص، ومعاملات أخرى تحتاجها منشأتك. تفتح كل خدمة صفحة توضح متى تحتاجها وما يفيد أن تكتبه في طلبك، ثم ترسل الطلب من حسابك ويتابعه المكتب معك خطوة بخطوة.</p>
+        <p className="pub-directory-intro">يجمع هذا الدليل الخدمات التي يقدّمها {ORG}، مكتب خدمات عامة في {contact.city}، للمنشآت والأفراد. أكثر ما يصل المكتب ثلاث مشاكل: التزام المنشأة، حين تنتهي إقامات ورخص وعقود وتأمينات في تواريخ متفرقة ويوقف تأخير واحدة منها معاملة أخرى؛ ومؤشرات المنشأة في قوى ومُدد والتأمينات، حين يتغير النطاق أو مؤشر الالتزام دون أن تعرف السبب؛ ومعالجة الملاحظات، سواء كانت ملاحظة على ملف الأجور أو من زيارة تفتيشية أو رفضًا في منصة. تفتح كل خدمة صفحة توضح متى تحتاجها وما يفيد أن تكتبه في طلبك، ثم ترسل الطلب من حسابك ويتابعه المكتب معك حتى «مكتملة».</p>
+        <p className="pub-directory-intro">
+          {problems.map((problem, index) => (
+            <span key={problem.key}>
+              {index > 0 && ' · '}
+              <strong>{problem.title}:</strong> {problem.approach} <Link href={problemHref[problem.key]}>{problem.cta}</Link>
+            </span>
+          ))}
+        </p>
         <p id="directory-results" className="pub-count" role="status" aria-live="polite">{resultsLabel(results.length)} · طلب الخدمة عبر المكتب بعد مراجعة الحالة، وليس ربطًا مباشرًا بالمنصة.</p>
         {results.length ? (
           <div className="pub-groups">
@@ -334,11 +342,11 @@ export function TrustPage() {
   const icons = [ShieldCheck, History, Hash];
   const facts = [
     ...trustFacts.map((fact, i) => ({ ...fact, Icon: icons[i] ?? ShieldCheck })),
-    { title: 'حسابات يراجعها المكتب', text: 'يُنشأ الحساب بالبريد الإلكتروني بعد تأكيده، ولا تُتاح الخدمات إلا بعد موافقة المكتب على طلب التسجيل.', Icon: UserRoundCheck },
-    { title: 'المساعد الآلي لا يرى طلباتك', text: 'يُرسل نص السؤال ومقتطفات من المعلومات المنشورة ذات الصلة إلى مزوّد المساعدة الآلية؛ لا تُرسل بيانات حسابك أو سجلات طلباتك. لا تكتب معلومات حساسة.', Icon: MessageSquareText },
+    { title: 'حسابات يراجعها المكتب', text: 'يُنشأ الحساب بالبريد الإلكتروني بعد تأكيده، ولا تُتاح الخدمات إلا بعد موافقة المكتب على طلب التسجيل. ما ترسله عن منشأتك، من ملاحظة أو وثيقة أو بيانات ملف المنشأة، يبقى داخل حسابك.', Icon: UserRoundCheck },
+    { title: 'المساعد الآلي لا يرى طلباتك', text: 'يُرسل نص السؤال ومقتطفات من المعلومات المنشورة ذات الصلة إلى مزوّد المساعدة الآلية؛ لا تُرسل بيانات حسابك أو سجلات طلباتك ولا نص الملاحظات التي أرسلتها. لا تكتب معلومات حساسة، واسأل عن طلب بعينه من صفحته.', Icon: MessageSquareText },
   ];
   return (
-    <PublicPage intro={<PageIntro kicker="الخصوصية والأمان" title="كيف نتعامل مع طلباتك" />}>
+    <PublicPage intro={<PageIntro kicker="الخصوصية والأمان" title="كيف نتعامل مع طلباتك" text="ملاحظة على ملف الأجور، أو رخصة تنتهي، أو مؤشر تغيّر: كل ما ترسله عن منشأتك يبقى في حسابك، ويراه فريق المكتب المخوّل وحده. هنا ما يحدث له، ومن يراه، وما لا يطلبه المكتب منك." />}>
       <div className="site-wrap pub-page pub-split">
         <ul className="surface pub-facts">
           {facts.map(({ title, text, Icon }) => (
@@ -351,7 +359,7 @@ export function TrustPage() {
         <aside className="pub-aside">
           <section className="pub-warn" aria-labelledby="warn-title">
             <h2 id="warn-title" className="display"><KeyRound size={20} strokeWidth={ICON} aria-hidden="true" />لا تشارك كلمات المرور</h2>
-            <p>لا تكتب كلمات مرور المنصات الحكومية أو رموز التحقق في الطلبات أو الاستفسارات. إن احتاج المكتب معلومة، طلبها منك داخل طلبك.</p>
+            <p>لا تكتب كلمات مرور المنصات الحكومية أو رموز التحقق في الطلبات أو الاستفسارات، حتى لمعالجة ملاحظة عاجلة. إن احتاج المكتب معلومة أو مستندًا، طلبه منك داخل طلبك بحالة «بانتظار العميل»، وترفعه من قائمة المستندات في صفحة الطلب.</p>
           </section>
         </aside>
       </div>
@@ -361,7 +369,7 @@ export function TrustPage() {
 
 export function HelpPage() {
   return (
-    <PublicPage intro={<PageIntro kicker="المساعدة" title="الأسئلة الشائعة" />}>
+    <PublicPage intro={<PageIntro kicker="المساعدة" title="الأسئلة الشائعة" text="وصلتك ملاحظة ولا تعرف ماذا ترسل؟ تغيّر مؤشر منشأتك؟ وثيقة تنتهي قريبًا؟ هنا إجابات قصيرة عن ذلك وعن حالات الطلب في البوابة." />}>
       <div className="site-wrap pub-page pub-split">
         <div className="pub-faq">
           {faqs.map((faq, i) => (
@@ -374,9 +382,10 @@ export function HelpPage() {
         <aside className="pub-aside">
           <section className="pub-help-cta" aria-labelledby="contact-title">
             <h2 id="contact-title" className="display">لم تجد إجابتك؟</h2>
-            <p>أرسل استفسارًا من حسابك، ويصلك رد المكتب في المكان نفسه.</p>
+            <p>إن كانت لديك ملاحظة أو وثيقة تحتاج تجديدًا، أرسلها كما وصلتك في طلب جديد ويحدد المكتب ما يلزم. وللسؤال العام أرسل استفسارًا من حسابك، ويصلك رد المكتب في المكان نفسه.</p>
             <div className="pub-help-actions">
-              <Link href="/inquiries" className="btn btn-primary">استفساراتي</Link>
+              <Link href="/requests/new" className="btn btn-primary">أرسل الملاحظة</Link>
+              <Link href="/inquiries" className="btn btn-outline">استفساراتي</Link>
               <Link href="/sign-up" className="btn btn-outline">طلب التسجيل</Link>
             </div>
           </section>

@@ -108,13 +108,13 @@ function Routes() {
     const isPublic = isPublicPath(location) && !(location.startsWith('/services/') && !service);
     document.querySelector('meta[name="robots"]')?.setAttribute('content', isPublic ? 'index, follow' : 'noindex, nofollow');
     const description = location === '/'
-      ? 'HBS حلول الغد: أرسل طلب خدمة أو استفسارًا وتابع حالته من حسابك عبر بوابة العملاء.'
+      ? 'HBS حلول الغد: مكتب يتابع التزام منشأتك ومؤشراتها في المنصات ويعالج الملاحظات، وترى كل طلب بحالته من حسابك.'
       : service ? `${service.summary} اطلبها من HBS حلول الغد وتابع حالتها من حسابك.`
-      : location.startsWith('/services') ? 'دليل خدمات حلول الغد: الجوازات والعمل والأعمال وخدمات أخرى، وما يفيد أن تكتبه في طلبك.'
+      : location.startsWith('/services') ? 'دليل خدمات حلول الغد: التزام المنشأة من إقامات ورخص وعقود، ومؤشرات المنشأة في قوى ومُدد والتأمينات، ومعالجة الملاحظات، وما يفيد أن تكتبه في طلبك.'
       : location === '/privacy' ? 'تعرّف على بيانات بوابة HBS حلول الغد، بما فيها مرفقات الطلبات، وكيفية حفظها ومشاركتها وحقوقك.'
       : location === '/terms' ? 'شروط استخدام موقع HBS حلول الغد وبوابة العملاء، والطلبات والمرفقات والمساعدة الآلية.'
-      : location === '/help' ? 'إجابات عن استخدام بوابة HBS حلول الغد، مع وسائل التواصل مع المكتب.'
-      : location === '/trust' ? 'اطّلع على ضوابط الخصوصية والأمان في بوابة HBS حلول الغد.'
+      : location === '/help' ? 'إجابات عن إرسال الملاحظة ومتابعة معالجتها، وتنبيهات الوثائق، وحالات الطلب في بوابة HBS حلول الغد، مع وسائل التواصل مع المكتب.'
+      : location === '/trust' ? 'كيف تحفظ بوابة HBS حلول الغد طلباتك وملاحظاتك ومستندات منشأتك، ومن يطّلع عليها، وما لا يطلبه المكتب منك.'
       : `${title} في بوابة HBS حلول الغد.`;
     document.querySelector('meta[name="description"]')?.setAttribute('content', description);
     document.querySelector('meta[property="og:title"]')?.setAttribute('content', `${title} | HBS حلول الغد`);

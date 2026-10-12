@@ -51,6 +51,7 @@
 .nr-files-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .nr-files-label { font-size: 14px; font-weight: 700; color: var(--color-ink); }
 .nr-files-label small { font-weight: 500; color: var(--color-subtle); }
+.nr-files-hint { display: block; margin-top: 2px; font-size: 12px; line-height: 1.6; }
 .nr-files-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .nr-files-list li { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 6px 4px 12px; border-radius: 10px; background: var(--color-surface); border: 1px solid var(--color-line); font-size: 14px; }
 .nr-file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -30,6 +30,13 @@ export function employeeLink(ids: number[]): { employeeId?: number; employeeIds?
   return unique.length === 0 ? {} : unique.length === 1 ? { employeeId: unique[0] } : { employeeIds: unique };
 }
 
+const generalGuidance = [
+  'ما الذي ظهر لك: نص الملاحظة كما هو، أو المؤشر الذي تغيّر، أو الوثيقة التي تنتهي',
+  'اسم المنصة أو الجهة، والتاريخ الذي ظهر فيه ذلك',
+  'ما الذي توقف أو تأخر بسببه، إن وجد',
+  'اسم الموظف أو الرخصة المعنية',
+];
+
 type Errors = Partial<Record<'service' | 'description' | 'contactPhone', string>>;
 
 function validate(step: number, v: { service: string; description: string; contactPhone: string }): Errors {
@@ -87,7 +94,11 @@ export function NewRequest() {
   const values = { service, description, contactPhone };
   const suggestions = useMemo(() => services.filter((s) => s.category === category), [category]);
   const matched = services.find((s) => s.name === service.trim()) ?? preset;
-  const guidance = matched?.whatToWrite;
+  // What the office needs to read, for the chosen service or, when the
+  // person does not know the service yet, for the three situations that bring
+  // most establishments here: a note, an indicator that changed, a document
+  // that expires.
+  const guidance = matched?.whatToWrite ?? generalGuidance;
   const activeEmployees = company.data?.employees.filter((e) => e.status === 'active') ?? [];
   const bulk = BULK_CATEGORIES.includes(category) && activeEmployees.length > 0;
   // Only employees still in the file count; a stale id from the address bar is dropped.
@@ -193,7 +204,7 @@ export function NewRequest() {
                   })}
                 </div>
                 <label className="form-field mt-7" htmlFor="field-service">اسم الخدمة
-                  <input id="field-service" className="form-control" list="service-suggestions" placeholder="اكتب اسم الخدمة أو اختر من المقترحات" value={service} onChange={(e) => setService(e.target.value)} maxLength={LIMITS.service[1]} aria-invalid={!!errors.service} aria-describedby={errors.service ? 'err-service' : 'hint-service'} />
+                  <input id="field-service" className="form-control" list="service-suggestions" placeholder="اكتب اسم الخدمة، أو ما ظهر لك: ملاحظة، مؤشر، وثيقة تنتهي" value={service} onChange={(e) => setService(e.target.value)} maxLength={LIMITS.service[1]} aria-invalid={!!errors.service} aria-describedby={errors.service ? 'err-service' : 'hint-service'} />
                   <datalist id="service-suggestions">{suggestions.map((s) => <option key={s.slug} value={s.name} />)}</datalist>
                   {errors.service && <span id="err-service" className="field-error" role="alert">{errors.service}</span>}
                 </label>
@@ -201,7 +212,7 @@ export function NewRequest() {
                   {suggestions.map((s) => <button key={s.slug} type="button" aria-pressed={service.trim() === s.name} onClick={() => { setService(s.name); setErrors({}); }}>{s.name}</button>)}
                 </div>}
                 <ServiceOffer slug={matched?.slug} compact />
-                {!errors.service && <p id="hint-service" className="muted mt-3 text-xs leading-6">لم تجد خدمتك؟ اكتبها بالاسم الذي تعرفه، أو تصفّح <Link href="/services" className="font-bold text-teal-bright underline">دليل الخدمات</Link>.</p>}
+                {!errors.service && <p id="hint-service" className="muted mt-3 text-xs leading-6">لا تعرف اسم الخدمة؟ اكتب ما ظهر لك واسم المنصة، مثل «ملاحظة على ملف الأجور في مُدد»، ويحدد المكتب الخدمة عند المراجعة. أو تصفّح <Link href="/services" className="font-bold text-teal-bright underline">دليل الخدمات</Link>.</p>}
               </div>
             )}
 
@@ -210,13 +221,13 @@ export function NewRequest() {
                 <h2 tabIndex={-1} className="display nr-title">تفاصيل الطلب</h2>
                 {guidance && (
                   <div className="nr-guide">
-                    <strong>اذكر في طلبك:</strong>
+                    <strong>{matched?.whatToWrite ? 'اذكر في طلبك:' : 'ليفهم المكتب حالتك، اذكر:'}</strong>
                     <ul>{guidance.map((g) => <li key={g}>{g}</li>)}</ul>
                   </div>
                 )}
                 <label className="form-field" htmlFor="field-description">ما الذي تحتاجه من المكتب؟
-                  <textarea id="field-description" className="form-control" placeholder="صف المعاملة وما تحتاجه من المكتب" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={LIMITS.description[1]} aria-invalid={!!errors.description} aria-describedby={errors.description ? 'err-description' : 'hint-description'} />
-                  {errors.description ? <span id="err-description" className="field-error" role="alert">{errors.description}</span> : <small id="hint-description" className="muted flex justify-between gap-3 font-normal"><span>لا تشارك كلمات مرور المنصات أو رموز التحقق.</span><span className="nums shrink-0" dir="ltr">{description.trim().length}/{LIMITS.description[1]}</span></small>}
+                  <textarea id="field-description" className="form-control" placeholder="اكتب الملاحظة كما تظهر لك، مع التاريخ والجهة. وإن كانت وثيقة تنتهي أو مؤشرًا تغيّر، فاذكر ما تراه ومتى لاحظته." value={description} onChange={(e) => setDescription(e.target.value)} maxLength={LIMITS.description[1]} aria-invalid={!!errors.description} aria-describedby={errors.description ? 'err-description' : 'hint-description'} />
+                  {errors.description ? <span id="err-description" className="field-error" role="alert">{errors.description}</span> : <small id="hint-description" className="muted flex justify-between gap-3 font-normal"><span>صورة الملاحظة أو الشاشة تُرفق في «المستندات» أدناه. لا تشارك كلمات مرور المنصات أو رموز التحقق.</span><span className="nums shrink-0" dir="ltr">{description.trim().length}/{LIMITS.description[1]}</span></small>}
                 </label>
                 {bulk ? <fieldset className="nr-pick" aria-describedby="hint-employees">
                   <legend className="nr-pick-legend"><UsersRound size={16} aria-hidden="true"/>الموظفون المعنيون بالطلب <small>(اختياري)</small><span className="nr-pick-count nums" aria-live="polite">{pickedEmployees.length}/{MAX_EMPLOYEES}</span></legend>
@@ -244,7 +255,7 @@ export function NewRequest() {
                 </label>
                 <div className="nr-files">
                   <div className="nr-files-head">
-                    <span className="nr-files-label">المستندات <small>(اختياري)</small></span>
+                    <span className="nr-files-label">المستندات <small>(اختياري)</small><small className="nr-files-hint">صورة الملاحظة كما ظهرت، أو الوثيقة التي تنتهي</small></span>
                     {files.length < MAX_FILES && <span className="flex flex-wrap gap-2">
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => fileInput.current?.click()} disabled={preparing}><Paperclip size={15} aria-hidden="true" />إرفاق ملفات</button>
                       <button type="button" className="btn btn-outline btn-sm rf-camera" onClick={() => cameraInput.current?.click()} disabled={preparing}><Camera size={15} aria-hidden="true" />التقط بالكاميرا</button>
@@ -274,7 +285,7 @@ export function NewRequest() {
                   <div><dt>رقم التواصل</dt><dd dir="ltr" className="text-right">{normalizePhone(contactPhone) ?? contactPhone.trim()}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل رقم التواصل"><Pencil size={15} /></button></div>
                   <div className="nr-review-wide"><dt>المستندات</dt><dd>{files.length ? files.map((f) => f.name).join('، ') : 'لا توجد'}</dd><button type="button" onClick={() => go(1)} aria-label="تعديل المستندات"><Pencil size={15} /></button></div>
                 </dl>
-                <p className="muted mt-5 text-sm leading-7">سيراجع المكتب طلبك، وإن احتاج مستندًا إضافيًا تصبح الحالة «بانتظار العميل» وترفعه من صفحة الطلب.</p>
+                <p className="muted mt-5 text-sm leading-7">يراجع المكتب طلبك ويحدد ما يلزم، وتتابع كل خطوة من صفحة الطلب. إن احتاج مستندًا إضافيًا تصبح الحالة «بانتظار العميل» وتجده في قائمة المستندات، وترفعه من الصفحة نفسها.</p>
                 {fileProblems.length > 0 && <div role="alert" className="nr-files-errors mt-4">{fileProblems.map((p) => <p key={p}>{p}</p>)}</div>}
                 {mutation.isError && <div role="alert" className="mt-5 rounded-lg bg-danger-soft p-4 text-sm text-danger">{(mutation.error as { status?: number } | null)?.status === 400 ? 'تحقق من بيانات الطلب: موظف أو ترخيص مختار لم يعد في ملف المنشأة، أو تجاوز العدد 50 موظفًا.' : 'تعذّر إرسال الطلب. تحقق من اتصالك وحاول مرة أخرى؛ لن يُرسل الطلب مرتين.'}</div>}
               </div>

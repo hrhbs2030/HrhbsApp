@@ -1,32 +1,40 @@
 import { Fragment, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ArrowLeft, BookUser, BriefcaseBusiness, Building2, FileText, Search, ShieldCheck, Shapes, Hash, History, PlayCircle } from 'lucide-react';
+import { ArrowLeft, BookUser, BriefcaseBusiness, Building2, CalendarClock, FileText, Gauge, MessageSquareWarning, Search, ShieldCheck, Shapes, Hash, History, PlayCircle } from 'lucide-react';
 import { SiteFooter, SiteHeader } from '@/components/site-chrome';
 import { IntroSequence, useIntroState } from '@/components/intro';
 import { RequestObject, StageRail, type StageFrame } from '@/components/request-object';
 import { AssistantShowcase, DashboardPreview } from '@/components/landing-previews';
 import { HowFilm } from '@/components/how-film';
 import { categories, services, type ServiceCategory } from '@/content/services';
-import { faqs, journey, trustFacts } from '@/content/site';
+import { faqs, journey, problemHref, problems, trustFacts, type ProblemKey } from '@/content/site';
 import { useReducedMotion, useRevealOnScroll } from '@/lib/motion';
 import './landing.css';
 
 const ICON = 1.75;
 const categoryIcons: Record<ServiceCategory, typeof BookUser> = { passports: BookUser, labor: BriefcaseBusiness, business: Building2, other: Shapes };
 const trustIcons = [ShieldCheck, History, Hash];
+// The three problems (content/site.ts → problems) get an icon; their landing
+// place (problemHref) is shared with the service guide and the wizard.
+const problemIcons: Record<ProblemKey, typeof BookUser> = { compliance: CalendarClock, indicator: Gauge, observations: MessageSquareWarning };
+const serviceName = (slug: string) => services.find((s) => s.slug === slug)?.name;
+// What the account shows for each of the three problems. Product facts only:
+// reminders at 30/7/1 days, the request statuses from content/milestones.ts,
+// the document checklist, email + WhatsApp (opt-in) alerts, the request conversation.
 const dashboardPoints = [
-  { title: 'حالة كل طلب', text: 'ترى أين وصل كل طلب، وتتغير الحالة كلما أنجز المكتب خطوة.' },
-  { title: 'تنبيه عند الحاجة إليك', text: 'إن احتاج المكتب معلومة أو مستندًا، تجد التنبيه في حسابك ويصلك بالبريد.' },
-  { title: 'محادثة على كل طلب', text: 'سؤالك وردّ المكتب في صفحة الطلب نفسها، لا في رسائل متفرقة.' },
-  { title: 'تنبيهات الوثائق', text: 'ملف المنشأة يذكّرك قبل انتهاء الإقامات والتراخيص بـ30 يومًا و7 أيام ويوم.' },
+  { title: 'تنبيهات الوثائق قبل أن تنتهي', text: 'ملف المنشأة يحفظ تواريخ الإقامات ورخص العمل والتراخيص، ويذكّرك قبل الانتهاء بـ30 يومًا و7 أيام ويوم واحد.' },
+  { title: 'حالة كل معالجة أمامك', text: 'من «تم الاستلام» إلى «تم الرفع للجهة» ثم «مكتملة»: تعرف أين وصلت معالجة الملاحظة أو التجديد دون أن تتصل.' },
+  { title: '«بانتظار العميل» عندما يلزم شيء منك', text: 'قائمة المستندات داخل الطلب تبيّن ما ينقص، ويصلك التنبيه بالبريد، وبواتساب إن فعّلته.' },
+  { title: 'تفسير المكتب في محادثة الطلب', text: 'سبب تغيّر المؤشر، وما أُعدّ للتصحيح، وما يحتاج قرارًا منك: كله في صفحة الطلب نفسها، لا في رسائل متفرقة.' },
 ];
 const servicesLabel = (n: number) => (n === 1 ? 'خدمة واحدة' : n === 2 ? 'خدمتان' : n <= 10 ? `${n} خدمات` : `${n} خدمة`);
 
 // Headline words animate one by one. Whole words only: animating single
-// letters would break the joins of Arabic script.
+// letters would break the joins of Arabic script. Keys are the words, so no
+// word repeats inside a line.
 const headline = [
-  { words: ['من', 'أول', 'طلب،'] },
-  { words: ['تعرف', 'أين', 'وصلت', 'معاملتك.'], accent: true },
+  { words: ['ملاحظة', 'على', 'ملفك،', 'أو', 'مؤشر', 'تغيّر؟'] },
+  { words: ['أرسلها،', 'وتابع', 'معالجتها', 'من', 'حسابك.'], accent: true },
 ];
 
 // Plays the hero request through its milestones once, pausing at «بانتظار
@@ -60,7 +68,7 @@ function ServiceSearch({ compact = false }: { compact?: boolean }) {
     <form className={`lp-search ${compact ? 'lp-search--light' : ''}`} role="search" onSubmit={submit}>
       <label htmlFor={id} className="sr-only">ابحث عن خدمة</label>
       <Search size={19} strokeWidth={ICON} aria-hidden="true" />
-      <input id={id} type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={compact ? 'ابحث عن خدمة…' : 'ابحث: تجديد إقامة، نقل خدمات، سجل تجاري…'} autoComplete="off" />
+      <input id={id} type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={compact ? 'ابحث عن خدمة…' : 'ابحث: حماية الأجور، رخصة عمل، تجديد إقامة…'} autoComplete="off" />
       <button type="submit" className="btn btn-accent btn-sm">بحث</button>
     </form>
   );
@@ -115,7 +123,7 @@ export default function Landing() {
                   </span>
                 ))}
               </h1>
-              <p className="lp-hero-lead lp-enter">الجوازات والإقامة، العمل والموارد البشرية، تأسيس الشركات والتراخيص: أرسل طلبك إلى المكتب، واحصل على رقم مرجعي، وتابع كل خطوة من حسابك.</p>
+              <p className="lp-hero-lead lp-enter">إقامة أو رخصة تنتهي، نطاق أو مؤشر التزام يتغيّر، ملاحظة من جهة مختصة لا تعرف من أين تبدأ بها: أرسلها كما وصلتك، ويحدد المكتب سببها ويعدّ ما يلزم عبر المنصات المختصة، وأنت تتابع كل خطوة برقم مرجعي من حسابك.</p>
               <div className="lp-hero-actions lp-enter">
                 <Link href="/sign-up" className="btn btn-light lp-btn-lg">قدّم طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
                 <Link href="/services" className="btn btn-ghost-dark lp-btn-lg lp-hero-secondary">تصفّح دليل الخدمات</Link>
@@ -136,10 +144,52 @@ export default function Landing() {
         </section>
 
         <div className="lp-body">
+        <section id="problems" className="lp-problems" aria-labelledby="problems-title">
+          <div className="site-wrap">
+            <div className="lp-section-head reveal">
+              <div>
+                <h2 id="problems-title" className="lp-heading">مشاكل نحلّها</h2>
+                <p className="lp-copy">ثلاث حالات يصل بها أصحاب المنشآت إلى المكتب أكثر من غيرها. في كل واحدة: ما الذي يفعله المكتب، وما الذي تراه أنت في حسابك.</p>
+              </div>
+            </div>
+            <ul className="lp-problem-grid">
+              {problems.map((problem, index) => {
+                const Icon = problemIcons[problem.key];
+                return (
+                  <li key={problem.key} className={`lp-problem lp-problem--${problem.key} reveal`} style={{ transitionDelay: `${index * 80}ms` }}>
+                    <span className="lp-problem-icon"><Icon size={22} strokeWidth={ICON} aria-hidden="true" /></span>
+                    <h3>{problem.title}</h3>
+                    <p className="lp-problem-pain">{problem.pain}</p>
+                    <dl className="lp-problem-detail">
+                      <dt>ما يفعله المكتب</dt>
+                      <dd>{problem.approach}</dd>
+                      <dt>ما تراه في حسابك</dt>
+                      <dd>{problem.portal}</dd>
+                    </dl>
+                    <div className="lp-problem-services">
+                      <span className="lp-problem-services-label">الخدمات المتعلقة</span>
+                      <ul>
+                        {problem.services.map((slug) => {
+                          const name = serviceName(slug);
+                          return name ? <li key={slug}><Link href={`/services/${slug}`} className="lp-chip">{name}</Link></li> : null;
+                        })}
+                      </ul>
+                    </div>
+                    <Link href={problemHref[problem.key]} className="btn btn-accent lp-problem-cta">{problem.cta} <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </section>
+
         <section className="lp-categories" aria-labelledby="categories-title">
           <div className="site-wrap">
             <div className="lp-section-head reveal">
-              <h2 id="categories-title" className="lp-heading">بماذا يخدمك المكتب؟</h2>
+              <div>
+                <h2 id="categories-title" className="lp-heading">بماذا يخدمك المكتب؟</h2>
+                <p className="lp-copy">خدمات المنشأة في الجوازات والعمل والتراخيص، مرتّبة بحسب المجال. لكل خدمة صفحة تبيّن ما يفيد المكتب أن تذكره في طلبك.</p>
+              </div>
               <Link href="/services" className="lp-arrow-link">كل الخدمات <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
             </div>
             <div className="lp-search-wrap lp-search-wrap--mobile reveal"><ServiceSearch compact /></div>
@@ -166,7 +216,10 @@ export default function Landing() {
           <div className="lp-journey-glow" aria-hidden="true" />
           <div className="site-wrap">
             <div className="lp-journey-head reveal">
-              <h2 id="journey-title" className="lp-heading lp-heading--dark">كيف تعمل البوابة</h2>
+              <div>
+                <h2 id="journey-title" className="lp-heading lp-heading--dark">من الملاحظة إلى إغلاقها: كيف تعمل البوابة</h2>
+                <p className="lp-copy lp-copy--dark">الطريق نفسه لكل طلب: تجديد قبل الانتهاء، أو تصحيح ما يؤثر في المؤشر، أو معالجة ملاحظة. تعرف الحالة في كل خطوة، وتعرف متى يلزم شيء من طرفك.</p>
+              </div>
               <button type="button" className="intro-replay lp-replay--how" onClick={intro.replay} ref={replayHow}>
                 <PlayCircle size={18} strokeWidth={ICON} aria-hidden="true" /> شاهد الجولة السريعة
               </button>
@@ -189,7 +242,10 @@ export default function Landing() {
         <section id="dashboard" className="lp-dashboard" aria-labelledby="dashboard-title">
           <div className="site-wrap">
             <div className="lp-section-head reveal">
-              <h2 id="dashboard-title" className="lp-heading">حسابك: طلباتك ووثائقك أمامك</h2>
+              <div>
+                <h2 id="dashboard-title" className="lp-heading">حسابك: التزام منشأتك أمامك</h2>
+                <p className="lp-copy">ما ينتهي قريبًا، وما يعالجه المكتب الآن، وما ينتظر شيئًا منك: في صفحة واحدة، بدل الاتصال للسؤال.</p>
+              </div>
             </div>
             <div className="reveal"><DashboardPreview /></div>
             <ul className="dp-points">
@@ -211,7 +267,10 @@ export default function Landing() {
         <section className="lp-trust" aria-labelledby="trust-title">
           <div className="site-wrap">
             <div className="lp-section-head reveal">
-              <h2 id="trust-title" className="lp-heading">الخصوصية والأمان</h2>
+              <div>
+                <h2 id="trust-title" className="lp-heading">الخصوصية والأمان</h2>
+                <p className="lp-copy">ملف الأجور والملاحظات وبيانات الموظفين تبقى بين منشأتك والمكتب. هذا ما تعنيه الثقة هنا عمليًا.</p>
+              </div>
               <Link href="/trust" className="lp-arrow-link">كيف نحمي بياناتك <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
             </div>
             <ul className="lp-trust-grid">
@@ -248,8 +307,8 @@ export default function Landing() {
 
         <section className="site-wrap lp-final reveal" aria-labelledby="final-title">
           <div className="lp-final-orbit" aria-hidden="true" />
-          <h2 id="final-title">ابدأ بطلب التسجيل</h2>
-          <p>يراجع المكتب طلبك، وبعد الموافقة ترسل معاملاتك وتتابعها من حسابك برقم مرجعي لكل طلب.</p>
+          <h2 id="final-title">ابدأ قبل أن يصبح التأخير ملاحظة</h2>
+          <p>قدّم طلب التسجيل، وبعد موافقة المكتب أرسل ما يظهر لك على منشأتك، وتابع معالجته من حسابك برقم مرجعي لكل طلب.</p>
           <div className="lp-final-actions">
             <Link href="/sign-up" className="btn btn-light lp-btn-lg">طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
             <Link href="/sign-in" className="btn btn-ghost-dark lp-btn-lg">تسجيل الدخول</Link>

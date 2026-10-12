@@ -173,3 +173,28 @@ test('city pin, navigation, and reduced motion keep their behavior at desktop an
     await server.close();
   }
 });
+test('each city crowd voices the three problems in lines that fit their bubbles', async () => {
+  configure({ pin: 'riyadh' });
+  const { server } = await loadModules();
+  try {
+    const people = await server.ssrLoadModule('/src/components/city-scenes/people.tsx');
+    const crowds = { riyadh: people.riyadhCrowd, jeddah: people.jeddahCrowd, jazan: people.jazanCrowd };
+    const themes = { riyadh: /تنتهي|تنبيه|ملف المنشأة/, jeddah: /المؤشر/, jazan: /ملاحظة/ };
+    for (const [city, crowd] of Object.entries(crowds)) {
+      assert.equal(crowd.lines.length, 4, `${city} keeps its four-line exchange`);
+      const texts = crowd.lines.map(line => line.text);
+      assert.match(texts.join(' '), themes[city], `${city} speaks about its problem`);
+      let last = -1;
+      for (const line of crowd.lines) {
+        assert.ok(Number.isInteger(line.who) && crowd.people[line.who], `${city}: speaker ${line.who} exists`);
+        // The Say bubble is sized from text length; 28 characters is the widest that fits its cap.
+        assert.ok(line.text.length <= 28, `${city}: «${line.text}» is too long for its bubble`);
+        assert.doesNotMatch(line.text, /[0-9٠-٩]/, `${city}: no digits in speech`);
+        assert.ok(line.at > last, `${city}: bubbles appear in order`);
+        last = line.at;
+      }
+    }
+  } finally {
+    await server.close();
+  }
+});

@@ -12,10 +12,13 @@ const ICON = 1.75;
 // Illustrative data only. `stage` is a milestone index (content/milestones.ts);
 // a `pause` holds the request at the review milestone with its own badge.
 type DemoRequest = { ref: string; title: string; area: string; stage: number; pause?: PauseKey; updated: string };
+// One establishment, the three problems: a note on the wage file (the office
+// needs one document), a work-permit renewal already with the authority, and
+// a completed wage update at GOSI that had shown as a mismatch between platforms.
 const demoRequests: DemoRequest[] = [
-  { ref: 'HBS-2026-00041', title: 'تأسيس شركة', area: 'تأسيس الشركات والتراخيص', stage: 1, pause: 'waiting_on_customer', updated: 'اليوم' },
-  { ref: 'HBS-2026-00037', title: 'إدارة المنصات الحكومية', area: 'دعم الأعمال', stage: 1, updated: 'أمس' },
-  { ref: 'HBS-2026-00029', title: 'إنهاء معاملات منشأة', area: 'دعم الأعمال', stage: 3, updated: '8 سبتمبر' },
+  { ref: 'HBS-2026-00041', title: 'متابعة الالتزام بحماية الأجور', area: 'الموارد البشرية والعمل', stage: 1, pause: 'waiting_on_customer', updated: 'اليوم' },
+  { ref: 'HBS-2026-00037', title: 'إصدار أو تجديد رخصة العمل', area: 'الموارد البشرية والعمل', stage: 2, updated: 'أمس' },
+  { ref: 'HBS-2026-00029', title: 'تحديث أجر مشترك', area: 'الموارد البشرية والعمل', stage: 3, updated: '8 سبتمبر' },
 ];
 const stageTone = ['info', 'info', 'info', 'ok'] as const;
 const statusOf = (r: DemoRequest) => r.pause ? pauses[r.pause].label : milestoneLabels[r.stage];
@@ -56,7 +59,7 @@ export function DashboardPreview() {
           {waiting && (
             <button type="button" className="dp-alert" onClick={() => setSelected(demoRequests.indexOf(waiting))}>
               <Bell size={17} strokeWidth={ICON} aria-hidden="true" />
-              <span><strong>المكتب يحتاج ردّك</strong> على طلب {waiting.title}</span>
+              <span><strong>المكتب يحتاج مستندًا منك</strong> لطلب {waiting.title}</span>
               <ArrowLeft size={15} strokeWidth={ICON} aria-hidden="true" />
             </button>
           )}
@@ -98,18 +101,18 @@ export function DashboardPreview() {
               <h3 className="dp-card-title"><MessageSquareText size={16} strokeWidth={ICON} aria-hidden="true" />الرسائل</h3>
               <div className="dp-msg dp-msg--office">
                 <span><Building2 size={13} strokeWidth={ICON} aria-hidden="true" />المكتب</span>
-                <p>نحتاج تفاصيل إضافية عن النشاط المطلوب لإكمال مراجعة الطلب.</p>
+                <p>سبب الملاحظة: أجر موظف واحد في ملف الشهر الماضي يختلف عن عقده الموثق. أرفق كشف رواتب الشهر لنعدّ التصحيح.</p>
               </div>
-              <div className="dp-msg dp-msg--me"><p>النشاط: تجارة التجزئة</p></div>
+              <div className="dp-msg dp-msg--me"><p>أرفقت الكشف الآن.</p></div>
             </section>
 
             <section className="dp-card dp-mini" aria-label="المستندات المطلوبة (مثال)">
               <h3 className="dp-card-title"><FileText size={16} strokeWidth={ICON} aria-hidden="true" />المستندات المطلوبة</h3>
               <ul className="dp-docs">
-                <li data-done="true"><Check size={12} strokeWidth={3} aria-hidden="true" />بيانات المنشأة</li>
-                <li><span aria-hidden="true" />تفاصيل النشاط</li>
+                <li data-done="true"><Check size={12} strokeWidth={3} aria-hidden="true" />صورة الملاحظة كما ظهرت في مُدد</li>
+                <li><span aria-hidden="true" />كشف رواتب الشهر الماضي</li>
               </ul>
-              <p className="dp-soon">ترفعها من صفحة الطلب، ويصل تنبيه إلى المكتب.</p>
+              <p className="dp-soon">ترفعها من صفحة الطلب، ويصل تنبيه إلى المكتب، وتعود الحالة إلى «قيد المراجعة».</p>
             </section>
 
             <section className="dp-card dp-mini" aria-label="الفواتير (مثال)">
@@ -151,15 +154,15 @@ export function AssistantShowcase() {
       <div className="as-copy">
         <p className="as-kicker"><Sparkles size={16} strokeWidth={ICON} aria-hidden="true" />المساعدة الآلية</p>
         <h2 id="assistant-title" className="lp-heading lp-heading--dark">اسأل «{assistantName}»</h2>
-        <p className="as-lead">إجابات عن استخدام البوابة ومعنى كل حالة، من داخل حسابك.</p>
+        <p className="as-lead">تسألها ماذا ترسل عند ملاحظة أو تغيّر في المؤشر، وماذا تعني كل حالة في طلبك، من داخل حسابك.</p>
         <dl className="as-split">
           <div>
             <dt><Sparkles size={16} strokeWidth={ICON} aria-hidden="true" />{assistantName}</dt>
-            <dd>ترشدك وتشرح الخطوات. لا ترى طلباتك ولا تنفّذ أي معاملة.</dd>
+            <dd>ترشدك إلى الخدمة المناسبة وما تكتبه في طلبك. لا ترى طلباتك ولا تنفّذ أي معاملة ولا تعالج ملاحظة.</dd>
           </div>
           <div>
             <dt><Building2 size={16} strokeWidth={ICON} aria-hidden="true" />فريق المكتب</dt>
-            <dd>يراجع طلبك وينفّذ المعاملة ويردّ على استفسارك ردًا رسميًا.</dd>
+            <dd>يحدد سبب الملاحظة، ويعدّ التصحيح، ويتابع مع الجهة المختصة، ويكتب لك في محادثة الطلب.</dd>
           </div>
         </dl>
         <Link href="/sign-in" className="btn btn-light lp-btn-lg">اسألها من حسابك <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
