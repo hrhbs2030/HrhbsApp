@@ -133,6 +133,7 @@ export function PendingRegistrationPage({ registration }: { registration: Regist
 }
 
 export function RegistrationRequestPage({ email, values, onChange, onSubmit, registration, loading = false, submitting = false, error, onRetry }: RegistrationRequestPageProps) {
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   if (loading) return <div className="registration-page" dir="rtl"><PageHeading eyebrow="" title="طلب التسجيل" /><LoadingRows /></div>;
   if (error && !registration && onRetry && !email) return <div className="registration-page" dir="rtl"><PageHeading eyebrow="" title="طلب التسجيل" /><ErrorNotice message={error} onRetry={onRetry} /></div>;
   if (registration?.status === 'pending' || registration?.status === 'approved') return <div className="registration-page" dir="rtl">
@@ -141,7 +142,6 @@ export function RegistrationRequestPage({ email, values, onChange, onSubmit, reg
   </div>;
 
   const rejected = registration?.status === 'rejected';
-  const [phoneError, setPhoneError] = useState<string | null>(null);
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (submitting) return;

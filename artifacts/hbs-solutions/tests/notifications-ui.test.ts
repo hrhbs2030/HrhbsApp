@@ -59,7 +59,8 @@ const { NotificationsPage, OfficeNotificationsPage, kindLabels, kindsFor } = awa
 const { default: OfficeWhatsappInbox, replyError } = await server.ssrLoadModule('/src/pages/office-whatsapp.tsx');
 const { urlBase64ToUint8Array, pushSupported, swUrl, swScope } = await server.ssrLoadModule('/src/lib/push.ts');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-globalThis.window = { matchMedia: () => ({ matches: false }), location: { origin: 'https://hrhbs.test' } };
+const windowEvents = new EventTarget();
+globalThis.window = { matchMedia: () => ({ matches: false }), location: { origin: 'https://hrhbs.test' }, addEventListener: (...a) => windowEvents.addEventListener(...a), removeEventListener: (...a) => windowEvents.removeEventListener(...a), dispatchEvent: e => windowEvents.dispatchEvent(e) };
 // The bell's "click outside" and Escape listeners hang off the document.
 const documentListeners = new Map();
 globalThis.document = { addEventListener: (type, fn) => documentListeners.set(type, fn), removeEventListener: (type) => documentListeners.delete(type) };
@@ -183,6 +184,35 @@ test('the stream opens once per app with credentials, updates the count, toasts 
   delete globalThis.EventSource;
   resetNotificationStream();
 });
+
+for (const [eventName, reopens] of [['hbs:auth-changed', true], ['hbs:office-access-denied', false]]) {
+  test(`${eventName} closes the stream, clears queued toasts and ignores late events of the old identity`, async () => {
+    resetNotificationStream();
+    FakeEventSource.instances = [];
+    globalThis.EventSource = FakeEventSource;
+    const state = { list: { items: [notification(1)], unreadCount: 1 } };
+    setup(state);
+    const tree = await mount(React.createElement('div', null, bellTree()));
+    const old = FakeEventSource.instances[0];
+    await act(async () => old.dispatch('open'));
+    await act(async () => old.dispatch('notification', notification(2, { title: 'إشعار المستخدم السابق' })));
+    await act(async () => tree.update(React.createElement('div', null, bellTree())));
+    assert.equal(tree.root.findAll(n => n.props.className === 'notif-toast').length, 1, 'toast queued');
+    await act(async () => { window.dispatchEvent(new Event(eventName)); });
+    assert.equal(old.closed, true, 'old stream closed');
+    assert.equal(FakeEventSource.instances.length, reopens ? 2 : 1, reopens ? 'a fresh stream for the new identity' : 'no reconnect after office access is revoked');
+    // Reset the cache the way the shell does, then replay a late event of the old stream.
+    state.list = { items: [], unreadCount: 0 };
+    await act(async () => old.dispatch('notification', notification(3, { title: 'متأخر' })));
+    await act(async () => old.dispatch('unread', { count: 9 }));
+    assert.deepEqual(state.list, { items: [], unreadCount: 0 }, 'nothing from the old identity re-enters the cache');
+    await act(async () => tree.update(React.createElement('div', null, bellTree())));
+    assert.equal(tree.root.findAll(n => n.props.className === 'notif-toast').length, 0, 'toasts cleared');
+    await act(async () => tree.unmount());
+    delete globalThis.EventSource;
+    resetNotificationStream();
+  });
+}
 
 test('the notifications page shows the brief and the list, loads older rows by cursor, and saves the preferences payload', async () => {
   resetNotificationStream();

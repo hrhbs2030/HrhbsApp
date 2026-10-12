@@ -415,6 +415,34 @@ test("notification centre, preferences, push, brief, WhatsApp inbox and the live
       for (const s of streams) s.close();
       await until(() => openStreams(alice) === 0, "all streams closed");
     });
+    await t.test("revoked staff cannot read old office rows or receive them over an open stream", async () => {
+      const [privateRow] = await db.insert(hbsNotifications).values({
+        userId: office, audience: "office", kind: "office.message_new",
+        title: "Private office receipt", body: "Office-only information", priority: "normal", groupKey: `revocation-${office}`,
+      }).returning();
+      const stream = openStream(port, office);
+      try {
+        await stream.ready; await stream.next("unread");
+        await db.delete(hbsOfficeStaff).where(eq(hbsOfficeStaff.userId, office));
+        emit(office, { type: "notification", data: { audience: "office", title: "private after revocation" } });
+        await until(() => stream.ended, "revoked office stream to close");
+        assert.equal(stream.events.some(event => (event.data as { title?: string })?.title === "private after revocation"), false);
+        const list = await call(office, "GET", "/notifications");
+        assert.equal(list.status, 200);
+        assert.equal(list.data.items.some((row: { id: number }) => row.id === privateRow.id), false);
+        assert.equal((await call(office, "POST", `/notifications/${privateRow.id}/read`)).status, 404);
+        await call(office, "POST", "/notifications/read-all");
+        const [untouched] = await db.select().from(hbsNotifications).where(eq(hbsNotifications.id, privateRow.id));
+        assert.equal(untouched.readAt, null, "read-all cannot affect hidden office rows");
+        const brief = await call(office, "GET", "/notifications/brief");
+        assert.equal(brief.status, 200);
+        assert.equal(JSON.stringify(brief.data).includes(privateRow.title), false);
+        assert.equal(JSON.stringify(brief.data).includes('"/office'), false, "revoked staff receive no office-only actions");
+      } finally {
+        stream.close();
+        await db.insert(hbsOfficeStaff).values({ userId: office }).onConflictDoNothing();
+      }
+    });
   } finally {
     await db.delete(hbsAuditLog).where(inArray(hbsAuditLog.targetId, [...customers, ...waIds]));
     await db.delete(hbsWhatsappInbound).where(inArray(hbsWhatsappInbound.waMessageId, waIds));

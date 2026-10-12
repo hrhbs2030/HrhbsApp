@@ -25,6 +25,9 @@ export const hbsInvoices = pgTable("hbs_invoices", {
   // The hosted payment page created at the payment gateway, if any.
   gatewayInvoiceId: text("gateway_invoice_id"),
   paymentUrl: text("payment_url"),
+  // Office issue requests may safely retry with the same key. Null preserves
+  // compatibility with callers that predate idempotent issuance.
+  idempotencyKey: text("idempotency_key"),
   // Set while one request is creating the hosted page, so a second click
   // waits instead of opening a second page. Cleared once the page is stored.
   gatewayClaimedAt: timestamp("gateway_claimed_at", { withTimezone: true }),
@@ -41,6 +44,7 @@ export const hbsInvoices = pgTable("hbs_invoices", {
   // Open invoices by date: reports, reconciliation and the customer's summary.
   index("hbs_invoices_status_issued_idx").on(table.status, table.issuedAt),
   uniqueIndex("hbs_invoices_gateway_unique").on(table.gatewayInvoiceId),
+  uniqueIndex("hbs_invoices_request_idempotency_unique").on(table.requestId, table.idempotencyKey),
   check("hbs_invoices_status_check", sql`${table.status} in ('issued', 'paid', 'cancelled')`),
   check("hbs_invoices_method_check", sql`${table.paymentMethod} is null or ${table.paymentMethod} in ('manual', 'online')`),
   check("hbs_invoices_amount_check", sql`${table.amountHalalas} > 0 and ${table.vatHalalas} >= 0 and ${table.totalHalalas} = ${table.amountHalalas} + ${table.vatHalalas}`),

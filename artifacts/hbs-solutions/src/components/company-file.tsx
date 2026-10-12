@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'wouter';
 import { BadgeCheck, Building2, Eye, EyeOff, FileBadge, Pencil, Plus, RefreshCw, SearchCheck, Trash2, UsersRound } from 'lucide-react';
 import {
@@ -128,6 +128,8 @@ const registerLabels: Record<(typeof registerFields)[number], string> = { name: 
 function CompanyForm({ company, api, onSaved, onCancel }: { company: Company | null; api: CompanyApi; onSaved: () => void; onCancel?: () => void }) {
   const blank = { name: '', crNumber: '', unifiedNumber: '', vatNumber: '', city: '', address: '', activity: '', contactName: '', contactPhone: '', notes: '' };
   const [v, setV] = useState(blank);
+  const latestValues = useRef(v);
+  latestValues.current = v;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -140,10 +142,17 @@ function CompanyForm({ company, api, onSaved, onCancel }: { company: Company | n
     setChecking(true);
     try {
       const data = await api.lookupRegister(number);
-      const applied = applyRegister({ ...v, crNumber: number }, data, false);
+      const latest = latestValues.current;
+      // A lookup may finish after the user has edited the register number or
+      // other company fields. Ignore stale numbers and merge into the latest
+      // draft rather than restoring the values captured when the request began.
+      if (asciiDigits(latest.crNumber) !== number) return;
+      const applied = applyRegister({ ...latest, crNumber: number }, data, false);
       setV(applied.form);
       setFound({ data, conflicts: applied.conflicts });
-    } catch (err) { setLookupProblem(lookupError(err)); } finally { setChecking(false); }
+    } catch (err) {
+      if (asciiDigits(latestValues.current.crNumber) === number) setLookupProblem(lookupError(err));
+    } finally { setChecking(false); }
   }
   useEffect(() => setV(company ? Object.fromEntries(Object.keys(blank).map(k => [k, (company as unknown as Record<string, unknown>)[k] ?? ''])) as typeof blank : blank), [company?.updatedAt]);
   const set = (k: keyof typeof blank) => (e: { target: { value: string } }) => setV({ ...v, [k]: e.target.value });

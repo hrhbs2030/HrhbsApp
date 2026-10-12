@@ -16,6 +16,7 @@ const hooks = [
   'useGetCompanyMembership', 'useListCompanyMembers', 'useInviteCompanyMember', 'useUpdateCompanyMember', 'useRemoveCompanyMember', 'useLeaveCompanyMembership',
   'useListPlans', 'useGetCompanySubscription', 'useStartCompanySubscription', 'useUpdateCompanySubscription', 'useListCompanyInvoices',
   'useGetOfficeCustomerFile', 'useListOfficeCustomers',
+  'useGetPortalSettings', 'useSavePortalSettings', 'useRequestPortalWhatsappVerification',
 ];
 const calls = [
   'attachServiceRequestFiles', 'attachOfficeServiceRequestFiles', 'deleteServiceRequestFile', 'deleteOfficeServiceRequestFile',
@@ -27,6 +28,7 @@ const keys = [
   'getGetServiceRequestHistoryQueryKey', 'getListServiceRequestInvoicesQueryKey', 'getGetCompanyFileQueryKey', 'getListServiceOffersQueryKey',
   'getGetCompanyMembershipQueryKey', 'getListCompanyMembersQueryKey', 'getListPlansQueryKey', 'getGetCompanySubscriptionQueryKey', 'getListCompanyInvoicesQueryKey',
   'getGetOfficeCustomerFileQueryKey', 'getListOfficeCustomersQueryKey',
+  'getGetPortalSettingsQueryKey', 'getListOfficeServiceRequestInvoicesQueryKey',
 ];
 const uiNames = ['PortalLayout', 'PageHeading', 'LoadingBlock', 'ErrorBlock', 'EmptyBlock', 'RequestRow', 'Status', 'StatusTrack', 'dateText', 'useDebouncedValue'];
 const server = await createServer({
@@ -39,7 +41,7 @@ const server = await createServer({
   plugins: [{
     name: 'customer-page-test-boundaries',
     enforce: 'pre',
-    resolveId(id) {
+    resolveId(id, importer) {
       if (id === '@workspace/api-client-react') return '\0c-api';
       if (id === '@/components/portal-ui' || id.endsWith('/src/components/portal-ui')) return '\0c-ui';
       if (id === '@tanstack/react-query') return '\0c-query';
@@ -71,6 +73,9 @@ const { Dashboard, RequestDetail } = await server.ssrLoadModule('/src/pages/cust
 const { RequestFiles } = await server.ssrLoadModule('/src/components/request-files.tsx');
 const { CompanyPage } = await server.ssrLoadModule('/src/pages/company.tsx');
 const { NewRequest, employeeLink } = await server.ssrLoadModule('/src/pages/new-request.tsx');
+const { RegistrationRequestPage } = await server.ssrLoadModule('/src/pages/registration.tsx');
+const { NotificationSettings } = await server.ssrLoadModule('/src/pages/customer-extras.tsx');
+const { createInvoiceIssueKeyManager } = await server.ssrLoadModule('/src/lib/invoice-idempotency.ts');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 globalThis.window = { matchMedia: () => ({ matches: true }), location: { hash: '' } };
 globalThis.requestAnimationFrame = fn => fn();
@@ -86,16 +91,16 @@ const summary = (extra = {}) => ({
   totalRequests: 1, activeRequests: 1, completedRequests: 0, openInquiries: 0, recentRequests: [], recentInquiries: [], ...extra,
 });
 const query = data => ({ data, isLoading: false, isError: false, error: null, refetch() {} });
-const failed = (status = 501) => ({ data: undefined, isLoading: false, isError: true, error: { status }, refetch() {} });
+const failed = (status = 501, refetch = () => {}) => ({ data: undefined, isLoading: false, isError: true, error: { status }, refetch });
 const mutation = fn => ({ isPending: false, isError: false, mutateAsync: fn, reset() {} });
 const plan = (id, extra = {}) => ({ id, slug: `plan-${id}`, name: `باقة ${id}`, description: `وصف الباقة ${id}`, price: 100000, vat: 15000, total: 115000, employeeCap: 25, requestsPerMonth: null, autoRenewals: id === 1, active: true, sort: id, ...extra });
 const employee = (id, extra = {}) => ({ id, fullName: `موظف ${id}`, nationality: null, occupation: null, idNumberMasked: null, passportNumberMasked: null, iqamaExpiresOn: null, passportExpiresOn: null, workPermitExpiresOn: null, phone: null, status: 'active', notes: null, addedBy: 'customer', createdAt: date, updatedAt: date, ...extra });
 function setup(state) {
-  const log = { accept: [], decline: [], link: [], attach: [], invalidated: [], invite: [], updateMember: [], removeMember: [], leave: 0, reloaded: 0, start: [], updateSub: [], create: [] };
+  const log = { accept: [], decline: [], link: [], attach: [], invalidated: [], invite: [], updateMember: [], removeMember: [], leave: 0, reloaded: 0, start: [], updateSub: [], create: [], settingsSave: [], verification: [], invoiceIssue: [] };
   globalThis.window.location.reload = () => { log.reloaded += 1; };
   globalThis.__c = {
     search: state.search ?? '', params: { id: '1' },
-    qc: { invalidateQueries: async value => { log.invalidated.push(value.queryKey); } },
+     qc: { invalidateQueries: async value => { log.invalidated.push(value.queryKey); }, setQueryData: () => {} },
     ui: {
       PortalLayout: ({ children }) => children, PageHeading: ({ title }) => React.createElement('h1', null, title),
       LoadingBlock: () => 'loading', ErrorBlock: () => 'error', EmptyBlock: ({ title }) => title,
@@ -106,7 +111,7 @@ function setup(state) {
       useListInquiries: () => query([]), useCreateInquiry: () => mutation(async () => {}), useGetServiceRequestHistory: () => query([]),
       useAcceptQuote: () => mutation(async input => { log.accept.push(input); return state.requests[0]; }),
       useDeclineQuote: () => mutation(async input => { log.decline.push(input); return state.requests[0]; }),
-      useCreateServiceRequest: () => mutation(async input => { log.create.push(input); return { id: 9 }; }), useGetCompanyFile: () => query(state.company ?? null), useListServiceOffers: () => query([]),
+       useCreateServiceRequest: () => mutation(async input => { log.create.push(input); return { id: 9 }; }), useGetCompanyFile: () => state.companyError ? failed(501, () => { state.companyRetried = true; }) : query(state.company ?? null), useListServiceOffers: () => query([]),
       // The company page: membership and members, the subscription, plans and invoices. Each fails like the server does until it exists.
       useGetCompanyMembership: () => state.membership === undefined ? failed() : query(state.membership),
       useListCompanyMembers: () => query(state.members ?? []),
@@ -119,6 +124,26 @@ function setup(state) {
       useStartCompanySubscription: () => mutation(async input => { log.start.push(input); return state.subscription; }),
       useUpdateCompanySubscription: () => mutation(async input => { log.updateSub.push(input); return state.subscription; }),
       useListCompanyInvoices: () => query(state.invoices ?? []),
+       useGetPortalSettings: input => {
+         log.settingsQuery = input;
+         return { ...query(state.settings), refetch: async () => { log.settingsRefetch = (log.settingsRefetch ?? 0) + 1; } };
+       },
+       useSavePortalSettings: () => mutation(async input => {
+         log.settingsSave.push(input);
+         const changedPhone = state.settings.whatsappPhone !== input.data.whatsappPhone;
+         state.settings = { ...state.settings, ...input.data, whatsappVerificationStatus: changedPhone ? input.data.whatsappPhone ? 'unverified' : 'not_set' : state.settings.whatsappVerificationStatus, whatsappVerificationExpiresAt: changedPhone ? null : state.settings.whatsappVerificationExpiresAt };
+         return state.settings;
+       }),
+       useRequestPortalWhatsappVerification: () => {
+         const result = mutation(async input => {
+           log.verification.push(input);
+           if (state.challengeError) { state.challengeFailed = true; throw { status: state.challengeError }; }
+           return state.challenge;
+         });
+         Object.defineProperty(result, 'isError', { get: () => !!state.challengeFailed });
+         Object.defineProperty(result, 'error', { get: () => state.challengeFailed ? { status: state.challengeError } : null });
+         return result;
+       },
     },
     calls: {
       linkAttachmentToChecklist: async (...args) => { log.link.push(args); return state.requests[0]; },
@@ -159,6 +184,121 @@ test('the dashboard lists what needs the customer, or says nothing does', async 
   assert.match(text(calm.root), /لا شيء مطلوب منك الآن/);
   assert.ok(!text(calm.root).includes('مطلوب منك الآن ('));
   await act(async () => calm.unmount());
+});
+
+test('registration form can transition from loading to editable and submitted states without changing hook order', async () => {
+  setup({ summary: summary(), requests: [] });
+  const props = {
+    email: 'customer@example.test',
+    values: { fullName: 'عميل', contactPhone: '0500000000', note: '' },
+    onChange() {},
+    onSubmit() {},
+  };
+  const tree = await mount(React.createElement(RegistrationRequestPage, { ...props, loading: true }));
+  await act(async () => tree.update(React.createElement(RegistrationRequestPage, props)));
+  assert.ok(nodes(tree, 'form').length, 'the editable form replaces its initial loading state');
+  await act(async () => tree.update(React.createElement(RegistrationRequestPage, {
+    ...props,
+    registration: { id: 1, fullName: 'عميل', email: props.email, contactPhone: '0500000000', note: null, status: 'pending', reason: null, createdAt: date, updatedAt: date },
+  })));
+  assert.match(text(tree.root), /وصل طلبك إلى المكتب/);
+  await act(async () => tree.unmount());
+});
+
+test('new request discloses a failed company-file lookup and offers retry without blocking the request', async () => {
+  const state = { summary: summary(), requests: [], search: 'service=iqama-renewal', companyError: true };
+  setup(state);
+  const tree = await mount(React.createElement(NewRequest));
+  await submit(nodes(tree, 'form')[0]);
+  assert.match(text(tree.root), /تعذّر تحميل ملف المنشأة/);
+  await click(button(tree, 'إعادة المحاولة'));
+  assert.equal(state.companyRetried, true);
+  await act(async () => tree.unmount());
+});
+
+test('notification settings disclose verification state and provide only a reviewed, server-addressed WhatsApp draft', async () => {
+  const expiresAt = new Date(Date.now() + 60 * 60_000).toISOString();
+  const state = {
+    settings: { whatsappOptIn: true, whatsappPhone: '0501111111', whatsappAvailable: true, whatsappVerificationAvailable: true, whatsappVerificationStatus: 'unverified', whatsappVerificationExpiresAt: null },
+    challenge: { status: 'pending', phone: '0501111111', officeWhatsAppNumber: '0502222222', challengeText: 'VERIFY exact 123', instructions: 'أرسل النص من الرقم المسجل.', expiresAt },
+  };
+  const log = setup(state);
+  const tree = await mount(React.createElement(NotificationSettings));
+  assert.match(text(tree.root), /غير موثّق/);
+  assert.match(text(tree.root), /لا يمكنه استقبال رسائل حساسة/);
+  assert.equal(log.settingsQuery.query.refetchInterval, 15_000);
+  await click(button(tree, 'طلب تحدٍ جديد'));
+  assert.deepEqual(log.verification, [{ data: { phone: '0501111111' } }]);
+  assert.match(text(tree.root), /VERIFY exact 123/);
+  assert.match(text(tree.root), /أرسل النص من الرقم المسجل/);
+  assert.match(text(tree.root), /تنتهي في/);
+  const draftLink = nodes(tree, 'a').find(a => text(a).includes('افتح واتساب'));
+  assert.ok(draftLink);
+  assert.equal(draftLink.props.href.split('/').at(-1).split('?')[0], '966502222222', 'destination comes from the verification response');
+  assert.equal(new URL(draftLink.props.href).searchParams.get('text'), 'VERIFY exact 123');
+  assert.equal(draftLink.props.target, '_blank');
+  assert.match(draftLink.props.rel, /noopener/);
+
+  state.settings.whatsappVerificationStatus = 'verified';
+  const consent = nodes(tree, 'input').find(input => input.props.type === 'checkbox');
+  await act(async () => consent.props.onChange({ target: { checked: false } }));
+  assert.match(text(tree.root), /تم توثيق الرقم/);
+  assert.doesNotMatch(text(tree.root), /VERIFY exact 123/, 'a refreshed proof result replaces the spent draft');
+  await act(async () => consent.props.onChange({ target: { checked: true } }));
+
+  const phoneField = nodes(tree, 'input').find(input => input.props.type === 'tel');
+  await act(async () => phoneField.props.onChange({ target: { value: '0503333333' } }));
+  await submit(nodes(tree, 'form')[0]);
+  assert.deepEqual(log.settingsSave, [{ data: { whatsappOptIn: true, whatsappPhone: '0503333333' } }]);
+  assert.equal(state.settings.whatsappVerificationStatus, 'unverified', 'a phone change clears the prior proof in the server response');
+  assert.ok(log.settingsRefetch >= 2, 'save and challenge both refetch server proof state');
+  assert.doesNotMatch(text(tree.root), /VERIFY exact 123/, 'a draft for the prior number is hidden after changing the saved number');
+  await act(async () => tree.unmount());
+});
+
+test('notification settings show unconfigured and expired verification, and a challenge API failure', async () => {
+  setup({ settings: { whatsappOptIn: false, whatsappPhone: null, whatsappAvailable: false, whatsappVerificationAvailable: false, whatsappVerificationStatus: 'not_set', whatsappVerificationExpiresAt: null } });
+  const unconfigured = await mount(React.createElement(NotificationSettings));
+  assert.match(text(unconfigured.root), /لم يُضف رقم/);
+  assert.match(text(unconfigured.root), /إعداد التحقق غير مفعّل لدى المكتب/);
+  assert.equal(button(unconfigured, 'طلب تحدي التحقق').props.disabled, true);
+  await act(async () => unconfigured.unmount());
+
+  setup({ settings: { whatsappOptIn: false, whatsappPhone: '0501111111', whatsappAvailable: true, whatsappVerificationAvailable: true, whatsappVerificationStatus: 'pending', whatsappVerificationExpiresAt: '2020-01-01T00:00:00.000Z' } });
+  const expired = await mount(React.createElement(NotificationSettings));
+  assert.match(text(expired.root), /انتهت مهلة التحقق/);
+  assert.match(text(expired.root), /انتهت صلاحية تحدي التحقق/);
+  await act(async () => expired.unmount());
+
+  setup({ settings: { whatsappOptIn: false, whatsappPhone: '0501111111', whatsappAvailable: true, whatsappVerificationAvailable: true, whatsappVerificationStatus: 'unverified', whatsappVerificationExpiresAt: null }, challengeError: 503 });
+  const failedChallenge = await mount(React.createElement(NotificationSettings));
+  await click(button(failedChallenge, 'طلب تحدٍ جديد'));
+  assert.match(text(failedChallenge.root), /خدمة التحقق غير مهيأة لدى المكتب حاليًا/);
+  await act(async () => failedChallenge.unmount());
+});
+
+test('saving a different WhatsApp phone reflects the server revocation of an existing verification', async () => {
+  const state = { settings: { whatsappOptIn: true, whatsappPhone: '0501111111', whatsappAvailable: true, whatsappVerificationAvailable: true, whatsappVerificationStatus: 'verified', whatsappVerificationExpiresAt: null } };
+  const log = setup(state);
+  const tree = await mount(React.createElement(NotificationSettings));
+  assert.match(text(tree.root), /حالة الرقم: موثّق/);
+  const phoneField = nodes(tree, 'input').find(input => input.props.type === 'tel');
+  await act(async () => phoneField.props.onChange({ target: { value: '0503333333' } }));
+  await submit(nodes(tree, 'form')[0]);
+  assert.deepEqual(log.settingsSave[0].data, { whatsappOptIn: true, whatsappPhone: '0503333333' });
+  assert.equal(state.settings.whatsappVerificationStatus, 'unverified');
+  assert.match(text(tree.root), /حالة الرقم: غير موثّق/);
+  await act(async () => tree.unmount());
+});
+
+test('invoice idempotency keys survive same-draft retries and rotate only for changed draft content', () => {
+  const keyManager = createInvoiceIssueKeyManager('request:44|description:fee|amount:1000');
+  const firstKey = keyManager.forSignature('request:44|description:fee|amount:1000');
+  assert.match(firstKey, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  assert.equal(keyManager.forSignature('request:44|description:fee|amount:1000'), firstKey, 'an unchanged retry reuses the request UUID');
+  const changedDraftKey = keyManager.forSignature('request:44|description:other fee|amount:1000');
+  assert.notEqual(changedDraftKey, firstKey, 'genuinely changed content receives a new UUID');
+  assert.equal(keyManager.forSignature('request:44|description:other fee|amount:1000'), changedDraftKey);
 });
 
 test('the quote card accepts, declines with a reason, and refreshes the request, invoices and lists', async () => {
@@ -247,6 +387,17 @@ test('the owner invites members, changes their role, and removes them; the owner
   const log = setup(state);
   const tree = await mount(React.createElement(CompanyPage));
   assert.deepEqual(tabs(tree), ['المنشأة والموظفون', 'أعضاء المنشأة', 'الاشتراك والفواتير']);
+  const fileTab = nodes(tree, 'button').find(button => button.props.role === 'tab' && button.props.id === 'company-tab-file');
+  assert.equal(fileTab.props['aria-controls'], 'company-panel-file');
+  assert.equal(nodes(tree, 'div').find(panel => panel.props.role === 'tabpanel')?.props['aria-labelledby'], 'company-tab-file');
+  let keyboardFocus = -1;
+  await act(async () => fileTab.props.onKeyDown({
+    key: 'ArrowLeft',
+    preventDefault() {},
+    currentTarget: { parentElement: { querySelectorAll: () => [{ focus() { keyboardFocus = 0; } }, { focus() { keyboardFocus = 1; } }, { focus() { keyboardFocus = 2; } }] } },
+  }));
+  assert.equal(keyboardFocus, 1, 'left arrow advances through the right-to-left tab order');
+  assert.equal(nodes(tree, 'button').find(button => button.props.id === 'company-tab-members').props['aria-selected'], true);
   assert.ok(!text(tree.root).includes('أنت عضو بصلاحية'));
   await click(button(tree, 'أعضاء المنشأة'));
   const rows = nodes(tree, 'li').map(text);

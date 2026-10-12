@@ -11,6 +11,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { formatDate, formatMoney, formatNumber, parseRiyals } from '@/lib/format';
+import { createInvoiceIssueKeyManager } from '@/lib/invoice-idempotency';
 import { BulkInvoiceFields, bulkInvoiceBody, emptyBulkInvoice, type BulkInvoiceDraft } from '@/components/office-request-extras';
 import { contact } from '@/content/contact';
 import './request-billing.css';
@@ -144,23 +145,30 @@ export function OfficeInvoices({ requestId, onChanged, employeesCount = 0 }: { r
   const [awaiting, setAwaiting] = useState(true);
   const [bulk, setBulk] = useState<BulkInvoiceDraft>(emptyBulkInvoice);
   const [error, setError] = useState<string | null>(null);
+  const issueInFlight = useRef(false);
   const halalas = parseRiyals(amount) ?? 0;
   // A bulk invoice (quantity × unit price) replaces the single amount field.
   const extra = bulkInvoiceBody(bulk);
   const isBulk = extra !== null && 'quantity' in extra;
+  const draftSignature = JSON.stringify({ requestId, description, amount, awaiting, bulk });
+  const [issueKeyManager] = useState(() => createInvoiceIssueKeyManager(draftSignature));
+  const idempotencyKey = issueKeyManager.forSignature(draftSignature);
   const valid = description.trim().length >= 2 && (isBulk || halalas >= 100);
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (issueInFlight.current || issue.isPending) return;
     if (extra === null) { setError('اكتب كمية صحيحة وسعر وحدة لا يقل عن ريال واحد.'); return; }
     if (!valid) { setError('اكتب البيان ومبلغًا لا يقل عن ريال واحد.'); return; }
     setError(null);
+    issueInFlight.current = true;
     try {
       const amountHalalas = isBulk ? extra.quantity * extra.unitAmount : halalas;
-      await issue.mutateAsync({ id: requestId, data: { description: description.trim(), amount: amountHalalas, ...extra, markAwaitingPayment: awaiting } });
+      await issue.mutateAsync({ id: requestId, data: { description: description.trim(), amount: amountHalalas, ...extra, markAwaitingPayment: awaiting, idempotencyKey } });
       setOpen(false); setDescription(''); setAmount(''); setBulk(emptyBulkInvoice);
       await qc.invalidateQueries({ queryKey: key });
       onChanged();
-    } catch { setError('تعذّر إصدار الفاتورة. حاول مجددًا.'); }
+    } catch { setError('تعذّر إصدار الفاتورة. حاول مجددًا؛ إذا تعذّر التأكد، أعد المحاولة بالمسودة نفسها لتجنب إصدار مكرر.'); }
+    finally { issueInFlight.current = false; }
   }
   // The confirmation dialog in progress: which invoice, which action, and the
   // optional payment reference typed for "mark paid".
@@ -191,7 +199,7 @@ export function OfficeInvoices({ requestId, onChanged, employeesCount = 0 }: { r
         {valid && <small className="muted font-normal">الإجمالي شامل ضريبة 15%: {formatMoney(halalas + Math.round(halalas * 0.15))}</small>}</label>}
       {employeesCount > 1 && <BulkInvoiceFields value={bulk} onChange={setBulk} defaultQuantity={employeesCount}/>}
       <label className="rb-check"><input type="checkbox" checked={awaiting} onChange={e => setAwaiting(e.target.checked)}/>غيّر حالة الطلب إلى «بانتظار السداد»</label>
-      <div className="flex gap-2"><button type="submit" className="btn btn-primary btn-sm" disabled={issue.isPending}>{issue.isPending ? 'جارٍ الإصدار…' : 'إصدار وإرسال للعميل'}</button><button type="button" className="btn btn-outline btn-sm" onClick={() => setOpen(false)}>إلغاء</button></div>
+        <div className="flex gap-2"><button type="submit" className="btn btn-primary btn-sm" disabled={issue.isPending}>{issue.isPending ? 'جارٍ الإصدار…' : 'إصدار وإرسال للعميل'}</button><button type="button" className="btn btn-outline btn-sm" disabled={issue.isPending} onClick={() => setOpen(false)}>إلغاء</button></div>
     </form>}
     {list.data?.length ? <ul className="rb-list">{list.data.map(invoice => <InvoiceRow key={invoice.id} invoice={invoice}>
       {invoice.status === 'issued' && <>

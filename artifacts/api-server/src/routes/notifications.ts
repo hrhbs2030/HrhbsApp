@@ -16,7 +16,7 @@ import { REMINDER_AFTER_DAYS } from "../lib/invoice-reminders";
 import { invoiceReference, requestReference, riyals } from "../lib/money";
 import { buildBrief, DEFAULT_PREFS, riyadhParts, type BriefInput } from "../lib/notification-intelligence";
 import { subscribe, emit } from "../lib/notification-stream";
-import { unreadCount } from "../lib/notifications";
+import { canReceiveOffice, unreadCount } from "../lib/notifications";
 import { getOfficeRole } from "../lib/office-access";
 import { publicKey, pushConfigured } from "../lib/web-push";
 import { whatsappConfigured } from "../lib/whatsapp";
@@ -52,20 +52,22 @@ router.get("/notifications", async (req, res): Promise<void> => {
   const unread = req.query.unread === "true" || req.query.unread === "1";
   const query = ListNotificationsQueryParams.safeParse({ ...req.query, unread });
   if (!query.success) { res.status(400).json({ error: "معاملات غير صالحة." }); return; }
+  const officeAccess = await canReceiveOffice(userId);
   const [rows, count] = await Promise.all([
     db.select().from(hbsNotifications).where(and(
       eq(hbsNotifications.userId, userId),
+      officeAccess ? undefined : eq(hbsNotifications.audience, "customer"),
       unread ? isNull(hbsNotifications.readAt) : undefined,
       query.data.before ? lt(hbsNotifications.id, query.data.before) : undefined,
     )).orderBy(desc(hbsNotifications.createdAt), desc(hbsNotifications.id)).limit(query.data.limit),
-    unreadCount(userId),
+    unreadCount(userId, officeAccess),
   ]);
   res.json(ListNotificationsResponse.parse({ items: rows.map(notification), unreadCount: count }));
 });
 
 // Other open tabs learn the new badge count through the stream.
 async function announceUnread(userId: string) {
-  emit(userId, { type: "unread", data: { count: await unreadCount(userId) } });
+  emit(userId, { type: "unread", data: { count: await unreadCount(userId, await canReceiveOffice(userId)) } });
 }
 
 router.post("/notifications/:id/read", async (req, res): Promise<void> => {
@@ -73,9 +75,11 @@ router.post("/notifications/:id/read", async (req, res): Promise<void> => {
   if (!userId) return;
   const params = MarkNotificationReadParams.safeParse(req.params);
   if (!params.success) { res.status(404).json({ error: "الإشعار غير موجود." }); return; }
+  const officeAccess = await canReceiveOffice(userId);
   // Idempotent: a row read earlier keeps its first read time.
   const [row] = await db.update(hbsNotifications).set({ readAt: sql`coalesce(${hbsNotifications.readAt}, now())`, updatedAt: new Date() })
-    .where(and(eq(hbsNotifications.id, params.data.id), eq(hbsNotifications.userId, userId))).returning();
+    .where(and(eq(hbsNotifications.id, params.data.id), eq(hbsNotifications.userId, userId),
+      officeAccess ? undefined : eq(hbsNotifications.audience, "customer"))).returning();
   if (!row) { res.status(404).json({ error: "الإشعار غير موجود." }); return; }
   res.json(MarkNotificationReadResponse.parse(notification(row)));
   await announceUnread(userId);
@@ -85,8 +89,10 @@ router.post("/notifications/read-all", async (req, res): Promise<void> => {
   const userId = requireUser(req, res);
   if (!userId) return;
   const now = new Date();
+  const officeAccess = await canReceiveOffice(userId);
   const updated = await db.update(hbsNotifications).set({ readAt: now, updatedAt: now })
-    .where(and(eq(hbsNotifications.userId, userId), isNull(hbsNotifications.readAt))).returning({ id: hbsNotifications.id });
+    .where(and(eq(hbsNotifications.userId, userId), isNull(hbsNotifications.readAt),
+      officeAccess ? undefined : eq(hbsNotifications.audience, "customer"))).returning({ id: hbsNotifications.id });
   res.json(MarkAllNotificationsReadResponse.parse({ updated: updated.length }));
   if (updated.length) emit(userId, { type: "unread", data: { count: 0 } });
 });
@@ -110,7 +116,9 @@ function sseWrite(res: Response, event: string, data: unknown) {
 router.get("/notifications/stream", async (req, res): Promise<void> => {
   const userId = requireUser(req, res);
   if (!userId) return;
-  const count = await unreadCount(userId);
+  const hadOfficeAccess = await canReceiveOffice(userId);
+  const count = await unreadCount(userId, hadOfficeAccess);
+  const expiresAt = getAuth(req).sessionClaims?.exp;
   // The API-wide "no-store" is replaced: proxies must not buffer or cache
   // an event stream, and nginx honours x-accel-buffering.
   res.status(200).set({
@@ -126,9 +134,28 @@ router.get("/notifications/stream", async (req, res): Promise<void> => {
   streams.set(userId, open);
 
   sseWrite(res, "unread", { count });
-  const unsubscribe = subscribe(userId, (event) => sseWrite(res, event.type, event.data));
+  const streamAccess = async (): Promise<boolean | null> => {
+    if (res.destroyed || res.writableEnded) return null;
+    if (typeof expiresAt === "number" && expiresAt * 1000 <= Date.now()) { res.end(); return null; }
+    const officeAccess = await canReceiveOffice(userId);
+    if (hadOfficeAccess && !officeAccess) { sseWrite(res, "access-denied", {}); res.end(); return null; }
+    return officeAccess;
+  };
+  const unsubscribe = subscribe(userId, event => {
+    void streamAccess().then(async officeAccess => {
+      if (officeAccess === null || res.destroyed || res.writableEnded) return;
+      if (event.type === "notification" && typeof event.data === "object" && event.data !== null
+        && "audience" in event.data && event.data.audience === "office" && !officeAccess) return;
+      sseWrite(res, event.type, event.type === "unread"
+        ? { count: await unreadCount(userId, officeAccess) } : event.data);
+    }).catch(() => res.end());
+  });
   // A comment line keeps idle proxies from closing the connection.
-  const heartbeat = setInterval(() => res.write(": ping\n\n"), HEARTBEAT_MS);
+  const heartbeat = setInterval(() => {
+    void streamAccess().then(access => {
+      if (access !== null && !res.destroyed && !res.writableEnded) res.write(": ping\n\n");
+    }).catch(() => res.end());
+  }, HEARTBEAT_MS);
   heartbeat.unref();
   let done = false;
   const cleanup = () => {
@@ -162,9 +189,10 @@ const dateOnly = (date: Date) => {
   return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
 };
 
-async function unreadFor(userId: string): Promise<Notification[]> {
+async function unreadFor(userId: string, officeAccess = false): Promise<Notification[]> {
   const rows = await db.select().from(hbsNotifications)
-    .where(and(eq(hbsNotifications.userId, userId), isNull(hbsNotifications.readAt)))
+    .where(and(eq(hbsNotifications.userId, userId), isNull(hbsNotifications.readAt),
+      officeAccess ? undefined : eq(hbsNotifications.audience, "customer")))
     .orderBy(desc(hbsNotifications.createdAt), desc(hbsNotifications.id)).limit(BRIEF_UNREAD_LIMIT);
   return rows.map(notification);
 }
@@ -217,7 +245,7 @@ const count = sql<number>`count(*)::int`;
 
 async function officeBrief(userId: string, now: Date): Promise<BriefInput> {
   const [unread, [requests], [inquiries], [whatsapp], [invoices]] = await Promise.all([
-    unreadFor(userId),
+    unreadFor(userId, true),
     db.select({ count }).from(hbsServiceRequests)
       .where(and(isNull(hbsServiceRequests.assignedTo), sql`${hbsServiceRequests.status} <> 'completed'`)),
     db.select({ count }).from(hbsInquiries).where(eq(hbsInquiries.status, "open")),

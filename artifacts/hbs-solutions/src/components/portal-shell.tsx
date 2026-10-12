@@ -9,6 +9,7 @@ import { color, font } from '@/design/tokens';
 import { SceneWindow } from '@/components/scene-window';
 import { ErrorBlock, LoadingBlock } from '@/components/portal-ui';
 import { Missing, OfficeAccessContext, authChangedEvent, basePath, stripBase } from '@/App';
+import { resetNotificationStream, dismissToast, getToastIds } from '@/lib/use-notifications';
 import Landing from '@/pages/landing';
 
 // Everything that needs Clerk lives behind this lazy shell: the auth screens,
@@ -86,12 +87,15 @@ const appearance = {
   },
 };
 
+function resetNotificationToasts() { for (const id of getToastIds()) dismissToast(id); }
 function CacheResetOnAuthChange() {
   const { addListener } = useClerk(); const qc = useQueryClient(); const previous = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     const unsubscribe = addListener(({user}) => {
       const id = user?.id ?? null;
       if (previous.current !== undefined && previous.current !== id) {
+        resetNotificationStream();
+        resetNotificationToasts();
         qc.clear();
         window.dispatchEvent(new Event(authChangedEvent));
       }
@@ -170,7 +174,15 @@ export default function PortalShell() {
   const [,setLocation]=useLocation();
   return <ClerkProvider publishableKey={clerkPubKey} proxyUrl={clerkProxyUrl} appearance={appearance}
     signInUrl={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`}
-    localization={{...arSA, formFieldLabel__emailAddress: 'البريد الإلكتروني', formFieldInputPlaceholder__emailAddress: 'أدخل بريدك الإلكتروني'}}
+    localization={{
+      ...arSA,
+      formFieldLabel__emailAddress: 'البريد الإلكتروني',
+      formFieldInputPlaceholder__emailAddress: 'أدخل بريدك الإلكتروني',
+      // Local branding only: the authentication tenant is shared with other
+      // workspace products, whose names must not leak into the HBS interface.
+      signIn: {...arSA.signIn, start: {...arSA.signIn?.start, subtitle: 'للمتابعة إلى HBS حلول الغد'}},
+      signUp: {...arSA.signUp, start: {...arSA.signUp?.start, subtitle: 'إنشاء حساب في HBS حلول الغد'}},
+    }}
     routerPush={to=>setLocation(stripBase(to))} routerReplace={to=>setLocation(stripBase(to),{replace:true})}>
     <CacheResetOnAuthChange/>
     <Suspense fallback={<div dir="rtl" className="mx-auto max-w-2xl p-10"><LoadingBlock/></div>}><Switch>

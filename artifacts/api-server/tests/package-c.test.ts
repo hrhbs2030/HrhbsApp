@@ -8,7 +8,7 @@ import express from "express";
 import pino from "pino";
 import pinoHttp from "pino-http";
 import {
-  db, hbsInvoices, hbsOfficeStaff, hbsRequestAttachments, hbsRequestMessages, hbsServiceOffers, hbsServiceRequests, pool,
+  db, hbsInvoiceGatewayPages, hbsInvoices, hbsOfficeStaff, hbsRequestAttachments, hbsRequestMessages, hbsServiceOffers, hbsServiceRequests, pool,
 } from "@workspace/db";
 import portalRouter, { requireApprovedCustomer } from "../src/routes/portal";
 import billingRouter from "../src/routes/billing";
@@ -246,17 +246,29 @@ test("quotes, document checklists, overdue reminders and CR lookups", async (t) 
       }).returning();
       const calls: string[] = [];
       const realFetch = globalThis.fetch;
+      let createdId = "";
+      let remoteStatus = "initiated";
       process.env.MOYASAR_SECRET_KEY = "sk_test_placeholder";
       globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
         const url = String(input instanceof Request ? input.url : input);
         if (!url.startsWith("https://api.moyasar.com/")) return realFetch(input, init);
         calls.push(`${init?.method ?? "GET"} ${url}`);
+        const path = new URL(url).pathname.split("/");
+        const isCancel = path.at(-1) === "cancel";
+        const id = isCancel ? path.at(-2)! : path.at(-1)!;
         if (init?.method === "POST") {
           // The office cancels while the gateway is still creating the page.
           await db.update(hbsInvoices).set({ status: "cancelled", cancelledAt: new Date() }).where(eq(hbsInvoices.id, invoice.id));
+          createdId = `gw-${randomUUID()}`;
+          remoteStatus = "initiated";
+          return new Response(JSON.stringify({
+            id: createdId, status: remoteStatus, amount: 1_150, currency: "SAR", url: `https://pay.example.invalid/${createdId}`,
+          }));
         }
-        const id = init?.method === "POST" ? `gw-${randomUUID()}` : url.split("/").at(-1)!;
-        return new Response(JSON.stringify({ id, status: "initiated", amount: 1_150, currency: "SAR", url: `https://pay.example.invalid/${id}` }));
+        if (isCancel) remoteStatus = "cancelled";
+        return new Response(JSON.stringify({
+          id, status: remoteStatus, amount: 1_150, currency: "SAR", url: `https://pay.example.invalid/${id}`,
+        }));
       }) as typeof fetch;
       try {
         const result = await call(customer, "POST", `/invoices/${invoice.id}/pay`);
@@ -265,9 +277,16 @@ test("quotes, document checklists, overdue reminders and CR lookups", async (t) 
         assert.equal(row.gatewayInvoiceId, null);
         assert.equal(row.paymentUrl, null);
         assert.ok(calls.some(c => /^PUT .*\/cancel$/.test(c)), `the created page is closed: ${calls.join(", ")}`);
+        assert.equal(remoteStatus, "cancelled", "the provider confirms the page cannot be paid");
+        const [ledgerPage] = await db.select().from(hbsInvoiceGatewayPages)
+          .where(eq(hbsInvoiceGatewayPages.gatewayInvoiceId, createdId));
+        assert.equal(ledgerPage?.invoiceId, invoice.id, "retain the page-to-invoice attribution");
+        assert.equal(ledgerPage?.paymentUrl, `https://pay.example.invalid/${createdId}`);
+        assert.ok(ledgerPage?.closedAt, "retain that the orphaned page was closed");
       } finally {
         globalThis.fetch = realFetch;
         delete process.env.MOYASAR_SECRET_KEY;
+        await db.delete(hbsInvoiceGatewayPages).where(eq(hbsInvoiceGatewayPages.invoiceId, invoice.id));
         await db.delete(hbsInvoices).where(eq(hbsInvoices.id, invoice.id));
       }
     });
@@ -304,6 +323,12 @@ test("quotes, document checklists, overdue reminders and CR lookups", async (t) 
       .where(inArray(hbsServiceRequests.userId, [customer, otherCustomer]))).map(r => r.id);
     if (ids.length) {
       await db.delete(hbsRequestMessages).where(inArray(hbsRequestMessages.requestId, ids));
+      const invoices = await db.select({ id: hbsInvoices.id }).from(hbsInvoices)
+        .where(inArray(hbsInvoices.requestId, ids));
+      const invoiceIds = invoices.map(invoice => invoice.id);
+      if (invoiceIds.length) {
+        await db.delete(hbsInvoiceGatewayPages).where(inArray(hbsInvoiceGatewayPages.invoiceId, invoiceIds));
+      }
       await db.delete(hbsInvoices).where(inArray(hbsInvoices.requestId, ids));
       await db.delete(hbsRequestAttachments).where(inArray(hbsRequestAttachments.requestId, ids));
     }

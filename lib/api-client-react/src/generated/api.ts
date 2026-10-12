@@ -107,6 +107,8 @@ import type {
   PortalSettingsInput,
   PortalSummary,
   PortalUser,
+  PortalWhatsappVerification,
+  PortalWhatsappVerificationInput,
   PushKey,
   PushSubscriptionInput,
   PushUnsubscribeInput,
@@ -5261,6 +5263,95 @@ export const useSavePortalSettings = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getSavePortalSettingsMutationOptions(options));
+    }
+
+export const getRequestPortalWhatsappVerificationUrl = () => {
+
+
+
+
+  return `/api/portal/settings/whatsapp-verification`
+}
+
+/**
+ * The response contains draft text to send from the target phone to the published office WhatsApp number. The server never sends the challenge itself.
+ * @summary Request a short-lived phone-possession challenge for the signed-in customer
+ */
+export const requestPortalWhatsappVerification = async (portalWhatsappVerificationInput: PortalWhatsappVerificationInput, options?: Parameters<typeof customFetch>[1]): Promise<PortalWhatsappVerification> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<PortalWhatsappVerification>(getRequestPortalWhatsappVerificationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(portalWhatsappVerificationInput)
+  }
+);}
+
+
+
+
+
+export const getRequestPortalWhatsappVerificationMutationKey = () => ['requestPortalWhatsappVerification'] as const;
+
+export const getRequestPortalWhatsappVerificationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestPortalWhatsappVerification>>, TError,RequestPortalWhatsappVerificationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestPortalWhatsappVerification>>, TError,RequestPortalWhatsappVerificationMutationVariables, TContext> => {
+
+const mutationKey = getRequestPortalWhatsappVerificationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestPortalWhatsappVerification>>, RequestPortalWhatsappVerificationMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestPortalWhatsappVerification(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestPortalWhatsappVerificationMutationResult = NonNullable<Awaited<ReturnType<typeof requestPortalWhatsappVerification>>>
+    export type RequestPortalWhatsappVerificationMutationBody = BodyType<PortalWhatsappVerificationInput>
+    export type RequestPortalWhatsappVerificationMutationError = ErrorType<void>
+    export type RequestPortalWhatsappVerificationMutationVariables = {data: BodyType<PortalWhatsappVerificationInput>}
+
+    /**
+ * @summary Request a short-lived phone-possession challenge for the signed-in customer
+ */
+export const useRequestPortalWhatsappVerification = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestPortalWhatsappVerification>>, TError,RequestPortalWhatsappVerificationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestPortalWhatsappVerification>>,
+        TError,
+        RequestPortalWhatsappVerificationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRequestPortalWhatsappVerificationMutationOptions(options));
     }
 
 export const getListOfficeAssigneesUrl = () => {

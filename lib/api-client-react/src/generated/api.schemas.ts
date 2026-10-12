@@ -1174,6 +1174,12 @@ export interface InvoiceInput {
   unitAmount?: number;
   /** Also move the request to awaiting payment */
   markAwaitingPayment?: boolean;
+  /**
+     * Optional client-generated key for safe invoice issue retries
+     * @minLength 16
+     * @maxLength 120
+     */
+  idempotencyKey?: string;
 }
 
 export type InvoiceActionAction = typeof InvoiceActionAction[keyof typeof InvoiceActionAction];
@@ -1243,12 +1249,31 @@ export interface ExtractedDocument {
   notes: string | null;
 }
 
+/**
+ * Unverified numbers are not used for inbound routing or outbound WhatsApp notifications
+ */
+export type PortalSettingsWhatsappVerificationStatus = typeof PortalSettingsWhatsappVerificationStatus[keyof typeof PortalSettingsWhatsappVerificationStatus];
+
+
+export const PortalSettingsWhatsappVerificationStatus = {
+  not_set: 'not_set',
+  unverified: 'unverified',
+  pending: 'pending',
+  verified: 'verified',
+} as const;
+
 export interface PortalSettings {
   whatsappOptIn: boolean;
   /** @nullable */
   whatsappPhone: string | null;
   /** Whether the office has WhatsApp messages turned on */
   whatsappAvailable: boolean;
+  /** Whether the signed Meta webhook is configured to verify phone ownership */
+  whatsappVerificationAvailable: boolean;
+  /** Unverified numbers are not used for inbound routing or outbound WhatsApp notifications */
+  whatsappVerificationStatus: PortalSettingsWhatsappVerificationStatus;
+  /** @nullable */
+  whatsappVerificationExpiresAt: string | null;
   /**
      * When the customer last wrote to the office on WhatsApp
      * @nullable
@@ -1263,6 +1288,38 @@ export interface PortalSettingsInput {
      * @nullable
      */
   whatsappPhone: string | null;
+}
+
+export interface PortalWhatsappVerificationInput {
+  /**
+     * The already-saved Saudi mobile number to verify
+     * @minLength 9
+     * @maxLength 24
+     */
+  phone: string;
+}
+
+export type PortalWhatsappVerificationStatus = typeof PortalWhatsappVerificationStatus[keyof typeof PortalWhatsappVerificationStatus];
+
+
+export const PortalWhatsappVerificationStatus = {
+  pending: 'pending',
+  verified: 'verified',
+} as const;
+
+export interface PortalWhatsappVerification {
+  status: PortalWhatsappVerificationStatus;
+  phone: string;
+  /** Published office WhatsApp number for the customer to message */
+  officeWhatsAppNumber: string;
+  /**
+     * Exact one-time challenge draft; null if already verified
+     * @nullable
+     */
+  challengeText: string | null;
+  instructions: string;
+  /** @nullable */
+  expiresAt: string | null;
 }
 
 export type OfficeAssigneeRole = typeof OfficeAssigneeRole[keyof typeof OfficeAssigneeRole];

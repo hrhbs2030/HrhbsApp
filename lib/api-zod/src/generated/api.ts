@@ -1889,6 +1889,9 @@ export const issueOfficeInvoiceBodyQuantityMax = 500;
 export const issueOfficeInvoiceBodyUnitAmountMin = 100;
 export const issueOfficeInvoiceBodyUnitAmountMax = 100000000;
 
+export const issueOfficeInvoiceBodyIdempotencyKeyMin = 16;
+export const issueOfficeInvoiceBodyIdempotencyKeyMax = 120;
+
 
 
 export const IssueOfficeInvoiceBody = zod.object({
@@ -1896,7 +1899,8 @@ export const IssueOfficeInvoiceBody = zod.object({
   "amount": zod.number().int().min(issueOfficeInvoiceBodyAmountMin).max(issueOfficeInvoiceBodyAmountMax).describe('Halalas before VAT; ignored when unitAmount is given'),
   "quantity": zod.number().int().min(1).max(issueOfficeInvoiceBodyQuantityMax).default(issueOfficeInvoiceBodyQuantityDefault).describe('Units billed, for example employees on a bulk request'),
   "unitAmount": zod.number().int().min(issueOfficeInvoiceBodyUnitAmountMin).max(issueOfficeInvoiceBodyUnitAmountMax).optional().describe('Halalas per unit before VAT; when given, amount = unitAmount x quantity'),
-  "markAwaitingPayment": zod.boolean().optional().describe('Also move the request to awaiting payment')
+  "markAwaitingPayment": zod.boolean().optional().describe('Also move the request to awaiting payment'),
+  "idempotencyKey": zod.string().min(issueOfficeInvoiceBodyIdempotencyKeyMin).max(issueOfficeInvoiceBodyIdempotencyKeyMax).optional().describe('Optional client-generated key for safe invoice issue retries')
 })
 
 
@@ -2182,6 +2186,9 @@ export const GetPortalSettingsResponse = zod.object({
   "whatsappOptIn": zod.boolean(),
   "whatsappPhone": zod.string().nullable(),
   "whatsappAvailable": zod.boolean().describe('Whether the office has WhatsApp messages turned on'),
+  "whatsappVerificationAvailable": zod.boolean().describe('Whether the signed Meta webhook is configured to verify phone ownership'),
+  "whatsappVerificationStatus": zod.enum(['not_set', 'unverified', 'pending', 'verified']).describe('Unverified numbers are not used for inbound routing or outbound WhatsApp notifications'),
+  "whatsappVerificationExpiresAt": zod.coerce.date().nullable(),
   "lastInboundAt": zod.coerce.date().nullable().describe('When the customer last wrote to the office on WhatsApp')
 })
 
@@ -2202,7 +2209,33 @@ export const SavePortalSettingsResponse = zod.object({
   "whatsappOptIn": zod.boolean(),
   "whatsappPhone": zod.string().nullable(),
   "whatsappAvailable": zod.boolean().describe('Whether the office has WhatsApp messages turned on'),
+  "whatsappVerificationAvailable": zod.boolean().describe('Whether the signed Meta webhook is configured to verify phone ownership'),
+  "whatsappVerificationStatus": zod.enum(['not_set', 'unverified', 'pending', 'verified']).describe('Unverified numbers are not used for inbound routing or outbound WhatsApp notifications'),
+  "whatsappVerificationExpiresAt": zod.coerce.date().nullable(),
   "lastInboundAt": zod.coerce.date().nullable().describe('When the customer last wrote to the office on WhatsApp')
+})
+
+
+/**
+ * The response contains draft text to send from the target phone to the published office WhatsApp number. The server never sends the challenge itself.
+ * @summary Request a short-lived phone-possession challenge for the signed-in customer
+ */
+export const requestPortalWhatsappVerificationBodyPhoneMin = 9;
+export const requestPortalWhatsappVerificationBodyPhoneMax = 24;
+
+
+
+export const RequestPortalWhatsappVerificationBody = zod.object({
+  "phone": zod.string().min(requestPortalWhatsappVerificationBodyPhoneMin).max(requestPortalWhatsappVerificationBodyPhoneMax).describe('The already-saved Saudi mobile number to verify')
+})
+
+export const RequestPortalWhatsappVerificationResponse = zod.object({
+  "status": zod.enum(['pending', 'verified']),
+  "phone": zod.string(),
+  "officeWhatsAppNumber": zod.string().describe('Published office WhatsApp number for the customer to message'),
+  "challengeText": zod.string().nullable().describe('Exact one-time challenge draft; null if already verified'),
+  "instructions": zod.string(),
+  "expiresAt": zod.coerce.date().nullable()
 })
 
 

@@ -103,7 +103,10 @@
       "updated_at": "timestamp with time zone not null",
       "user_id": "text not null",
       "whatsapp_opt_in": "boolean not null",
-      "whatsapp_phone": "text"
+      "whatsapp_phone": "text",
+      "whatsapp_verification_challenge_hash": "text",
+      "whatsapp_verification_expires_at": "timestamp with time zone",
+      "whatsapp_verified": "boolean not null"
     },
     "hbs_document_reminders": {
       "created_at": "timestamp with time zone not null",
@@ -130,6 +133,15 @@
       "subject": "text not null",
       "user_id": "text not null"
     },
+    "hbs_invoice_gateway_pages": {
+      "closed_at": "timestamp with time zone",
+      "closed_paid_alerted_at": "timestamp with time zone",
+      "created_at": "timestamp with time zone not null",
+      "gateway_invoice_id": "text not null",
+      "invoice_id": "integer not null",
+      "last_checked_at": "timestamp with time zone",
+      "payment_url": "text not null"
+    },
     "hbs_invoices": {
       "amount_halalas": "integer not null",
       "cancelled_at": "timestamp with time zone",
@@ -137,6 +149,7 @@
       "gateway_claimed_at": "timestamp with time zone",
       "gateway_invoice_id": "text",
       "id": "integer not null",
+      "idempotency_key": "text",
       "issued_at": "timestamp with time zone not null",
       "issued_by": "text not null",
       "paid_at": "timestamp with time zone",
@@ -519,6 +532,10 @@
       "table": "hbs_customer_settings",
       "definition": "CREATE UNIQUE INDEX hbs_customer_settings_pkey ON public.hbs_customer_settings USING btree (user_id)"
     },
+    "hbs_customer_settings_verified_whatsapp_unique": {
+      "table": "hbs_customer_settings",
+      "definition": "CREATE UNIQUE INDEX hbs_customer_settings_verified_whatsapp_unique ON public.hbs_customer_settings USING btree (whatsapp_phone) WHERE ((whatsapp_verified = true) AND (whatsapp_phone IS NOT NULL))"
+    },
     "hbs_document_reminders_employee_kind_unique": {
       "table": "hbs_document_reminders",
       "definition": "CREATE UNIQUE INDEX hbs_document_reminders_employee_kind_unique ON public.hbs_document_reminders USING btree (employee_id, kind)"
@@ -555,6 +572,18 @@
       "table": "hbs_inquiries",
       "definition": "CREATE INDEX hbs_inquiries_user_idx ON public.hbs_inquiries USING btree (user_id)"
     },
+    "hbs_invoice_gateway_pages_invoice_idx": {
+      "table": "hbs_invoice_gateway_pages",
+      "definition": "CREATE INDEX hbs_invoice_gateway_pages_invoice_idx ON public.hbs_invoice_gateway_pages USING btree (invoice_id)"
+    },
+    "hbs_invoice_gateway_pages_pkey": {
+      "table": "hbs_invoice_gateway_pages",
+      "definition": "CREATE UNIQUE INDEX hbs_invoice_gateway_pages_pkey ON public.hbs_invoice_gateway_pages USING btree (gateway_invoice_id)"
+    },
+    "hbs_invoice_gateway_pages_reconcile_idx": {
+      "table": "hbs_invoice_gateway_pages",
+      "definition": "CREATE INDEX hbs_invoice_gateway_pages_reconcile_idx ON public.hbs_invoice_gateway_pages USING btree (last_checked_at, created_at)"
+    },
     "hbs_invoices_gateway_unique": {
       "table": "hbs_invoices",
       "definition": "CREATE UNIQUE INDEX hbs_invoices_gateway_unique ON public.hbs_invoices USING btree (gateway_invoice_id)"
@@ -562,6 +591,10 @@
     "hbs_invoices_pkey": {
       "table": "hbs_invoices",
       "definition": "CREATE UNIQUE INDEX hbs_invoices_pkey ON public.hbs_invoices USING btree (id)"
+    },
+    "hbs_invoices_request_idempotency_unique": {
+      "table": "hbs_invoices",
+      "definition": "CREATE UNIQUE INDEX hbs_invoices_request_idempotency_unique ON public.hbs_invoices USING btree (request_id, idempotency_key)"
     },
     "hbs_invoices_request_idx": {
       "table": "hbs_invoices",

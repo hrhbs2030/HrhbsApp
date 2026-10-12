@@ -30,6 +30,7 @@ const dbCommands = [
   'test:package-c',
   'test:package-d-members',
   'test:package-d-subscriptions',
+  'test:billing-integrity',
   'test:notifications-api',
   'test:notification-pipeline',
 ];

@@ -50,6 +50,7 @@ const databaseChecks = [
   [api, 'test:package-c'],
   [api, 'test:package-d-members'],
   [api, 'test:package-d-subscriptions'],
+  [api, 'test:billing-integrity'],
   [api, 'test:notifications-api'],
   [api, 'test:notification-pipeline'],
 ];
@@ -101,7 +102,7 @@ function run([pkg, script], env = {}) {
 
 if (includesWeb) {
   for (const check of webChecks) {
-    run(check, check[1] === 'build' ? { PORT: '21172', BASE_PATH: '/' } : {});
+    run(check, check[1] === 'build' ? { PORT: '21172', BASE_PATH: '/', NODE_ENV: 'production' } : {});
   }
 }
 if (includesApi && mode !== 'api-db') {

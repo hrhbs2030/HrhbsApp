@@ -53,19 +53,23 @@ export async function hasCustomerApproval(userId: string): Promise<boolean> {
 
 // ---- verified emails -------------------------------------------------------------
 
-// A signed-in user's verified addresses are remembered briefly, so a page
-// that polls does not spend a Clerk Backend API call on every request.
+// Cached verified addresses are useful for non-authorization lookups. Access
+// resolution below deliberately fetches Clerk's current user directly.
 const EMAILS_TTL_MS = 60_000;
 const EMAILS_MAX = 5_000;
 const verifiedEmailsCache = new Map<string, { emails: string[]; until: number }>();
 
+async function currentVerifiedEmailsOf(userId: string): Promise<string[]> {
+  const user = await clerkClient.users.getUser(userId);
+  return user.emailAddresses
+    .filter(entry => entry.verification?.status === "verified")
+    .map(entry => entry.emailAddress.trim().toLowerCase());
+}
+
 export async function verifiedEmailsOf(userId: string): Promise<string[]> {
   const cached = verifiedEmailsCache.get(userId);
   if (cached && cached.until > Date.now()) return cached.emails;
-  const user = await clerkClient.users.getUser(userId);
-  const emails = user.emailAddresses
-    .filter(entry => entry.verification?.status === "verified")
-    .map(entry => entry.emailAddress.trim().toLowerCase());
+  const emails = await currentVerifiedEmailsOf(userId);
   if (verifiedEmailsCache.size >= EMAILS_MAX) {
     const now = Date.now();
     for (const [id, entry] of verifiedEmailsCache) if (entry.until <= now) verifiedEmailsCache.delete(id);
@@ -92,9 +96,10 @@ const memberRole = (role: string): CompanyRole => (MEMBER_ROLES as readonly stri
 // The company the signed-in user works in, and their role there:
 //   1. their own company (a company row, or an approved customer who has not
 //      filled the company file yet) → owner;
-//   2. a membership they accepted → its role;
-//   3. a pending invitation addressed to one of their verified Clerk emails →
-//      accepted now (member_user_id, accepted_at) and returned.
+//   2. an accepted membership whose invitation email is still verified →
+//      its role;
+//   3. a pending invitation addressed to one of their currently verified
+//      Clerk emails → accepted now (member_user_id, accepted_at) and returned.
 // The acceptance in 3 is the only write. Null when none applies.
 export async function resolveCompanyAccess(req: Request): Promise<CompanyAccess | null> {
   const userId = getAuth(req).userId;
@@ -106,17 +111,31 @@ export async function resolveCompanyAccessFor(userId: string): Promise<CompanyAc
   const [own] = await db.select({ userId: hbsCompanies.userId }).from(hbsCompanies).where(eq(hbsCompanies.userId, userId)).limit(1);
   if (own) return { companyUserId: userId, role: "owner" };
 
-  const [accepted] = await db.select({ companyUserId: hbsCompanyMembers.companyUserId, role: hbsCompanyMembers.role })
-    .from(hbsCompanyMembers).where(eq(hbsCompanyMembers.memberUserId, userId))
-    .orderBy(asc(hbsCompanyMembers.acceptedAt), asc(hbsCompanyMembers.id)).limit(1);
-  if (accepted) return { companyUserId: accepted.companyUserId, role: memberRole(accepted.role) };
-
-  // A customer's own (not yet filled) company comes before invitations
-  // elsewhere, so a customer is never turned into another company's member.
+  // Keep the user's own customer data ahead of invitations to another company.
   if (await hasCustomerApproval(userId)) return { companyUserId: userId, role: "owner" };
 
-  const emails = await verifiedEmailsOf(userId);
+  const accepted = await db.select({
+    companyUserId: hbsCompanyMembers.companyUserId, role: hbsCompanyMembers.role, email: hbsCompanyMembers.email,
+  })
+    .from(hbsCompanyMembers).where(eq(hbsCompanyMembers.memberUserId, userId))
+    .orderBy(asc(hbsCompanyMembers.acceptedAt), asc(hbsCompanyMembers.id));
+
+  let emails: string[];
+  try {
+    // Do not authorize accepted or pending membership from the short-lived
+    // email cache: Clerk may have revoked verification since it was filled.
+    emails = await currentVerifiedEmailsOf(userId);
+  } catch {
+    // If Clerk cannot establish the current addresses, member access fails
+    // closed. Own-company and approved-own-customer access returned above.
+    return null;
+  }
   if (!emails.length) return null;
+  const verified = new Set(emails);
+  const acceptedMembership = accepted.find(entry => verified.has(normalizeEmail(entry.email)));
+  if (acceptedMembership) {
+    return { companyUserId: acceptedMembership.companyUserId, role: memberRole(acceptedMembership.role) };
+  }
   const [pending] = await db.select({ id: hbsCompanyMembers.id })
     .from(hbsCompanyMembers)
     .where(and(isNull(hbsCompanyMembers.memberUserId), inArray(hbsCompanyMembers.email, emails)))

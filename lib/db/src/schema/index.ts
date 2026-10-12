@@ -29,6 +29,7 @@ export * from "./hbs-approved-information";
 export * from "./hbs-audit-log";
 export * from "./hbs-service-offers";
 export * from "./hbs-invoices";
+export * from "./hbs-invoice-gateway-pages";
 export * from "./hbs-document-reminders";
 export * from "./hbs-customer-settings";
 export * from "./hbs-company";

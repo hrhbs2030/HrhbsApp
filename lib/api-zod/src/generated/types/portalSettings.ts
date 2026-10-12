@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PortalSettingsWhatsappVerificationStatus } from './portalSettingsWhatsappVerificationStatus';
 
 export interface PortalSettings {
   whatsappOptIn: boolean;
@@ -12,6 +13,12 @@ export interface PortalSettings {
   whatsappPhone: string | null;
   /** Whether the office has WhatsApp messages turned on */
   whatsappAvailable: boolean;
+  /** Whether the signed Meta webhook is configured to verify phone ownership */
+  whatsappVerificationAvailable: boolean;
+  /** Unverified numbers are not used for inbound routing or outbound WhatsApp notifications */
+  whatsappVerificationStatus: PortalSettingsWhatsappVerificationStatus;
+  /** @nullable */
+  whatsappVerificationExpiresAt: Date | null;
   /**
      * When the customer last wrote to the office on WhatsApp
      * @nullable

@@ -32,4 +32,10 @@ export interface InvoiceInput {
   unitAmount?: number;
   /** Also move the request to awaiting payment */
   markAwaitingPayment?: boolean;
+  /**
+     * Optional client-generated key for safe invoice issue retries
+     * @minLength 16
+     * @maxLength 120
+     */
+  idempotencyKey?: string;
 }

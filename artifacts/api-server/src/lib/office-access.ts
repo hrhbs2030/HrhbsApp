@@ -28,9 +28,15 @@ function rememberNotOwner(userId: string) {
 }
 
 export async function getOfficeRole(req: Request, bootstrap = false): Promise<OfficeRole | null> {
-  const approvedEmail = approvedOfficeEmail();
   const userId = getAuth(req).userId;
-  if (!approvedEmail || !userId) return null;
+  return userId ? getOfficeRoleForUserId(userId, bootstrap) : null;
+}
+
+// Background deliveries must use the same currently verified identity as
+// authenticated requests, not merely an old staff row.
+export async function getOfficeRoleForUserId(userId: string, bootstrap = false): Promise<OfficeRole | null> {
+  const approvedEmail = approvedOfficeEmail();
+  if (!approvedEmail) return null;
 
   const [member] = await db.select({ email: hbsOfficeStaff.email })
     .from(hbsOfficeStaff).where(eq(hbsOfficeStaff.userId, userId)).limit(1);

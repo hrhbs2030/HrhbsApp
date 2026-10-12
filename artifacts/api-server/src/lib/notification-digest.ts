@@ -4,7 +4,7 @@ import { db, hbsNotifications, hbsOfficeStaff, type DeliveryOutcome, type HbsNot
 import { customerEmail } from "./customer-contact";
 import { logger } from "./logger";
 import { digestMail } from "./notification-intelligence";
-import { toApiNotification } from "./notifications";
+import { canReceiveOffice, loadPrefs, toApiNotification } from "./notifications";
 import { approvedOfficeEmail } from "./office-access";
 import { sendMailNow, type Mail } from "./notify";
 import { sendPush as defaultSendPush, type PushPayload } from "./web-push";
@@ -59,13 +59,25 @@ export async function deliverHeldNotifications(now = new Date(), deps: DigestDep
     if (list) list.push(row); else byUser.set(row.userId, [row]);
   }
   for (const [userId, rows] of byUser) {
+    const officeAccess = rows.some(row => row.audience === "office") ? await canReceiveOffice(userId) : false;
+    const blocked = rows.filter(row => row.audience === "office" && !officeAccess);
+    if (blocked.length) {
+      await db.update(hbsNotifications).set({
+        digestedAt: now,
+        delivered: sql`${hbsNotifications.delivered} || '{"email":"skipped","push":"skipped","whatsapp":"skipped"}'::jsonb`,
+      }).where(and(inArray(hbsNotifications.id, blocked.map(row => row.id)), isNull(hbsNotifications.digestedAt)));
+    }
+    const allowedIds = rows.filter(row => row.audience !== "office" || officeAccess).map(row => row.id);
+    if (!allowedIds.length) continue;
+    const prefs = await loadPrefs(userId);
     // Claim before sending: only one instance wins the update.
     const claimed = await db.update(hbsNotifications).set({ digestedAt: now })
-      .where(and(inArray(hbsNotifications.id, rows.map(row => row.id)), isNull(hbsNotifications.digestedAt))).returning();
+      .where(and(inArray(hbsNotifications.id, allowedIds), isNull(hbsNotifications.digestedAt))).returning();
     if (claimed.length === 0) continue;
     outcome.users++;
     for (const row of claimed) {
       if (row.delivered.push !== "held") continue;
+      if (!prefs.pushEnabled || prefs.mutedKinds.includes(row.kind)) { await settle([row.id], "push", "skipped"); continue; }
       let result: DeliveryOutcome = "failed";
       try {
         result = await deps.sendPush(userId, { title: row.title, body: row.body, path: row.path, id: row.id });
@@ -78,11 +90,15 @@ export async function deliverHeldNotifications(now = new Date(), deps: DigestDep
     const mailRows = claimed.filter(row => row.delivered.email === "held");
     if (mailRows.length === 0) continue;
     const ids = mailRows.map(row => row.id);
-    const to = await deps.emailFor(userId, claimed[0].audience);
+    const muted = mailRows.filter(row => prefs.mutedKinds.includes(row.kind));
+    if (muted.length) await settle(muted.map(row => row.id), "email", "skipped");
+    const enabledMailRows = mailRows.filter(row => !prefs.mutedKinds.includes(row.kind));
+    if (!prefs.emailEnabled || !enabledMailRows.length) { await settle(ids, "email", "skipped"); continue; }
+    const to = await deps.emailFor(userId, enabledMailRows[0].audience);
     if (!to) { await settle(ids, "email", "skipped"); continue; }
     try {
-      await deps.sendMail(digestMail(to, mailRows.map(toApiNotification)));
-      await settle(ids, "email", "sent");
+      await deps.sendMail(digestMail(to, enabledMailRows.map(toApiNotification)));
+      await settle(enabledMailRows.map(row => row.id), "email", "sent");
       outcome.mails++;
     } catch (err) {
       // Not sent: give the claim back so the next sweep tries again. The

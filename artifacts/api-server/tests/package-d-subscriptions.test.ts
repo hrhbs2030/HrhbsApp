@@ -9,10 +9,11 @@ import pino from "pino";
 import pinoHttp from "pino-http";
 import {
   db, hbsAuditLog, hbsCompanies, hbsCompanyEmployees, hbsCompanyMembers, hbsCustomerSettings, hbsDocumentReminders, hbsInquiries,
-  hbsInvoices, hbsOfficeStaff, hbsPlans, hbsRegistrationRequests, hbsRequestEmployees, hbsRequestMessages, hbsServiceRequests,
+  hbsInvoiceGatewayPages, hbsInvoices, hbsOfficeStaff, hbsPlans, hbsRegistrationRequests, hbsRequestEmployees, hbsRequestMessages, hbsServiceRequests,
   hbsSubscriptions, hbsWhatsappInbound, pool,
 } from "@workspace/db";
 import billingRouter from "../src/routes/billing";
+import portalRouter from "../src/routes/portal";
 import subscriptionsRouter from "../src/routes/subscriptions";
 import whatsappWebhookRouter from "../src/routes/whatsapp-webhook";
 import { sendDueReminders, autoRenewalClientRequestId, AUTO_RENEWAL_DESCRIPTION } from "../src/lib/document-reminders";
@@ -50,7 +51,7 @@ function testApp() {
     Object.assign(req, { auth });
     next();
   });
-  for (const router of [subscriptionsRouter, billingRouter, whatsappWebhookRouter]) app.use("/api", router);
+  for (const router of [subscriptionsRouter, billingRouter, portalRouter, whatsappWebhookRouter]) app.use("/api", router);
   return app;
 }
 
@@ -58,7 +59,10 @@ test("plans, subscriptions, renewals, automatic renewal requests and WhatsApp in
   assert.equal(process.env.HBS_OFFICE_EMAIL, officeEmail, `Run with HBS_OFFICE_EMAIL=${officeEmail}`);
   mock.method(clerkClient.users, "getUser", async (userId: string) => ({
     id: userId, primaryEmailAddressId: null,
-    emailAddresses: userId === owner ? [{ emailAddress: officeEmail, verification: { status: "verified" } }] : [],
+    emailAddresses: userId === owner ? [{ emailAddress: officeEmail, verification: { status: "verified" } }]
+      : userId === finance || userId === viewer
+        ? [{ emailAddress: `${userId}@example.invalid`, verification: { status: "verified" } }]
+        : [],
   }));
   delete process.env.SMTP_HOST;
   delete process.env.WHATSAPP_ACCESS_TOKEN;
@@ -394,8 +398,7 @@ test("plans, subscriptions, renewals, automatic renewal requests and WhatsApp in
       await call(customer, "PATCH", "/company/subscription", { autoRenewRequests: true });
     });
 
-    await t.test("WhatsApp messages from a registered number reach the open request or become an inquiry", async () => {
-      await db.insert(hbsCustomerSettings).values({ userId: customer, whatsappOptIn: true, whatsappPhone: "0500000001" });
+    await t.test("WhatsApp messages from a verified number reach the open request or become an inquiry", async () => {
       const base = `http://127.0.0.1:${address.port}/api/webhooks/whatsapp`;
       const post = (id: string, from: string, body: string) => {
         const payload = JSON.stringify({ object: "whatsapp_business_account", entry: [{ id: "1", changes: [{ field: "messages", value: {
@@ -403,8 +406,33 @@ test("plans, subscriptions, renewals, automatic renewal requests and WhatsApp in
         } }] }] });
         return fetch(base, { method: "POST", headers: { "content-type": "application/json", "x-hub-signature-256": sign(payload) }, body: payload });
       };
+      const saved = await call(customer, "PUT", "/portal/settings", { whatsappOptIn: true, whatsappPhone: "0500000001" });
+      assert.equal(saved.status, 200, JSON.stringify(saved.data));
+      assert.equal(saved.data.whatsappVerificationStatus, "unverified");
       const [request] = await db.select().from(hbsServiceRequests).where(eq(hbsServiceRequests.userId, customer));
       await db.update(hbsServiceRequests).set({ status: "waiting_on_customer" }).where(eq(hbsServiceRequests.id, request.id));
+      const priorMessages = await db.select().from(hbsRequestMessages).where(eq(hbsRequestMessages.requestId, request.id));
+
+      const unverifiedId = `wamid.${randomUUID()}`;
+      assert.equal((await post(unverifiedId, "966500000001", "must not route yet")).status, 200);
+      const [unverifiedInbound] = await db.select().from(hbsWhatsappInbound).where(eq(hbsWhatsappInbound.waMessageId, unverifiedId));
+      assert.equal(unverifiedInbound.handled, "unmatched", "a saved but unverified number cannot identify a customer");
+      assert.equal(unverifiedInbound.userId, null);
+      assert.equal((await db.select().from(hbsRequestMessages).where(eq(hbsRequestMessages.requestId, request.id))).length, priorMessages.length);
+
+      const challenge = await call(customer, "POST", "/portal/settings/whatsapp-verification", { phone: "0500000001" });
+      assert.equal(challenge.status, 200, JSON.stringify(challenge.data));
+      assert.equal(challenge.data.status, "pending");
+      assert.match(challenge.data.challengeText, /^HBS WhatsApp verification: /);
+      const challengeId = `wamid.verify.${randomUUID()}`;
+      assert.equal((await post(challengeId, "966500000001", challenge.data.challengeText)).status, 200);
+      const [verifiedSettings] = await db.select().from(hbsCustomerSettings).where(eq(hbsCustomerSettings.userId, customer));
+      assert.equal(verifiedSettings.whatsappVerified, true, "only a signed inbound challenge proves possession");
+      assert.equal(verifiedSettings.whatsappVerificationChallengeHash, null);
+      const [challengeInbound] = await db.select().from(hbsWhatsappInbound).where(eq(hbsWhatsappInbound.waMessageId, challengeId));
+      assert.equal(challengeInbound.handled, "ignored");
+      assert.equal(challengeInbound.body, "[WhatsApp verification challenge]", "the challenge token is not retained");
+
       const first = `wamid.${randomUUID()}`;
       assert.equal((await post(first, "966500000001", "تم رفع المستند")).status, 200);
       const messages = await db.select().from(hbsRequestMessages).where(eq(hbsRequestMessages.requestId, request.id));
@@ -445,7 +473,7 @@ test("plans, subscriptions, renewals, automatic renewal requests and WhatsApp in
       assert.equal((await db.select().from(hbsInquiries).where(eq(hbsInquiries.userId, customer))).length, 1);
       assert.ok(messages[0].body.length < 200 && (await db.select().from(hbsWhatsappInbound).where(eq(hbsWhatsappInbound.waMessageId, first)))[0].body === "تم رفع المستند", "matched messages are kept whole");
 
-      // Inbound records older than 90 days are purged daily.
+      // Optional retention removes old bodies but preserves dedupe records.
       const old = `wamid.${randomUUID()}`;
       const recent = `wamid.${randomUUID()}`;
       const now = new Date("2026-10-01T00:00:00Z");
@@ -454,8 +482,14 @@ test("plans, subscriptions, renewals, automatic renewal requests and WhatsApp in
         { waMessageId: recent, fromPhone: "966500000098", body: "حديث", handled: "unmatched", receivedAt: new Date(now.getTime() - 89 * 86_400_000) },
       ]);
       assert.ok(await purgeOldWhatsappInbound(now) >= 1);
-      const kept = await db.select({ id: hbsWhatsappInbound.waMessageId }).from(hbsWhatsappInbound).where(eq(hbsWhatsappInbound.fromPhone, "966500000098"));
-      assert.deepEqual(kept.map(k => k.id), [recent]);
+      const kept = await db.select().from(hbsWhatsappInbound).where(eq(hbsWhatsappInbound.fromPhone, "966500000098"));
+      assert.deepEqual(kept.map(k => k.waMessageId).sort(), [old, recent].sort());
+      assert.equal(kept.find(row => row.waMessageId === old)?.body, "[WhatsApp message body removed by retention policy]");
+      assert.equal(kept.find(row => row.waMessageId === recent)?.body, "حديث");
+      const duplicate = await db.insert(hbsWhatsappInbound).values({
+        waMessageId: old, fromPhone: "966500000098", body: "قديم", handled: "unmatched",
+      }).onConflictDoNothing().returning();
+      assert.equal(duplicate.length, 0, "retention must not allow a signed old message to be processed again");
     });
 
     await t.test("cancelling ends the subscription", async () => {
@@ -482,6 +516,12 @@ test("plans, subscriptions, renewals, automatic renewal requests and WhatsApp in
     delete process.env.WHATSAPP_APP_SECRET;
     const subscriptions = await db.select({ id: hbsSubscriptions.id }).from(hbsSubscriptions).where(inArray(hbsSubscriptions.userId, customers));
     const ids = subscriptions.map(s => s.id);
+    const invoices = await db.select({ id: hbsInvoices.id }).from(hbsInvoices)
+      .where(inArray(hbsInvoices.subscriptionId, ids.length ? ids : [0]));
+    const invoiceIds = invoices.map(invoice => invoice.id);
+    if (invoiceIds.length) {
+      await db.delete(hbsInvoiceGatewayPages).where(inArray(hbsInvoiceGatewayPages.invoiceId, invoiceIds));
+    }
     await db.delete(hbsInvoices).where(inArray(hbsInvoices.subscriptionId, ids.length ? ids : [0]));
     await db.delete(hbsSubscriptions).where(inArray(hbsSubscriptions.userId, customers));
     await db.delete(hbsPlans).where(like(hbsPlans.slug, `${slugPrefix}-%`));
