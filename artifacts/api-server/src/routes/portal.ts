@@ -1,5 +1,5 @@
 import { clerkClient, getAuth } from "@clerk/express";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { Router, type IRouter, type Request, type RequestHandler } from "express";
 import {
@@ -56,12 +56,10 @@ import {
   ListServiceRequestMessagesResponse,
   SendServiceRequestMessageBody,
   SendServiceRequestMessageResponse,
-  GetPortalSettingsResponse,
   RateServiceRequestBody,
   RateServiceRequestParams,
   RateServiceRequestResponse,
   SavePortalSettingsBody,
-  SavePortalSettingsResponse,
   ListInquiriesResponse,
   ListOfficeInquiriesResponse,
   ListOfficeInquiriesQueryParams,
@@ -109,7 +107,7 @@ import { hasCustomerApproval, hasLegacyCustomerData, resolveCompanyAccess, resol
 import { applyAssignmentRule, resumeAfterCustomerReply } from "../lib/automations";
 import { checklistForService, checklistOf, linkChecklist, resumeIfChecklistComplete } from "../lib/checklist";
 import { requestReference, vatFor } from "../lib/money";
-import { saudiMobile, whatsappConfigured } from "../lib/whatsapp";
+import { hashWhatsappChallenge, saudiMobile, whatsappConfigured } from "../lib/whatsapp";
 import { normalizePhone } from "../lib/phone";
 import {
   UNPAID_INVOICE_ERROR, UNPAID_INVOICE_MOVE_ERROR, canTransition, needsInvoicesSettled, transitionError,
@@ -128,6 +126,10 @@ import {
 
 const router: IRouter = Router();
 const storage = new ObjectStorageService();
+const WHATSAPP_CHALLENGE_TTL_MS = 10 * 60_000;
+// Published office WhatsApp contact, kept in sync with
+// artifacts/hbs-solutions/src/content/contact.ts.
+const OFFICE_WHATSAPP_NUMBER = "+966555208213";
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
 const allowedAttachmentTypes = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
@@ -1008,14 +1010,14 @@ router.get("/service-requests/:id/history", requirePortalAuth, requireApprovedCu
   }
   // Only the status and its time reach the customer; who made the change
   // and internal notes stay in the office audit log.
-  const updates = await db.select({ createdAt: hbsAuditLog.createdAt, details: hbsAuditLog.details })
+  const updates = await db.select({ id: hbsAuditLog.id, createdAt: hbsAuditLog.createdAt, details: hbsAuditLog.details })
     .from(hbsAuditLog)
     .where(and(
       eq(hbsAuditLog.targetType, "service_request"),
       eq(hbsAuditLog.targetId, String(record.id)),
       eq(hbsAuditLog.action, "service_request.update"),
     ))
-    .orderBy(asc(hbsAuditLog.createdAt));
+    .orderBy(asc(hbsAuditLog.createdAt), asc(hbsAuditLog.id));
   res.json(GetServiceRequestHistoryResponse.parse(statusHistory(record.createdAt, updates)));
 });
 
@@ -1166,15 +1168,25 @@ router.post("/service-requests/:id/rating", requirePortalAuth, requireApprovedCu
   res.json(RateServiceRequestResponse.parse(publicRequest(record, attached.get(record.id))));
 });
 
-router.get("/portal/settings", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
-  const [settings] = await db.select().from(hbsCustomerSettings)
-    .where(eq(hbsCustomerSettings.userId, getAuth(req).userId!)).limit(1);
-  res.json(GetPortalSettingsResponse.parse({
+function portalWhatsappSettings(settings: typeof hbsCustomerSettings.$inferSelect | undefined) {
+  const now = Date.now();
+  const challengePending = Boolean(settings?.whatsappVerificationChallengeHash && settings.whatsappVerificationExpiresAt &&
+    settings.whatsappVerificationExpiresAt.getTime() > now);
+  return {
     whatsappOptIn: settings?.whatsappOptIn ?? false,
     whatsappPhone: settings?.whatsappPhone ?? null,
     whatsappAvailable: whatsappConfigured(),
+    whatsappVerificationAvailable: Boolean(process.env.WHATSAPP_APP_SECRET),
+    whatsappVerificationStatus: settings?.whatsappVerified ? "verified" : challengePending ? "pending" : settings?.whatsappPhone ? "unverified" : "not_set",
+    whatsappVerificationExpiresAt: challengePending ? settings!.whatsappVerificationExpiresAt : null,
     lastInboundAt: settings?.lastInboundAt ?? null,
-  }));
+  };
+}
+
+router.get("/portal/settings", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
+  const [settings] = await db.select().from(hbsCustomerSettings)
+    .where(eq(hbsCustomerSettings.userId, getAuth(req).userId!)).limit(1);
+  res.json(portalWhatsappSettings(settings));
 });
 
 router.put("/portal/settings", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
@@ -1188,11 +1200,71 @@ router.put("/portal/settings", requirePortalAuth, requireApprovedCustomer, async
   }
   const values = { whatsappOptIn: body.data.whatsappOptIn, whatsappPhone: phone, updatedAt: new Date() };
   const [settings] = await db.insert(hbsCustomerSettings).values({ userId: getAuth(req).userId!, ...values })
-    .onConflictDoUpdate({ target: hbsCustomerSettings.userId, set: values }).returning();
-  res.json(SavePortalSettingsResponse.parse({
-    whatsappOptIn: settings.whatsappOptIn, whatsappPhone: settings.whatsappPhone, whatsappAvailable: whatsappConfigured(),
-    lastInboundAt: settings.lastInboundAt,
-  }));
+    .onConflictDoUpdate({
+      target: hbsCustomerSettings.userId,
+      set: {
+        ...values,
+        whatsappVerified: sql`case when ${hbsCustomerSettings.whatsappPhone} is not distinct from ${phone} then ${hbsCustomerSettings.whatsappVerified} else false end`,
+        whatsappVerificationChallengeHash: sql`case when ${hbsCustomerSettings.whatsappPhone} is not distinct from ${phone} then ${hbsCustomerSettings.whatsappVerificationChallengeHash} else null end`,
+        whatsappVerificationExpiresAt: sql`case when ${hbsCustomerSettings.whatsappPhone} is not distinct from ${phone} then ${hbsCustomerSettings.whatsappVerificationExpiresAt} else null end`,
+      },
+    }).returning();
+  res.json(portalWhatsappSettings(settings));
+});
+
+router.post("/portal/settings/whatsapp-verification", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
+  if (!process.env.WHATSAPP_APP_SECRET) {
+    res.status(503).json({ error: "WhatsApp number verification is unavailable until the office webhook is configured." });
+    return;
+  }
+  const rawPhone = typeof req.body?.phone === "string" ? req.body.phone.trim() : "";
+  const phone = rawPhone ? normalizePhone(rawPhone) : null;
+  if (!phone || !saudiMobile(phone)) {
+    res.status(400).json({ error: "Enter a Saudi mobile number (05XXXXXXXX) to verify." });
+    return;
+  }
+  const userId = getAuth(req).userId!;
+  const [settings] = await db.select().from(hbsCustomerSettings).where(eq(hbsCustomerSettings.userId, userId)).limit(1);
+  if (!settings || settings.whatsappPhone !== phone) {
+    res.status(409).json({ error: "Save this phone number in notification settings before requesting verification." });
+    return;
+  }
+  if (settings.whatsappVerified) {
+    res.json({
+      status: "verified",
+      phone,
+      officeWhatsAppNumber: OFFICE_WHATSAPP_NUMBER,
+      challengeText: null,
+      instructions: "This WhatsApp number is already verified.",
+      expiresAt: null,
+    });
+    return;
+  }
+  const token = randomBytes(32).toString("base64url");
+  const challengeText = `HBS WhatsApp verification: ${token}`;
+  const expiresAt = new Date(Date.now() + WHATSAPP_CHALLENGE_TTL_MS);
+  const [updated] = await db.update(hbsCustomerSettings).set({
+    whatsappVerified: false,
+    whatsappVerificationChallengeHash: hashWhatsappChallenge(userId, phone, challengeText),
+    whatsappVerificationExpiresAt: expiresAt,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(hbsCustomerSettings.userId, userId),
+    eq(hbsCustomerSettings.whatsappPhone, phone),
+    eq(hbsCustomerSettings.whatsappVerified, false),
+  )).returning({ phone: hbsCustomerSettings.whatsappPhone });
+  if (!updated) {
+    res.status(409).json({ error: "WhatsApp settings changed. Reload and try again." });
+    return;
+  }
+  res.json({
+    status: "pending",
+    phone,
+    officeWhatsAppNumber: OFFICE_WHATSAPP_NUMBER,
+    challengeText,
+    instructions: `Send the exact challenge text to the office WhatsApp number ${OFFICE_WHATSAPP_NUMBER} from the phone you are verifying. This challenge expires in 10 minutes.`,
+    expiresAt,
+  });
 });
 
 // ---- conversation on a request -------------------------------------------------

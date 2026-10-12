@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Link, useParams, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, BadgeCheck, Building2, CalendarClock, LogOut, Mail, MailPlus, Phone, ReceiptText, Repeat, Search, ShieldCheck, Trash2, UsersRound } from 'lucide-react';
@@ -36,6 +36,17 @@ export const canSeeSubscription = (role: CompanyRole) => role === 'owner' || rol
 
 const companyTabs = [['file', 'المنشأة والموظفون'], ['members', 'أعضاء المنشأة'], ['subscription', 'الاشتراك والفواتير']] as const;
 type CompanyTab = (typeof companyTabs)[number][0];
+function handleTabKeyDown<Key extends string>(event: KeyboardEvent<HTMLButtonElement>, index: number, tabs: readonly (readonly [Key, string])[], select: (key: Key) => void) {
+  let next = index;
+  if (event.key === 'ArrowLeft') next = (index + 1) % tabs.length;
+  else if (event.key === 'ArrowRight') next = (index - 1 + tabs.length) % tabs.length;
+  else if (event.key === 'Home') next = 0;
+  else if (event.key === 'End') next = tabs.length - 1;
+  else return;
+  event.preventDefault();
+  select(tabs[next][0]);
+  event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+}
 
 export function CompanyPage() {
   const qc = useQueryClient();
@@ -70,11 +81,13 @@ export function CompanyPage() {
     {leaveError && <p role="alert" className="mb-4 text-sm text-danger">{leaveError}</p>}
     {role !== 'owner' && <ConfirmDialog open={leaving} onOpenChange={o => { if (!o) setLeaving(false); }} danger busy={leave.isPending} confirmLabel="مغادرة"
       title={`مغادرة ${membership.data?.companyName ?? 'المنشأة'}؟`} description="تفقد الوصول إلى ملف المنشأة فورًا، ولا يمكنك العودة إلا بدعوة جديدة من مالكها." onConfirm={() => void leaveCompany()}/>}
-    {tabs.length > 1 && <div className="mb-5 flex flex-wrap gap-2" role="tablist">{tabs.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} type="button" onClick={() => setTab(key)} className={`cf-chip ${tab === key ? 'is-on' : ''}`}>{label}</button>)}</div>}
-    {tab === 'file' && (file.isLoading ? <LoadingBlock/> : file.isError ? <ErrorBlock retry={() => file.refetch()}/> : file.data &&
-      <CompanyFileView file={file.data} api={customerCompanyApi} role={role} onChanged={() => qc.invalidateQueries({ queryKey: getGetCompanyFileQueryKey() })}/>)}
-    {tab === 'members' && <MembersSection/>}
-    {tab === 'subscription' && <SubscriptionSection returnedInvoiceId={returnedInvoiceId}/>}
+     {tabs.length > 1 && <div className="mb-5 flex flex-wrap gap-2" role="tablist" aria-label="أقسام المنشأة">{tabs.map(([key, label], index) => <button key={key} id={`company-tab-${key}`} role="tab" aria-controls={`company-panel-${key}`} aria-selected={tab === key} tabIndex={tab === key ? 0 : -1} type="button" onClick={() => setTab(key)} onKeyDown={e => handleTabKeyDown<CompanyTab>(e, index, tabs as readonly (readonly [CompanyTab, string])[], setTab)} className={`cf-chip ${tab === key ? 'is-on' : ''}`}>{label}</button>)}</div>}
+    <div id={`company-panel-${tab}`} role={tabs.length > 1 ? 'tabpanel' : undefined} aria-labelledby={tabs.length > 1 ? `company-tab-${tab}` : undefined} tabIndex={tabs.length > 1 ? 0 : undefined}>
+      {tab === 'file' && (file.isLoading ? <LoadingBlock/> : file.isError ? <ErrorBlock retry={() => file.refetch()}/> : file.data &&
+        <CompanyFileView file={file.data} api={customerCompanyApi} role={role} onChanged={() => qc.invalidateQueries({ queryKey: getGetCompanyFileQueryKey() })}/>)}
+      {tab === 'members' && <MembersSection/>}
+      {tab === 'subscription' && <SubscriptionSection returnedInvoiceId={returnedInvoiceId}/>}
+    </div>
   </PortalLayout>;
 }
 
@@ -262,14 +275,16 @@ export function OfficeCustomerFilePage() {
         <div className="grid grid-cols-3 gap-3 text-center">{([['موظفون', d.employees.filter(e => e.status === 'active').length], ['تراخيص', d.licenses.length], ['طلبات نشطة', d.requests.filter(r => r.status !== 'completed').length]] as const).map(([label, value]) =>
           <div key={label} className="rounded-xl bg-paper px-4 py-2"><div className="display nums text-xl font-semibold">{formatNumber(value)}</div><div className="text-xs text-subtle">{label}</div></div>)}</div>
       </div>
-      <div className="mb-5 flex flex-wrap gap-2" role="tablist">{tabs.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} type="button" onClick={() => setTab(key)} className={`cf-chip ${tab === key ? 'is-on' : ''}`}>{label}</button>)}</div>
-      {tab === 'file' && <CompanyFileView file={d} api={officeCompanyApi(userId)} office onChanged={refresh}/>}
-      {tab === 'requests' && (d.requests.length ? <div className="surface overflow-hidden">{d.requests.map(r => <Link key={r.id} href={`/office/requests?q=${encodeURIComponent(r.reference)}`} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 text-inherit no-underline last:border-0 hover:bg-paper">
-        <div className="min-w-0"><div className="font-bold">{r.service}</div><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span dir="ltr">{r.reference}</span><span>{dateText(r.createdAt)}</span><SubjectChip subject={r.subject}/></div></div><Status value={r.status}/>
-      </Link>)}</div> : <EmptyBlock title="لا توجد طلبات" text="لم يرسل هذا العميل طلبات بعد."/>)}
-      {tab === 'reminders' && (d.reminders.length ? <div className="surface overflow-hidden">{d.reminders.map(r => <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 last:border-0">
-        <div><strong>{reminderKindNames[r.kind]}</strong> <span className="text-quiet">«{r.label}»</span><span className="block text-xs text-subtle">تنتهي في {formatCalendarDate(r.expiresOn)}{r.source !== 'manual' ? ' · من ملف المنشأة' : ''}</span></div><ExpiryBadge expiresOn={r.expiresOn}/>
-      </div>)}</div> : <EmptyBlock title="لا توجد وثائق مؤرخة" text="أضف تواريخ انتهاء الموظفين والتراخيص لتظهر هنا."/>)}
+       <div className="mb-5 flex flex-wrap gap-2" role="tablist" aria-label="أقسام ملف العميل">{tabs.map(([key, label], index) => <button key={key} id={`office-customer-tab-${key}`} role="tab" aria-controls={`office-customer-panel-${key}`} aria-selected={tab === key} tabIndex={tab === key ? 0 : -1} type="button" onClick={() => setTab(key)} onKeyDown={e => handleTabKeyDown<(typeof tabs)[number][0]>(e, index, tabs, setTab)} className={`cf-chip ${tab === key ? 'is-on' : ''}`}>{label}</button>)}</div>
+      <div id={`office-customer-panel-${tab}`} role="tabpanel" aria-labelledby={`office-customer-tab-${tab}`} tabIndex={0}>
+        {tab === 'file' && <CompanyFileView file={d} api={officeCompanyApi(userId)} office onChanged={refresh}/>}
+        {tab === 'requests' && (d.requests.length ? <div className="surface overflow-hidden">{d.requests.map(r => <Link key={r.id} href={`/office/requests?q=${encodeURIComponent(r.reference)}`} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 text-inherit no-underline last:border-0 hover:bg-paper">
+          <div className="min-w-0"><div className="font-bold">{r.service}</div><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span dir="ltr">{r.reference}</span><span>{dateText(r.createdAt)}</span><SubjectChip subject={r.subject}/></div></div><Status value={r.status}/>
+        </Link>)}</div> : <EmptyBlock title="لا توجد طلبات" text="لم يرسل هذا العميل طلبات بعد."/>)}
+        {tab === 'reminders' && (d.reminders.length ? <div className="surface overflow-hidden">{d.reminders.map(r => <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 last:border-0">
+          <div><strong>{reminderKindNames[r.kind]}</strong> <span className="text-quiet">«{r.label}»</span><span className="block text-xs text-subtle">تنتهي في {formatCalendarDate(r.expiresOn)}{r.source !== 'manual' ? ' · من ملف المنشأة' : ''}</span></div><ExpiryBadge expiresOn={r.expiresOn}/>
+        </div>)}</div> : <EmptyBlock title="لا توجد وثائق مؤرخة" text="أضف تواريخ انتهاء الموظفين والتراخيص لتظهر هنا."/>)}
+      </div>
     </>}
   </PortalLayout>;
 }

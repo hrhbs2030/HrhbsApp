@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { logger } from "./logger";
 import type { Mail } from "./notify";
 import { normalizePhone } from "./phone";
@@ -31,6 +31,10 @@ export function whatsappConfigured(): boolean {
 export function saudiMobile(input: string): string | null {
   const phone = normalizePhone(input);
   return phone && /^05\d{8}$/.test(phone) ? `966${phone.slice(1)}` : null;
+}
+
+export function hashWhatsappChallenge(userId: string, localPhone: string, challengeText: string): string {
+  return createHash("sha256").update(`${userId}\0${localPhone}\0${challengeText}`).digest("hex");
 }
 
 // Template variables may not contain new lines, tabs or more than four

@@ -10,6 +10,7 @@
     "test": "node ../../scripts/run-tests.mjs api",
     "test:db-guards": "node --test ../../scripts/db-command-guards.test.mjs ../../scripts/db-physical-identity.test.mjs",
     "test:db": "node ../../scripts/run-tests.mjs api-db",
+    "test:billing-integrity": "HBS_OFFICE_EMAIL=billing-integrity-office@example.invalid node ../../scripts/run-db-test.mjs tests/billing-payment-integrity.test.ts",
     "test:portal-isolation": "node ../../scripts/run-db-test.mjs tests/portal-inquiry-isolation.test.ts",
     "test:service-requests": "node ../../scripts/run-db-test.mjs tests/service-request-regressions.test.ts",
     "test:attachment-cleanup": "node ../../scripts/run-db-test.mjs tests/expired-request-attachments.test.ts",

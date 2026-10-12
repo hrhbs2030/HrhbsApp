@@ -54,12 +54,6 @@ async function membersOf(companyUserId: string) {
 
 const owner = (req: Request) => getAuth(req).userId!;
 
-async function memberCount(companyUserId: string) {
-  const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(hbsCompanyMembers)
-    .where(eq(hbsCompanyMembers.companyUserId, companyUserId));
-  return count;
-}
-
 // The invited person's Clerk account, when one already holds that address
 // verified: the invitation is then accepted at once.
 async function clerkUserWithVerifiedEmail(email: string): Promise<string | null> {
@@ -105,30 +99,37 @@ router.post("/company/members", ownerOnly, async (req, res): Promise<void> => {
   if (!file) { res.status(409).json({ error: "احفظ ملف المنشأة أولًا ثم ادعُ الأعضاء." }); return; }
   const ownEmail = await customerEmail(companyUserId);
   if (ownEmail && normalizeEmail(ownEmail) === email) { res.status(400).json({ error: "هذا بريدك أنت؛ أنت مالك المنشأة." }); return; }
-  const [duplicate] = await db.select({ id: hbsCompanyMembers.id }).from(hbsCompanyMembers)
-    .where(and(eq(hbsCompanyMembers.companyUserId, companyUserId), eq(hbsCompanyMembers.email, email))).limit(1);
-  if (duplicate) { res.status(409).json({ error: "هذا البريد مدعو من قبل." }); return; }
-  if (await memberCount(companyUserId) >= MAX_COMPANY_MEMBERS) {
-    res.status(409).json({ error: `يمكن إضافة ${MAX_COMPANY_MEMBERS} أعضاء على الأكثر.` }); return;
-  }
   const existingUserId = await clerkUserWithVerifiedEmail(email);
   if (existingUserId && await ownsOwnCompany(existingUserId)) {
     res.status(409).json({ error: "هذا البريد لعميل مسجّل لدى المكتب بمنشأته؛ لا يمكن ضمّه عضوًا في منشأة أخرى." }); return;
   }
-  const row = await db.transaction(async tx => {
+  const result = await db.transaction(async tx => {
+    // Serialize invitations per company so concurrent requests cannot both
+    // consume the final member slot.
+    const [company] = await tx.select({ userId: hbsCompanies.userId }).from(hbsCompanies)
+      .where(eq(hbsCompanies.userId, companyUserId)).for("update");
+    if (!company) return { kind: "missing" as const };
+    const [duplicate] = await tx.select({ id: hbsCompanyMembers.id }).from(hbsCompanyMembers)
+      .where(and(eq(hbsCompanyMembers.companyUserId, companyUserId), eq(hbsCompanyMembers.email, email))).limit(1);
+    if (duplicate) return { kind: "duplicate" as const };
+    const [{ count }] = await tx.select({ count: sql<number>`count(*)::int` }).from(hbsCompanyMembers)
+      .where(eq(hbsCompanyMembers.companyUserId, companyUserId));
+    if (count >= MAX_COMPANY_MEMBERS) return { kind: "limit" as const };
     const [created] = await tx.insert(hbsCompanyMembers).values({
       companyUserId, email, role: body.data.role, invitedBy: owner(req),
       ...(existingUserId ? { memberUserId: existingUserId, acceptedAt: new Date() } : {}),
     }).onConflictDoNothing().returning();
-    if (!created) return null;
+    if (!created) return { kind: "duplicate" as const };
     await recordAudit(tx, {
       actorId: owner(req), action: "company.member_invite", targetType: "customer", targetId: companyUserId,
       details: { memberId: created.id, email, role: created.role, accepted: Boolean(existingUserId) },
     });
-    return created;
+    return { kind: "created" as const, row: created };
   });
-  // Lost the race with an identical invitation.
-  if (!row) { res.status(409).json({ error: "هذا البريد مدعو من قبل." }); return; }
+  if (result.kind === "missing") { res.status(404).json({ error: "Company not found" }); return; }
+  if (result.kind === "duplicate") { res.status(409).json({ error: "هذا البريد مدعو من قبل." }); return; }
+  if (result.kind === "limit") { res.status(409).json({ error: `يمكن إضافة ${MAX_COMPANY_MEMBERS} أعضاء على الأكثر.` }); return; }
+  const row = result.row;
   if (existingUserId) forgetVerifiedEmails(existingUserId);
   res.status(201).json(InviteCompanyMemberResponse.parse(member(row)));
   const [[company], [registration]] = await Promise.all([

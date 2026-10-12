@@ -225,6 +225,8 @@ export function NewRequest() {
                     <ul>{guidance.map((g) => <li key={g}>{g}</li>)}</ul>
                   </div>
                 )}
+                {company.isLoading && <p role="status" className="muted mt-4 text-sm">جارٍ تحميل ملف المنشأة لاختيار الموظفين أو التراخيص المعنية…</p>}
+                {company.isError && !company.data && <p role="alert" className="mt-4 text-sm text-danger">تعذّر تحميل ملف المنشأة؛ يمكنك متابعة الطلب دون ربط موظف أو ترخيص، أو <button type="button" className="font-bold underline" onClick={() => company.refetch()}>إعادة المحاولة</button>.</p>}
                 <label className="form-field" htmlFor="field-description">ما الذي تحتاجه من المكتب؟
                   <textarea id="field-description" className="form-control" placeholder="اكتب الملاحظة كما تظهر لك، مع التاريخ والجهة. وإن كانت وثيقة تنتهي أو مؤشرًا تغيّر، فاذكر ما تراه ومتى لاحظته." value={description} onChange={(e) => setDescription(e.target.value)} maxLength={LIMITS.description[1]} aria-invalid={!!errors.description} aria-describedby={errors.description ? 'err-description' : 'hint-description'} />
                   {errors.description ? <span id="err-description" className="field-error" role="alert">{errors.description}</span> : <small id="hint-description" className="muted flex justify-between gap-3 font-normal"><span>صورة الملاحظة أو الشاشة تُرفق في «المستندات» أدناه. لا تشارك كلمات مرور المنصات أو رموز التحقق.</span><span className="nums shrink-0" dir="ltr">{description.trim().length}/{LIMITS.description[1]}</span></small>}

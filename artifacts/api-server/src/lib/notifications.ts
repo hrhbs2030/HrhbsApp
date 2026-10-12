@@ -5,6 +5,7 @@ import {
   type DeliveryOutcome, type HbsNotification,
 } from "@workspace/db";
 import { logger } from "./logger";
+import { getOfficeRoleForUserId } from "./office-access";
 import {
   DEFAULT_PREFS, KINDS, coalesced, deliveryPlan, groupKeyFor, prioritize, priorityRank,
   type Audience, type DeliveryPlan, type DeliveryPrefs, type Priority, type PrioritySignals,
@@ -50,6 +51,7 @@ export type OfficePublishInput = PublishInput & {
 };
 
 export type PublishDeps = {
+  canReceiveOffice?: (userId: string) => Promise<boolean>;
   now?: () => Date;
   // When given, the email is awaited and its failure rejects the publish
   // (the reminder sweeps need to know). Otherwise it is sent in the background.
@@ -79,9 +81,10 @@ export async function loadPrefs(userId: string): Promise<DeliveryPrefs> {
   };
 }
 
-export async function unreadCount(userId: string): Promise<number> {
+export async function unreadCount(userId: string, officeAccess = false): Promise<number> {
   const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(hbsNotifications)
-    .where(and(eq(hbsNotifications.userId, userId), isNull(hbsNotifications.readAt)));
+    .where(and(eq(hbsNotifications.userId, userId), isNull(hbsNotifications.readAt),
+      officeAccess ? undefined : eq(hbsNotifications.audience, "customer")));
   return count;
 }
 
@@ -96,7 +99,7 @@ export function toApiNotification(row: HbsNotification): Notification {
 // Tells the user's open streams about the row and the new badge count.
 async function announce(row: HbsNotification): Promise<void> {
   emit(row.userId, { type: "notification", data: toApiNotification(row) });
-  emit(row.userId, { type: "unread", data: { count: await unreadCount(row.userId) } });
+  emit(row.userId, { type: "unread", data: { count: await unreadCount(row.userId, row.audience === "office") } });
 }
 
 // Merges one channel's outcome into the row without touching the others
@@ -118,7 +121,7 @@ function mailOutcome(deps: PublishDeps): DeliveryOutcome {
 async function whatsappCustomer(userId: string, message: Mail): Promise<DeliveryOutcome> {
   if (!whatsappConfigured()) return "skipped";
   const [settings] = await db.select().from(hbsCustomerSettings).where(eq(hbsCustomerSettings.userId, userId)).limit(1);
-  const phone = settings?.whatsappOptIn && settings.whatsappPhone ? saudiMobile(settings.whatsappPhone) : null;
+  const phone = settings?.whatsappOptIn && settings.whatsappVerified && settings.whatsappPhone ? saudiMobile(settings.whatsappPhone) : null;
   if (!phone) return "skipped";
   return (await sendWhatsApp(phone, whatsappText(message, siteUrl()), settings?.lastInboundAt)) ? "sent" : "failed";
 }
@@ -152,7 +155,9 @@ async function publishTo(userId: string, audience: Audience, input: PublishInput
     eq(hbsNotifications.userId, userId), eq(hbsNotifications.groupKey, groupKey), isNull(hbsNotifications.readAt),
     gt(hbsNotifications.createdAt, new Date(now.getTime() - COALESCE_WINDOW_MS)),
   )).orderBy(desc(hbsNotifications.createdAt), desc(hbsNotifications.id)).limit(1);
-  if (existing) {
+  // A unique event needs its own durable key. Coalescing it into another row
+  // would lose that key and allow a redelivery to increment/send again.
+  if (existing && !dedupeKey) {
     const count = existing.count + 1;
     const copy = coalesced(input.kind, count, { title: input.title, body: input.body });
     const [row] = await db.update(hbsNotifications).set({
@@ -242,14 +247,22 @@ export async function publishOffice(input: OfficePublishInput, deps: PublishDeps
   const results: PublishResult[] = [];
   for (const userId of recipients) {
     try {
+      if (!(await (deps.canReceiveOffice ?? canReceiveOffice)(userId))) continue;
       // The inbox mail already went out above; held rows are mailed by the digest.
-      const result = await publishTo(userId, "office", { ...input, mail: input.mail ?? null }, deps, { email: "record", whatsapp: false });
+      const result = await publishTo(userId, "office", { ...input, mail: input.mail ?? null,
+        dedupeKey: input.dedupeKey ? `${input.dedupeKey}:recipient:${userId}` : null,
+      }, deps, { email: "record", whatsapp: false });
       if (result) results.push(result);
     } catch (err) {
       logger.warn({ err, kind: input.kind }, "Office notification was not recorded for a staff member");
     }
   }
   return results;
+}
+
+export async function canReceiveOffice(userId: string): Promise<boolean> {
+  try { return !!(await getOfficeRoleForUserId(userId)); }
+  catch { return false; }
 }
 
 // A message to an address with no portal account yet (a company

@@ -51,9 +51,11 @@ function open(qc: QueryClient) {
   source = stream;
   stream.addEventListener('open', () => setState('open'));
   stream.addEventListener('unread', (event) => {
+    if (source !== stream) return;
     try { const { count } = JSON.parse((event as MessageEvent).data) as { count: number }; if (typeof count === 'number') applyUnread(qc, count); } catch { /* malformed event: the next poll corrects it */ }
   });
   stream.addEventListener('notification', (event) => {
+    if (source !== stream) return; // a closed stream of a previous identity
     try { const item = JSON.parse((event as MessageEvent).data) as Notification; if (typeof item?.id === 'number') { applyIncoming(qc, item); pushToast(item); } } catch { /* ignored */ }
   });
   // Any error (sign-out, proxy timeout, server restart) closes the stream for
@@ -73,7 +75,14 @@ export function useNotificationStream(): { live: boolean } {
   useEffect(() => {
     refs += 1;
     if (refs === 1) open(qc);
-    return () => { refs -= 1; if (refs === 0) close(); };
+    // Sign-in/out or another user: drop the old identity's stream and toasts;
+    // a new stream opens only for a still-mounted bell (new cookie identity).
+    // Office access revoked: close for good, nothing is reopened.
+    const onAuthChanged = () => { close(); setState('closed'); for (const id of getToastIds()) dismissToast(id); if (refs > 0) open(qc); };
+    const onOfficeDenied = () => { close(); setState('failed'); for (const id of getToastIds()) dismissToast(id); };
+    window.addEventListener('hbs:auth-changed', onAuthChanged);
+    window.addEventListener('hbs:office-access-denied', onOfficeDenied);
+    return () => { window.removeEventListener('hbs:auth-changed', onAuthChanged); window.removeEventListener('hbs:office-access-denied', onOfficeDenied); refs -= 1; if (refs === 0) close(); };
   }, [qc]);
   const current = useSyncExternalStore(subscribeState, getState, getState);
   return { live: current === 'open' };
@@ -100,6 +109,7 @@ export function dismissToast(id: number) {
 }
 const subscribeToasts = (fn: () => void) => { toastListeners.add(fn); return () => { toastListeners.delete(fn); }; };
 const getToasts = () => toasts;
+export const getToastIds = () => toasts.map((toast) => toast.id);
 export function useNotificationToasts(): NotificationToast[] {
   return useSyncExternalStore(subscribeToasts, getToasts, getToasts);
 }

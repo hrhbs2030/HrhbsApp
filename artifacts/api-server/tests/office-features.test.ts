@@ -8,7 +8,7 @@ import express from "express";
 import pino from "pino";
 import pinoHttp from "pino-http";
 import {
-  db, hbsAuditLog, hbsCustomerSettings, hbsDocumentReminders, hbsInvoices, hbsOfficeStaff,
+  db, hbsAuditLog, hbsCustomerSettings, hbsDocumentReminders, hbsInvoiceGatewayPages, hbsInvoices, hbsOfficeStaff,
   hbsServiceOffers, hbsServiceRequests, pool,
 } from "@workspace/db";
 import portalRouter from "../src/routes/portal";
@@ -429,14 +429,34 @@ test("assignment, statuses, ratings, invoices, reminders, catalogue and reports"
       assert.equal((await call(owner, "GET", "/office/reports?days=12")).status, 400);
     });
   } finally {
-    await db.delete(hbsInvoices).where(inArray(hbsInvoices.requestId, requestIds.length ? requestIds : [0]));
-    await db.delete(hbsDocumentReminders).where(inArray(hbsDocumentReminders.userId, customers));
-    await db.delete(hbsCustomerSettings).where(inArray(hbsCustomerSettings.userId, customers));
-    await db.delete(hbsServiceOffers).where(eq(hbsServiceOffers.slug, slug));
-    await db.delete(hbsServiceRequests).where(inArray(hbsServiceRequests.userId, customers));
-    await db.delete(hbsOfficeStaff).where(inArray(hbsOfficeStaff.userId, [owner, staff]));
-    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
-    mock.restoreAll();
-    await pool.end();
+    try {
+      const invoices = await db.select({ id: hbsInvoices.id }).from(hbsInvoices)
+        .where(inArray(hbsInvoices.requestId, requestIds.length ? requestIds : [0]));
+      const invoiceIds = invoices.map(invoice => invoice.id);
+      if (invoiceIds.length) {
+        await db.delete(hbsInvoiceGatewayPages).where(inArray(hbsInvoiceGatewayPages.invoiceId, invoiceIds));
+      }
+      await db.delete(hbsInvoices).where(inArray(hbsInvoices.requestId, requestIds.length ? requestIds : [0]));
+      await db.delete(hbsDocumentReminders).where(inArray(hbsDocumentReminders.userId, customers));
+      await db.delete(hbsCustomerSettings).where(inArray(hbsCustomerSettings.userId, customers));
+      await db.delete(hbsServiceOffers).where(eq(hbsServiceOffers.slug, slug));
+      await db.delete(hbsServiceRequests).where(inArray(hbsServiceRequests.userId, customers));
+      await db.delete(hbsOfficeStaff).where(inArray(hbsOfficeStaff.userId, [owner, staff]));
+    } finally {
+      try {
+        if (server.listening) {
+          const closed = new Promise<void>((resolve, reject) =>
+            server.close(error => error ? reject(error) : resolve()));
+          server.closeAllConnections();
+          await closed;
+        }
+      } finally {
+        try {
+          mock.restoreAll();
+        } finally {
+          await pool.end();
+        }
+      }
+    }
   }
 });

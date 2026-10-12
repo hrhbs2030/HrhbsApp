@@ -19,6 +19,7 @@ test("owner-only staff management audits changes and revokes removed staff immed
   const staffId = `office-staff-${randomUUID()}`;
   const customerId = `office-customer-${randomUUID()}`;
   const staffEmail = `staff-${randomUUID()}@example.invalid`;
+  const tieTargetId = `audit-order-${randomUUID()}`;
   const users = new Map([
     [ownerId, { id: ownerId, emailAddresses: [{ emailAddress: officeEmail, verification: { status: "verified" } }] }],
     [staffId, { id: staffId, emailAddresses: [{ emailAddress: staffEmail, verification: { status: "verified" } }] }],
@@ -98,7 +99,22 @@ test("owner-only staff management audits changes and revokes removed staff immed
         .map((entry: { action: string }) => entry.action).sort(),
       ["staff.add", "staff.remove"],
     );
+
+    // Audit timestamps can tie at database precision; the ID is the stable
+    // secondary key and the endpoint returns the newer row first.
+    const tiedAt = new Date(Date.now() + 60_000);
+    const tied = await db.insert(hbsAuditLog).values([
+      { actorId: ownerId, action: "staff.add", targetType: "staff", targetId: tieTargetId, details: {}, createdAt: tiedAt },
+      { actorId: ownerId, action: "staff.remove", targetType: "staff", targetId: tieTargetId, details: {}, createdAt: tiedAt },
+    ]).returning();
+    const orderedAudit = await call(ownerId, "/office/audit-log");
+    assert.deepEqual(
+      orderedAudit.data.filter((entry: { targetId: string }) => entry.targetId === tieTargetId)
+        .map((entry: { id: number }) => entry.id),
+      tied.map(entry => entry.id).reverse(),
+    );
   } finally {
+    await db.delete(hbsAuditLog).where(eq(hbsAuditLog.targetId, tieTargetId));
     await db.delete(hbsAuditLog).where(eq(hbsAuditLog.targetId, staffId));
     await db.delete(hbsOfficeStaff).where(inArray(hbsOfficeStaff.userId, [ownerId, staffId]));
     server.close();

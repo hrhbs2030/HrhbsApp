@@ -28,6 +28,15 @@ test("status history starts at received and keeps real changes in order", () => 
   assert.deepEqual(events.map((e) => e.at.getUTCMinutes()), [0, 10, 30, 55]);
 });
 
+test("status history orders audit events with tied timestamps by audit ID", () => {
+  const tied = at(10);
+  const events = statusHistory(at(0), [
+    { id: 12, createdAt: tied, details: { toStatus: "completed" } },
+    { id: 11, createdAt: tied, details: { toStatus: "reviewing" } },
+  ]);
+  assert.deepEqual(events.map((event) => event.status), ["received", "reviewing", "completed"]);
+});
+
 test("a new request with no updates has one event", () => {
   assert.deepEqual(statusHistory(at(5), []), [{ status: "received", at: at(5) }]);
 });

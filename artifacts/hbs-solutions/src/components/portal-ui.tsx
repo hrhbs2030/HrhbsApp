@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useClerk, useUser } from '@clerk/react';
 import { Archive, ArrowLeft, ArrowUpLeft, BarChart3, Bell, BellRing, Building2, Check, Contact, CircleHelp, ClipboardList, CreditCard, FileClock, History, Home, Inbox, LogOut, Menu, MessageCircle, Package, Plus, Settings, Tags, UserRoundCheck, UsersRound, X } from 'lucide-react';
@@ -37,17 +37,59 @@ export function InquiryRow({ inquiry }: { inquiry: Inquiry }) { return <div clas
 
 export function PortalLayout({ children, staff = false, registrationOnly = false }: { children: ReactNode; staff?: boolean; registrationOnly?: boolean }) {
   const [location] = useLocation(); const [menuOpen, setMenuOpen] = useState(false); const { signOut } = useClerk(); const { user } = useUser();
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 1023px)').matches);
+  const menuRef = useRef<HTMLElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   // Shares the cached /portal/me result already loaded by the route guard.
   const me = useGetPortalMe({ query: { queryKey: getGetPortalMeQueryKey(), enabled: staff } });
   const owner = staff && me.data?.officeRole === 'owner';
   useEffect(() => setMenuOpen(false), [location]);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1023px)');
+    const update = () => { setIsMobile(media.matches); if (!media.matches) setMenuOpen(false); };
+    update();
+    media.addEventListener?.('change', update);
+    return () => media.removeEventListener?.('change', update);
+  }, []);
+  useEffect(() => {
+    if (!menuOpen || !isMobile) return;
+    const aside = menuRef.current;
+    const focusable = () => [...(aside?.querySelectorAll<HTMLElement>('a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])') ?? [])]
+      .filter(element => !element.hasAttribute('hidden'));
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    aside?.querySelector<HTMLButtonElement>('[aria-label="إغلاق القائمة"]')?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setMenuOpen(false);
+        menuButtonRef.current?.focus();
+      } else if (event.key === 'Tab') {
+        const items = focusable();
+        if (!items.length) { event.preventDefault(); return; }
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !aside?.contains(document.activeElement))) {
+          event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !aside?.contains(document.activeElement))) {
+          event.preventDefault(); first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = originalOverflow;
+      if (window.matchMedia('(max-width: 1023px)').matches && menuButtonRef.current?.isConnected) menuButtonRef.current.focus();
+    };
+  }, [menuOpen, isMobile]);
   const ownerLinks = owner ? [{ href: '/office/reports', label: 'التقارير', icon: BarChart3 }, { href: '/office/catalog', label: 'الأسعار والمتطلبات', icon: Tags }, { href: '/office/plans', label: 'الباقات', icon: Package }, { href: '/office/subscriptions', label: 'الاشتراكات', icon: CreditCard }, { href: '/office/legacy', label: 'الأرشيف القديم', icon: Archive }, { href: '/office/staff', label: 'فريق المكتب', icon: UsersRound }, { href: '/office/audit', label: 'سجل التدقيق', icon: History }] : [];
   const links = staff ? [{ href: '/office', label: 'نظرة عامة', icon: Home }, { href: '/office/registrations', label: 'طلبات التسجيل', icon: UserRoundCheck }, { href: '/office/requests', label: 'طلبات العملاء', icon: ClipboardList }, { href: '/office/inquiries', label: 'الاستفسارات', icon: CircleHelp }, { href: '/office/customers', label: 'ملفات العملاء', icon: Contact }, { href: '/office/reminders', label: 'وثائق تنتهي قريبًا', icon: FileClock }, { href: '/office/whatsapp', label: 'واتساب الوارد', icon: MessageCircle }, { href: '/office/notifications', label: 'الإشعارات', icon: Bell }, ...ownerLinks] : registrationOnly ? [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }] : [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }, { href: '/dashboard', label: 'نظرة عامة', icon: Home }, { href: '/requests', label: 'طلباتي', icon: ClipboardList }, { href: '/inquiries', label: 'استفساراتي', icon: CircleHelp }, { href: '/company', label: 'ملف المنشأة', icon: Building2 }, { href: '/documents', label: 'تنبيهات وثائقي', icon: BellRing }, { href: '/notifications', label: 'الإشعارات', icon: Bell }, { href: '/settings', label: 'الإعدادات', icon: Settings }];
   const current = links.find(({ href }) => location === href) ?? links.filter(({ href }) => location.startsWith(href + '/')).sort((a, b) => b.href.length - a.href.length)[0];
   return <div className="relative z-[1] min-h-[100dvh] lg:flex" dir="rtl">
-    <aside className={`${menuOpen ? 'translate-x-0' : 'translate-x-full'} fixed inset-y-0 right-0 z-50 flex w-[270px] flex-col bg-ink px-5 py-7 text-on-dark transition-transform duration-300 lg:sticky lg:top-0 lg:h-[100dvh] lg:translate-x-0`}>
-      <div className="mb-12 flex items-start justify-between px-2"><Brand light/><button className="lg:hidden" onClick={() => setMenuOpen(false)} aria-label="إغلاق القائمة"><X/></button></div>
-      <span className="mb-4 px-4 text-xs font-bold text-on-dark-2">{staff ? 'مساحة المكتب' : 'مساحتي'}</span>
+    <aside ref={menuRef} id="portal-mobile-nav" aria-label="القائمة الرئيسية" role={isMobile && menuOpen ? 'dialog' : undefined} aria-modal={isMobile && menuOpen ? true : undefined} aria-hidden={isMobile && !menuOpen ? true : undefined} inert={isMobile && !menuOpen} className={`${menuOpen ? 'translate-x-0' : 'translate-x-full'} fixed inset-y-0 right-0 z-50 flex w-[270px] flex-col bg-ink px-5 py-7 text-on-dark transition-transform duration-300 lg:sticky lg:top-0 lg:h-[100dvh] lg:translate-x-0`}>
+      <div className="mb-12 flex items-start justify-between px-2"><Brand light/><button type="button" className="lg:hidden" onClick={() => setMenuOpen(false)} aria-label="إغلاق القائمة"><X/></button></div>
+      <span id="portal-menu-title" className="mb-4 px-4 text-xs font-bold text-on-dark-2">{staff ? 'مساحة المكتب' : 'مساحتي'}</span>
       <nav className="space-y-1.5">{links.map(({href,label,icon:Icon}) => <Link key={href} href={href} className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold no-underline transition-colors ${location === href || (href !== '/office' && href !== '/dashboard' && location.startsWith(href + '/')) ? 'bg-copper-light text-ink' : 'text-on-dark-2 hover:bg-sidebar-2'}`}><Icon size={19} strokeWidth={1.8}/>{label}</Link>)}</nav>
       {!staff && !registrationOnly && <Link href="/requests/new" className="mt-7 flex items-center justify-center gap-2 rounded-lg border border-line-dark-2 px-4 py-3 text-sm font-bold text-on-dark no-underline transition-colors hover:bg-sidebar-2"><Plus size={18}/>طلب خدمة جديد</Link>}
       <div className="mt-auto border-t border-line-dark pt-6"><div className="mb-4 flex items-center gap-3 px-2"><div className="grid h-9 w-9 place-items-center rounded-full bg-line-dark text-sm font-bold">{user?.firstName?.slice(0,1) || 'ح'}</div><div className="min-w-0"><div className="truncate text-xs font-semibold">{user?.fullName || user?.primaryEmailAddress?.emailAddress || 'حسابي'}</div><div className="mt-1 text-xs text-on-dark-2">{staff ? (owner ? 'مالك المكتب' : 'حساب المكتب') : 'حساب العميل'}</div></div></div><button onClick={() => signOut({redirectUrl: import.meta.env.BASE_URL})} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-on-dark-2 hover:bg-sidebar-2"><LogOut size={17}/>تسجيل الخروج</button></div>
@@ -56,7 +98,7 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
     <div className="flex min-w-0 flex-1 flex-col">
       <header className="portal-topbar sticky top-0 z-30 flex h-[72px] items-center justify-between gap-4 px-5 text-on-dark sm:px-9 lg:px-12">
         <div className="flex min-w-0 items-center gap-3">
-          <button className="rounded-lg border border-line-dark-2 p-2 text-on-dark lg:hidden" onClick={() => setMenuOpen(true)} aria-label="فتح القائمة"><Menu size={21}/></button>
+          <button ref={menuButtonRef} type="button" className="rounded-lg border border-line-dark-2 p-2 text-on-dark lg:hidden" onClick={() => setMenuOpen(true)} aria-label="فتح القائمة" aria-controls="portal-mobile-nav" aria-expanded={menuOpen}><Menu size={21}/></button>
           <p className="portal-crumb"><span>{staff ? 'مساحة المكتب' : registrationOnly ? 'بوابة العملاء' : 'مساحتي'}</span>{current && <><span aria-hidden="true" className="portal-crumb-sep">/</span><strong>{current.label}</strong></>}</p>
         </div>
         <span className="portal-topbar-brand inline-flex items-center gap-2 lg:hidden" aria-hidden="true"><LogoMark size={28}/><span className="hidden min-[400px]:inline">HBS حلول الغد</span></span>

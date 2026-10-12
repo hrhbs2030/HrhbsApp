@@ -3,19 +3,20 @@ import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import test, { mock } from "node:test";
 import { clerkClient } from "@clerk/express";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import express from "express";
 import pino from "pino";
 import pinoHttp from "pino-http";
 import {
   db, hbsAuditLog, hbsCompanies, hbsCompanyEmployees, hbsCompanyLicenses, hbsCompanyMembers, hbsDocumentReminders,
-  hbsInvoices, hbsOfficeStaff, hbsPlans, hbsRequestEmployees, hbsServiceRequests, hbsSubscriptions, pool,
+  hbsInvoiceGatewayPages, hbsInvoices, hbsOfficeStaff, hbsPlans, hbsRequestEmployees, hbsServiceRequests, hbsSubscriptions, pool,
 } from "@workspace/db";
 import portalRouter from "../src/routes/portal";
 import companyRouter from "../src/routes/company";
 import companyMembersRouter from "../src/routes/company-members";
 import billingRouter from "../src/routes/billing";
-import { forgetVerifiedEmails } from "../src/lib/company-access";
+import subscriptionsRouter from "../src/routes/subscriptions";
+import { forgetVerifiedEmails, verifiedEmailsOf } from "../src/lib/company-access";
 import { vatFor } from "../src/lib/money";
 
 if (process.env.NODE_ENV === "production") throw new Error("Package D member tests must not run in production");
@@ -27,17 +28,18 @@ const other = `pkg-d-other-${randomUUID()}`;
 const hr = `pkg-d-hr-${randomUUID()}`;
 const finance = `pkg-d-finance-${randomUUID()}`;
 const viewer = `pkg-d-viewer-${randomUUID()}`;
+const multi = `pkg-d-multi-${randomUUID()}`;
 const stranger = `pkg-d-stranger-${randomUUID()}`;
 // An approved customer who never saved the company file.
 const bare = `pkg-d-bare-${randomUUID()}`;
 const customers = [owner, other, bare];
 const emailOf = (id: string) => `${id}@example.invalid`;
-const people = new Map([office, owner, other, hr, finance, viewer, stranger, bare].map(id => [id, {
+const people = new Map([office, owner, other, hr, finance, viewer, multi, stranger, bare].map(id => [id, {
   id, primaryEmailAddressId: "primary",
   emailAddresses: [{ id: "primary", emailAddress: id === office ? officeEmail : emailOf(id), verification: { status: "verified" } }],
 }]));
 // Who already has an account when invited: hr and finance; the viewer signs up later.
-const accounts = new Set([office, owner, other, hr, finance, stranger, bare]);
+const accounts = new Set([office, owner, other, hr, finance, stranger, multi, bare]);
 
 function testApp() {
   const app = express();
@@ -51,18 +53,32 @@ function testApp() {
     Object.assign(req, { auth });
     next();
   });
-  for (const router of [portalRouter, companyRouter, companyMembersRouter, billingRouter]) app.use("/api", router);
+  for (const router of [portalRouter, companyRouter, companyMembersRouter, billingRouter, subscriptionsRouter]) app.use("/api", router);
   return app;
 }
 
 test("company members, roles, bulk requests and invoice quantities", async (t) => {
   assert.equal(process.env.HBS_OFFICE_EMAIL, officeEmail, `Run with HBS_OFFICE_EMAIL=${officeEmail}`);
-  mock.method(clerkClient.users, "getUser", async (userId: string) => (people.get(userId) ?? { id: userId, primaryEmailAddressId: null, emailAddresses: [] }) as never);
-  mock.method(clerkClient.users, "getUserList", async (query: { emailAddress?: string[]; userId?: string[] }) => ({
-    data: [...people.values()].filter(user => accounts.has(user.id) && (
-      query.userId?.includes(user.id) ||
-      query.emailAddress?.some(email => user.emailAddresses.some(entry => entry.emailAddress.toLowerCase() === email.toLowerCase())))),
-  }) as never);
+  let concurrentInviteGate: {
+    calls: number; ready: Promise<void>; release: () => void;
+  } | null = null;
+  const clerkFailures = new Set<string>();
+  mock.method(clerkClient.users, "getUser", async (userId: string) => {
+    if (clerkFailures.has(userId)) throw new Error("Clerk unavailable");
+    return (people.get(userId) ?? { id: userId, primaryEmailAddressId: null, emailAddresses: [] }) as never;
+  });
+  mock.method(clerkClient.users, "getUserList", async (query: { emailAddress?: string[]; userId?: string[] }) => {
+    if (concurrentInviteGate && query.emailAddress?.some(email => email.startsWith("race-"))) {
+      concurrentInviteGate.calls++;
+      if (concurrentInviteGate.calls === 2) concurrentInviteGate.release();
+      await concurrentInviteGate.ready;
+    }
+    return {
+      data: [...people.values()].filter(user => accounts.has(user.id) && (
+        query.userId?.includes(user.id) ||
+        query.emailAddress?.some(email => user.emailAddresses.some(entry => entry.emailAddress.toLowerCase() === email.toLowerCase())))),
+    } as never;
+  });
   delete process.env.SMTP_HOST;
   delete process.env.MOYASAR_SECRET_KEY;
   forgetVerifiedEmails();
@@ -81,7 +97,8 @@ test("company members, roles, bulk requests and invoice quantities", async (t) =
       return { status: response.status, data: text ? JSON.parse(text) : null };
     };
     const auditsFor = async (targetId: string | number) =>
-      db.select().from(hbsAuditLog).where(eq(hbsAuditLog.targetId, String(targetId)));
+      db.select().from(hbsAuditLog).where(eq(hbsAuditLog.targetId, String(targetId)))
+        .orderBy(asc(hbsAuditLog.createdAt), asc(hbsAuditLog.id));
 
     await db.insert(hbsOfficeStaff).values({ userId: office });
     // A request grants customer access, like the legacy customers.
@@ -111,6 +128,19 @@ test("company members, roles, bulk requests and invoice quantities", async (t) =
         { email: emailOf(viewer), role: "viewer", memberUserId: null, acceptedAt: null });
       viewerMemberId = invited.data.id;
       assert.equal((await call(owner, "POST", "/company/members", { email: emailOf(viewer), role: "hr" })).status, 409, "duplicate email");
+
+      assert.deepEqual(await verifiedEmailsOf(viewer), [emailOf(viewer)]);
+      people.set(viewer, {
+        id: viewer, primaryEmailAddressId: "primary",
+        emailAddresses: [{ id: "primary", emailAddress: emailOf(viewer), verification: { status: "unverified" } }],
+      });
+      assert.equal((await call(viewer, "GET", "/company")).status, 403, "pending invite cannot use a cached verified email");
+      const [stillPending] = await db.select().from(hbsCompanyMembers).where(eq(hbsCompanyMembers.id, viewerMemberId));
+      assert.equal(stillPending.memberUserId, null, "an unverified pending address is not accepted");
+      people.set(viewer, {
+        id: viewer, primaryEmailAddressId: "primary",
+        emailAddresses: [{ id: "primary", emailAddress: emailOf(viewer), verification: { status: "verified" } }],
+      });
 
       const joined = await call(owner, "POST", "/company/members", { email: emailOf(hr), role: "hr" });
       assert.equal(joined.status, 201);
@@ -189,7 +219,16 @@ test("company members, roles, bulk requests and invoice quantities", async (t) =
       assert.equal((await call(other, "PATCH", `/company/members/${extras[0]}`, { role: "hr" })).status, 404, "another owner's member");
       assert.equal((await call(owner, "DELETE", `/company/members/${extras[1]}`)).status, 204);
       assert.equal((await call(owner, "DELETE", `/company/members/${extras[1]}`)).status, 404);
-      assert.equal((await call(owner, "POST", "/company/members", { email: `extra-12-${randomUUID()}@example.invalid`, role: "viewer" })).status, 201, "room again");
+      let releaseLookups!: () => void;
+      const ready = new Promise<void>(resolve => { releaseLookups = resolve; });
+      concurrentInviteGate = { calls: 0, ready, release: releaseLookups };
+      const concurrent = await Promise.all([
+        call(owner, "POST", "/company/members", { email: `race-${randomUUID()}@example.invalid`, role: "viewer" }),
+        call(owner, "POST", "/company/members", { email: `race-${randomUUID()}@example.invalid`, role: "viewer" }),
+      ]);
+      assert.equal(concurrentInviteGate.calls, 2);
+      concurrentInviteGate = null;
+      assert.deepEqual(concurrent.map(result => result.status).sort(), [201, 409], "only one concurrent invitation may claim the final slot");
 
       const actions = (await auditsFor(owner)).map(a => a.action);
       assert.equal(actions.filter(a => a === "company.member_invite").length, 11);
@@ -282,6 +321,82 @@ test("company members, roles, bulk requests and invoice quantities", async (t) =
       assert.equal((await call(owner, "GET", `/service-requests/${bulkId}`)).data.employees.length, 2);
     });
 
+    await t.test("accepted membership requires a currently verified invitation email", async () => {
+      const acceptedAt = Date.now();
+      await db.insert(hbsCompanyMembers).values([
+        {
+          companyUserId: owner, memberUserId: multi, email: `former-${emailOf(multi)}`, role: "viewer",
+          invitedBy: owner, acceptedAt: new Date(acceptedAt),
+        },
+        {
+          companyUserId: other, memberUserId: multi, email: emailOf(multi), role: "hr",
+          invitedBy: other, acceptedAt: new Date(acceptedAt + 1_000),
+        },
+      ]);
+      const selectedCompany = await call(multi, "GET", "/company");
+      assert.equal(selectedCompany.status, 200);
+      assert.equal(selectedCompany.data.company.name, "منشأة أخرى", "skip older accepted rows whose invite email is no longer verified");
+
+      // Warm the old short-lived cache before Clerk reports verification loss.
+      assert.deepEqual(await verifiedEmailsOf(finance), [emailOf(finance)]);
+      assert.equal((await call(finance, "GET", "/company")).status, 200, "verified member can read the company file");
+      assert.equal((await call(finance, "GET", "/company/invoices")).status, 200, "verified finance member can read company invoices");
+      assert.equal((await call(finance, "GET", "/company/subscription")).status, 200, "verified finance member can read subscription access");
+      const [companyBefore] = await db.select({ userId: hbsCompanies.userId }).from(hbsCompanies)
+        .where(eq(hbsCompanies.userId, owner));
+      assert.ok(companyBefore, "the employer company exists before membership revocation");
+      const employeeIdsBefore = (await db.select({ id: hbsCompanyEmployees.id }).from(hbsCompanyEmployees)
+        .where(eq(hbsCompanyEmployees.userId, owner))).map(employee => employee.id).sort((a, b) => a - b);
+      const previousFinance = people.get(finance)!;
+      try {
+        people.set(finance, {
+          id: finance, primaryEmailAddressId: "primary",
+          emailAddresses: [{ id: "primary", emailAddress: emailOf(finance), verification: { status: "unverified" } }],
+        });
+        assert.equal((await call(finance, "GET", "/company")).status, 403, "stale cached email cannot preserve company access");
+        assert.equal((await call(finance, "GET", "/company/invoices")).status, 403, "billing access is revoked immediately");
+        assert.equal((await call(finance, "GET", "/company/subscription")).status, 403, "billing membership access is revoked immediately");
+      } finally {
+        people.set(finance, previousFinance);
+      }
+
+      // Clerk errors also fail closed for members, rather than trusting the
+      // accepted memberUserId or stale cached addresses.
+      clerkFailures.add(hr);
+      try {
+        assert.equal((await call(hr, "GET", "/company")).status, 403, "Clerk lookup failure denies member access");
+      } finally {
+        clerkFailures.delete(hr);
+      }
+
+      // Approved personal customer data keeps precedence over the invitation:
+      // it remains readable from the user's own account, not the employer's.
+      clerkFailures.add(multi);
+      try {
+        const [personalRequest] = await db.insert(hbsServiceRequests).values({
+          userId: multi, category: "other", service: "Personal legacy request",
+          description: "Preserves the customer's own approved access.", contactPhone: "0500000000",
+        }).returning();
+        requestIds.push(personalRequest.id);
+        const ownFile = await call(multi, "GET", "/company");
+        assert.equal(ownFile.status, 200, JSON.stringify(ownFile.data));
+        assert.equal(ownFile.data.company, null);
+        assert.deepEqual(ownFile.data.employees, []);
+        const ownerFile = await call(owner, "GET", "/company");
+        assert.equal(ownerFile.status, 200);
+        const [companyAfter] = await db.select({ userId: hbsCompanies.userId }).from(hbsCompanies)
+          .where(eq(hbsCompanies.userId, owner));
+        const employeeIdsAfter = (await db.select({ id: hbsCompanyEmployees.id }).from(hbsCompanyEmployees)
+          .where(eq(hbsCompanyEmployees.userId, owner))).map(employee => employee.id).sort((a, b) => a - b);
+        assert.equal(companyAfter?.userId, companyBefore.userId, "the employer's company record remains intact");
+        assert.deepEqual(employeeIdsAfter, employeeIdsBefore, "the employer's employee records remain intact");
+        assert.deepEqual(ownerFile.data.employees.map((employee: any) => employee.id).sort((a: number, b: number) => a - b),
+          employeeIdsBefore, "the company endpoint still exposes the same employees");
+      } finally {
+        clerkFailures.delete(multi);
+      }
+    });
+
     await t.test("an invoice priced per unit multiplies by the quantity", async () => {
       const tooMuch = await call(office, "POST", `/office/service-requests/${bulkId}/invoices`, { description: "رسوم", amount: 100, quantity: 2, unitAmount: 100_000_000 });
       assert.equal(tooMuch.status, 400);
@@ -324,13 +439,25 @@ test("company members, roles, bulk requests and invoice quantities", async (t) =
       }).returning();
       const gateway: { url: string; body: Record<string, unknown> }[] = [];
       const realFetch = globalThis.fetch;
+      let gatewayId = "";
+      let gatewayStatus = "initiated";
       process.env.MOYASAR_SECRET_KEY = "sk_test_placeholder";
       globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
         const url = String(input instanceof Request ? input.url : input);
         if (!url.startsWith("https://api.moyasar.com/")) return realFetch(input, init);
         gateway.push({ url: `${init?.method ?? "GET"} ${url}`, body: init?.body ? JSON.parse(String(init.body)) : {} });
-        const id = init?.method === "POST" ? `gw-${randomUUID()}` : url.split("/").at(-1)!;
-        return new Response(JSON.stringify({ id, status: "initiated", amount: 34_500, currency: "SAR", url: `https://pay.example.invalid/${id}` }));
+        const path = new URL(url).pathname.split("/");
+        const cancel = path.at(-1) === "cancel";
+        const id = cancel ? path.at(-2)! : path.at(-1)!;
+        if (init?.method === "POST") {
+          gatewayId = `gw-${randomUUID()}`;
+          gatewayStatus = "initiated";
+          return new Response(JSON.stringify({
+            id: gatewayId, status: gatewayStatus, amount: 34_500, currency: "SAR", url: `https://pay.example.invalid/${gatewayId}`,
+          }));
+        }
+        if (cancel) gatewayStatus = "cancelled";
+        return new Response(JSON.stringify({ id, status: gatewayStatus, amount: 34_500, currency: "SAR", url: `https://pay.example.invalid/${id}` }));
       }) as typeof fetch;
       try {
         const refreshed = await call(owner, "POST", `/invoices/${invoice.id}/refresh`);
@@ -363,6 +490,11 @@ test("company members, roles, bulk requests and invoice quantities", async (t) =
         const paid = await call(office, "PATCH", `/office/invoices/${invoice.id}`, { action: "mark_paid" });
         assert.equal(paid.status, 200, JSON.stringify(paid.data));
         assert.equal(paid.data.subscriptionId, subscription.id);
+        assert.equal(gatewayStatus, "cancelled", "the provider confirms the page is no longer payable");
+        const [page] = await db.select().from(hbsInvoiceGatewayPages)
+          .where(eq(hbsInvoiceGatewayPages.gatewayInvoiceId, gatewayId));
+        assert.equal(page?.invoiceId, invoice.id, "retain page-to-invoice attribution after manual payment");
+        assert.ok(page?.closedAt);
         const [audit] = (await auditsFor(subscription.id)).filter(a => a.action === "invoice.mark_paid" && a.targetType === "subscription");
         assert.ok(audit, "filed under the subscription");
         assert.ok(gateway.some(c => /^PUT .*\/cancel$/.test(c.url)), "the open payment page is closed once paid");
@@ -370,6 +502,7 @@ test("company members, roles, bulk requests and invoice quantities", async (t) =
         globalThis.fetch = realFetch;
         delete process.env.MOYASAR_SECRET_KEY;
         await db.delete(hbsAuditLog).where(and(eq(hbsAuditLog.targetType, "subscription"), eq(hbsAuditLog.targetId, String(subscription.id))));
+        await db.delete(hbsInvoiceGatewayPages).where(eq(hbsInvoiceGatewayPages.invoiceId, invoice.id));
         await db.delete(hbsInvoices).where(eq(hbsInvoices.id, invoice.id));
         await db.delete(hbsSubscriptions).where(eq(hbsSubscriptions.id, subscription.id));
         await db.delete(hbsPlans).where(eq(hbsPlans.id, plan.id));
@@ -379,6 +512,12 @@ test("company members, roles, bulk requests and invoice quantities", async (t) =
     const ids = [...new Set(requestIds)];
     if (ids.length) {
       await db.delete(hbsAuditLog).where(inArray(hbsAuditLog.targetId, ids.map(String)));
+      const invoices = await db.select({ id: hbsInvoices.id }).from(hbsInvoices)
+        .where(inArray(hbsInvoices.requestId, ids));
+      const invoiceIds = invoices.map(invoice => invoice.id);
+      if (invoiceIds.length) {
+        await db.delete(hbsInvoiceGatewayPages).where(inArray(hbsInvoiceGatewayPages.invoiceId, invoiceIds));
+      }
       await db.delete(hbsInvoices).where(inArray(hbsInvoices.requestId, ids));
       await db.delete(hbsRequestEmployees).where(inArray(hbsRequestEmployees.requestId, ids));
       await db.delete(hbsServiceRequests).where(inArray(hbsServiceRequests.id, ids));

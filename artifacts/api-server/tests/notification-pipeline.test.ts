@@ -40,7 +40,7 @@ test("notification pipeline", async (t) => {
   // Customers have no registration row here: their address comes from Clerk.
   mock.method(clerkClient.users, "getUser", async (userId: string) => ({
     id: userId, primaryEmailAddressId: "e1",
-    emailAddresses: [{ id: "e1", emailAddress: `${userId}@example.invalid`, verification: { status: "verified" } }],
+    emailAddresses: [{ id: "e1", emailAddress: userId === owner ? officeEmail : `${userId}@example.invalid`, verification: { status: "verified" } }],
   }));
   await db.insert(hbsOfficeStaff).values([{ userId: owner }, { userId: staff, email: `${staff}@example.invalid` }]).onConflictDoNothing();
   const mails: Mail[] = [];
@@ -126,8 +126,8 @@ test("notification pipeline", async (t) => {
       assert.match(mails[0].subject, /INV-9/);
     });
 
-    await t.test("notifyCustomer still records the event when the builder has no address to mail", async () => {
-      mock.method(clerkClient.users, "getUser", async () => { throw new Error("no such user"); });
+    await t.test("notifyCustomer still records the event when the builder has no address to mail", async (t) => {
+      t.mock.method(clerkClient.users, "getUser", async () => { throw new Error("no such user"); });
       await notifyCustomer(muted, to => customerMessageMail(to, request), { kind: "request.file", targetType: "service_request", targetId: 41 });
       const rows = await rowsOf(muted);
       assert.equal(rows.length, 1);
@@ -205,7 +205,7 @@ test("notification pipeline", async (t) => {
       assert.equal(mails.length, 1, "one office inbox mail, not one per member");
       assert.equal(mails[0].to, officeEmail);
       assert.deepEqual(pushes.filter(p => [owner, staff].includes(p.userId)).map(p => p.userId).sort(), [owner, staff].sort(), "each member's own devices");
-      assert.equal(await unreadCount(staff), 1);
+      assert.equal(await unreadCount(staff, true), 1);
 
       // A named recipient (an assignment) reaches only that member; a copy
       // stands in when there is no mail to take the words from.

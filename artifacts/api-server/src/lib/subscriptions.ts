@@ -21,7 +21,8 @@ import { subscriptionCancelledUnpaidMail, subscriptionInvoiceMail, subscriptionP
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-// Audit actions of this package.
+// Keep these package audit actions in sync with AuditLogEntry.action in the
+// OpenAPI contract; /office/audit-log validates each action before returning it.
 export const SUBSCRIPTION_AUDIT = {
   planCreate: "plan.create",
   planUpdate: "plan.update",

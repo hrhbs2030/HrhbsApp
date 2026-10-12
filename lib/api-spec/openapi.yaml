@@ -1267,6 +1267,28 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/PortalSettings" }
         "400": { description: Invalid settings }
+  /portal/settings/whatsapp-verification:
+    post:
+      operationId: requestPortalWhatsappVerification
+      tags: [portal]
+      summary: Request a short-lived phone-possession challenge for the signed-in customer
+      description: The response contains draft text to send from the target phone to the published office WhatsApp number. The server never sends the challenge itself.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PortalWhatsappVerificationInput" }
+      responses:
+        "200":
+          description: Existing verification status or the one-time challenge draft and instructions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PortalWhatsappVerification" }
+        "400": { description: Invalid Saudi mobile number }
+        "401": { description: Authentication required }
+        "403": { description: Customer registration approval required }
+        "409": { description: Save the selected phone first or reload changed settings }
+        "503": { description: Inbound WhatsApp verification is not configured }
   /office/assignees:
     get:
       operationId: listOfficeAssignees
@@ -3156,6 +3178,7 @@ components:
         quantity: { type: integer, minimum: 1, maximum: 500, default: 1, description: "Units billed, for example employees on a bulk request" }
         unitAmount: { type: integer, minimum: 100, maximum: 100000000, description: "Halalas per unit before VAT; when given, amount = unitAmount x quantity" }
         markAwaitingPayment: { type: boolean, description: "Also move the request to awaiting payment" }
+        idempotencyKey: { type: string, minLength: 16, maxLength: 120, description: "Optional client-generated key for safe invoice issue retries" }
     InvoiceAction:
       type: object
       additionalProperties: false
@@ -3225,11 +3248,17 @@ components:
         notes: { type: ["string", "null"], maxLength: 500 }
     PortalSettings:
       type: object
-      required: [whatsappOptIn, whatsappPhone, whatsappAvailable, lastInboundAt]
+      required: [whatsappOptIn, whatsappPhone, whatsappAvailable, whatsappVerificationAvailable, whatsappVerificationStatus, whatsappVerificationExpiresAt, lastInboundAt]
       properties:
         whatsappOptIn: { type: boolean }
         whatsappPhone: { type: ["string", "null"] }
         whatsappAvailable: { type: boolean, description: "Whether the office has WhatsApp messages turned on" }
+        whatsappVerificationAvailable: { type: boolean, description: "Whether the signed Meta webhook is configured to verify phone ownership" }
+        whatsappVerificationStatus:
+          type: string
+          enum: [not_set, unverified, pending, verified]
+          description: "Unverified numbers are not used for inbound routing or outbound WhatsApp notifications"
+        whatsappVerificationExpiresAt: { type: ["string", "null"], format: date-time }
         lastInboundAt: { type: ["string", "null"], format: date-time, description: "When the customer last wrote to the office on WhatsApp" }
     PortalSettingsInput:
       type: object
@@ -3238,6 +3267,22 @@ components:
       properties:
         whatsappOptIn: { type: boolean }
         whatsappPhone: { type: ["string", "null"], maxLength: 24 }
+    PortalWhatsappVerificationInput:
+      type: object
+      additionalProperties: false
+      required: [phone]
+      properties:
+        phone: { type: string, minLength: 9, maxLength: 24, description: "The already-saved Saudi mobile number to verify" }
+    PortalWhatsappVerification:
+      type: object
+      required: [status, phone, officeWhatsAppNumber, challengeText, instructions, expiresAt]
+      properties:
+        status: { type: string, enum: [pending, verified] }
+        phone: { type: string }
+        officeWhatsAppNumber: { type: string, description: "Published office WhatsApp number for the customer to message" }
+        challengeText: { type: ["string", "null"], description: "Exact one-time challenge draft; null if already verified" }
+        instructions: { type: string }
+        expiresAt: { type: ["string", "null"], format: date-time }
     OfficeAssignee:
       type: object
       required: [userId, email, role]

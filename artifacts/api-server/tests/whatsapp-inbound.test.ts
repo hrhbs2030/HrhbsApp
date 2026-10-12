@@ -10,7 +10,7 @@ import {
 } from "../src/lib/whatsapp";
 import {
   INQUIRY_SUBJECT, MAX_MESSAGES_PER_DELIVERY, NO_OPEN_REPLY, SEVERAL_OPEN_REPLY,
-  createWhatsappWebhookRouter, handleInboundMessage, processInboundPayload, type InboundDeps,
+  VERIFICATION_CHALLENGE_PREFIX, createWhatsappWebhookRouter, handleInboundMessage, processInboundPayload, type InboundDeps,
 } from "../src/routes/whatsapp-webhook";
 
 // No database here: routing goes through fake deps, and the HTTP checks
@@ -71,10 +71,27 @@ test("free text is allowed for 24 hours after the customer's last message", () =
 
 type Log = { kind: string; args: unknown[] }[];
 
-function fakeDeps(options: { customers?: Record<string, string>; open?: Record<string, number[]>; seen?: Set<string> } = {}) {
+function fakeDeps(options: {
+  customers?: Record<string, string>;
+  open?: Record<string, number[]>;
+  seen?: Set<string>;
+  challenges?: Record<string, { userId: string; text: string; expiresAt: number }>;
+} = {}) {
   const log: Log = [];
   const seen = options.seen ?? new Set<string>();
+  const customers = { ...options.customers };
+  const challenges = { ...options.challenges };
   const deps: InboundDeps = {
+    async atomic(work) {
+      const before = new Set(seen);
+      try {
+        return await work(deps);
+      } catch (error) {
+        seen.clear();
+        before.forEach(id => seen.add(id));
+        throw error;
+      }
+    },
     async record(message, fromPhone) {
       log.push({ kind: "record", args: [message.id, fromPhone] });
       if (seen.has(message.id)) return false;
@@ -82,14 +99,25 @@ function fakeDeps(options: { customers?: Record<string, string>; open?: Record<s
       return true;
     },
     async customerByPhone(local) {
-      const userId = options.customers?.[local];
+      const userId = customers[local];
       return userId ? { userId } : null;
+    },
+    async verifyChallenge(local, body) {
+      log.push({ kind: "verify", args: [local, body] });
+      const challenge = challenges[local];
+      if (!challenge || challenge.text !== body || challenge.expiresAt <= Date.now()) return false;
+      const currentOwner = customers[local];
+      if (currentOwner && currentOwner !== challenge.userId) return false;
+      customers[local] = challenge.userId;
+      delete challenges[local];
+      return true;
     },
     async touchInbound(userId) { log.push({ kind: "touch", args: [userId] }); },
     async openRequests(userId) {
       return (options.open?.[userId] ?? []).map(id => ({ id, createdAt: new Date(0), service: "خدمة", assignedTo: null }));
     },
     async addRequestMessage(requestId, userId, body) { log.push({ kind: "message", args: [requestId, userId, body] }); },
+    async afterCustomerReply() {},
     async createInquiry(userId, body) { log.push({ kind: "inquiry", args: [userId, body] }); return 7; },
     async finish(id, outcome) { log.push({ kind: "finish", args: [id, outcome] }); },
     async reply(to, body) { log.push({ kind: "reply", args: [to, body] }); },
@@ -147,6 +175,53 @@ test("an unknown or foreign number is kept as unmatched without a reply", async 
   assert.equal(foreign.log[0].args[1], "447700900123", "the stored number keeps digits only");
 });
 
+test("a self-entered phone is not an inbound tenant identity until possession is proved", async () => {
+  const { deps, log } = fakeDeps();
+  assert.equal(await handleInboundMessage(message, deps), "unmatched");
+  assert.deepEqual(log.map(entry => entry.kind), ["record", "finish", "notify"]);
+  assert.deepEqual(log[1].args, ["wamid.a", { userId: null, requestId: null, handled: "unmatched" }]);
+  assert.equal(log[2].args[0].kind, "office.whatsapp_unmatched");
+  assert.equal(log[2].args[0].targetType, "whatsapp_phone");
+});
+
+test("invalid and expired challenge texts are retained unmatched without exposing a tenant", async () => {
+  const valid = `${VERIFICATION_CHALLENGE_PREFIX} valid-token`;
+  const { deps, log } = fakeDeps({
+    customers: { "0500000001": "unrelated-owner" },
+    challenges: { "0500000001": { userId: "claimant", text: valid, expiresAt: Date.now() - 1 } },
+  });
+  assert.equal(await handleInboundMessage({ ...message, text: `${VERIFICATION_CHALLENGE_PREFIX} wrong-token` }, deps), "unmatched");
+  assert.equal(await handleInboundMessage({ ...message, id: "wamid.expired", text: valid }, deps), "unmatched");
+  assert.equal(log.filter(entry => entry.kind === "message" || entry.kind === "inquiry").length, 0);
+  assert.equal(log.filter(entry => entry.kind === "finish").every(entry =>
+    (entry.args[1] as { userId: string | null }).userId === null), true);
+});
+
+test("a verified phone has one owner; a second portal claimant cannot replace it", async () => {
+  const challenge = `${VERIFICATION_CHALLENGE_PREFIX} challenger-proof`;
+  const { deps, log } = fakeDeps({
+    customers: { "0500000001": "existing-owner" },
+    open: { "existing-owner": [41] },
+    challenges: { "0500000001": { userId: "second-claimant", text: challenge, expiresAt: Date.now() + 60_000 } },
+  });
+  assert.equal(await handleInboundMessage({ ...message, text: challenge }, deps), "unmatched");
+  assert.equal(await handleInboundMessage({ ...message, id: "wamid.owner" }, deps), "request_message");
+  assert.ok(log.some(entry => entry.kind === "message" && entry.args[1] === "existing-owner"));
+  assert.ok(!log.some(entry => entry.kind === "message" && entry.args[1] === "second-claimant"));
+});
+
+test("a valid live challenge verifies only its bound phone and is not routed as customer content", async () => {
+  const challenge = `${VERIFICATION_CHALLENGE_PREFIX} owner-proof`;
+  const { deps, log } = fakeDeps({
+    challenges: { "0500000001": { userId: "user-1", text: challenge, expiresAt: Date.now() + 60_000 } },
+    open: { "user-1": [41] },
+  });
+  assert.equal(await handleInboundMessage({ ...message, text: challenge }, deps), "ignored");
+  assert.equal(await handleInboundMessage({ ...message, id: "wamid.after-proof" }, deps), "request_message");
+  assert.equal(log.filter(entry => entry.kind === "message").length, 1);
+  assert.equal(log.find(entry => entry.kind === "message")?.args[1], "user-1");
+});
+
 test("a redelivered message is skipped before anything is done", async () => {
   const seen = new Set(["wamid.a"]);
   const { deps, log } = fakeDeps({ customers: { "0500000001": "user-1" }, open: { "user-1": [41] }, seen });
@@ -157,12 +232,49 @@ test("a redelivered message is skipped before anything is done", async () => {
 test("a delivery is processed in order, bounded, and one failure does not stop the rest", async () => {
   const { deps, log } = fakeDeps({ customers: { "0500000001": "user-1" }, open: { "user-1": [41] } });
   let failures = 0;
-  const failing: InboundDeps = { ...deps, async addRequestMessage(...args) { if (failures++ === 0) throw new Error("db down"); return deps.addRequestMessage(...args); } };
+  const failing: InboundDeps = {
+    ...deps,
+    async atomic(work) {
+      return deps.atomic(operations => work({
+        ...operations,
+        async addRequestMessage(...args) {
+          if (failures++ === 0) throw new Error("db down");
+          return deps.addRequestMessage(...args);
+        },
+      }));
+    },
+  };
   const messages = Array.from({ length: MAX_MESSAGES_PER_DELIVERY + 5 }, (_, i) => text(`wamid.${i}`, "966500000001", `رسالة ${i}`));
-  const counts = await processInboundPayload(delivery([...messages, text("wamid.0", "966500000001", "again")]), failing);
-  assert.deepEqual(counts, { request_message: MAX_MESSAGES_PER_DELIVERY - 1, inquiry: 0, unmatched: 0, ignored: 0, duplicate: 0 });
+  await assert.rejects(processInboundPayload(delivery([...messages, text("wamid.0", "966500000001", "again")]), failing));
   assert.equal(log.filter(entry => entry.kind === "record").length, MAX_MESSAGES_PER_DELIVERY);
   assert.equal(log.filter(entry => entry.kind === "message").length, MAX_MESSAGES_PER_DELIVERY - 1);
+});
+
+test("transient destination failure rolls back dedupe claim; signed redelivery commits exactly once", async () => {
+  const { deps, log } = fakeDeps({ customers: { "0500000001": "user-1" }, open: { "user-1": [41] } });
+  let fail = true;
+  const flaky: InboundDeps = {
+    ...deps,
+    async atomic(work) {
+      return deps.atomic(operations => work({
+        ...operations,
+        async addRequestMessage(...args) {
+          if (fail) { fail = false; throw new Error("temporary insert failure"); }
+          await deps.addRequestMessage(...args);
+        },
+      }));
+    },
+  };
+  const payload = delivery([text("wamid.retry", "966500000001", "مرة واحدة")]);
+  await assert.rejects(processInboundPayload(payload, flaky));
+  assert.equal(log.filter(entry => entry.kind === "message").length, 0);
+  assert.deepEqual(await processInboundPayload(payload, flaky), {
+    request_message: 1, inquiry: 0, unmatched: 0, ignored: 0, duplicate: 0,
+  });
+  assert.deepEqual(await processInboundPayload(payload, flaky), {
+    request_message: 0, inquiry: 0, unmatched: 0, ignored: 0, duplicate: 1,
+  });
+  assert.equal(log.filter(entry => entry.kind === "message").length, 1);
 });
 
 test("the webhook verifies the token on GET and the signature on POST", async () => {

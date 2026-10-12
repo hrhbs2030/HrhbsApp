@@ -74,7 +74,7 @@ function OfficeAccessProvider({ children }: { children: ReactNode }) {
     const unsubscribe = qc.getQueryCache().subscribe(event => {
       if (event.type !== 'updated' || event.query.queryHash !== JSON.stringify(getGetPortalMeQueryKey()) || event.action.type !== 'success') return;
       const role = (event.query.state.data as { role?: string } | undefined)?.role ?? null;
-      if (lastRole.current === 'staff' && role !== 'staff') lock();
+      if (lastRole.current === 'staff' && role !== 'staff') window.dispatchEvent(new Event(officeDeniedEvent));
       lastRole.current = role;
     });
     return () => { window.removeEventListener(officeDeniedEvent, onDenied); window.removeEventListener(authChangedEvent, onAuthChanged); unsubscribe(); };
