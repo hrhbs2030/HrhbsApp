@@ -16,10 +16,18 @@ export function ContactList({ tone = 'light', className = '' }: { tone?: 'light'
   );
 }
 
-export function ContactCard({ title = 'تواصل مع المكتب' }: { title?: string }) {
+// `text` is the line under the title. With the default title it speaks to
+// the owner who has a problem now and says where it is best sent: a request
+// keeps the note, the office's answer and every document in one record. A
+// page with its own title (the legal pages) gets no line unless it passes one.
+const defaultTitle = 'تواصل مع المكتب';
+const defaultText = 'ملاحظة وصلتك، أو مؤشر تغيّر، أو وثيقة تنتهي قريبًا؟ أرسلها طلبًا من حسابك ليبقى كل شيء في سجل واحد، أو تواصل معنا مباشرة.';
+export function ContactCard({ title = defaultTitle, text }: { title?: string; text?: string | null }) {
+  const line = text !== undefined ? text : title === defaultTitle ? defaultText : null;
   return (
     <section className="contact-card" aria-labelledby="contact-card-title">
       <h2 id="contact-card-title" className="display">{title}</h2>
+      {line && <p className="contact-card-text">{line}</p>}
       <ContactList />
     </section>
   );

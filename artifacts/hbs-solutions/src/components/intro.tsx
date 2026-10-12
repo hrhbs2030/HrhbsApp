@@ -6,8 +6,9 @@ import { milestoneLabels } from '@/content/milestones';
 import { prefersReducedMotion, safeStorage } from '@/lib/motion';
 import './intro.css';
 
-// First-visit opening film: a short motion-graphics explainer of the portal,
-// one scene per step (words in content/intro-script.ts). Each scene remounts
+// First-visit opening film: a short motion-graphics story of one problem (a
+// note on the wage file) resolved through the portal, one scene per step
+// (words in content/intro-script.ts). Each scene remounts
 // so its CSS animations start fresh; everything animated is transform or
 // opacity. The real page renders underneath. Reduced-motion visitors, links
 // with a #section and anyone who has seen it skip it; ?intro=1 replays it and
@@ -78,8 +79,8 @@ function Card({ children, className = '', style }: { children: ReactNode; classN
 function RequestVisual() {
   return <div className="iv iv-request">
     <Card className="iv-a">
-      <div className="iv-search"><Search size={14} /><span className="iv-type">تجديد الإقامة</span></div>
-      <div className="iv-chips">{['تجديد الإقامة', 'خروج وعودة', 'نقل خدمات'].map((c, i) =>
+      <div className="iv-search"><Search size={14} /><span className="iv-type">ملاحظة على ملف الأجور</span></div>
+      <div className="iv-chips">{['متابعة الالتزام بحماية الأجور', 'حماية الأجور', 'رخصة العمل'].map((c, i) =>
         <span key={c} className={`iv-chip ${i === 0 ? 'is-on' : ''}`} style={{ '--d': `${0.5 + i * 0.12}s` } as CSSProperties}>{c}</span>)}</div>
       <div className="iv-lines"><i style={{ '--w': '86%', '--d': '1s' } as CSSProperties} /><i style={{ '--w': '64%', '--d': '1.15s' } as CSSProperties} /><i style={{ '--w': '72%', '--d': '1.3s' } as CSSProperties} /></div>
       <span className="iv-send"><Send size={13} />إرسال الطلب</span>
@@ -92,11 +93,11 @@ function RequestVisual() {
 function OfficeVisual() {
   return <div className="iv iv-office">
     <Card className="iv-a">
-      <div className="iv-head"><b>تجديد الإقامة</b><span dir="ltr">{REF}</span></div>
+      <div className="iv-head"><b>متابعة الالتزام بحماية الأجور</b><span dir="ltr">{REF}</span></div>
       <ol className="iv-track">{milestoneLabels.map((s, i) => <li key={s} style={{ '--d': `${0.5 + i * 0.45}s` } as CSSProperties}><span className="iv-dot"><Check size={10} strokeWidth={3} /></span>{s}</li>)}</ol>
     </Card>
     <div className="iv-chat">
-      <span className="iv-bubble is-them" style={{ '--d': '1.6s' } as CSSProperties}><MessageCircle size={13} />رفعنا طلبك للجهة المختصة</span>
+      <span className="iv-bubble is-them" style={{ '--d': '1.6s' } as CSSProperties}><MessageCircle size={13} />وجدنا السبب ورفعنا التصحيح للجهة المختصة</span>
       <span className="iv-bubble" style={{ '--d': '2.3s' } as CSSProperties}>شكرًا، متابع معكم</span>
     </div>
   </div>;
@@ -104,7 +105,7 @@ function OfficeVisual() {
 
 function DocumentsVisual() {
   return <div className="iv iv-docs">
-    <div className="iv-files">{['صورة الإقامة.pdf', 'صورة الجواز.jpg'].map((f, i) =>
+    <div className="iv-files">{['كشف الرواتب.pdf', 'عقد العمل.pdf'].map((f, i) =>
       <span key={f} className="iv-file" style={{ '--d': `${0.4 + i * 0.25}s` } as CSSProperties}><FileText size={15} />{f}</span>)}</div>
     <Card className="iv-invoice">
       <div className="iv-head"><b>فاتورة</b><span dir="ltr">INV-2026-00012</span></div>

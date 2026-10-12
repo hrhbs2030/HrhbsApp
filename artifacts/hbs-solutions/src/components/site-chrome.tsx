@@ -29,7 +29,12 @@ function AuthLinks({ tone, compact = false }: { tone: 'dark' | 'light'; compact?
   </>;
 }
 
+// One line under the brand on the public header and the footer: what the
+// office does for an establishment, in the three problems' words.
+export const siteTagline = 'التزام منشأتك، ومؤشراتها، ومعالجة ملاحظاتها، من حساب واحد';
+
 export const siteNavigation = [
+  { href: '/#problems', label: 'مشاكل نحلّها' },
   { href: '/services', label: 'الخدمات' },
   { href: '/#how', label: 'كيف تعمل البوابة' },
   { href: '/#assistant', label: 'أم مشعل' },
@@ -52,7 +57,10 @@ export function SiteHeader({ tone = 'light' }: { tone?: 'dark' | 'light' }) {
   return (
     <header className={`site-header site-header--${tone}`}>
       <div className="site-wrap site-header-inner">
-        <Brand light={tone === 'dark'} />
+        <div className="site-brand">
+          <Brand light={tone === 'dark'} />
+          <p className="site-tagline">{siteTagline}</p>
+        </div>
         <nav className="site-nav" aria-label="التنقل الرئيسي">
           {siteNavigation.map((item) => (
             <a key={item.href} href={item.href} aria-current={location === item.href ? 'page' : undefined} onClick={(e) => navigateHash(e, item.href)}>{item.label}</a>
@@ -107,13 +115,17 @@ export function SiteFooter() {
       <div className="site-footer-veil" aria-hidden="true" />
       <div className="site-wrap site-footer-content">
         <div className="site-footer-main">
-          <div className="site-footer-brand"><Brand light /></div>
+          <div className="site-footer-brand">
+            <Brand light />
+            <p className="site-footer-tagline">{siteTagline}. ترسل ما ظهر لك، ويحدد المكتب السبب ويتابع مع الجهة المختصة، وتتابع أنت كل خطوة من صفحة الطلب.</p>
+          </div>
           <nav className="site-footer-links" aria-label="روابط التذييل">
             <div>
               <h2>البوابة</h2>
               <ul>
                 <li><Link href="/sign-up">طلب التسجيل</Link></li>
                 <li><Link href="/sign-in">تسجيل الدخول</Link></li>
+                <li><a href="/#problems" onClick={(e) => navigateHash(e, '/#problems')}>مشاكل نحلّها</a></li>
                 <li><a href="/#how" onClick={(e) => navigateHash(e, '/#how')}>كيف تعمل البوابة</a></li>
                 <li><a href="/#dashboard" onClick={(e) => navigateHash(e, '/#dashboard')}>لوحة العميل</a></li>
                 <li><a href="/#assistant" onClick={(e) => navigateHash(e, '/#assistant')}>المساعدة الآلية «أم مشعل»</a></li>
@@ -142,7 +154,7 @@ export function SiteFooter() {
           </div>
           <p className="site-footer-city">
             <span className="site-footer-city-dot" aria-hidden="true" />
-            <span>نخدم عملاءنا في المملكة: <strong>{servedCities}</strong></span>
+            <span>نتابع التزام المنشآت وملاحظاتها لعملائنا في المملكة: <strong>{servedCities}</strong></span>
           </p>
         </div>
       </div>

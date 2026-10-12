@@ -381,10 +381,11 @@ export const riyadhCrowd: Crowd = {
     { kind: 'abaya', pose: 'talk', x: 800, g: 695, s: 1.12, look: 5, flip: true },
   ],
   lines: [
-    { who: 0, text: 'كيف أبدأ معاملتي؟', at: .6 },
-    { who: 1, text: 'سجّل واختر الخدمة من الدليل', at: 3.2 },
-    { who: 2, text: 'وبعد ما أرسل الطلب؟', at: 6.2 },
-    { who: 3, text: 'يوصلك رقم مرجعي وتتابع حالته', at: 8.8 },
+    // Compliance: dates that expire, and the reminders that come before them.
+    { who: 0, text: 'إقامات ورخص تنتهي كل شهر', at: .6 },
+    { who: 1, text: 'ملف المنشأة يذكّرك قبلها', at: 3.2 },
+    { who: 2, text: 'جاني تنبيه قبل انتهاء الرخصة', at: 6.2 },
+    { who: 3, text: 'جدّدها من حسابك وتابع حالتها', at: 8.8 },
   ],
   walkers: [
     { kind: 'najdi', pose: 'folder', x: 0, g: 697, s: 1.08, look: 4, dur: 70, delay: 20, dir: -1 },
@@ -402,10 +403,11 @@ export const jeddahCrowd: Crowd = {
     { kind: 'hijazi', pose: 'talk', x: 800, g: 695, s: 1.22, look: 4, flip: true },
   ],
   lines: [
-    { who: 0, text: 'المكتب طلب صورة الإقامة', at: .6 },
-    { who: 1, text: 'ارفعها من صفحة الطلب نفسه', at: 3.2 },
-    { who: 2, text: 'ويوصلني خبر لو تحدّث؟', at: 6.2 },
-    { who: 3, text: 'إيوه، يوصلك بريد بكل تحديث', at: 8.8 },
+    // The indicator: it changed, the office explains why in the request chat.
+    { who: 0, text: 'المؤشر تغيّر ولا أعرف السبب', at: .6 },
+    { who: 1, text: 'أرسل ما يظهر لك في قوى', at: 3.2 },
+    { who: 2, text: 'ومين يشرح لي سبب التغيير؟', at: 6.2 },
+    { who: 3, text: 'المكتب يكتبه في محادثة الطلب', at: 8.8 },
   ],
   walkers: [
     { kind: 'hijazi-ghabana', pose: 'idle', x: 0, g: 692, s: 1.06, look: 0, dur: 76, delay: 30, dir: 1 },
@@ -422,10 +424,11 @@ export const jazanCrowd: Crowd = {
     { kind: 'abaya', pose: 'talk', x: 800, g: 695, s: 1.1, look: 0, flip: true },
   ],
   lines: [
-    { who: 0, text: 'عندي سؤال عن خطوات الطلب', at: .6 },
-    { who: 1, text: 'اسأل «أم مشعل» من حسابك', at: 3.2 },
-    { who: 2, text: 'والرد الرسمي من وين؟', at: 6.2 },
-    { who: 3, text: 'المكتب يرد عليك في البوابة', at: 8.8 },
+    // Observations: a note on the wage file, followed up until it closes.
+    { who: 0, text: 'ظهرت ملاحظة على ملف الأجور', at: .6 },
+    { who: 1, text: 'أرسلها كما وصلتك من حسابك', at: 3.2 },
+    { who: 2, text: 'ومين يتابعها مع الجهة؟', at: 6.2 },
+    { who: 3, text: 'المكتب، حتى تُغلق الملاحظة', at: 8.8 },
   ],
   walkers: [
     { kind: 'janubi-hat', pose: 'idle', x: 0, g: 698, s: 1.06, look: 5, dur: 80, delay: 10, dir: -1 },
