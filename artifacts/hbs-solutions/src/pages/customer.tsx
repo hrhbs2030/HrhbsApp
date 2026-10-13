@@ -9,6 +9,7 @@ import { PrintButton } from '@/components/brand/print';
 import { LOCALE, daysUntil, formatCalendarDate, formatDateTime, formatMoney } from '@/lib/format';
 import { ExpiryBadge, reminderKindNames } from '@/components/reminder-ui';
 import { RequestConversation, SubjectChip, focusComposer } from '@/components/request-conversation';
+import { CustomerWhatsapp } from '@/components/whatsapp-follow-up';
 import { RequestFiles } from '@/components/request-files';
 import { CustomerInvoices, RatingPanel } from '@/components/request-billing';
 import { customerTasks, type TaskKind } from '@/lib/tasks';
@@ -27,10 +28,12 @@ function LinkedRequest({ reference }: { reference: string }) {
 }
 
 function InquiryItem({ inquiry }: { inquiry: Inquiry }) {
+  // The whole card opens the conversation (/inquiries/:id); the answer shown
+  // here is the office's first reply, later messages live in the thread.
   return <article className="border-b border-line px-5 py-5 last:border-0 sm:px-6">
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
-        <h3 className="font-bold leading-7">{inquiry.subject}</h3>
+        <h3 className="font-bold leading-7"><Link href={`/inquiries/${inquiry.id}`} className="text-inherit no-underline hover:text-teal">{inquiry.subject}</Link></h3>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span>{dateText(inquiry.createdAt)}</span>{inquiry.linkedServiceRequestReference && <LinkedRequest reference={inquiry.linkedServiceRequestReference}/>}</div>
       </div>
       <Status value={inquiry.status}/>
@@ -40,11 +43,12 @@ function InquiryItem({ inquiry }: { inquiry: Inquiry }) {
       <div className="mb-1 flex flex-wrap justify-between gap-2 text-xs font-bold text-copper"><span>رد المكتب</span><span className="font-normal">{dateText(inquiry.answeredAt)}</span></div>
       <p className="whitespace-pre-wrap text-sm leading-7">{inquiry.answer}</p>
     </div>}
+    <Link href={`/inquiries/${inquiry.id}`} className="mt-3 inline-flex min-h-11 items-center gap-1 text-xs font-bold text-teal no-underline"><MessagesSquare size={14} aria-hidden="true"/>افتح المحادثة<ArrowLeft size={14} aria-hidden="true"/></Link>
   </article>;
 }
 
 function InquiryLine({ inquiry }: { inquiry: Inquiry }) {
-  return <Link href="/inquiries" className="flex items-center justify-between gap-3 border-b border-line px-5 py-4 text-inherit no-underline transition-colors last:border-0 hover:bg-paper sm:px-6">
+  return <Link href={`/inquiries/${inquiry.id}`} className="flex items-center justify-between gap-3 border-b border-line px-5 py-4 text-inherit no-underline transition-colors last:border-0 hover:bg-paper sm:px-6">
     <div className="min-w-0">
       <div className="line-clamp-2 font-bold leading-7">{inquiry.subject}</div>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span>{dateText(inquiry.createdAt)}</span>{inquiry.linkedServiceRequestReference && <LinkedRequest reference={inquiry.linkedServiceRequestReference}/>}</div>
@@ -162,7 +166,7 @@ export function RequestDetail() {
     {!Number.isInteger(parsed)||parsed<=0 ? <EmptyBlock title="الطلب غير متاح" text="تحقق من رابط الطلب وحاول مرة أخرى."/> : q.isLoading ? <LoadingBlock/> : q.error?.status === 404 ? <EmptyBlock title="الطلب غير متاح" text="هذا الطلب غير موجود في حسابك."/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : q.data && <>
       {justSent && <div role="status" className="rise mb-6 flex items-start gap-3 rounded-2xl border border-sage-2 bg-ok-soft p-4 text-ok sm:p-5"><CircleCheck className="mt-0.5 shrink-0" size={22}/><div><strong className="block text-ink">تم إرسال طلبك إلى المكتب</strong><span className="text-sm leading-7">الرقم المرجعي <span dir="ltr" className="nums font-bold">{q.data.reference}</span>. تابع حالته من هذه الصفحة.</span></div></div>}
       {/* One channel per request: the conversation below. Questions unrelated to a request go through the Inquiries page. */}
-      <PageHeading eyebrow={`طلب رقم ${q.data.reference}`} title={q.data.service} action={<div className="flex flex-wrap gap-2"><PrintButton label="طباعة الطلب"/>{/* One reply CTA per page: the waiting banner below carries it when the request waits on the customer. */}{q.data.status !== 'completed' && q.data.status !== 'waiting_on_customer' && <button type="button" className="btn btn-primary" onClick={() => focusComposer(q.data!.id)}><MessagesSquare size={17}/>ردّ على المكتب</button>}</div>}/>
+      <PageHeading eyebrow={`طلب رقم ${q.data.reference}`} title={q.data.service} action={<div className="flex flex-wrap items-center gap-2"><CustomerWhatsapp thread={{ type: 'request', id: q.data.id }}/><PrintButton label="طباعة الطلب"/>{/* One reply CTA per page: the waiting banner below carries it when the request waits on the customer. */}{q.data.status !== 'completed' && q.data.status !== 'waiting_on_customer' && <button type="button" className="btn btn-primary" onClick={() => focusComposer(q.data!.id)}><MessagesSquare size={17}/>ردّ على المكتب</button>}</div>}/>
       <div className="surface overflow-hidden">
         <section aria-label="مراحل الطلب" className="px-5 py-6 sm:px-8">
           <StatusTrack status={q.data.status} createdAt={q.data.createdAt} updatedAt={q.data.updatedAt}/>

@@ -10,7 +10,7 @@ import pino from "pino";
 import pinoHttp from "pino-http";
 import {
   db, hbsAuditLog, hbsDocumentReminders, hbsInvoices, hbsNotificationPreferences, hbsNotifications, hbsOfficeStaff,
-  hbsPushSubscriptions, hbsRegistrationRequests, hbsServiceRequests, hbsWhatsappInbound, pool,
+  hbsPushSubscriptions, hbsRegistrationRequests, hbsRequestMessages, hbsServiceRequests, hbsWhatsappInbound, pool,
 } from "@workspace/db";
 import notificationsRouter, { MAX_STREAMS_PER_USER, openStreams } from "../src/routes/notifications";
 import { createOfficeWhatsappRouter, type WhatsappSender } from "../src/routes/office-whatsapp";
@@ -367,11 +367,16 @@ test("notification centre, preferences, push, brief, WhatsApp inbox and the live
         senderWorks = false;
         assert.equal((await reply(freshId)).status, 502);
         senderWorks = true;
-        assert.equal(sent.length, 3);
+        // A reply to a message that landed on a request is also an office message in that thread.
+        assert.equal((await reply(knownId, "وصل الإيصال، شكرًا لك.")).status, 202);
+        const threaded = await db.select().from(hbsRequestMessages).where(eq(hbsRequestMessages.requestId, requestIds[0]));
+        assert.deepEqual(threaded.map((m) => [m.authorId, m.authorRole, m.body, m.channel]), [[office, "office", "وصل الإيصال، شكرًا لك.", "whatsapp"]]);
+        assert.equal(sent.length, 4);
         const audits = await db.select().from(hbsAuditLog).where(and(eq(hbsAuditLog.action, "whatsapp.reply"), inArray(hbsAuditLog.targetId, waIds)));
         assert.deepEqual(audits.map((a) => [a.actorId, a.targetId, (a.details as any).sentAs, (a.details as any).chars]).sort(), [
           [office, freshId, "text", "تم استلام رسالتكم وسنرد قريبًا.".length],
           [office, staleId, "template", "تم استلام رسالتكم وسنرد قريبًا.".length],
+          [office, knownId, "template", "وصل الإيصال، شكرًا لك.".length],
         ].sort());
       } finally {
         delete process.env.WHATSAPP_ACCESS_TOKEN;

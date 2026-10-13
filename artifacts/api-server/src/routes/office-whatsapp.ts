@@ -1,12 +1,13 @@
 import { getAuth } from "@clerk/express";
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
-import { db, hbsRegistrationRequests, hbsWhatsappInbound } from "@workspace/db";
+import { db, hbsInquiries, hbsInquiryMessages, hbsRegistrationRequests, hbsRequestMessages, hbsWhatsappInbound, type HbsWhatsappInbound } from "@workspace/db";
 import {
   ListWhatsappInboxQueryParams, ListWhatsappInboxResponse, ReplyWhatsappInboxBody, ReplyWhatsappInboxParams, ReplyWhatsappInboxResponse,
 } from "@workspace/api-zod";
 import { recordAudit } from "../lib/audit";
 import { intentOf, maskPhone, suggestReplies } from "../lib/notification-intelligence";
+import { emitThreadEvent, type ThreadRef } from "../lib/messaging";
 import { requireOfficeStaff } from "../lib/office-access";
 import { freeTextWindowOpen, sendText, sendWhatsApp, whatsappConfigured } from "../lib/whatsapp";
 
@@ -40,6 +41,29 @@ async function lastInboundByPhone(phones: string[]): Promise<Map<string, Date>> 
   const rows = await db.select({ fromPhone: hbsWhatsappInbound.fromPhone, last: sql<Date>`max(${hbsWhatsappInbound.receivedAt})` })
     .from(hbsWhatsappInbound).where(inArray(hbsWhatsappInbound.fromPhone, [...new Set(phones)])).groupBy(hbsWhatsappInbound.fromPhone);
   return new Map(rows.map((row) => [row.fromPhone, new Date(row.last)]));
+}
+
+// The reply also goes into the thread the inbound message landed on, so the
+// portal conversation shows both sides: the request when the row names one,
+// else the inquiry the webhook created from this very text (hbs_whatsapp_inbound
+// keeps no inquiry id, so it is found by owner and body). Nothing is recorded
+// for unmatched numbers.
+// Returns the thread the reply landed in, so the customer's inbox can be told.
+async function recordReplyInThread(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], row: HbsWhatsappInbound, authorId: string, text: string): Promise<ThreadRef | null> {
+  if (row.requestId) {
+    await tx.insert(hbsRequestMessages).values({ requestId: row.requestId, authorId, authorRole: "office", body: text, channel: "whatsapp" });
+    return { type: "request", id: row.requestId };
+  }
+  if (row.handled !== "inquiry" || !row.userId) return null;
+  const [inquiry] = await tx.select({ id: hbsInquiries.id, answer: hbsInquiries.answer }).from(hbsInquiries)
+    .where(and(eq(hbsInquiries.userId, row.userId), eq(hbsInquiries.message, row.body)))
+    .orderBy(desc(hbsInquiries.createdAt), desc(hbsInquiries.id)).limit(1);
+  if (!inquiry) return null;
+  await tx.insert(hbsInquiryMessages).values({ inquiryId: inquiry.id, authorId, authorRole: "office", body: text, channel: "whatsapp" });
+  // Compat with the single-answer inquiry model: the first office message is the answer.
+  await tx.update(hbsInquiries).set({ status: "answered", ...(inquiry.answer === null ? { answer: text, answeredAt: new Date() } : {}) })
+    .where(eq(hbsInquiries.id, inquiry.id));
+  return { type: "inquiry", id: inquiry.id };
 }
 
 export function createOfficeWhatsappRouter(sender: WhatsappSender = whatsappSender): IRouter {
@@ -92,11 +116,17 @@ export function createOfficeWhatsappRouter(sender: WhatsappSender = whatsappSend
     if (!text) { res.status(400).json({ error: "اكتب نص الرد (حتى 1024 حرفًا)." }); return; }
     const sent = sentAs === "text" ? await sender.sendText(message.fromPhone, text) : await sender.sendTemplate(message.fromPhone, text);
     if (!sent) { res.status(502).json({ error: "تعذر إرسال الرسالة عبر واتساب. حاول مرة أخرى." }); return; }
-    await db.transaction((tx) => recordAudit(tx, {
-      actorId: getAuth(req).userId!, action: "whatsapp.reply", targetType: "whatsapp_message", targetId: message.waMessageId,
-      details: { waMessageId: message.waMessageId, chars: text.length, sentAs },
-    }));
+    const actorId = getAuth(req).userId!;
+    const thread = await db.transaction(async (tx) => {
+      const recorded = await recordReplyInThread(tx, message, actorId, text);
+      await recordAudit(tx, {
+        actorId, action: "whatsapp.reply", targetType: "whatsapp_message", targetId: message.waMessageId,
+        details: { waMessageId: message.waMessageId, chars: text.length, sentAs },
+      });
+      return recorded;
+    });
     res.status(202).json(ReplyWhatsappInboxResponse.parse({ sentAs }));
+    if (thread && message.userId) void emitThreadEvent(thread, "office", message.userId);
   });
 
   return router;

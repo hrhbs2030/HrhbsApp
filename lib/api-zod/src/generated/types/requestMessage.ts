@@ -5,11 +5,14 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { MessageChannel } from './messageChannel';
 import type { RequestMessageAuthorRole } from './requestMessageAuthorRole';
 
 export interface RequestMessage {
+  /** 0 for the original inquiry text that opens an inquiry thread */
   id: number;
   authorRole: RequestMessageAuthorRole;
   body: string;
+  channel: MessageChannel;
   createdAt: Date;
 }

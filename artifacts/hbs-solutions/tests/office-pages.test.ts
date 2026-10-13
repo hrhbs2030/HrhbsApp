@@ -37,7 +37,7 @@ const server = await createServer({
       if (id === '@/components/portal-ui' || id.endsWith('/src/components/portal-ui')) return '\0office-ui';
       if (id === '@tanstack/react-query') return '\0office-query';
       // Invoices and document reading have their own API suites.
-      if (/(^@|\/src)\/components\/(request-billing|office-request-extras|request-conversation)(\.tsx)?$/.test(id)) return '\0office-extras';
+      if (/(^@|\/src)\/components\/(request-billing|office-request-extras|request-conversation|conversation|whatsapp-follow-up)(\.tsx)?$/.test(id)) return '\0office-extras';
       if (id === 'wouter') return '\0office-router';
       if (/\.css$/.test(id)) return '\0office-css';
     },
@@ -57,6 +57,8 @@ const server = await createServer({
         'export const RequestEmployees = () => null; export const employeeProgress = list => `${list.filter(e => e.itemStatus === "done").length}/${list.length} مكتمل`;',
         // The confirmation dialog, reduced to its confirm button while open.
         'import React from "react"; export const ConfirmDialog = ({ open, confirmLabel, onConfirm }) => open ? React.createElement("button", { "data-confirm": true, onClick: onConfirm }, confirmLabel) : null;',
+        // The conversation shows which thread it was given; the WhatsApp lookup finds no thread here.
+        'export const Conversation = props => React.createElement("div", { "data-thread": JSON.stringify(props.thread), "data-scope": props.scope }); export const WhatsappFollowUp = () => null; export const useOfficeThread = () => undefined;',
       ].join('\n');
       if (id === '\0office-query') return 'export const useQueryClient = () => globalThis.__office.qc;';
       if (id === '\0office-router') return 'export const useSearch = () => globalThis.__office.search; export const Link = ({children}) => children; export const useParams = () => globalThis.__office.params; export const useLocation = () => [globalThis.__office.location, to => globalThis.__office.navigations.push(to)];';
@@ -237,7 +239,7 @@ test('the editor offers only allowed next statuses, blocks completion over an un
 });
 const mutationFailingWith = error => ({ isPending: false, isError: false, mutateAsync: async () => { throw error; }, reset() {} });
 
-test('inquiries filter and paginate the API items, then submit a trimmed reply', async () => {
+test('inquiries filter and paginate the API items, and open the selected thread', async () => {
   const { calls } = setup();
   const tree = await mount(OfficeInquiries);
   assert.equal(calls.inquiries.at(-1).status, 'open');
@@ -248,11 +250,23 @@ test('inquiries filter and paginate the API items, then submit a trimmed reply',
   assert.deepEqual(calls.inquiries.at(-1), { page: 1, pageSize: 20, status: 'answered' });
   await change(nodes(tree, 'input')[0], '  سؤال  ');
   assert.deepEqual(calls.inquiries.at(-1), { page: 1, pageSize: 20, q: 'سؤال', status: 'answered' });
+  assert.equal(tree.root.findAll(n => n.props['data-thread']).length, 0, 'nothing selected yet');
   await click(nodes(tree, 'button').find(n => text(n).includes('سؤال 1')));
-  await change(nodes(tree, 'textarea')[0], '  تم الرد  ');
-  await submit(nodes(tree, 'form')[0]);
-  assert.deepEqual(calls.answers, [{ id: 1, data: { answer: 'تم الرد' } }]);
-  assert.ok(calls.invalidated.some(key => key[0] === 'getListOfficeInquiriesQueryKey'));
+  const panel = tree.root.findAll(n => n.props['data-thread'])[0];
+  assert.deepEqual(JSON.parse(panel.props['data-thread']), { type: 'inquiry', id: 1 });
+  assert.equal(panel.props['data-scope'], 'office');
+  assert.match(text(tree.root), /سؤال 1/);
+  await act(async () => tree.unmount());
+});
+
+test('arriving from the messages inbox (?open=id) opens that inquiry thread with the status filter widened', async () => {
+  const { calls } = setup();
+  globalThis.__office.search = 'open=2';
+  const tree = await mount(OfficeInquiries);
+  assert.deepEqual(calls.inquiries.at(-1), { page: 1, pageSize: 20 }, 'no status filter, so an answered inquiry is listed too');
+  const panel = tree.root.findAll(n => n.props['data-thread'])[0];
+  assert.deepEqual(JSON.parse(panel.props['data-thread']), { type: 'inquiry', id: 2 }, 'opened even though this page does not list it');
+  assert.match(text(tree.root), /استفسار #2/, 'the panel header names the inquiry by number');
   await act(async () => tree.unmount());
 });
 

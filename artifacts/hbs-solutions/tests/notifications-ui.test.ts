@@ -14,7 +14,7 @@ const hooks = [
   'useGetNotificationPreferences', 'useSaveNotificationPreferences', 'useListWhatsappInbox', 'useReplyWhatsappInbox',
 ];
 const fns = ['listNotifications', 'getPushKey', 'savePushSubscription', 'deletePushSubscription'];
-const keys = ['getListNotificationsQueryKey', 'getGetNotificationBriefQueryKey', 'getGetNotificationPreferencesQueryKey', 'getListWhatsappInboxQueryKey'];
+const keys = ['getListNotificationsQueryKey', 'getGetNotificationBriefQueryKey', 'getGetNotificationPreferencesQueryKey', 'getListWhatsappInboxQueryKey', 'getListMessageThreadsQueryKey', 'getListOfficeMessageThreadsQueryKey', 'getListInquiryMessagesQueryKey', 'getListOfficeInquiryMessagesQueryKey', 'getListServiceRequestMessagesQueryKey', 'getListOfficeServiceRequestMessagesQueryKey'];
 const kinds = ['request.status', 'request.message', 'request.file', 'request.assigned', 'quote.sent', 'invoice.issued', 'invoice.overdue', 'reminder.expiring', 'registration.decision', 'inquiry.answered', 'company.invite', 'subscription.started', 'subscription.invoice', 'subscription.past_due', 'subscription.cancelled', 'office.request_new', 'office.registration_new', 'office.inquiry_new', 'office.file_new', 'office.message_new', 'office.quote_answered', 'office.invoice_paid', 'office.whatsapp_unmatched', 'office.whatsapp_message'];
 const server = await createServer({
   configFile: false,

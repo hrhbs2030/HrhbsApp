@@ -7,7 +7,7 @@ import {
   useGetOfficeSummary, useListOfficeServiceRequests, useUpdateOfficeServiceRequest, useListOfficeAssignees,
   useListOfficeReminders, getListOfficeRemindersQueryKey,
   useListOfficeServiceRequestInvoices, getListOfficeServiceRequestInvoicesQueryKey,
-  useListOfficeInquiries, useAnswerOfficeInquiry,
+  useListOfficeInquiries,
   type InquiryStatus, type OfficeServiceRequestCategory, type OfficeServiceRequestStatus,
   type OfficeServiceRequest, type OfficeInquiry, type ServiceRequestUpdateStatus, type OfficeAssignee, type ServiceAttachment,
 } from '@workspace/api-client-react';
@@ -22,6 +22,8 @@ import { ChecklistEditor, ExtractReminder, QuotePanel, RequestEmployees } from '
 import { ExportButtons } from '@/components/excel-import';
 import { requestColumns, requestRows } from '@/lib/export';
 import { RequestConversation, ReplyBadge, SubjectChip } from '@/components/request-conversation';
+import { Conversation } from '@/components/conversation';
+import { WhatsappFollowUp, useOfficeThread } from '@/components/whatsapp-follow-up';
 import { ExpiryBadge, reminderKindNames } from '@/components/reminder-ui';
 import { formatCalendarDate } from '@/lib/format';
 import { statusChoices } from '@/lib/request-status';
@@ -314,11 +316,14 @@ function RequestEditor({ request }: { request: OfficeServiceRequest }) {
 
 const inquiryFilters: [InquiryStatus | '', string][] = [['open', 'المفتوحة'], ['answered', 'المجاب عنها'], ['', 'الكل']];
 export function OfficeInquiries() {
+  // Arriving from the messages inbox (?open=id) lands on that thread, with the
+  // status filter widened so an answered inquiry is in the list too.
+  const opened = Number(new URLSearchParams(useSearch()).get('open')) || null;
   const [search, setSearch] = useState('');
   const q = useDebouncedValue(search.trim());
-  const [status, setStatus] = useState<InquiryStatus | ''>('open');
+  const [status, setStatus] = useState<InquiryStatus | ''>(opened ? '' : 'open');
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number | null>(opened);
   useEffect(() => setPage(1), [q, status]);
   const params = {
     page, pageSize, ...(q ? { q } : {}), ...(status ? { status } : {}),
@@ -335,40 +340,31 @@ export function OfficeInquiries() {
   const active = rows.find(i => i.id === selected);
   const editorRef = useRevealOnSelect(selected);
   return <PortalLayout staff>
-    <PageHeading eyebrow="صندوق الوارد" title="استفسارات العملاء" subtitle="اقرأ الأسئلة وأجب عنها من مساحة واحدة."/>
+    <PageHeading eyebrow="صندوق الوارد" title="استفسارات العملاء" subtitle="اقرأ الأسئلة وتابع المحادثة مع كل عميل من مساحة واحدة."/>
     <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center"><div className="flex gap-2" role="group" aria-label="تصفية حسب الحالة">{inquiryFilters.map(([key, label]) => <button type="button" key={label} onClick={() => setStatus(key)} aria-pressed={status === key} className={`min-h-11 flex-1 rounded-full border px-4 text-xs font-bold transition-colors lg:flex-none ${status === key ? 'border-teal bg-teal text-on-dark' : 'border-line-strong bg-surface text-quiet hover:bg-sage'}`}>{label}</button>)}</div><label className="relative flex-1"><span className="sr-only">بحث في الاستفسارات</span><Search className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle" size={17}/><input className="form-control !pr-10" placeholder="ابحث باسم العميل أو الموضوع أو مرجع الطلب" value={search} onChange={e => setSearch(e.target.value)} maxLength={120}/></label></div>
     {list.isLoading ? <LoadingBlock/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/> : <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
       <div className="min-w-0"><div className="mb-2"><ResultCount total={list.data?.total ?? 0}/></div><div className={`surface overflow-hidden transition-opacity ${list.isPlaceholderData ? 'opacity-60' : ''}`}>{rows.length ? rows.map(i => <button type="button" aria-pressed={selected === i.id} key={i.id} onClick={() => setSelected(i.id)} className={`block w-full border-b border-line px-5 py-4 text-right transition-colors last:border-0 hover:bg-paper sm:px-6 ${selected === i.id ? '!bg-sage shadow-[inset_-3px_0_0_var(--color-teal)]' : ''}`}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="font-bold">{i.subject}</div><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span>{dateText(i.createdAt)}</span></div></div><Status value={i.status}/></div><p className="mt-2 line-clamp-2 text-xs leading-6 text-quiet">{i.message}</p></button>) : <div className="p-10 text-center text-sm text-subtle">{q || status ? 'لا توجد استفسارات مطابقة.' : 'لا توجد استفسارات بعد.'}</div>}</div><Pager page={page} pageSize={pageSize} total={list.data?.total ?? 0} onPage={setPage}/></div>
-      <div ref={editorRef} className="scroll-mt-24 xl:sticky xl:top-24">{active ? <InquiryEditor key={active.id} inquiry={active}/> : <div className="surface hidden min-h-64 flex-col items-center justify-center p-8 text-center text-subtle xl:flex"><MessageSquareText className="mb-3" size={30} strokeWidth={1.5}/><p className="text-sm">اختر استفسارًا لقراءته والرد عليه.</p></div>}</div>
+      <div ref={editorRef} className="scroll-mt-24 xl:sticky xl:top-24">{selected ? <InquiryPanel key={selected} id={selected} inquiry={active}/> : <div className="surface hidden min-h-64 flex-col items-center justify-center p-8 text-center text-subtle xl:flex"><MessageSquareText className="mb-3" size={30} strokeWidth={1.5}/><p className="text-sm">اختر استفسارًا لقراءته والرد عليه.</p></div>}</div>
     </div>}
   </PortalLayout>;
 }
 
-function InquiryEditor({ inquiry }: { inquiry: OfficeInquiry }) {
-  const qc = useQueryClient();
-  const mutation = useAnswerOfficeInquiry();
-  const [answer, setAnswer] = useState(inquiry.answer ?? '');
-  const [saved, setSaved] = useState(false);
-  useEffect(() => { setAnswer(inquiry.answer ?? ''); setSaved(false); }, [inquiry.id]);
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setSaved(false);
-    try {
-      await mutation.mutateAsync({ id: inquiry.id, data: { answer: answer.trim() } });
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: getListOfficeInquiriesQueryKey() }),
-        qc.invalidateQueries({ queryKey: getGetOfficeSummaryQueryKey() }),
-      ]);
-      setSaved(true);
-    } catch { /* mutation error is displayed below */ }
-  }
+// The thread of one inquiry: the customer's question opens it (the API
+// composes it as the first message), the office's first reply marks the
+// inquiry answered. Opened by id so a thread from the inbox shows even when
+// the current filter page does not list it.
+function InquiryPanel({ id, inquiry }: { id: number; inquiry: OfficeInquiry | undefined }) {
+  const thread = useOfficeThread('inquiry', id, `استفسار #${id}`);
   return <div className="surface overflow-hidden">
-    <div className="border-b border-line bg-sage p-5"><div className="flex items-center justify-between gap-2"><h2 className="display text-lg font-semibold">{inquiry.subject}</h2><Status value={inquiry.status}/></div><div className="muted mt-2 text-xs">{dateText(inquiry.createdAt)}</div></div>
+    <div className="border-b border-line bg-sage p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0"><h2 className="display text-lg font-semibold">{inquiry?.subject ?? `استفسار #${id}`}</h2>{inquiry?.customer && <div className="muted mt-1 text-xs">{inquiry.customer.fullName} · <span dir="ltr">{inquiry.customer.email}</span></div>}<div className="muted mt-1 text-xs">{inquiry ? dateText(inquiry.createdAt) : `استفسار #${id}`}</div></div>
+        <div className="flex shrink-0 items-center gap-2">{inquiry && <Status value={inquiry.status}/>}<WhatsappFollowUp link={thread?.whatsapp.link ?? null} number={thread?.whatsapp.number ?? null} verified={!!thread?.whatsapp.verified} scope="office"/></div>
+      </div>
+    </div>
     <div className="space-y-5 p-5">
-      {inquiry.linkedServiceRequest && <div className="rounded-lg border border-sage-2 bg-paper p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-xs font-bold text-subtle">طلب الخدمة المرتبط: <span dir="ltr">{inquiry.linkedServiceRequest.reference}</span></div><Status value={inquiry.linkedServiceRequest.status}/></div><div className="mt-2 font-semibold">{inquiry.linkedServiceRequest.service}<span className="font-normal text-subtle">، {categoryNames[inquiry.linkedServiceRequest.category]}</span></div><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-subtle">{inquiry.linkedServiceRequest.description}</p></div>}
-      <div><div className="mb-2 text-xs font-bold text-subtle">رسالة العميل</div><p className="whitespace-pre-wrap text-sm leading-8">{inquiry.message}</p></div>
-      {inquiry.answer && <div className="border-r-[3px] border-copper bg-copper-soft p-4"><div className="mb-2 text-xs font-bold text-copper">الرد الحالي، {dateText(inquiry.answeredAt)}</div><p className="whitespace-pre-wrap text-sm leading-7">{inquiry.answer}</p></div>}
-      <form onSubmit={submit} className="space-y-4 border-t border-line pt-5"><label className="form-field">{inquiry.answer ? 'تعديل الرد' : 'اكتب ردّك'}<textarea className="form-control" value={answer} onChange={e => setAnswer(e.target.value)} minLength={2} maxLength={5000} placeholder="اكتب الرد الذي سيظهر للعميل..." required/></label>{mutation.isError && <p role="alert" className="text-xs text-danger">تعذّر إرسال الرد. حاول مجددًا.</p>}{saved && <p role="status" className="text-xs font-bold text-ok">تم حفظ الرد.</p>}<button disabled={mutation.isPending} type="submit" className="btn btn-primary w-full">{mutation.isPending ? 'جارٍ الإرسال...' : inquiry.answer ? 'حفظ الرد' : 'إرسال الرد'}<ArrowLeft size={16}/></button></form>
+      {inquiry?.linkedServiceRequest && <div className="rounded-lg border border-sage-2 bg-paper p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-xs font-bold text-subtle">طلب الخدمة المرتبط: <span dir="ltr">{inquiry.linkedServiceRequest.reference}</span></div><Status value={inquiry.linkedServiceRequest.status}/></div><div className="mt-2 font-semibold">{inquiry.linkedServiceRequest.service}<span className="font-normal text-subtle">، {categoryNames[inquiry.linkedServiceRequest.category]}</span></div><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-subtle">{inquiry.linkedServiceRequest.description}</p></div>}
+      <Conversation thread={{ type: 'inquiry', id }} scope="office" whatsapp={thread?.whatsapp ?? null}/>
     </div>
   </div>;
 }

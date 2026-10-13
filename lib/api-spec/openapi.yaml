@@ -34,6 +34,8 @@ tags:
     description: Office tools (WhatsApp inbox)
   - name: webhooks
     description: Inbound webhooks from third parties (no authentication)
+  - name: messaging
+    description: Unified inbox of request and inquiry conversations, read markers and WhatsApp follow-up links
 paths:
   /healthz:
     get:
@@ -1675,7 +1677,115 @@ paths:
     post:
       operationId: sendOfficeServiceRequestMessage
       tags: [portal]
-      summary: Staff-only message to the customer on a request
+      summary: Staff-only message to the customer on a request (optionally also sent on WhatsApp)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OfficeMessageInput" }
+      responses:
+        "201":
+          description: Sent message (channel is whatsapp when it also went out on WhatsApp)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RequestMessage" }
+        "400": { description: Invalid message }
+        "404": { description: Not found }
+        "409": { description: viaWhatsapp requested but the customer has no verified WhatsApp number or WhatsApp is off }
+  /messages/threads:
+    get:
+      operationId: listMessageThreads
+      tags: [messaging]
+      summary: The signed-in customer's conversations (requests and inquiries), most recently active first
+      parameters:
+        - { name: q, in: query, required: false, description: "Matches the reference, title or last message", schema: { type: string, maxLength: 200 } }
+        - { name: unread, in: query, required: false, description: "Only threads with unread messages", schema: { type: boolean } }
+        - { name: page, in: query, description: "1-based page; defaults to 1", schema: { type: integer, minimum: 1, maximum: 1000000 } }
+        - { name: pageSize, in: query, description: "Defaults to 20; capped at 100", schema: { type: integer, minimum: 1, maximum: 100 } }
+      responses:
+        "200":
+          description: Matching page, total count and the unread total across all threads
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ThreadList" }
+        "400": { description: Invalid pagination or filter }
+        "401": { description: Authentication required }
+  /office/messages/threads:
+    get:
+      operationId: listOfficeMessageThreads
+      tags: [messaging]
+      summary: Staff-only inbox of every customer conversation, most recently active first
+      parameters:
+        - { name: q, in: query, required: false, description: "Matches the reference, title, customer or last message", schema: { type: string, maxLength: 200 } }
+        - { name: unread, in: query, required: false, description: "Only threads with unread messages", schema: { type: boolean } }
+        - { name: type, in: query, required: false, schema: { $ref: "#/components/schemas/ThreadType" } }
+        - { name: page, in: query, description: "1-based page; defaults to 1", schema: { type: integer, minimum: 1, maximum: 1000000 } }
+        - { name: pageSize, in: query, description: "Defaults to 20; capped at 100", schema: { type: integer, minimum: 1, maximum: 100 } }
+      responses:
+        "200":
+          description: Matching page, total count and the unread total across all threads
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ThreadList" }
+        "400": { description: Invalid pagination or filter }
+        "401": { description: Authentication required }
+        "403": { description: Office staff access required }
+  /messages/threads/{type}/{id}/read:
+    post:
+      operationId: markThreadRead
+      tags: [messaging]
+      summary: Mark one of the customer's conversations as read up to now
+      parameters:
+        - { name: type, in: path, required: true, schema: { $ref: "#/components/schemas/ThreadType" } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      responses:
+        "200":
+          description: Unread counts after the update
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ThreadReadResult" }
+        "401": { description: Authentication required }
+        "404": { description: Not found }
+  /office/messages/threads/{type}/{id}/read:
+    post:
+      operationId: markOfficeThreadRead
+      tags: [messaging]
+      summary: Staff-only mark a conversation as read up to now (per staff member)
+      parameters:
+        - { name: type, in: path, required: true, schema: { $ref: "#/components/schemas/ThreadType" } }
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      responses:
+        "200":
+          description: Unread counts after the update
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ThreadReadResult" }
+        "401": { description: Authentication required }
+        "403": { description: Office staff access required }
+        "404": { description: Not found }
+  /inquiries/{id}/messages:
+    get:
+      operationId: listInquiryMessages
+      tags: [messaging]
+      summary: Conversation on an inquiry owned by the signed-in customer, oldest first (the first item, id 0, is the original inquiry text)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/RequestMessage" }
+        "401": { description: Authentication required }
+        "404": { description: Not found }
+    post:
+      operationId: sendInquiryMessage
+      tags: [messaging]
+      summary: Send a follow-up message to the office on the customer's own inquiry (reopens it)
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
       requestBody:
@@ -1690,6 +1800,65 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/RequestMessage" }
         "400": { description: Invalid message }
+        "401": { description: Authentication required }
+        "404": { description: Not found }
+        "429": { description: Too many messages }
+  /office/inquiries/{id}/messages:
+    get:
+      operationId: listOfficeInquiryMessages
+      tags: [messaging]
+      summary: Staff-only conversation on an inquiry, oldest first (the first item, id 0, is the original inquiry text)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/RequestMessage" }
+        "401": { description: Authentication required }
+        "403": { description: Office staff access required }
+        "404": { description: Not found }
+    post:
+      operationId: sendOfficeInquiryMessage
+      tags: [messaging]
+      summary: Staff-only message to the customer on an inquiry (the first one also records the answer; optionally also sent on WhatsApp)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OfficeMessageInput" }
+      responses:
+        "201":
+          description: Sent message (channel is whatsapp when it also went out on WhatsApp)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RequestMessage" }
+        "400": { description: Invalid message }
+        "401": { description: Authentication required }
+        "403": { description: Office staff access required }
+        "404": { description: Not found }
+        "409": { description: viaWhatsapp requested but the customer has no verified WhatsApp number or WhatsApp is off }
+  /messages/whatsapp-link:
+    get:
+      operationId: getWhatsappLink
+      tags: [messaging]
+      summary: The wa.me link to the office number with the conversation's reference prefilled, for following it up on WhatsApp
+      parameters:
+        - { name: type, in: query, required: true, schema: { $ref: "#/components/schemas/ThreadType" } }
+        - { name: id, in: query, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+      responses:
+        "200":
+          description: Link, office number and prefilled text
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhatsappLink" }
+        "400": { description: Invalid thread }
+        "401": { description: Authentication required }
         "404": { description: Not found }
   /company/employees/import:
     post:
@@ -3496,16 +3665,90 @@ components:
       required: [body]
       properties:
         body: { type: string, minLength: 1, maxLength: 2000 }
+    OfficeMessageInput:
+      type: object
+      additionalProperties: false
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 2000 }
+        viaWhatsapp: { type: boolean, default: false, description: "Also send the text to the customer's verified WhatsApp number" }
+    MessageChannel:
+      type: string
+      enum: [portal, whatsapp]
     RequestMessage:
       type: object
-      required: [id, authorRole, body, createdAt]
+      required: [id, authorRole, body, channel, createdAt]
       properties:
-        id: { type: integer }
+        id: { type: integer, description: "0 for the original inquiry text that opens an inquiry thread" }
         authorRole:
           type: string
           enum: [customer, office]
         body: { type: string }
+        channel: { $ref: "#/components/schemas/MessageChannel" }
         createdAt: { type: string, format: date-time }
+    ThreadType:
+      type: string
+      enum: [request, inquiry]
+    ThreadLastMessage:
+      type: object
+      required: [authorRole, preview, channel, createdAt]
+      properties:
+        authorRole:
+          type: string
+          enum: [customer, office]
+        preview: { type: string, maxLength: 120 }
+        channel: { $ref: "#/components/schemas/MessageChannel" }
+        createdAt: { type: string, format: date-time }
+    ThreadWhatsapp:
+      type: object
+      required: [link, number, verified]
+      properties:
+        link: { type: ["string", "null"], description: "wa.me link: the office number with the reference prefilled for customers, the customer's verified number for staff" }
+        number: { type: ["string", "null"], description: "International number without +, e.g. 966555208213" }
+        verified: { type: boolean, description: "Whether the customer's WhatsApp number is verified (always true for the office number)" }
+    Thread:
+      type: object
+      required: [type, id, reference, title, status, lastMessage, unread, updatedAt, whatsapp, customer]
+      properties:
+        type: { $ref: "#/components/schemas/ThreadType" }
+        id: { type: integer }
+        reference: { type: string, description: "HBS-YYYY-NNNNN for requests, «استفسار #N» for inquiries" }
+        title: { type: string, description: "Service name or inquiry subject" }
+        status: { type: string }
+        lastMessage:
+          oneOf:
+            - $ref: "#/components/schemas/ThreadLastMessage"
+            - type: "null"
+        unread: { type: integer, description: "Messages from the other side since the viewer last read the thread" }
+        updatedAt: { type: string, format: date-time }
+        whatsapp: { $ref: "#/components/schemas/ThreadWhatsapp" }
+        customer:
+          oneOf:
+            - $ref: "#/components/schemas/OfficeCustomer"
+            - type: "null"
+          description: "Set for staff only; null for customers"
+    ThreadList:
+      type: object
+      required: [items, unreadTotal, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Thread" }
+        unreadTotal: { type: integer, description: "Unread messages across all of the viewer's threads, not only this page" }
+        total: { type: integer }
+    ThreadReadResult:
+      type: object
+      required: [unread, unreadTotal]
+      properties:
+        unread: { type: integer, description: "Unread left on that thread (0 after marking)" }
+        unreadTotal: { type: integer }
+    WhatsappLink:
+      type: object
+      required: [link, number, text]
+      properties:
+        link: { type: string, description: "wa.me link to the office number with the text prefilled" }
+        number: { type: string, description: "The office WhatsApp number, e.g. 966555208213" }
+        text: { type: string, description: "Prefilled text carrying the reference, e.g. «طلب HBS-2026-00012 : » or «استفسار #7: »" }
     OfficeCustomerListItem:
       type: object
       required: [userId, customer, contactPhone, companyName, employees, licenses, activeRequests, expiringSoon, lastActivityAt]
@@ -3767,7 +4010,7 @@ components:
         cancel: { type: boolean, enum: [true], description: "Cancel at once; renewals stop and the plan ends at renewsAt" }
     NotificationKind:
       type: string
-      enum: [request.status, request.message, request.file, request.assigned, quote.sent, invoice.issued, invoice.overdue, reminder.expiring, registration.decision, inquiry.answered, company.invite, subscription.started, subscription.invoice, subscription.past_due, subscription.cancelled, office.request_new, office.registration_new, office.inquiry_new, office.file_new, office.message_new, office.quote_answered, office.invoice_paid, office.whatsapp_unmatched, office.whatsapp_message]
+      enum: [request.status, request.message, request.file, request.assigned, quote.sent, invoice.issued, invoice.overdue, reminder.expiring, registration.decision, inquiry.answered, inquiry.message, company.invite, subscription.started, subscription.invoice, subscription.past_due, subscription.cancelled, office.request_new, office.registration_new, office.inquiry_new, office.inquiry_message, office.file_new, office.message_new, office.quote_answered, office.invoice_paid, office.whatsapp_unmatched, office.whatsapp_message]
     NotificationPriority:
       type: string
       enum: [urgent, high, normal, low]

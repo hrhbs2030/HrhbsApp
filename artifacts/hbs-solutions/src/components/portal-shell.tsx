@@ -53,6 +53,10 @@ const notificationPages = () => import('@/pages/notifications');
 const NotificationsPage = lazy(() => notificationPages().then(m => ({ default: m.NotificationsPage })));
 const OfficeNotificationsPage = lazy(() => notificationPages().then(m => ({ default: m.OfficeNotificationsPage })));
 const OfficeWhatsappInbox = lazy(() => import('@/pages/office-whatsapp'));
+const messagePages = () => import('@/pages/messages');
+const MessagesInbox = lazy(() => messagePages().then(m => ({ default: m.MessagesInbox })));
+const OfficeMessagesInbox = lazy(() => messagePages().then(m => ({ default: m.OfficeMessagesInbox })));
+const InquiryThread = lazy(() => messagePages().then(m => ({ default: m.InquiryThread })));
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -194,7 +198,10 @@ export default function PortalShell() {
       <Route path="/requests/new"><RoleGate><NewRequest/></RoleGate></Route>
       <Route path="/requests/:id"><RoleGate><RequestDetail/></RoleGate></Route>
       <Route path="/requests"><RoleGate><Requests/></RoleGate></Route>
+      <Route path="/inquiries/:id"><RoleGate><InquiryThread/></RoleGate></Route>
       <Route path="/inquiries"><RoleGate><Inquiries/></RoleGate></Route>
+      <Route path="/messages"><RoleGate><MessagesInbox/></RoleGate></Route>
+      <Route path="/office/messages"><RoleGate staff><OfficeMessagesInbox/></RoleGate></Route>
       <Route path="/documents"><RoleGate><Documents/></RoleGate></Route>
       <Route path="/company"><RoleGate><CompanyPage/></RoleGate></Route>
       <Route path="/office/customers/:userId"><RoleGate staff><OfficeCustomerFilePage/></RoleGate></Route>

@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useClerk, useUser } from '@clerk/react';
-import { Archive, ArrowLeft, ArrowUpLeft, BarChart3, Bell, BellRing, Building2, Check, Contact, CircleHelp, ClipboardList, CreditCard, FileClock, History, Home, Inbox, LogOut, Menu, MessageCircle, Package, Plus, Settings, Tags, UserRoundCheck, UsersRound, X } from 'lucide-react';
-import { getGetPortalMeQueryKey, useGetPortalMe, type Inquiry, type ServiceRequest, type ServiceRequestStatus } from '@workspace/api-client-react';
+import { Archive, ArrowLeft, ArrowUpLeft, BarChart3, Bell, BellRing, Building2, Check, Contact, CircleHelp, ClipboardList, CreditCard, FileClock, History, Home, Inbox, LogOut, Menu, MessageCircle, MessageSquare, Package, Plus, Settings, Tags, UserRoundCheck, UsersRound, X } from 'lucide-react';
+import { getGetPortalMeQueryKey, getListMessageThreadsQueryKey, getListOfficeMessageThreadsQueryKey, useGetPortalMe, useListMessageThreads, useListOfficeMessageThreads, type Inquiry, type ServiceRequest, type ServiceRequestStatus } from '@workspace/api-client-react';
 import { daysLabel, formatDate, formatNumber } from '@/lib/format';
 import { milestoneIndex, milestoneKeys, milestones, pauses, stageLabel, stageNote } from '@/content/milestones';
 import { ReplyBadge, SubjectChip } from './request-conversation';
 import { Logo, LogoMark } from './brand/logo';
 import { NotificationBell, NotificationToasts } from './notification-bell';
+import { setMessagesUnread, useMessagesUnread } from '@/lib/use-notifications';
 import { PrintFrame } from './brand/print';
 import './portal-ui.css';
 
@@ -35,8 +36,23 @@ export function RequestRow({ request }: { request: ServiceRequest }) { return <L
 </Link>; }
 export function InquiryRow({ inquiry }: { inquiry: Inquiry }) { return <div className="border-b border-line px-5 py-5 last:border-0 sm:px-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold">{inquiry.subject}</h3><span className="mt-1 block text-xs text-subtle">{dateText(inquiry.createdAt)}</span></div><Status value={inquiry.status}/></div><p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-quiet">{inquiry.message}</p>{inquiry.answer && <div className="mt-4 rounded-lg border-r-[3px] border-copper bg-copper-soft p-4"><div className="mb-1 flex justify-between gap-2 text-xs font-bold text-copper"><span>رد المكتب</span><span className="font-normal">{dateText(inquiry.answeredAt)}</span></div><p className="whitespace-pre-wrap text-sm leading-7">{inquiry.answer}</p></div>}</div>; }
 
+// The unread count on the sidebar's «الرسائل»: seeded from the thread list
+// once per mount, then kept current by `thread` stream events and read
+// markers (see use-notifications.ts). Registration-only accounts have no threads.
+function useMessagesBadge(staff: boolean, enabled: boolean): number {
+  const unread = useMessagesUnread();
+  const params = { pageSize: 1 };
+  const customer = useListMessageThreads(params, { query: { queryKey: getListMessageThreadsQueryKey(params), enabled: enabled && !staff, staleTime: 60_000 } });
+  const office = useListOfficeMessageThreads(params, { query: { queryKey: getListOfficeMessageThreadsQueryKey(params), enabled: enabled && staff, staleTime: 60_000 } });
+  const seed = (staff ? office : customer).data?.unreadTotal;
+  useEffect(() => { if (typeof seed === 'number') setMessagesUnread(seed); }, [seed]);
+  return enabled ? unread : 0;
+}
+export const badgeText = (count: number) => count > 99 ? '99+' : formatNumber(count);
+
 export function PortalLayout({ children, staff = false, registrationOnly = false }: { children: ReactNode; staff?: boolean; registrationOnly?: boolean }) {
-  const [location] = useLocation(); const [menuOpen, setMenuOpen] = useState(false); const { signOut } = useClerk(); const { user } = useUser();
+  const [location] = useLocation();
+  const unreadMessages = useMessagesBadge(staff, !registrationOnly); const [menuOpen, setMenuOpen] = useState(false); const { signOut } = useClerk(); const { user } = useUser();
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 1023px)').matches);
   const menuRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -84,13 +100,13 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
     };
   }, [menuOpen, isMobile]);
   const ownerLinks = owner ? [{ href: '/office/reports', label: 'التقارير', icon: BarChart3 }, { href: '/office/catalog', label: 'الأسعار والمتطلبات', icon: Tags }, { href: '/office/plans', label: 'الباقات', icon: Package }, { href: '/office/subscriptions', label: 'الاشتراكات', icon: CreditCard }, { href: '/office/legacy', label: 'الأرشيف القديم', icon: Archive }, { href: '/office/staff', label: 'فريق المكتب', icon: UsersRound }, { href: '/office/audit', label: 'سجل التدقيق', icon: History }] : [];
-  const links = staff ? [{ href: '/office', label: 'نظرة عامة', icon: Home }, { href: '/office/registrations', label: 'طلبات التسجيل', icon: UserRoundCheck }, { href: '/office/requests', label: 'طلبات العملاء', icon: ClipboardList }, { href: '/office/inquiries', label: 'الاستفسارات', icon: CircleHelp }, { href: '/office/customers', label: 'ملفات العملاء', icon: Contact }, { href: '/office/reminders', label: 'وثائق تنتهي قريبًا', icon: FileClock }, { href: '/office/whatsapp', label: 'واتساب الوارد', icon: MessageCircle }, { href: '/office/notifications', label: 'الإشعارات', icon: Bell }, ...ownerLinks] : registrationOnly ? [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }] : [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }, { href: '/dashboard', label: 'نظرة عامة', icon: Home }, { href: '/requests', label: 'طلباتي', icon: ClipboardList }, { href: '/inquiries', label: 'استفساراتي', icon: CircleHelp }, { href: '/company', label: 'ملف المنشأة', icon: Building2 }, { href: '/documents', label: 'تنبيهات وثائقي', icon: BellRing }, { href: '/notifications', label: 'الإشعارات', icon: Bell }, { href: '/settings', label: 'الإعدادات', icon: Settings }];
+  const links = staff ? [{ href: '/office', label: 'نظرة عامة', icon: Home }, { href: '/office/registrations', label: 'طلبات التسجيل', icon: UserRoundCheck }, { href: '/office/requests', label: 'طلبات العملاء', icon: ClipboardList }, { href: '/office/inquiries', label: 'الاستفسارات', icon: CircleHelp }, { href: '/office/messages', label: 'الرسائل', icon: MessageSquare, badge: unreadMessages }, { href: '/office/customers', label: 'ملفات العملاء', icon: Contact }, { href: '/office/reminders', label: 'وثائق تنتهي قريبًا', icon: FileClock }, { href: '/office/whatsapp', label: 'واتساب الوارد', icon: MessageCircle }, { href: '/office/notifications', label: 'الإشعارات', icon: Bell }, ...ownerLinks] : registrationOnly ? [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }] : [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }, { href: '/dashboard', label: 'نظرة عامة', icon: Home }, { href: '/requests', label: 'طلباتي', icon: ClipboardList }, { href: '/inquiries', label: 'استفساراتي', icon: CircleHelp }, { href: '/messages', label: 'الرسائل', icon: MessageSquare, badge: unreadMessages }, { href: '/company', label: 'ملف المنشأة', icon: Building2 }, { href: '/documents', label: 'تنبيهات وثائقي', icon: BellRing }, { href: '/notifications', label: 'الإشعارات', icon: Bell }, { href: '/settings', label: 'الإعدادات', icon: Settings }];
   const current = links.find(({ href }) => location === href) ?? links.filter(({ href }) => location.startsWith(href + '/')).sort((a, b) => b.href.length - a.href.length)[0];
   return <div className="relative z-[1] min-h-[100dvh] lg:flex" dir="rtl">
     <aside ref={menuRef} id="portal-mobile-nav" aria-label="القائمة الرئيسية" role={isMobile && menuOpen ? 'dialog' : undefined} aria-modal={isMobile && menuOpen ? true : undefined} aria-hidden={isMobile && !menuOpen ? true : undefined} inert={isMobile && !menuOpen} className={`${menuOpen ? 'translate-x-0' : 'translate-x-full'} fixed inset-y-0 right-0 z-50 flex w-[270px] flex-col bg-ink px-5 py-7 text-on-dark transition-transform duration-300 lg:sticky lg:top-0 lg:h-[100dvh] lg:translate-x-0`}>
       <div className="mb-12 flex items-start justify-between px-2"><Brand light/><button type="button" className="lg:hidden" onClick={() => setMenuOpen(false)} aria-label="إغلاق القائمة"><X/></button></div>
       <span id="portal-menu-title" className="mb-4 px-4 text-xs font-bold text-on-dark-2">{staff ? 'مساحة المكتب' : 'مساحتي'}</span>
-      <nav className="space-y-1.5">{links.map(({href,label,icon:Icon}) => <Link key={href} href={href} className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold no-underline transition-colors ${location === href || (href !== '/office' && href !== '/dashboard' && location.startsWith(href + '/')) ? 'bg-copper-light text-ink' : 'text-on-dark-2 hover:bg-sidebar-2'}`}><Icon size={19} strokeWidth={1.8}/>{label}</Link>)}</nav>
+      <nav className="space-y-1.5">{links.map(({href,label,icon:Icon,badge}: { href: string; label: string; icon: typeof Home; badge?: number }) => <Link key={href} href={href} className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold no-underline transition-colors ${location === href || (href !== '/office' && href !== '/dashboard' && location.startsWith(href + '/')) ? 'bg-copper-light text-ink' : 'text-on-dark-2 hover:bg-sidebar-2'}`}><Icon size={19} strokeWidth={1.8}/>{label}{badge ? <span className="ms-auto inline-flex min-w-[22px] items-center justify-center rounded-full bg-copper px-1.5 py-0.5 text-[11px] font-bold leading-4 text-on-dark nums" aria-label={`${badgeText(badge)} رسائل غير مقروءة`}>{badgeText(badge)}</span> : null}</Link>)}</nav>
       {!staff && !registrationOnly && <Link href="/requests/new" className="mt-7 flex items-center justify-center gap-2 rounded-lg border border-line-dark-2 px-4 py-3 text-sm font-bold text-on-dark no-underline transition-colors hover:bg-sidebar-2"><Plus size={18}/>طلب خدمة جديد</Link>}
       <div className="mt-auto border-t border-line-dark pt-6"><div className="mb-4 flex items-center gap-3 px-2"><div className="grid h-9 w-9 place-items-center rounded-full bg-line-dark text-sm font-bold">{user?.firstName?.slice(0,1) || 'ح'}</div><div className="min-w-0"><div className="truncate text-xs font-semibold">{user?.fullName || user?.primaryEmailAddress?.emailAddress || 'حسابي'}</div><div className="mt-1 text-xs text-on-dark-2">{staff ? (owner ? 'مالك المكتب' : 'حساب المكتب') : 'حساب العميل'}</div></div></div><button onClick={() => signOut({redirectUrl: import.meta.env.BASE_URL})} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-on-dark-2 hover:bg-sidebar-2"><LogOut size={17}/>تسجيل الخروج</button></div>
     </aside>
