@@ -38,7 +38,8 @@
     "test:package-d-subscriptions": "HBS_OFFICE_EMAIL=package-d-owner@example.invalid node ../../scripts/run-db-test.mjs tests/package-d-subscriptions.test.ts",
     "test:whatsapp-inbound": "tsx --test tests/whatsapp-inbound.test.ts",
     "test:package-d-members": "HBS_OFFICE_EMAIL=package-d-members-office@example.invalid node ../../scripts/run-db-test.mjs tests/package-d-members.test.ts",
-    "test:notifications-api": "HBS_OFFICE_EMAIL=notifications-api-office@example.invalid node ../../scripts/run-db-test.mjs tests/notifications-api.test.ts"
+    "test:notifications-api": "HBS_OFFICE_EMAIL=notifications-api-office@example.invalid node ../../scripts/run-db-test.mjs tests/notifications-api.test.ts",
+    "test:messaging": "HBS_OFFICE_EMAIL=messaging-office@example.invalid node ../../scripts/run-db-test.mjs tests/messaging.test.ts"
   },
   "dependencies": {
     "@clerk/express": "^2.1.72",

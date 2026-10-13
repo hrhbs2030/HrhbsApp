@@ -18,6 +18,7 @@ import subscriptionsRouter from "./subscriptions";
 import whatsappWebhookRouter from "./whatsapp-webhook";
 import notificationsRouter from "./notifications";
 import officeWhatsappRouter from "./office-whatsapp";
+import messagingRouter from "./messaging";
 import { requireOfficeStaff } from "../lib/office-access";
 
 const router: IRouter = Router();
@@ -42,5 +43,6 @@ router.use(subscriptionsRouter);
 router.use(whatsappWebhookRouter);
 router.use(notificationsRouter);
 router.use(officeWhatsappRouter);
+router.use(messagingRouter);
 
 export default router;

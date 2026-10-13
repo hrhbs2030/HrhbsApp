@@ -4,7 +4,9 @@
 // it, which is fine because the client polls as a fallback and the row is
 // in hbs_notifications either way.
 
-export type StreamEvent = { type: "notification" | "unread"; data: unknown };
+// "thread": a message arrived in one of the user's conversations
+// (lib/messaging.ts); the data carries the thread and the new unread total.
+export type StreamEvent = { type: "notification" | "unread" | "thread"; data: unknown };
 export type StreamListener = (event: StreamEvent) => void;
 
 const listeners = new Map<string, Set<StreamListener>>();

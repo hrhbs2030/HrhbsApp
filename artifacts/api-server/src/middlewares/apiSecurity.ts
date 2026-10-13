@@ -161,6 +161,7 @@ const SENSITIVE_WRITES = [
   /^\/inquiries$/,
   /^\/service-requests$/,
   /^\/service-requests\/[^/]+\/(messages|rating|attachments)$/,
+  /^\/inquiries\/[^/]+\/messages$/,
   /^\/service-requests\/attachments\/upload-url$/,
   /^\/invoices\/[^/]+\/(pay|refresh)$/,
   /^\/(company|office\/customers\/[^/]+)\/(employees|licenses)\/import$/,

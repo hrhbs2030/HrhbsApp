@@ -33,6 +33,7 @@ const dbCommands = [
   'test:billing-integrity',
   'test:notifications-api',
   'test:notification-pipeline',
+  'test:messaging',
 ];
 const discovered = Object.entries(scripts)
   .filter(([name, command]) => name === 'test:db' || /run-db-test\.mjs|run-tests\.mjs api-db/.test(command))

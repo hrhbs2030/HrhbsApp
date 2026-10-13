@@ -38,7 +38,7 @@ export const publicRouteDescriptions = {
 
 // Prefixes the SPA renders behind sign-in (RoleGate routes in src/App.tsx) and
 // the Clerk auth pages. They are never prerendered and never a 404.
-export const portalRoutePrefixes = ['/registration', '/dashboard', '/requests', '/inquiries', '/documents', '/settings', '/notifications', '/company', '/office'];
+export const portalRoutePrefixes = ['/registration', '/dashboard', '/requests', '/inquiries', '/messages', '/documents', '/settings', '/notifications', '/company', '/office'];
 export const authRoutePrefixes = ['/sign-in', '/sign-up'];
 
 export const missingPageTitle = 'الصفحة غير موجودة';

@@ -14,6 +14,7 @@ const webChecks = [
   [hbs, 'test:customer'],
   [hbs, 'test:office-extras'],
   [hbs, 'test:notifications-ui'],
+  [hbs, 'test:messaging-ui'],
   [hbs, 'test:city'],
   [hbs, 'test:assistant-source'],
   [hbs, 'test:services-contrast'],
@@ -53,6 +54,7 @@ const databaseChecks = [
   [api, 'test:billing-integrity'],
   [api, 'test:notifications-api'],
   [api, 'test:notification-pipeline'],
+  [api, 'test:messaging'],
 ];
 const storageCheck = [api, 'test:attachment-storage'];
 

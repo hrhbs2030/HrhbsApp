@@ -6,11 +6,13 @@ import express from "express";
 import pino from "pino";
 import pinoHttp from "pino-http";
 import {
-  freeTextWindowOpen, inboundPhoneLocal, parseInboundMessages, verifyWhatsappSignature,
+  OFFICE_WHATSAPP_NUMBER, customerWhatsappLink, freeTextWindowOpen, inboundPhoneLocal, officeWhatsappLink, parseInboundMessages,
+  verifyWhatsappSignature,
 } from "../src/lib/whatsapp";
 import {
   INQUIRY_SUBJECT, MAX_MESSAGES_PER_DELIVERY, NO_OPEN_REPLY, SEVERAL_OPEN_REPLY,
-  VERIFICATION_CHALLENGE_PREFIX, createWhatsappWebhookRouter, handleInboundMessage, processInboundPayload, type InboundDeps,
+  VERIFICATION_CHALLENGE_PREFIX, createWhatsappWebhookRouter, handleInboundMessage, processInboundPayload, quotedInquiryId,
+  quotedRequestReference, type InboundDeps,
 } from "../src/routes/whatsapp-webhook";
 
 // No database here: routing goes through fake deps, and the HTTP checks
@@ -69,11 +71,35 @@ test("free text is allowed for 24 hours after the customer's last message", () =
   assert.ok(!freeTextWindowOpen(undefined, now));
 });
 
+test("the office number and wa.me links carry the prefilled routing text", () => {
+  assert.match(OFFICE_WHATSAPP_NUMBER, /^\d{9,15}$/, "digits only; defaults to the public office number");
+  assert.equal(officeWhatsappLink("طلب HBS-2026-00041 : "), `https://wa.me/${OFFICE_WHATSAPP_NUMBER}?text=${encodeURIComponent("طلب HBS-2026-00041 : ")}`);
+  assert.equal(customerWhatsappLink("0500000001"), "https://wa.me/966500000001");
+  assert.equal(customerWhatsappLink("+966 50 000 0001"), "https://wa.me/966500000001");
+  assert.equal(customerWhatsappLink("0112345678"), null, "landlines are not on WhatsApp");
+});
+
+test("only the full request reference and «استفسار #N» are routing keys", () => {
+  assert.equal(quotedRequestReference("طلب HBS-2026-00041 : هل اكتمل؟"), "HBS-2026-00041");
+  assert.equal(quotedRequestReference("hbs-2026-00041"), "HBS-2026-00041", "case does not matter");
+  assert.equal(quotedRequestReference("طلب HBS-٢٠٢٦-٠٠٠٤١"), "HBS-2026-00041", "Arabic digits are read");
+  assert.equal(quotedRequestReference("HBS-41"), null, "a short form is ambiguous");
+  assert.equal(quotedRequestReference("طلب رقم 41"), null);
+  assert.equal(quotedInquiryId("استفسار #7: متى الرد؟"), 7);
+  assert.equal(quotedInquiryId("استفسار رقم 7"), 7);
+  assert.equal(quotedInquiryId("استفسار ٧"), 7);
+  assert.equal(quotedInquiryId("استفسار #0"), null);
+  assert.equal(quotedInquiryId("عندي استفسار عن الطلب"), null);
+});
+
 type Log = { kind: string; args: unknown[] }[];
 
 function fakeDeps(options: {
   customers?: Record<string, string>;
   open?: Record<string, number[]>;
+  // Every request the customer owns (open or completed) by its reference, and their inquiries.
+  requests?: Record<string, Record<string, { id: number; createdAt: Date; service: string }>>;
+  inquiries?: Record<string, Record<number, { id: number; subject: string }>>;
   seen?: Set<string>;
   challenges?: Record<string, { userId: string; text: string; expiresAt: number }>;
 } = {}) {
@@ -116,12 +142,16 @@ function fakeDeps(options: {
     async openRequests(userId) {
       return (options.open?.[userId] ?? []).map(id => ({ id, createdAt: new Date(0), service: "خدمة", assignedTo: null }));
     },
+    async requestByReference(userId, reference) { return options.requests?.[userId]?.[reference] ?? null; },
+    async inquiryById(userId, id) { return options.inquiries?.[userId]?.[id] ?? null; },
     async addRequestMessage(requestId, userId, body) { log.push({ kind: "message", args: [requestId, userId, body] }); },
-    async afterCustomerReply() {},
+    async afterCustomerReply(requestId) { log.push({ kind: "resume", args: [requestId] }); },
+    async addInquiryMessage(inquiryId, userId, body) { log.push({ kind: "inquiry_message", args: [inquiryId, userId, body] }); },
     async createInquiry(userId, body) { log.push({ kind: "inquiry", args: [userId, body] }); return 7; },
     async finish(id, outcome) { log.push({ kind: "finish", args: [id, outcome] }); },
     async reply(to, body) { log.push({ kind: "reply", args: [to, body] }); },
     async notifyOffice(build, meta) { log.push({ kind: "notify", args: [meta, build()] }); },
+    async emitThread() {},
   };
   return { deps, log };
 }
@@ -131,13 +161,66 @@ const message = { id: "wamid.a", from: "966500000001", text: "هل اكتمل ا
 test("a known number with one open request adds a message to it", async () => {
   const { deps, log } = fakeDeps({ customers: { "0500000001": "user-1" }, open: { "user-1": [41] } });
   assert.equal(await handleInboundMessage(message, deps), "request_message");
-  assert.deepEqual(log.map(entry => entry.kind), ["record", "touch", "message", "finish", "notify"]);
+  assert.deepEqual(log.map(entry => entry.kind), ["record", "touch", "message", "finish", "resume", "notify"]);
   assert.deepEqual(log[2].args, [41, "user-1", "هل اكتمل الطلب؟"]);
   assert.deepEqual(log[3].args, ["wamid.a", { userId: "user-1", requestId: 41, handled: "request_message" }]);
   // The office is told in-app which request the message landed on; the text itself only feeds the urgency.
-  const meta = log[4].args[0] as { kind: string; targetType: string; targetId: number; signals: { text: string } };
+  const meta = log[5].args[0] as { kind: string; targetType: string; targetId: number; signals: { text: string } };
   assert.equal(meta.kind, "office.whatsapp_message");
   assert.deepEqual([meta.targetType, meta.targetId, meta.signals.text], ["service_request", 41, "هل اكتمل الطلب؟"]);
+});
+
+const completed = { id: 12, createdAt: new Date(Date.UTC(2025, 2, 1)), service: "تأسيس شركة" };
+const routed = {
+  customers: { "0500000001": "user-1" },
+  open: { "user-1": [41, 42] },
+  requests: { "user-1": { "HBS-2025-00012": completed, "HBS-2026-00041": { id: 41, createdAt: new Date(0), service: "خدمة" } } },
+  inquiries: { "user-1": { 7: { id: 7, subject: "سؤال عن الرسوم" } } },
+};
+
+test("a quoted request reference routes to that request even when it is completed or one of several", async () => {
+  const { deps, log } = fakeDeps(routed);
+  const body = "بخصوص طلب HBS-2025-00012 : هل أحتاج مستندات إضافية؟";
+  assert.equal(await handleInboundMessage({ ...message, text: body }, deps), "request_message");
+  assert.deepEqual(log.map(entry => entry.kind), ["record", "touch", "message", "finish", "resume", "notify"]);
+  assert.deepEqual(log[2].args, [12, "user-1", body], "the text is stored as sent, reference included");
+  assert.deepEqual(log[3].args, ["wamid.a", { userId: "user-1", requestId: 12, handled: "request_message" }]);
+  assert.deepEqual(log[4].args, [12]);
+  const meta = log[5].args[0] as { kind: string; targetType: string; targetId: number };
+  assert.deepEqual([meta.kind, meta.targetType, meta.targetId], ["office.whatsapp_message", "service_request", 12]);
+  assert.ok(!log.some(entry => entry.kind === "inquiry" || entry.kind === "reply"), "no inquiry despite two open requests");
+});
+
+test("a quoted inquiry number routes to that inquiry thread and tells the office", async () => {
+  const { deps, log } = fakeDeps(routed);
+  const body = "استفسار #7: هل الرسوم شاملة الضريبة؟";
+  assert.equal(await handleInboundMessage({ ...message, text: body }, deps), "inquiry");
+  assert.deepEqual(log.map(entry => entry.kind), ["record", "touch", "inquiry_message", "finish", "notify"]);
+  assert.deepEqual(log[2].args, [7, "user-1", body]);
+  assert.deepEqual(log[3].args, ["wamid.a", { userId: "user-1", requestId: null, handled: "inquiry" }]);
+  const meta = log[4].args[0] as { kind: string; targetType: string; targetId: number; signals: { text: string } };
+  assert.deepEqual([meta.kind, meta.targetType, meta.targetId, meta.signals.text], ["office.inquiry_message", "inquiry", 7, body]);
+  assert.ok(!log.some(entry => entry.kind === "reply"), "an existing thread needs no automatic acknowledgement");
+});
+
+test("a reference the customer does not own falls back to the usual routing", async () => {
+  const other = fakeDeps({ ...routed, open: { "user-1": [41] } });
+  assert.equal(await handleInboundMessage({ ...message, text: "طلب HBS-2025-00099 : أين وصل؟" }, other.deps), "request_message");
+  assert.equal(other.log.find(entry => entry.kind === "message")?.args[0], 41, "the one open request, not the foreign reference");
+  const inquiry = fakeDeps(routed);
+  assert.equal(await handleInboundMessage({ ...message, text: "استفسار #99: متى؟" }, inquiry.deps), "inquiry");
+  assert.deepEqual(inquiry.log.map(entry => entry.kind), ["record", "touch", "inquiry", "finish", "notify", "reply"], "a new inquiry, as before");
+  assert.equal((inquiry.log[4].args[0] as { kind: string }).kind, "office.whatsapp_message");
+  const unverified = fakeDeps({ ...routed, customers: {} });
+  assert.equal(await handleInboundMessage({ ...message, text: "طلب HBS-2025-00012 : مرحبا" }, unverified.deps), "unmatched");
+  assert.ok(!unverified.log.some(entry => entry.kind === "message"), "references never route for unverified numbers");
+});
+
+test("a request reference wins over an inquiry number in the same text", async () => {
+  const { deps, log } = fakeDeps(routed);
+  assert.equal(await handleInboundMessage({ ...message, text: "طلب HBS-2026-00041 و استفسار #7" }, deps), "request_message");
+  assert.equal(log.find(entry => entry.kind === "message")?.args[0], 41);
+  assert.ok(!log.some(entry => entry.kind === "inquiry_message"));
 });
 
 test("several open requests make an inquiry and a free-text reply", async () => {
@@ -315,7 +398,7 @@ test("the webhook verifies the token on GET and the signature on POST", async ()
     assert.equal((await post(body, { "x-hub-signature-256": sign(body + " ") })).status, 401, "signed over other bytes");
     assert.equal(log.length, 0, "nothing is processed before the signature passes");
     assert.equal((await post(body, { "x-hub-signature-256": sign(body) })).status, 200);
-    assert.deepEqual(log.map(entry => entry.kind), ["record", "touch", "message", "finish", "notify"]);
+    assert.deepEqual(log.map(entry => entry.kind), ["record", "touch", "message", "finish", "resume", "notify"]);
     assert.equal((await post("not json", { "x-hub-signature-256": sign("not json") })).status, 200, "acknowledged so Meta does not retry");
     const form = await fetch(base, { method: "POST", headers: { "content-type": "text/plain", "x-hub-signature-256": sign(body) }, body });
     assert.equal(form.status, 400, "the raw JSON body is required");

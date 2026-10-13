@@ -12,6 +12,7 @@ import { RequestFiles } from '@/components/request-files';
 import { OfficeInvoices } from '@/components/request-billing';
 import { ChecklistEditor, ExtractReminder, QuotePanel, RequestEmployees, employeeProgress } from '@/components/office-request-extras';
 import { RequestConversation, SubjectChip } from '@/components/request-conversation';
+import { WhatsappFollowUp, useOfficeThread } from '@/components/whatsapp-follow-up';
 import { statusChoices } from '@/lib/request-status';
 import { formatNumber } from '@/lib/format';
 import { dateInput, dueFromInput, isOverdue, memberName, useAssignees } from '@/pages/office';
@@ -96,7 +97,11 @@ function RequestWorkspace({ request, nav }: { request: OfficeServiceRequest; nav
     qc.invalidateQueries({ queryKey: getListOfficeServiceRequestsQueryKey() }),
     qc.invalidateQueries({ queryKey: getGetOfficeSummaryQueryKey() }),
   ]);
-  const [tab, setTab] = useState<Tab>('request');
+  // The messages inbox links straight to the thread (?tab=conversation).
+  const openTab = new URLSearchParams(useSearch()).get('tab');
+  const [tab, setTab] = useState<Tab>(openTab === 'conversation' ? 'conversation' : 'request');
+  // The thread row carries whether the customer's WhatsApp number is verified.
+  const thread = useOfficeThread('request', request.id, request.reference);
   const [drawer, setDrawer] = useState(false);
   const [extracting, setExtracting] = useState<ServiceAttachment | null>(null);
   // The draft, the version it was taken from, and what the last save said.
@@ -186,6 +191,7 @@ function RequestWorkspace({ request, nav }: { request: OfficeServiceRequest; nav
         </div>
       </div>
       <div className="orq-head-side">
+        <WhatsappFollowUp link={thread?.whatsapp.link ?? null} number={thread?.whatsapp.number ?? null} verified={!!thread?.whatsapp.verified} scope="office"/>
         <Status value={request.status}/>
         <div className="orq-nav" role="group" aria-label="التنقل بين الطلبات">
           <button type="button" className="btn btn-outline btn-sm" disabled={!nav.prev} onClick={() => nav.prev && nav.go(nav.prev)} title="السابق (K)">السابق</button>
@@ -204,7 +210,7 @@ function RequestWorkspace({ request, nav }: { request: OfficeServiceRequest; nav
         <QuotePanel requestId={request.id} quote={request.quote} onChanged={refreshOffice}/>
         {request.rating && <div className="text-sm"><span className="muted block text-xs">تقييم العميل</span><strong className="text-copper">{'★'.repeat(request.rating)}{'☆'.repeat(5 - request.rating)}</strong>{request.ratingComment && <p className="mt-1 whitespace-pre-wrap leading-7">«{request.ratingComment}»</p>}</div>}
       </div>}
-      {tab === 'conversation' && <RequestConversation requestId={request.id} scope="office"/>}
+      {tab === 'conversation' && <RequestConversation requestId={request.id} scope="office" whatsapp={thread?.whatsapp ?? null}/>}
       {tab === 'files' && <div className="orq-request">
         <RequestFiles key={request.id} scope="office" requestId={request.id} attachments={request.attachments} checklist={request.checklist} canUpload onChanged={refreshOffice} onExtract={setExtracting}/>
         {extracting && <ExtractReminder requestId={request.id} file={extracting} onClose={() => setExtracting(null)}/>}

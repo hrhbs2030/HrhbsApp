@@ -56,6 +56,8 @@ import {
   ListServiceRequestMessagesResponse,
   SendServiceRequestMessageBody,
   SendServiceRequestMessageResponse,
+  SendOfficeServiceRequestMessageBody,
+  SendOfficeServiceRequestMessageResponse,
   RateServiceRequestBody,
   RateServiceRequestParams,
   RateServiceRequestResponse,
@@ -88,9 +90,10 @@ import {
 } from "@workspace/api-zod";
 import { recordAudit } from "../lib/audit";
 import {
+  MESSAGES_PER_10_MINUTES, afterMessageRecorded, listThreadMessages, loadThread, recentMessagesBy, recordMessage, sendViaWhatsapp, serializeMessage,
+} from "../lib/messaging";
+import {
   assignedMail,
-  customerMessageMail,
-  officeMessageMail,
   customerNewFileMail,
   inquiryAnsweredMail,
   officeNewFileMail,
@@ -1269,59 +1272,47 @@ router.post("/portal/settings/whatsapp-verification", requirePortalAuth, require
 
 // ---- conversation on a request -------------------------------------------------
 
-const MESSAGES_PER_10_MINUTES = 20;
-
-function message(row: typeof hbsRequestMessages.$inferSelect) {
-  return { id: row.id, authorRole: row.authorRole, body: row.body, createdAt: row.createdAt };
-}
+// Both roles go through lib/messaging.ts; office staff may also send the
+// text to the customer's verified WhatsApp number (viaWhatsapp).
 
 // The request, if the caller may see it: the customer's own, or any for staff.
-async function conversationRequest(req: Request, office: boolean) {
-  const requestId = Number(req.params.id);
-  if (!Number.isInteger(requestId) || requestId < 1 || requestId > MAX_ID) return null;
-  const [record] = await db.select().from(hbsServiceRequests).where(office
-    ? eq(hbsServiceRequests.id, requestId)
-    : and(eq(hbsServiceRequests.id, requestId), eq(hbsServiceRequests.userId, getAuth(req).userId!))).limit(1);
-  return record ?? null;
+function conversationRequest(req: Request, office: boolean) {
+  return loadThread({ type: "request", id: Number(req.params.id) }, { userId: getAuth(req).userId!, role: office ? "office" : "customer" });
 }
 
 async function listMessages(req: Request, res: import("express").Response, office: boolean) {
-  const record = await conversationRequest(req, office);
-  if (!record) { res.status(404).json({ error: "Request not found" }); return; }
-  const rows = await db.select().from(hbsRequestMessages).where(eq(hbsRequestMessages.requestId, record.id))
-    .orderBy(asc(hbsRequestMessages.createdAt), asc(hbsRequestMessages.id)).limit(500);
-  res.json(ListServiceRequestMessagesResponse.parse(rows.map(message)));
+  const info = await conversationRequest(req, office);
+  if (!info) { res.status(404).json({ error: "Request not found" }); return; }
+  res.json(ListServiceRequestMessagesResponse.parse((await listThreadMessages(info)).map(serializeMessage)));
 }
 
 async function sendMessage(req: Request, res: import("express").Response, office: boolean) {
-  const body = SendServiceRequestMessageBody.safeParse(req.body);
+  const body = office ? SendOfficeServiceRequestMessageBody.safeParse(req.body) : SendServiceRequestMessageBody.safeParse(req.body);
   const text = body.success ? body.data.body.trim() : "";
   if (!text) { res.status(400).json({ error: "Write a message." }); return; }
-  const record = await conversationRequest(req, office);
-  if (!record) { res.status(404).json({ error: "Request not found" }); return; }
-  if (!office && record.status === "completed") {
+  const info = await conversationRequest(req, office);
+  if (!info) { res.status(404).json({ error: "Request not found" }); return; }
+  if (!office && info.status === "completed") {
     res.status(409).json({ error: "The request is completed. Send an inquiry instead." });
     return;
   }
+  const thread = { type: "request" as const, id: info.id };
   const authorId = getAuth(req).userId!;
-  const [{ recent }] = await db.select({ recent: sql<number>`count(*)::int` }).from(hbsRequestMessages).where(and(
-    eq(hbsRequestMessages.requestId, record.id), eq(hbsRequestMessages.authorId, authorId),
-    sql`${hbsRequestMessages.createdAt} > now() - interval '10 minutes'`));
-  if (recent >= MESSAGES_PER_10_MINUTES) { res.status(429).json({ error: "Too many messages. Wait a few minutes." }); return; }
-  const [row] = await db.insert(hbsRequestMessages).values({
-    requestId: record.id, authorId, authorRole: office ? "office" : "customer", body: text,
-  }).returning();
-  // Before answering, so the customer's next view already shows the new status.
-  if (!office) await resumeAfterCustomerReply(record.id, "customer_message");
-  res.status(201).json(SendServiceRequestMessageResponse.parse(message(row)));
-  // Emails say that a message arrived, never what it says.
-  const info = { id: record.id, reference: publicRequest(record).reference, service: record.service };
-  const meta = { targetType: "service_request", targetId: record.id, signals: { text } };
-  if (office) void notifyCustomer(record.userId, to => customerMessageMail(to, info), { kind: "request.message", ...meta });
-  else {
-    const assigneeEmail = record.assignedTo ? await staffEmail(record.assignedTo) : null;
-    void notifyOffice(() => officeMessageMail(assigneeEmail, info), { kind: "office.message_new", ...meta });
+  if ((await recentMessagesBy(thread, authorId)) >= MESSAGES_PER_10_MINUTES) { res.status(429).json({ error: "Too many messages. Wait a few minutes." }); return; }
+  // Sent on WhatsApp before it is saved, so a refusal records nothing.
+  const viaWhatsapp = office && body.success && "viaWhatsapp" in body.data && body.data.viaWhatsapp;
+  if (viaWhatsapp) {
+    const sent = await sendViaWhatsapp(info, text);
+    if (!sent.ok) { res.status(sent.status).json({ error: sent.error }); return; }
   }
+  const row = await recordMessage(db, {
+    thread, authorId, authorRole: office ? "office" : "customer", body: text, channel: viaWhatsapp ? "whatsapp" : "portal",
+  });
+  // Before answering, so the customer's next view already shows the new status.
+  if (!office) await resumeAfterCustomerReply(info.id, "customer_message");
+  res.status(201).json((office ? SendOfficeServiceRequestMessageResponse : SendServiceRequestMessageResponse).parse(serializeMessage(row)));
+  // Emails say that a message arrived, never what it says.
+  void afterMessageRecorded(thread, row, { customerUserId: info.customerUserId, info });
 }
 
 router.get("/service-requests/:id/messages", requirePortalAuth, requireApprovedCustomer, (req, res) => listMessages(req, res, false));

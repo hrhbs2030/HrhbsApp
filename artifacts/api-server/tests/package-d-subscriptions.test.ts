@@ -9,7 +9,7 @@ import pino from "pino";
 import pinoHttp from "pino-http";
 import {
   db, hbsAuditLog, hbsCompanies, hbsCompanyEmployees, hbsCompanyMembers, hbsCustomerSettings, hbsDocumentReminders, hbsInquiries,
-  hbsInvoiceGatewayPages, hbsInvoices, hbsOfficeStaff, hbsPlans, hbsRegistrationRequests, hbsRequestEmployees, hbsRequestMessages, hbsServiceRequests,
+  hbsInquiryMessages, hbsInvoiceGatewayPages, hbsInvoices, hbsOfficeStaff, hbsPlans, hbsRegistrationRequests, hbsRequestEmployees, hbsRequestMessages, hbsServiceRequests,
   hbsSubscriptions, hbsWhatsappInbound, pool,
 } from "@workspace/db";
 import billingRouter from "../src/routes/billing";
@@ -21,7 +21,7 @@ import { remindOverdueInvoices } from "../src/lib/invoice-reminders";
 import { addRiyadhMonth, onSubscriptionInvoicePaid, renewSubscriptions, riyadhMonthName } from "../src/lib/subscriptions";
 import { purgeOldWhatsappInbound } from "../src/routes/whatsapp-webhook";
 import type { Mail } from "../src/lib/notify";
-import { vatFor } from "../src/lib/money";
+import { requestReference, vatFor } from "../src/lib/money";
 
 if (process.env.NODE_ENV === "production") throw new Error("Package D subscription tests must not run in production");
 
@@ -461,6 +461,39 @@ test("plans, subscriptions, renewals, automatic renewal requests and WhatsApp in
       assert.equal(inquiries[0].subject, "رسالة واتساب");
       assert.equal(inquiries[0].message, "استفسار عام");
       assert.equal((await db.select().from(hbsWhatsappInbound).where(eq(hbsWhatsappInbound.waMessageId, second)))[0].handled, "inquiry");
+      assert.equal(messages[0].channel, "whatsapp", "the thread shows where the message came from");
+
+      // A quoted reference reaches its request despite the second open one, even once completed.
+      await db.update(hbsServiceRequests).set({ status: "completed" }).where(eq(hbsServiceRequests.id, request.id));
+      const referenced = `wamid.${randomUUID()}`;
+      const referencedBody = `طلب ${requestReference(request.id, request.createdAt)} : هل أحتاج مستندات إضافية؟`;
+      assert.equal((await post(referenced, "966500000001", referencedBody)).status, 200);
+      const [referencedInbound] = await db.select().from(hbsWhatsappInbound).where(eq(hbsWhatsappInbound.waMessageId, referenced));
+      assert.deepEqual([referencedInbound.handled, referencedInbound.requestId], ["request_message", request.id]);
+      const threaded = await db.select().from(hbsRequestMessages).where(eq(hbsRequestMessages.requestId, request.id));
+      assert.equal(threaded.length, 2);
+      assert.deepEqual([threaded[1].body, threaded[1].channel, threaded[1].authorRole], [referencedBody, "whatsapp", "customer"]);
+      assert.equal((await db.select().from(hbsInquiries).where(eq(hbsInquiries.userId, customer))).length, 1, "no inquiry for a routed reference");
+      // A reference of a request that is not the customer's is not routed on:
+      // the usual rule applies, and the second request is now the only open one.
+      const foreign = `wamid.${randomUUID()}`;
+      assert.equal((await post(foreign, "966500000001", `طلب ${requestReference(request.id + 100_000, request.createdAt)} : مرحبا`)).status, 200);
+      const [foreignInbound] = await db.select().from(hbsWhatsappInbound).where(eq(hbsWhatsappInbound.waMessageId, foreign));
+      assert.equal(foreignInbound.handled, "request_message");
+      assert.ok(foreignInbound.requestId && foreignInbound.requestId !== request.id, "the open request, not the foreign reference");
+
+      // «استفسار #N» continues that inquiry's thread and reopens it.
+      await db.update(hbsInquiries).set({ status: "answered", answer: "نعم", answeredAt: new Date() }).where(eq(hbsInquiries.id, inquiries[0].id));
+      const followUp = `wamid.${randomUUID()}`;
+      assert.equal((await post(followUp, "966500000001", `استفسار #${inquiries[0].id}: شكرًا، وهل الرسوم شاملة الضريبة؟`)).status, 200);
+      const [followUpInbound] = await db.select().from(hbsWhatsappInbound).where(eq(hbsWhatsappInbound.waMessageId, followUp));
+      assert.deepEqual([followUpInbound.handled, followUpInbound.userId, followUpInbound.requestId], ["inquiry", customer, null]);
+      const inquiryMessages = await db.select().from(hbsInquiryMessages).where(eq(hbsInquiryMessages.inquiryId, inquiries[0].id));
+      assert.equal(inquiryMessages.length, 1);
+      assert.deepEqual([inquiryMessages[0].authorId, inquiryMessages[0].authorRole, inquiryMessages[0].channel],
+        [customer, "customer", "whatsapp"]);
+      assert.equal((await db.select().from(hbsInquiries).where(eq(hbsInquiries.id, inquiries[0].id)))[0].status, "open");
+      assert.equal((await db.select().from(hbsInquiries).where(eq(hbsInquiries.userId, customer))).length, 1, "a follow-up opens no new inquiry");
 
       // An unknown number is kept for the office, its text cut to 200 characters.
       const third = `wamid.${randomUUID()}`;

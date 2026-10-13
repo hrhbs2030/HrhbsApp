@@ -1649,6 +1649,24 @@ export interface RequestMessageInput {
   body: string;
 }
 
+export interface OfficeMessageInput {
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  body: string;
+  /** Also send the text to the customer's verified WhatsApp number */
+  viaWhatsapp?: boolean;
+}
+
+export type MessageChannel = typeof MessageChannel[keyof typeof MessageChannel];
+
+
+export const MessageChannel = {
+  portal: 'portal',
+  whatsapp: 'whatsapp',
+} as const;
+
 export type RequestMessageAuthorRole = typeof RequestMessageAuthorRole[keyof typeof RequestMessageAuthorRole];
 
 
@@ -1658,10 +1676,90 @@ export const RequestMessageAuthorRole = {
 } as const;
 
 export interface RequestMessage {
+  /** 0 for the original inquiry text that opens an inquiry thread */
   id: number;
   authorRole: RequestMessageAuthorRole;
   body: string;
+  channel: MessageChannel;
   createdAt: string;
+}
+
+export type ThreadType = typeof ThreadType[keyof typeof ThreadType];
+
+
+export const ThreadType = {
+  request: 'request',
+  inquiry: 'inquiry',
+} as const;
+
+export type ThreadLastMessageAuthorRole = typeof ThreadLastMessageAuthorRole[keyof typeof ThreadLastMessageAuthorRole];
+
+
+export const ThreadLastMessageAuthorRole = {
+  customer: 'customer',
+  office: 'office',
+} as const;
+
+export interface ThreadLastMessage {
+  authorRole: ThreadLastMessageAuthorRole;
+  /** @maxLength 120 */
+  preview: string;
+  channel: MessageChannel;
+  createdAt: string;
+}
+
+export interface ThreadWhatsapp {
+  /**
+     * wa.me link: the office number with the reference prefilled for customers, the customer's verified number for staff
+     * @nullable
+     */
+  link: string | null;
+  /**
+     * International number without +, e.g. 966555208213
+     * @nullable
+     */
+  number: string | null;
+  /** Whether the customer's WhatsApp number is verified (always true for the office number) */
+  verified: boolean;
+}
+
+export interface Thread {
+  type: ThreadType;
+  id: number;
+  /** HBS-YYYY-NNNNN for requests, «استفسار #N» for inquiries */
+  reference: string;
+  /** Service name or inquiry subject */
+  title: string;
+  status: string;
+  lastMessage: ThreadLastMessage | null;
+  /** Messages from the other side since the viewer last read the thread */
+  unread: number;
+  updatedAt: string;
+  whatsapp: ThreadWhatsapp;
+  /** Set for staff only; null for customers */
+  customer: OfficeCustomer | null;
+}
+
+export interface ThreadList {
+  items: Thread[];
+  /** Unread messages across all of the viewer's threads, not only this page */
+  unreadTotal: number;
+  total: number;
+}
+
+export interface ThreadReadResult {
+  /** Unread left on that thread (0 after marking) */
+  unread: number;
+  unreadTotal: number;
+}
+
+export interface WhatsappLink {
+  /** wa.me link to the office number with the text prefilled */
+  link: string;
+  /** The office WhatsApp number, e.g. 966555208213 */
+  number: string;
+  /** Prefilled text carrying the reference, e.g. «طلب HBS-2026-00012 : » or «استفسار #7: » */
+  text: string;
 }
 
 export interface OfficeCustomerListItem {
@@ -1997,6 +2095,7 @@ export const NotificationKind = {
   reminderexpiring: 'reminder.expiring',
   registrationdecision: 'registration.decision',
   inquiryanswered: 'inquiry.answered',
+  inquirymessage: 'inquiry.message',
   companyinvite: 'company.invite',
   subscriptionstarted: 'subscription.started',
   subscriptioninvoice: 'subscription.invoice',
@@ -2005,6 +2104,7 @@ export const NotificationKind = {
   officerequest_new: 'office.request_new',
   officeregistration_new: 'office.registration_new',
   officeinquiry_new: 'office.inquiry_new',
+  officeinquiry_message: 'office.inquiry_message',
   officefile_new: 'office.file_new',
   officemessage_new: 'office.message_new',
   officequote_answered: 'office.quote_answered',
@@ -2389,6 +2489,64 @@ export type ListOfficeCustomersParams = {
  * @maxLength 120
  */
 q?: string;
+};
+
+export type ListMessageThreadsParams = {
+/**
+ * Matches the reference, title or last message
+ * @maxLength 200
+ */
+q?: string;
+/**
+ * Only threads with unread messages
+ */
+unread?: boolean;
+/**
+ * 1-based page; defaults to 1
+ * @minimum 1
+ * @maximum 1000000
+ */
+page?: number;
+/**
+ * Defaults to 20; capped at 100
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+};
+
+export type ListOfficeMessageThreadsParams = {
+/**
+ * Matches the reference, title, customer or last message
+ * @maxLength 200
+ */
+q?: string;
+/**
+ * Only threads with unread messages
+ */
+unread?: boolean;
+type?: ThreadType;
+/**
+ * 1-based page; defaults to 1
+ * @minimum 1
+ * @maximum 1000000
+ */
+page?: number;
+/**
+ * Defaults to 20; capped at 100
+ * @minimum 1
+ * @maximum 100
+ */
+pageSize?: number;
+};
+
+export type GetWhatsappLinkParams = {
+type: ThreadType;
+/**
+ * @minimum 1
+ * @maximum 2147483647
+ */
+id: number;
 };
 
 export type LookupCommercialRegisterParams = {

@@ -40,3 +40,5 @@ export * from "./hbs-subscriptions";
 export * from "./hbs-whatsapp-inbound";
 export * from "./hbs-notifications";
 export * from "./hbs-push-subscriptions";
+export * from "./hbs-inquiry-messages";
+export * from "./hbs-thread-reads";

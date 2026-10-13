@@ -1,12 +1,14 @@
 import { timingSafeEqual } from "node:crypto";
 import { and, desc, eq, gt, lt, ne, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
-import { db, hbsCustomerSettings, hbsInquiries, hbsRequestMessages, hbsServiceRequests, hbsWhatsappInbound } from "@workspace/db";
+import { db, hbsCustomerSettings, hbsInquiries, hbsInquiryMessages, hbsRequestMessages, hbsServiceRequests, hbsWhatsappInbound } from "@workspace/db";
 import { WhatsappWebhookVerifyQueryParams } from "@workspace/api-zod";
 import { resumeAfterCustomerReply } from "../lib/automations";
 import { notifyOffice, type OfficeNotifyMeta } from "../lib/customer-contact";
 import { logger } from "../lib/logger";
 import { requestReference } from "../lib/money";
+import { westernDigits } from "../lib/notification-intelligence";
+import { emitThreadEvent, type ThreadRef } from "../lib/messaging";
 import { officeMessageMail, officeNewInquiryMail } from "../lib/notify";
 import { hashWhatsappChallenge, inboundPhoneLocal, parseInboundMessages, sendText, verifyWhatsappSignature, type InboundTextMessage } from "../lib/whatsapp";
 
@@ -19,9 +21,12 @@ import { hashWhatsappChallenge, inboundPhoneLocal, parseInboundMessages, sendTex
 // a Buffer: the X-Hub-Signature-256 HMAC (WHATSAPP_APP_SECRET) is checked
 // against the raw bytes before JSON.parse.
 //
-// A text message from a customer's registered number becomes a message on
-// their one open request, or an inquiry when they have several (or none);
-// other numbers are kept for the office to look at. Processing is bounded;
+// A text message from a customer's verified number is routed by what it
+// quotes first: a full request reference (HBS-YYYY-NNNNN, as the portal's
+// WhatsApp links prefill it) lands on that request even after completion,
+// «استفسار #N» lands on that inquiry and reopens it. Otherwise it becomes a
+// message on their one open request, or an inquiry when they have several
+// (or none); other numbers are kept for the office to look at. Processing is bounded;
 // failed database transactions return non-2xx so Meta can redeliver them.
 
 export const MAX_MESSAGES_PER_DELIVERY = 20;
@@ -46,6 +51,24 @@ export async function purgeOldWhatsappInbound(now = new Date()): Promise<number>
 
 export type InboundHandled = "request_message" | "inquiry" | "unmatched" | "ignored";
 
+// The full reference only (requestReference in lib/money.ts): a bare number
+// is ambiguous between requests and inquiries, so it is not routed on.
+const REQUEST_REFERENCE = /\bHBS-(\d{4})-(\d{5,9})\b/i;
+const INQUIRY_REFERENCE = /استفسار\s*(?:رقم\s*)?#?\s*(\d{1,9})/;
+
+// The request reference quoted in a text, in canonical spelling, or null.
+export function quotedRequestReference(text: string): string | null {
+  const match = westernDigits(text).match(REQUEST_REFERENCE);
+  return match ? `HBS-${match[1]}-${match[2]}` : null;
+}
+
+// The inquiry number quoted as «استفسار #N» / «استفسار رقم N», or null.
+export function quotedInquiryId(text: string): number | null {
+  const match = westernDigits(text).match(INQUIRY_REFERENCE);
+  const id = match ? Number(match[1]) : 0;
+  return id > 0 ? id : null;
+}
+
 // What handling a message needs from the outside, so the routing can be
 // tested without a database or Meta.
 export type InboundOperations = {
@@ -59,8 +82,14 @@ export type InboundOperations = {
   touchInbound(userId: string): Promise<void>;
   // The customer's requests that are not completed, newest activity first (two are enough).
   openRequests(userId: string): Promise<{ id: number; createdAt: Date; service: string; assignedTo: string | null }[]>;
+  // The customer's request with that full reference, whatever its status.
+  requestByReference(userId: string, reference: string): Promise<{ id: number; createdAt: Date; service: string } | null>;
+  // The customer's inquiry with that id, answered or not.
+  inquiryById(userId: string, id: number): Promise<{ id: number; subject: string } | null>;
   addRequestMessage(requestId: number, userId: string, text: string): Promise<void>;
   afterCustomerReply(requestId: number): Promise<void>;
+  // A customer message on an existing inquiry thread; the inquiry is open again.
+  addInquiryMessage(inquiryId: number, userId: string, text: string): Promise<void>;
   createInquiry(userId: string, text: string): Promise<number>;
   finish(waMessageId: string, outcome: { userId: string | null; requestId: number | null; handled: InboundHandled }, body?: string): Promise<void>;
   reply(to: string, text: string): Promise<void>;
@@ -68,6 +97,8 @@ export type InboundOperations = {
 
 export type InboundDeps = InboundOperations & {
   notifyOffice(build: Parameters<typeof notifyOffice>[0], meta: OfficeNotifyMeta): Promise<void>;
+  // The live "thread" event for staff inboxes (lib/messaging.ts).
+  emitThread(thread: ThreadRef, customerUserId: string): Promise<void>;
   // The inbound claim, verification mutation and tenant destination insert
   // share this transaction. A failed destination insert rolls the claim back
   // so Meta can safely redeliver it.
@@ -141,8 +172,26 @@ function operationsFor(executor: any): InboundOperations {
         .where(and(eq(hbsServiceRequests.userId, userId), ne(hbsServiceRequests.status, "completed")))
         .orderBy(desc(hbsServiceRequests.updatedAt), desc(hbsServiceRequests.id)).limit(2);
     },
+    async requestByReference(userId, reference) {
+      // The sequence is the id; the year is checked by re-deriving the reference.
+      const id = Number(reference.slice(reference.lastIndexOf("-") + 1));
+      if (!Number.isSafeInteger(id) || id <= 0) return null;
+      const [row] = await executor.select({
+        id: hbsServiceRequests.id, createdAt: hbsServiceRequests.createdAt, service: hbsServiceRequests.service,
+      }).from(hbsServiceRequests).where(and(eq(hbsServiceRequests.id, id), eq(hbsServiceRequests.userId, userId))).limit(1);
+      return row && requestReference(row.id, row.createdAt) === reference ? row : null;
+    },
+    async inquiryById(userId, id) {
+      const [row] = await executor.select({ id: hbsInquiries.id, subject: hbsInquiries.subject }).from(hbsInquiries)
+        .where(and(eq(hbsInquiries.id, id), eq(hbsInquiries.userId, userId))).limit(1);
+      return row ?? null;
+    },
     async addRequestMessage(requestId, userId, text) {
-      await executor.insert(hbsRequestMessages).values({ requestId, authorId: userId, authorRole: "customer", body: text });
+      await executor.insert(hbsRequestMessages).values({ requestId, authorId: userId, authorRole: "customer", body: text, channel: "whatsapp" });
+    },
+    async addInquiryMessage(inquiryId, userId, text) {
+      await executor.insert(hbsInquiryMessages).values({ inquiryId, authorId: userId, authorRole: "customer", body: text, channel: "whatsapp" });
+      await executor.update(hbsInquiries).set({ status: "open" }).where(eq(hbsInquiries.id, inquiryId));
     },
     async afterCustomerReply(requestId) {
       await resumeAfterCustomerReply(requestId, "customer_message");
@@ -166,6 +215,7 @@ const databaseOps = operationsFor(db);
 export const inboundDeps: InboundDeps = {
   ...databaseOps,
   notifyOffice,
+  emitThread: (thread, customerUserId) => emitThreadEvent(thread, "customer", customerUserId),
   async atomic(work) {
     return db.transaction(tx => work(operationsFor(tx)));
   },
@@ -200,13 +250,30 @@ export async function handleInboundMessage(message: InboundTextMessage, deps: In
       } };
     }
     await ops.touchInbound(customer.userId);
-    const open = await ops.openRequests(customer.userId);
+    // A quoted reference wins over the open-request rule; a reference that is
+    // not the customer's own is ignored rather than refused, so the text still
+    // reaches the office through the fallbacks.
+    const reference = quotedRequestReference(message.text);
+    const referenced = reference ? await ops.requestByReference(customer.userId, reference) : null;
+    const quotedInquiry = referenced ? null : quotedInquiryId(message.text);
+    const inquiry = quotedInquiry ? await ops.inquiryById(customer.userId, quotedInquiry) : null;
+    if (inquiry) {
+      await ops.addInquiryMessage(inquiry.id, customer.userId, message.text);
+      await ops.finish(message.id, { userId: customer.userId, requestId: null, handled: "inquiry" });
+      return { handled: "inquiry" as const, afterCommit: async () => {
+        await deps.emitThread({ type: "inquiry", id: inquiry.id }, customer.userId);
+        await deps.notifyOffice(() => officeNewInquiryMail(inquiry.subject, null),
+          { kind: "office.inquiry_message", targetType: "inquiry", targetId: inquiry.id, signals: { text: message.text } });
+      } };
+    }
+    const open = referenced ? [referenced] : await ops.openRequests(customer.userId);
     if (open.length === 1) {
       const [request] = open;
       await ops.addRequestMessage(request.id, customer.userId, message.text);
       await ops.finish(message.id, { userId: customer.userId, requestId: request.id, handled: "request_message" });
       return { handled: "request_message" as const, afterCommit: async () => {
         await ops.afterCustomerReply(request.id);
+        await deps.emitThread({ type: "request", id: request.id }, customer.userId);
         await deps.notifyOffice(() => officeMessageMail(null,
           { id: request.id, reference: requestReference(request.id, request.createdAt), service: request.service }),
         { kind: "office.whatsapp_message", targetType: "service_request", targetId: request.id, signals: { text: message.text } });
@@ -215,6 +282,7 @@ export async function handleInboundMessage(message: InboundTextMessage, deps: In
     const inquiryId = await ops.createInquiry(customer.userId, message.text);
     await ops.finish(message.id, { userId: customer.userId, requestId: null, handled: "inquiry" });
     return { handled: "inquiry" as const, afterCommit: async () => {
+      await deps.emitThread({ type: "inquiry", id: inquiryId }, customer.userId);
       await deps.notifyOffice(() => officeNewInquiryMail(INQUIRY_SUBJECT, null),
         { kind: "office.whatsapp_message", targetType: "inquiry", targetId: inquiryId, signals: { text: message.text } });
       // The customer's own message opened the 24-hour window, so plain text is allowed.

@@ -53,6 +53,7 @@ import type {
   ExtractedDocument,
   ExtractedTransaction,
   GetOfficeReportParams,
+  GetWhatsappLinkParams,
   HealthStatus,
   ImportResult,
   Inquiry,
@@ -68,9 +69,11 @@ import type {
   License,
   LicenseImport,
   LicenseInput,
+  ListMessageThreadsParams,
   ListNotificationsParams,
   ListOfficeCustomersParams,
   ListOfficeInquiriesParams,
+  ListOfficeMessageThreadsParams,
   ListOfficeRemindersParams,
   ListOfficeServiceRequestsParams,
   ListOfficeSubscriptionsParams,
@@ -87,6 +90,7 @@ import type {
   OfficeCustomerListItem,
   OfficeInquiry,
   OfficeInquiryPage,
+  OfficeMessageInput,
   OfficeRegistration,
   OfficeReminder,
   OfficeReport,
@@ -131,7 +135,11 @@ import type {
   ServiceRequestUpdate,
   StartSubscriptionInput,
   Subscription,
+  ThreadList,
+  ThreadReadResult,
+  ThreadType,
   WhatsappInboxItem,
+  WhatsappLink,
   WhatsappReplyInput,
   WhatsappReplyResult,
   WhatsappWebhookPayload,
@@ -7355,10 +7363,10 @@ export const getSendOfficeServiceRequestMessageUrl = (id: number,) => {
 }
 
 /**
- * @summary Staff-only message to the customer on a request
+ * @summary Staff-only message to the customer on a request (optionally also sent on WhatsApp)
  */
 export const sendOfficeServiceRequestMessage = async (id: number,
-    requestMessageInput: RequestMessageInput, options?: Parameters<typeof customFetch>[1]): Promise<RequestMessage> => {
+    officeMessageInput: OfficeMessageInput, options?: Parameters<typeof customFetch>[1]): Promise<RequestMessage> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -7379,7 +7387,7 @@ return customFetch<RequestMessage>(getSendOfficeServiceRequestMessageUrl(id),
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(requestMessageInput)
+    body: JSON.stringify(officeMessageInput)
   }
 );}
 
@@ -7417,12 +7425,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type SendOfficeServiceRequestMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendOfficeServiceRequestMessage>>>
-    export type SendOfficeServiceRequestMessageMutationBody = BodyType<RequestMessageInput>
+    export type SendOfficeServiceRequestMessageMutationBody = BodyType<OfficeMessageInput>
     export type SendOfficeServiceRequestMessageMutationError = ErrorType<void>
-    export type SendOfficeServiceRequestMessageMutationVariables = {id: number;data: BodyType<RequestMessageInput>}
+    export type SendOfficeServiceRequestMessageMutationVariables = {id: number;data: BodyType<OfficeMessageInput>}
 
     /**
- * @summary Staff-only message to the customer on a request
+ * @summary Staff-only message to the customer on a request (optionally also sent on WhatsApp)
  */
 export const useSendOfficeServiceRequestMessage = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendOfficeServiceRequestMessage>>, TError,SendOfficeServiceRequestMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -7434,6 +7442,742 @@ export const useSendOfficeServiceRequestMessage = <TError = ErrorType<void>,
       > => {
       return useMutation(getSendOfficeServiceRequestMessageMutationOptions(options));
     }
+
+export const getListMessageThreadsUrl = (params?: ListMessageThreadsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/messages/threads?${stringifiedParams}` : `/api/messages/threads`
+}
+
+/**
+ * @summary The signed-in customer's conversations (requests and inquiries), most recently active first
+ */
+export const listMessageThreads = async (params?: ListMessageThreadsParams, options?: Parameters<typeof customFetch>[1]): Promise<ThreadList> => {
+
+  return customFetch<ThreadList>(getListMessageThreadsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMessageThreadsQueryKey = (params?: ListMessageThreadsParams,) => {
+    return [
+    `/api/messages/threads`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListMessageThreadsQueryOptions = <TData = Awaited<ReturnType<typeof listMessageThreads>>, TError = ErrorType<void>>(params?: ListMessageThreadsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMessageThreads>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMessageThreadsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMessageThreads>>> = ({ signal }) => listMessageThreads(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMessageThreads>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMessageThreadsQueryResult = NonNullable<Awaited<ReturnType<typeof listMessageThreads>>>
+export type ListMessageThreadsQueryError = ErrorType<void>
+
+
+/**
+ * @summary The signed-in customer's conversations (requests and inquiries), most recently active first
+ */
+
+export function useListMessageThreads<TData = Awaited<ReturnType<typeof listMessageThreads>>, TError = ErrorType<void>>(
+ params?: ListMessageThreadsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMessageThreads>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMessageThreadsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListOfficeMessageThreadsUrl = (params?: ListOfficeMessageThreadsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/office/messages/threads?${stringifiedParams}` : `/api/office/messages/threads`
+}
+
+/**
+ * @summary Staff-only inbox of every customer conversation, most recently active first
+ */
+export const listOfficeMessageThreads = async (params?: ListOfficeMessageThreadsParams, options?: Parameters<typeof customFetch>[1]): Promise<ThreadList> => {
+
+  return customFetch<ThreadList>(getListOfficeMessageThreadsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeMessageThreadsQueryKey = (params?: ListOfficeMessageThreadsParams,) => {
+    return [
+    `/api/office/messages/threads`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListOfficeMessageThreadsQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeMessageThreads>>, TError = ErrorType<void>>(params?: ListOfficeMessageThreadsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeMessageThreads>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeMessageThreadsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeMessageThreads>>> = ({ signal }) => listOfficeMessageThreads(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeMessageThreads>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeMessageThreadsQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeMessageThreads>>>
+export type ListOfficeMessageThreadsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Staff-only inbox of every customer conversation, most recently active first
+ */
+
+export function useListOfficeMessageThreads<TData = Awaited<ReturnType<typeof listOfficeMessageThreads>>, TError = ErrorType<void>>(
+ params?: ListOfficeMessageThreadsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeMessageThreads>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeMessageThreadsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMarkThreadReadUrl = (type: ThreadType,
+    id: number,) => {
+
+
+
+
+  return `/api/messages/threads/${type}/${id}/read`
+}
+
+/**
+ * @summary Mark one of the customer's conversations as read up to now
+ */
+export const markThreadRead = async (type: ThreadType,
+    id: number, options?: Parameters<typeof customFetch>[1]): Promise<ThreadReadResult> => {
+
+  return customFetch<ThreadReadResult>(getMarkThreadReadUrl(type,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkThreadReadMutationKey = () => ['markThreadRead'] as const;
+
+export const getMarkThreadReadMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markThreadRead>>, TError,MarkThreadReadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markThreadRead>>, TError,MarkThreadReadMutationVariables, TContext> => {
+
+const mutationKey = getMarkThreadReadMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markThreadRead>>, MarkThreadReadMutationVariables> = (props) => {
+          const {type,id} = props ?? {};
+
+          return  markThreadRead(type,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkThreadReadMutationResult = NonNullable<Awaited<ReturnType<typeof markThreadRead>>>
+
+    export type MarkThreadReadMutationError = ErrorType<void>
+    export type MarkThreadReadMutationVariables = {type: ThreadType;id: number}
+
+    /**
+ * @summary Mark one of the customer's conversations as read up to now
+ */
+export const useMarkThreadRead = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markThreadRead>>, TError,MarkThreadReadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markThreadRead>>,
+        TError,
+        MarkThreadReadMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMarkThreadReadMutationOptions(options));
+    }
+
+export const getMarkOfficeThreadReadUrl = (type: ThreadType,
+    id: number,) => {
+
+
+
+
+  return `/api/office/messages/threads/${type}/${id}/read`
+}
+
+/**
+ * @summary Staff-only mark a conversation as read up to now (per staff member)
+ */
+export const markOfficeThreadRead = async (type: ThreadType,
+    id: number, options?: Parameters<typeof customFetch>[1]): Promise<ThreadReadResult> => {
+
+  return customFetch<ThreadReadResult>(getMarkOfficeThreadReadUrl(type,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkOfficeThreadReadMutationKey = () => ['markOfficeThreadRead'] as const;
+
+export const getMarkOfficeThreadReadMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markOfficeThreadRead>>, TError,MarkOfficeThreadReadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markOfficeThreadRead>>, TError,MarkOfficeThreadReadMutationVariables, TContext> => {
+
+const mutationKey = getMarkOfficeThreadReadMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markOfficeThreadRead>>, MarkOfficeThreadReadMutationVariables> = (props) => {
+          const {type,id} = props ?? {};
+
+          return  markOfficeThreadRead(type,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkOfficeThreadReadMutationResult = NonNullable<Awaited<ReturnType<typeof markOfficeThreadRead>>>
+
+    export type MarkOfficeThreadReadMutationError = ErrorType<void>
+    export type MarkOfficeThreadReadMutationVariables = {type: ThreadType;id: number}
+
+    /**
+ * @summary Staff-only mark a conversation as read up to now (per staff member)
+ */
+export const useMarkOfficeThreadRead = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markOfficeThreadRead>>, TError,MarkOfficeThreadReadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markOfficeThreadRead>>,
+        TError,
+        MarkOfficeThreadReadMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMarkOfficeThreadReadMutationOptions(options));
+    }
+
+export const getListInquiryMessagesUrl = (id: number,) => {
+
+
+
+
+  return `/api/inquiries/${id}/messages`
+}
+
+/**
+ * @summary Conversation on an inquiry owned by the signed-in customer, oldest first (the first item, id 0, is the original inquiry text)
+ */
+export const listInquiryMessages = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<RequestMessage[]> => {
+
+  return customFetch<RequestMessage[]>(getListInquiryMessagesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListInquiryMessagesQueryKey = (id: number,) => {
+    return [
+    `/api/inquiries/${id}/messages`
+    ] as const;
+    }
+
+
+export const getListInquiryMessagesQueryOptions = <TData = Awaited<ReturnType<typeof listInquiryMessages>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInquiryMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListInquiryMessagesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listInquiryMessages>>> = ({ signal }) => listInquiryMessages(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listInquiryMessages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListInquiryMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof listInquiryMessages>>>
+export type ListInquiryMessagesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Conversation on an inquiry owned by the signed-in customer, oldest first (the first item, id 0, is the original inquiry text)
+ */
+
+export function useListInquiryMessages<TData = Awaited<ReturnType<typeof listInquiryMessages>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInquiryMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListInquiryMessagesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendInquiryMessageUrl = (id: number,) => {
+
+
+
+
+  return `/api/inquiries/${id}/messages`
+}
+
+/**
+ * @summary Send a follow-up message to the office on the customer's own inquiry (reopens it)
+ */
+export const sendInquiryMessage = async (id: number,
+    requestMessageInput: RequestMessageInput, options?: Parameters<typeof customFetch>[1]): Promise<RequestMessage> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RequestMessage>(getSendInquiryMessageUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(requestMessageInput)
+  }
+);}
+
+
+
+
+
+export const getSendInquiryMessageMutationKey = () => ['sendInquiryMessage'] as const;
+
+export const getSendInquiryMessageMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendInquiryMessage>>, TError,SendInquiryMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendInquiryMessage>>, TError,SendInquiryMessageMutationVariables, TContext> => {
+
+const mutationKey = getSendInquiryMessageMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendInquiryMessage>>, SendInquiryMessageMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendInquiryMessage(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendInquiryMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendInquiryMessage>>>
+    export type SendInquiryMessageMutationBody = BodyType<RequestMessageInput>
+    export type SendInquiryMessageMutationError = ErrorType<void>
+    export type SendInquiryMessageMutationVariables = {id: number;data: BodyType<RequestMessageInput>}
+
+    /**
+ * @summary Send a follow-up message to the office on the customer's own inquiry (reopens it)
+ */
+export const useSendInquiryMessage = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendInquiryMessage>>, TError,SendInquiryMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendInquiryMessage>>,
+        TError,
+        SendInquiryMessageMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSendInquiryMessageMutationOptions(options));
+    }
+
+export const getListOfficeInquiryMessagesUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/inquiries/${id}/messages`
+}
+
+/**
+ * @summary Staff-only conversation on an inquiry, oldest first (the first item, id 0, is the original inquiry text)
+ */
+export const listOfficeInquiryMessages = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<RequestMessage[]> => {
+
+  return customFetch<RequestMessage[]>(getListOfficeInquiryMessagesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeInquiryMessagesQueryKey = (id: number,) => {
+    return [
+    `/api/office/inquiries/${id}/messages`
+    ] as const;
+    }
+
+
+export const getListOfficeInquiryMessagesQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeInquiryMessages>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeInquiryMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeInquiryMessagesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeInquiryMessages>>> = ({ signal }) => listOfficeInquiryMessages(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeInquiryMessages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeInquiryMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeInquiryMessages>>>
+export type ListOfficeInquiryMessagesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Staff-only conversation on an inquiry, oldest first (the first item, id 0, is the original inquiry text)
+ */
+
+export function useListOfficeInquiryMessages<TData = Awaited<ReturnType<typeof listOfficeInquiryMessages>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeInquiryMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeInquiryMessagesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendOfficeInquiryMessageUrl = (id: number,) => {
+
+
+
+
+  return `/api/office/inquiries/${id}/messages`
+}
+
+/**
+ * @summary Staff-only message to the customer on an inquiry (the first one also records the answer; optionally also sent on WhatsApp)
+ */
+export const sendOfficeInquiryMessage = async (id: number,
+    officeMessageInput: OfficeMessageInput, options?: Parameters<typeof customFetch>[1]): Promise<RequestMessage> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RequestMessage>(getSendOfficeInquiryMessageUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(officeMessageInput)
+  }
+);}
+
+
+
+
+
+export const getSendOfficeInquiryMessageMutationKey = () => ['sendOfficeInquiryMessage'] as const;
+
+export const getSendOfficeInquiryMessageMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendOfficeInquiryMessage>>, TError,SendOfficeInquiryMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendOfficeInquiryMessage>>, TError,SendOfficeInquiryMessageMutationVariables, TContext> => {
+
+const mutationKey = getSendOfficeInquiryMessageMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendOfficeInquiryMessage>>, SendOfficeInquiryMessageMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendOfficeInquiryMessage(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendOfficeInquiryMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendOfficeInquiryMessage>>>
+    export type SendOfficeInquiryMessageMutationBody = BodyType<OfficeMessageInput>
+    export type SendOfficeInquiryMessageMutationError = ErrorType<void>
+    export type SendOfficeInquiryMessageMutationVariables = {id: number;data: BodyType<OfficeMessageInput>}
+
+    /**
+ * @summary Staff-only message to the customer on an inquiry (the first one also records the answer; optionally also sent on WhatsApp)
+ */
+export const useSendOfficeInquiryMessage = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendOfficeInquiryMessage>>, TError,SendOfficeInquiryMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendOfficeInquiryMessage>>,
+        TError,
+        SendOfficeInquiryMessageMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSendOfficeInquiryMessageMutationOptions(options));
+    }
+
+export const getGetWhatsappLinkUrl = (params: GetWhatsappLinkParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/messages/whatsapp-link?${stringifiedParams}` : `/api/messages/whatsapp-link`
+}
+
+/**
+ * @summary The wa.me link to the office number with the conversation's reference prefilled, for following it up on WhatsApp
+ */
+export const getWhatsappLink = async (params: GetWhatsappLinkParams, options?: Parameters<typeof customFetch>[1]): Promise<WhatsappLink> => {
+
+  return customFetch<WhatsappLink>(getGetWhatsappLinkUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWhatsappLinkQueryKey = (params?: GetWhatsappLinkParams,) => {
+    return [
+    `/api/messages/whatsapp-link`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetWhatsappLinkQueryOptions = <TData = Awaited<ReturnType<typeof getWhatsappLink>>, TError = ErrorType<void>>(params: GetWhatsappLinkParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWhatsappLink>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWhatsappLinkQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWhatsappLink>>> = ({ signal }) => getWhatsappLink(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWhatsappLink>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWhatsappLinkQueryResult = NonNullable<Awaited<ReturnType<typeof getWhatsappLink>>>
+export type GetWhatsappLinkQueryError = ErrorType<void>
+
+
+/**
+ * @summary The wa.me link to the office number with the conversation's reference prefilled, for following it up on WhatsApp
+ */
+
+export function useGetWhatsappLink<TData = Awaited<ReturnType<typeof getWhatsappLink>>, TError = ErrorType<void>>(
+ params: GetWhatsappLinkParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWhatsappLink>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWhatsappLinkQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getImportEmployeesUrl = () => {
 

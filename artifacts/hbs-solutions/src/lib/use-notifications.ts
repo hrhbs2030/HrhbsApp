@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
-  getGetNotificationBriefQueryKey, getListNotificationsQueryKey, getStreamNotificationsUrl,
+  getGetNotificationBriefQueryKey, getListInquiryMessagesQueryKey, getListMessageThreadsQueryKey, getListNotificationsQueryKey,
+  getListOfficeInquiryMessagesQueryKey, getListOfficeMessageThreadsQueryKey, getListOfficeServiceRequestMessagesQueryKey,
+  getListServiceRequestMessagesQueryKey, getStreamNotificationsUrl,
   useListNotifications, useMarkAllNotificationsRead, useMarkNotificationRead,
-  type ListNotificationsParams, type Notification, type NotificationList,
+  type ListNotificationsParams, type Notification, type NotificationList, type ThreadType,
 } from '@workspace/api-client-react';
 
 // The in-app notification centre: one list query shared by the bell and the
@@ -45,6 +47,34 @@ function applyUnread(qc: QueryClient, count: number) {
   qc.setQueriesData<NotificationList>({ queryKey: listKey() }, (current) => isList(current) && current.unreadCount !== count ? { ...current, unreadCount: count } : current);
 }
 
+// ---- messages: the unread total and `thread` events --------------------------
+// One number for the sidebar badge, set by whichever source knew it last: the
+// thread list (seeded on mount), a read marker's answer, or a `thread` stream
+// event. Not derived from the react-query cache because the list may never
+// have been loaded on the page that shows the badge.
+let messagesUnread = 0;
+const unreadListeners = new Set<() => void>();
+export function setMessagesUnread(count: number) {
+  if (!Number.isFinite(count) || count === messagesUnread) return;
+  messagesUnread = Math.max(0, count);
+  for (const fn of unreadListeners) fn();
+}
+const subscribeUnread = (fn: () => void) => { unreadListeners.add(fn); return () => { unreadListeners.delete(fn); }; };
+const getUnread = () => messagesUnread;
+export function useMessagesUnread(): number { return useSyncExternalStore(subscribeUnread, getUnread, getUnread); }
+
+export type ThreadEvent = { type: ThreadType; id: number; unreadTotal?: number };
+// Both roles' keys are invalidated: only the ones in this tab's cache refetch.
+export const threadMessageKeys = ({ type, id }: ThreadEvent) => type === 'inquiry'
+  ? [getListInquiryMessagesQueryKey(id), getListOfficeInquiryMessagesQueryKey(id)]
+  : [getListServiceRequestMessagesQueryKey(id), getListOfficeServiceRequestMessagesQueryKey(id)];
+export const threadListKeys = () => [getListMessageThreadsQueryKey(), getListOfficeMessageThreadsQueryKey()];
+export function applyThreadEvent(qc: QueryClient, event: ThreadEvent) {
+  if ((event.type !== 'request' && event.type !== 'inquiry') || typeof event.id !== 'number') return;
+  for (const queryKey of [...threadMessageKeys(event), ...threadListKeys()]) void qc.invalidateQueries({ queryKey });
+  if (typeof event.unreadTotal === 'number') setMessagesUnread(event.unreadTotal);
+}
+
 function open(qc: QueryClient) {
   if (source || typeof EventSource === 'undefined') { if (!source) setState('failed'); return; }
   const stream = new EventSource(streamUrl(), { withCredentials: true });
@@ -53,6 +83,10 @@ function open(qc: QueryClient) {
   stream.addEventListener('unread', (event) => {
     if (source !== stream) return;
     try { const { count } = JSON.parse((event as MessageEvent).data) as { count: number }; if (typeof count === 'number') applyUnread(qc, count); } catch { /* malformed event: the next poll corrects it */ }
+  });
+  stream.addEventListener('thread', (event) => {
+    if (source !== stream) return;
+    try { applyThreadEvent(qc, JSON.parse((event as MessageEvent).data) as ThreadEvent); } catch { /* malformed event: the fallback poll corrects it */ }
   });
   stream.addEventListener('notification', (event) => {
     if (source !== stream) return; // a closed stream of a previous identity

@@ -157,6 +157,31 @@ export function inquiryAnsweredMail(to: string | null, subject: string): Mail | 
   };
 }
 
+// Follow-up messages in an inquiry thread; like request messages, the mail
+// says that a message arrived, never what it says.
+export function customerInquiryMessageMail(to: string | null, inquiryId: number, subject: string): Mail | null {
+  if (!to) return null;
+  return {
+    to,
+    subject: `رسالة من المكتب على استفسارك «${subject}»`,
+    heading: "رسالة جديدة من المكتب",
+    lines: [`كتب لك المكتب بخصوص استفسارك «${subject}». اقرأ الرسالة وردّ عليها من صفحة الاستفسار.`],
+    action: { label: "افتح المحادثة", path: `/inquiries/${inquiryId}` },
+  };
+}
+
+export function officeInquiryMessageMail(inquiryId: number, subject: string): Mail | null {
+  const to = officeInbox();
+  if (!to) return null;
+  return {
+    to,
+    subject: `رسالة عميل في الاستفسار #${inquiryId}`,
+    heading: "رسالة جديدة من عميل في استفسار",
+    lines: [`الاستفسار #${inquiryId}: ${subject}`],
+    action: { label: "افتح استفسارات العملاء", path: "/office/inquiries" },
+  };
+}
+
 export function registrationDecisionMail(to: string | null, approved: boolean): Mail | null {
   if (!to) return null;
   return approved

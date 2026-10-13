@@ -63,17 +63,21 @@ export const hbsCompanyLicenses = pgTable("hbs_company_licenses", {
   check("hbs_company_licenses_kind_check", sql`${table.kind} in ('commercial_register', 'municipal', 'civil_defense', 'chamber', 'gosi', 'zakat_vat', 'other')`),
 ]);
 
-// Messages between the customer and the office on one request.
+// Messages between the customer and the office on one request. `channel`
+// records where the message came from or also went (portal / WhatsApp) so
+// the conversation shows it; WhatsApp replies are routed in by reference.
 export const hbsRequestMessages = pgTable("hbs_request_messages", {
   id: serial("id").primaryKey(),
   requestId: integer("request_id").notNull().references(() => hbsServiceRequests.id, { onDelete: "cascade" }),
   authorId: text("author_id").notNull(),
   authorRole: text("author_role").notNull(),
   body: text("body").notNull(),
+  channel: text("channel").notNull().default("portal"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("hbs_request_messages_request_idx").on(table.requestId, table.createdAt),
   check("hbs_request_messages_role_check", sql`${table.authorRole} in ('customer', 'office')`),
+  check("hbs_request_messages_channel_check", sql`${table.channel} in ('portal', 'whatsapp')`),
 ]);
 
 export type HbsCompany = typeof hbsCompanies.$inferSelect;

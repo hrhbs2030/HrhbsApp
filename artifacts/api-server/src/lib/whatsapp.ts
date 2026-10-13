@@ -33,6 +33,24 @@ export function saudiMobile(input: string): string | null {
   return phone && /^05\d{8}$/.test(phone) ? `966${phone.slice(1)}` : null;
 }
 
+// The office's own WhatsApp number (0555208213): a public contact, not a
+// secret, so the default lives in code and the env only overrides it.
+export const OFFICE_WHATSAPP_NUMBER = (process.env.OFFICE_WHATSAPP_NUMBER ?? "966555208213").replace(/\D/g, "");
+
+// A wa.me link that opens a chat with the office, with the text prefilled so
+// the reply carries the request reference or inquiry number the inbound
+// webhook routes on.
+export function officeWhatsappLink(text: string): string {
+  return `https://wa.me/${OFFICE_WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
+}
+
+// A wa.me link to a customer's stored number (05XXXXXXXX); null when the
+// number is not a Saudi mobile.
+export function customerWhatsappLink(local05: string): string | null {
+  const international = saudiMobile(local05);
+  return international ? `https://wa.me/${international}` : null;
+}
+
 export function hashWhatsappChallenge(userId: string, localPhone: string, challengeText: string): string {
   return createHash("sha256").update(`${userId}\0${localPhone}\0${challengeText}`).digest("hex");
 }
