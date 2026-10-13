@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 // Shared drawing kit for the city scenes. Every scene is four stacked SVG
 // layers (depth 1 = sky, 4 = foreground) on a 1600×700 viewBox anchored to the
@@ -80,6 +80,18 @@ export function Stars({ seed, count = 60 }: { seed: number; count?: number }) {
 
 export function Layer({ depth, children }: { depth: 1 | 2 | 3 | 4; children: ReactNode }) {
   return <svg className={`cs-layer cs-layer--${depth}`} viewBox={VB} preserveAspectRatio="xMidYMax slice" aria-hidden="true">{children}</svg>;
+}
+
+// Atmosphere between the distant and the near layers: a horizon haze that
+// breathes (depth of field: the far city softens into the sky) and a wide,
+// slow band of day-light that sweeps across the frame. Two plain gradient
+// elements animated on transform/opacity only (city-scene.css), so they stay
+// on the compositor at 60 fps; `tint` is the city's own air colour.
+export function Atmosphere({ tint, light = '#ffe2b8', height = 46 }: { tint: string; light?: string; height?: number }) {
+  return <>
+    <div className="cs-haze" style={{ '--haze': tint, '--haze-h': `${height}%` } as CSSProperties} />
+    <div className="cs-light" style={{ '--light': light } as CSSProperties} />
+  </>;
 }
 
 /* Layout note: at desktop widths the viewBox columns 640–850 fall between the

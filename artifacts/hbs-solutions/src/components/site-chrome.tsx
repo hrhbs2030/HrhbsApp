@@ -1,8 +1,9 @@
-import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ArrowLeft, Menu, X } from 'lucide-react';
 import { Logo } from '@/components/brand/logo';
 import { hasSessionHint } from '@/lib/session-hint';
+import { useScrolled } from '@/lib/motion';
 import { cityInfo, cityOrder } from '@/components/city-scene';
 import { SceneWindow } from '@/components/scene-window';
 import { ContactList } from '@/components/contact-card';
@@ -24,7 +25,7 @@ function AuthLinks({ tone, compact = false }: { tone: 'dark' | 'light'; compact?
   const button = `btn ${compact ? 'btn-sm ' : ''}${tone === 'dark' ? 'btn-light' : 'btn-primary'}`;
   if (hasSessionHint()) return <Link href="/dashboard" className={button}>حسابي <ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></Link>;
   return <>
-    <Link href="/sign-in" className={compact ? 'site-text-link' : undefined}>تسجيل الدخول</Link>
+    <Link href="/sign-in" className={compact ? 'site-text-link' : 'btn btn-ghost-dark'}>تسجيل الدخول</Link>
     <Link href="/sign-up" className={button}>طلب التسجيل <ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></Link>
   </>;
 }
@@ -42,20 +43,37 @@ export const siteNavigation = [
   { href: '/help', label: 'المساعدة' },
 ];
 
-// Public-site header. `tone="dark"` sits on the night hero; `light` on paper pages.
+// Public-site header. `tone="dark"` floats over the night hero and gains a
+// blurred night background once the page scrolls; `light` sits on paper pages.
+// The phone menu is a full-screen sheet with a focus trap and body scroll lock.
 export function SiteHeader({ tone = 'light' }: { tone?: 'dark' | 'light' }) {
   const [open, setOpen] = useState(false);
   const [location] = useLocation();
+  const scrolled = useScrolled(24);
+  const sheet = useRef<HTMLElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
   useEffect(() => setOpen(false), [location]);
   useEffect(() => {
     if (!open) return;
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+    const root = sheet.current;
+    const focusable = () => [...(root?.querySelectorAll<HTMLElement>('a[href], button:not(:disabled)') ?? [])];
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    root?.querySelector<HTMLButtonElement>('.site-sheet-close')?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); setOpen(false); return; }
+      if (event.key !== 'Tab') return;
+      const items = focusable(); if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !root?.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || !root?.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = originalOverflow; if (toggle.current?.isConnected) toggle.current.focus(); };
   }, [open]);
 
   return (
-    <header className={`site-header site-header--${tone}`}>
+    <header className={`site-header site-header--${tone} ${tone === 'dark' ? 'on-night' : ''}`} data-scrolled={scrolled || undefined} data-open={open || undefined}>
       <div className="site-wrap site-header-inner">
         <div className="site-brand">
           <Brand light={tone === 'dark'} />
@@ -67,14 +85,23 @@ export function SiteHeader({ tone = 'light' }: { tone?: 'dark' | 'light' }) {
           ))}
         </nav>
         <div className="site-actions"><AuthLinks tone={tone} compact /></div>
-        <button type="button" className="site-menu-toggle" aria-label={open ? 'إغلاق القائمة' : 'فتح القائمة'} aria-expanded={open} aria-controls="site-mobile-nav" onClick={() => setOpen((v) => !v)}>
-          {open ? <X size={21} strokeWidth={ICON} /> : <Menu size={21} strokeWidth={ICON} />}
+        <button ref={toggle} type="button" className="site-menu-toggle" aria-label="فتح القائمة" aria-expanded={open} aria-controls="site-mobile-nav" onClick={() => setOpen(true)}>
+          <Menu size={21} strokeWidth={ICON} aria-hidden="true" />
         </button>
       </div>
       {open && (
-        <nav id="site-mobile-nav" className="site-wrap site-mobile-nav" aria-label="التنقل على الهاتف">
-          {siteNavigation.map((item) => <a key={item.href} href={item.href} onClick={(e) => { setOpen(false); navigateHash(e, item.href); }}>{item.label}</a>)}
-          <AuthLinks tone={tone} />
+        <nav ref={sheet} id="site-mobile-nav" className="site-sheet on-night" aria-label="التنقل على الهاتف" role="dialog" aria-modal="true">
+          <div className="site-wrap site-sheet-head">
+            <Brand light />
+            <button type="button" className="site-sheet-close" onClick={() => setOpen(false)} aria-label="إغلاق القائمة"><X size={22} strokeWidth={ICON} aria-hidden="true" /></button>
+          </div>
+          <div className="site-wrap site-sheet-body">
+            <div className="site-sheet-links">
+              {siteNavigation.map((item, index) => <a key={item.href} href={item.href} className="site-sheet-link" style={{ animationDelay: `${60 + index * 40}ms` }} aria-current={location === item.href ? 'page' : undefined} onClick={(e) => { setOpen(false); navigateHash(e, item.href); }}>{item.label}<ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></a>)}
+            </div>
+            <div className="site-sheet-actions"><AuthLinks tone="dark" /></div>
+            <p className="site-sheet-tagline">{siteTagline}</p>
+          </div>
         </nav>
       )}
     </header>
@@ -110,7 +137,7 @@ function navigateHash(event: MouseEvent<HTMLAnchorElement>, href: string) {
 const servedCities = cityOrder.map((key) => cityInfo[key].name).join(' · ');
 export function SiteFooter() {
   return (
-    <footer className="site-footer">
+    <footer className="site-footer on-night">
       <SceneWindow edge="bottom" />
       <div className="site-footer-veil" aria-hidden="true" />
       <div className="site-wrap site-footer-content">

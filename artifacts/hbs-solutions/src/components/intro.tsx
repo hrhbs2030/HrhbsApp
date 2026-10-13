@@ -3,20 +3,24 @@ import { createPortal } from 'react-dom';
 import { Bell, Check, CreditCard, FileText, MessageCircle, Search, Send, UsersRound } from 'lucide-react';
 import { introScenes, type IntroScene } from '@/content/intro-script';
 import { milestoneLabels } from '@/content/milestones';
-import { prefersReducedMotion, safeStorage } from '@/lib/motion';
+import { prefersReducedMotion, safeStorage, useReducedMotion } from '@/lib/motion';
 import './intro.css';
 
 // First-visit opening film: a short motion-graphics story of one problem (a
 // note on the wage file) resolved through the portal, one scene per step
-// (words in content/intro-script.ts). Each scene remounts
-// so its CSS animations start fresh; everything animated is transform or
-// opacity. The real page renders underneath. Reduced-motion visitors, links
-// with a #section and anyone who has seen it skip it; ?intro=1 replays it and
-// ?intro=hold stops on the first scene for review.
+// (words in content/intro-script.ts). Each scene remounts so its CSS
+// animations start fresh: a camera push-in on entry, a diagonal wipe between
+// scenes, words rising out of their own masks. Everything animated is
+// transform or opacity. The real page renders underneath. Reduced-motion
+// visitors, links with a #section and anyone who has seen it skip it; ?intro=1
+// replays it and ?intro=hold stops on the first scene for review. Replaying
+// under reduced motion shows one still poster instead of the film.
 const STORAGE_KEY = 'hbs:intro:v3';
-const EXIT_MS = 620;
-// Seconds per scene, in the order of introScenes.
-const DURATIONS: Record<IntroScene['key'], number> = { brand: 3.6, request: 3.8, office: 3.8, documents: 3.6, company: 3.8, done: 3.2 };
+const EXIT_MS = 500;
+// Seconds per scene, in the order of introScenes. The whole film, exit
+// included, stays under 14 s (13.4 s of scenes + 0.5 s hand-over).
+const DURATIONS: Record<IntroScene['key'], number> = { brand: 2.5, request: 2.3, office: 2.3, documents: 2.2, company: 2.3, done: 1.8 };
+export const INTRO_TOTAL_MS = Object.values(DURATIONS).reduce((sum, s) => sum + s, 0) * 1000 + EXIT_MS;
 
 export function shouldPlayIntro(): boolean {
   if (typeof window === 'undefined') return false;
@@ -42,7 +46,7 @@ export function useIntroState() {
 // Kinetic type: each word rises from behind a mask, one after another.
 function Words({ text, delay = 0, className }: { text: string; delay?: number; className?: string }) {
   return <span className={className}>{text.split(' ').map((word, i) =>
-    <Fragment key={i}>{i > 0 && ' '}<span className="iw-mask"><span className="iw-word" style={{ '--d': `${delay + i * 0.07}s` } as CSSProperties}>{word}</span></span></Fragment>)}</span>;
+    <Fragment key={i}>{i > 0 && ' '}<span className="iw-mask"><span className="iw-word" style={{ '--d': `${delay + i * 0.055}s` } as CSSProperties}>{word}</span></span></Fragment>)}</span>;
 }
 
 function Mark({ size }: { size: number }) {
@@ -81,8 +85,8 @@ function RequestVisual() {
     <Card className="iv-a">
       <div className="iv-search"><Search size={14} /><span className="iv-type">ملاحظة على ملف الأجور</span></div>
       <div className="iv-chips">{['متابعة الالتزام بحماية الأجور', 'حماية الأجور', 'رخصة العمل'].map((c, i) =>
-        <span key={c} className={`iv-chip ${i === 0 ? 'is-on' : ''}`} style={{ '--d': `${0.5 + i * 0.12}s` } as CSSProperties}>{c}</span>)}</div>
-      <div className="iv-lines"><i style={{ '--w': '86%', '--d': '1s' } as CSSProperties} /><i style={{ '--w': '64%', '--d': '1.15s' } as CSSProperties} /><i style={{ '--w': '72%', '--d': '1.3s' } as CSSProperties} /></div>
+        <span key={c} className={`iv-chip ${i === 0 ? 'is-on' : ''}`} style={{ '--d': `${0.3 + i * 0.09}s` } as CSSProperties}>{c}</span>)}</div>
+      <div className="iv-lines"><i style={{ '--w': '86%', '--d': '.6s' } as CSSProperties} /><i style={{ '--w': '64%', '--d': '.72s' } as CSSProperties} /><i style={{ '--w': '72%', '--d': '.84s' } as CSSProperties} /></div>
       <span className="iv-send"><Send size={13} />إرسال الطلب</span>
     </Card>
     <div className="iv-ref"><span>الرقم المرجعي</span><b dir="ltr">{REF}</b></div>
@@ -94,11 +98,11 @@ function OfficeVisual() {
   return <div className="iv iv-office">
     <Card className="iv-a">
       <div className="iv-head"><b>متابعة الالتزام بحماية الأجور</b><span dir="ltr">{REF}</span></div>
-      <ol className="iv-track">{milestoneLabels.map((s, i) => <li key={s} style={{ '--d': `${0.5 + i * 0.45}s` } as CSSProperties}><span className="iv-dot"><Check size={10} strokeWidth={3} /></span>{s}</li>)}</ol>
+      <ol className="iv-track">{milestoneLabels.map((s, i) => <li key={s} style={{ '--d': `${0.3 + i * 0.28}s` } as CSSProperties}><span className="iv-dot"><Check size={10} strokeWidth={3} /></span>{s}</li>)}</ol>
     </Card>
     <div className="iv-chat">
-      <span className="iv-bubble is-them" style={{ '--d': '1.6s' } as CSSProperties}><MessageCircle size={13} />وجدنا السبب ورفعنا التصحيح للجهة المختصة</span>
-      <span className="iv-bubble" style={{ '--d': '2.3s' } as CSSProperties}>شكرًا، متابع معكم</span>
+      <span className="iv-bubble is-them" style={{ '--d': '1.05s' } as CSSProperties}><MessageCircle size={13} />وجدنا السبب ورفعنا التصحيح للجهة المختصة</span>
+      <span className="iv-bubble" style={{ '--d': '1.5s' } as CSSProperties}>شكرًا، متابع معكم</span>
     </div>
   </div>;
 }
@@ -106,7 +110,7 @@ function OfficeVisual() {
 function DocumentsVisual() {
   return <div className="iv iv-docs">
     <div className="iv-files">{['كشف الرواتب.pdf', 'عقد العمل.pdf'].map((f, i) =>
-      <span key={f} className="iv-file" style={{ '--d': `${0.4 + i * 0.25}s` } as CSSProperties}><FileText size={15} />{f}</span>)}</div>
+      <span key={f} className="iv-file" style={{ '--d': `${0.25 + i * 0.18}s` } as CSSProperties}><FileText size={15} />{f}</span>)}</div>
     <Card className="iv-invoice">
       <div className="iv-head"><b>فاتورة</b><span dir="ltr">INV-2026-00012</span></div>
       <div className="iv-rows"><span>أتعاب الخدمة</span><span dir="ltr">200.00</span><span>ضريبة القيمة المضافة</span><span dir="ltr">30.00</span><b>الإجمالي</b><b dir="ltr">230.00 ر.س</b></div>
@@ -122,7 +126,7 @@ function CompanyVisual() {
     <Card className="iv-a">
       <div className="iv-head"><b><UsersRound size={14} /> ملف المنشأة</b><span>3 موظفين</span></div>
       <ul className="iv-people">{people.map(([name, doc, when, tone], i) =>
-        <li key={name} style={{ '--d': `${0.45 + i * 0.2}s` } as CSSProperties}><span className="iv-avatar">{name[0]}</span><b>{name}</b><span>{doc}</span><em className={`iv-badge is-${tone}`}>{when}</em></li>)}</ul>
+        <li key={name} style={{ '--d': `${0.3 + i * 0.14}s` } as CSSProperties}><span className="iv-avatar">{name[0]}</span><b>{name}</b><span>{doc}</span><em className={`iv-badge is-${tone}`}>{when}</em></li>)}</ul>
     </Card>
     <div className="iv-alert"><Bell size={15} /><span>تنبيه: إقامة أحمد تنتهي بعد 30 يومًا</span><b>طلب تجديد</b></div>
   </div>;
@@ -144,13 +148,17 @@ function SceneVisual({ scene }: { scene: IntroScene['key'] }) {
 type FocusRef = RefObject<HTMLElement | null>;
 type IntroProps = { onDone: () => void; pageRef?: RefObject<HTMLElement | null>; focusRef?: FocusRef | FocusRef[] };
 export function IntroSequence({ onDone, pageRef, focusRef }: IntroProps) {
+  const reduced = useReducedMotion();
   const [index, setIndex] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const doneRef = useRef(false);
   const exitTimer = useRef(0);
   const hold = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('intro') === 'hold';
-  const scene = introScenes[index];
-  const last = index === introScenes.length - 1;
+  // Reduced motion: a single still poster (the opening scene's words), no
+  // timers, no wipes; a tap, Enter/Space on the button or Escape hands over.
+  const still = reduced;
+  const scene = still ? introScenes[0] : introScenes[index];
+  const last = still || index === introScenes.length - 1;
 
   const leave = useCallback((fast: boolean) => {
     if (doneRef.current) return;
@@ -165,20 +173,21 @@ export function IntroSequence({ onDone, pageRef, focusRef }: IntroProps) {
 
   // One timer per scene; the last scene hands over to the page.
   useEffect(() => {
-    if (hold) return;
+    if (hold || still) return;
     const timer = window.setTimeout(() => {
       if (index < introScenes.length - 1) setIndex(index + 1);
       else leave(false);
     }, DURATIONS[scene.key] * 1000);
     return () => window.clearTimeout(timer);
-  }, [index, hold, leave, scene.key]);
+  }, [index, hold, still, leave, scene.key]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') leave(true);
-      // Arrow keys step through scenes (RTL: left is "next").
+      // Arrow keys step through scenes (RTL: left is "next"); End jumps to the page.
       if (event.key === 'ArrowLeft') setIndex(i => Math.min(i + 1, introScenes.length - 1));
       if (event.key === 'ArrowRight') setIndex(i => Math.max(i - 1, 0));
+      if (event.key === 'End') leave(true);
     };
     window.addEventListener('keydown', onKey);
     const page = pageRef?.current ?? null;
@@ -210,7 +219,7 @@ export function IntroSequence({ onDone, pageRef, focusRef }: IntroProps) {
   const brand = scene.key === 'brand' || scene.key === 'done';
   return createPortal(
     <>
-      <div className={`intro ${leaving ? 'intro--leaving' : ''} ${hold ? 'intro--hold' : ''}`} aria-hidden="true" onClick={advance}>
+      <div className={`intro ${leaving ? 'intro--leaving' : ''} ${hold ? 'intro--hold' : ''} ${still ? 'intro--still' : ''}`} aria-hidden="true" onClick={advance}>
         <div className="intro-bg">
           <span className="intro-pattern" />
           <span className="intro-orb intro-orb--a" />
@@ -223,19 +232,26 @@ export function IntroSequence({ onDone, pageRef, focusRef }: IntroProps) {
           {brand && <Mark size={scene.key === 'brand' ? 112 : 84} />}
           <div className="intro-copy">
             <span className="intro-kicker">{scene.kicker}</span>
-            <Words className="intro-title" text={scene.title} delay={brand ? 0.9 : 0.25} />
+            <Words className="intro-title" text={scene.title} delay={brand ? 0.55 : 0.2} />
             {scene.line && <p className="intro-line">{scene.line}</p>}
           </div>
           <SceneVisual scene={scene.key} />
         </div>
-        <div className="intro-progress">{introScenes.map((s, i) =>
-          <span key={s.key} className={i < index ? 'is-done' : i === index ? 'is-now' : ''}>
-            <i style={i === index ? { animationDuration: `${DURATIONS[s.key]}s`, animationPlayState: hold ? 'paused' : 'running' } : undefined} />
-          </span>)}</div>
+        {/* A diagonal wipe crosses the frame as each new scene lands (not on the first). */}
+        {index > 0 && !still && <div className="intro-wipe" key={`wipe-${index}`} />}
+        <div className="intro-progress" style={{ '--n': introScenes.length } as CSSProperties}>
+          <span className="intro-count" dir="ltr">{still ? introScenes.length : index + 1} / {introScenes.length}</span>
+          <span className="intro-segments">{introScenes.map((s, i) =>
+            <span key={s.key} className={still || i < index ? 'is-done' : i === index ? 'is-now' : ''}>
+              <i style={!still && i === index ? { animationDuration: `${DURATIONS[s.key]}s`, animationPlayState: hold ? 'paused' : 'running' } : undefined} />
+            </span>)}</span>
+        </div>
       </div>
-      {/* Screen readers get the page itself; the film is decorative. */}
-      <button type="button" className={`intro-skip ${leaving ? 'intro-skip--leaving' : ''}`} onClick={() => leave(true)} autoFocus>
-        تخطَّ المقدمة
+      {/* Screen readers get the page itself; the film is decorative. The
+          button is focused on mount, so Enter/Space skip at once; Escape and
+          End work from anywhere. */}
+      <button type="button" className={`intro-skip ${leaving ? 'intro-skip--leaving' : ''}`} onClick={() => leave(true)} autoFocus aria-keyshortcuts="Escape">
+        تخطَّ المقدمة<kbd aria-hidden="true">Esc</kbd>
       </button>
     </>,
     document.body,

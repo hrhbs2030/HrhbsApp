@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { Link, useParams } from 'wouter';
 import { keepPreviousData } from '@tanstack/react-query';
-import { ArrowRight, Link2, Search } from 'lucide-react';
+import { ArrowRight, ArrowUpLeft, Link2, MessagesSquare, Search, X } from 'lucide-react';
 import {
   getListInquiriesQueryKey, getListMessageThreadsQueryKey, getListOfficeMessageThreadsQueryKey,
   useListInquiries, useListMessageThreads, useListOfficeMessageThreads, type Thread, type ThreadType,
 } from '@workspace/api-client-react';
 import { EmptyBlock, ErrorBlock, LoadingBlock, PageHeading, Pager, PortalLayout, Status, dateText, useDebouncedValue } from '@/components/portal-ui';
+import { EmptyState } from '@/components/portal-kit';
 import { ChannelBadge, Conversation } from '@/components/conversation';
 import { CustomerWhatsapp, WhatsappFollowUp } from '@/components/whatsapp-follow-up';
 import { formatNumber, formatRelative } from '@/lib/format';
@@ -24,12 +25,15 @@ export const threadHref = ({ type, id }: { type: ThreadType; id: number }, staff
   : (type === 'request' ? `/requests/${id}#messages` : `/inquiries/${id}`);
 const typeNames: Record<ThreadType, string> = { request: 'طلب', inquiry: 'استفسار' };
 
-function ThreadRow({ thread, staff }: { thread: Thread; staff: boolean }) {
+// On desktop a row opens its conversation beside the list; the link still
+// targets the full page for keyboard users, new tabs and phones.
+function ThreadRow({ thread, staff, selected, onSelect }: { thread: Thread; staff: boolean; selected: boolean; onSelect?: (thread: Thread) => void }) {
   const last = thread.lastMessage;
   const author = !last ? null : last.authorRole === 'office' ? 'المكتب' : staff ? (thread.customer?.fullName ?? 'العميل') : 'أنت';
   const at = last?.createdAt ?? thread.updatedAt;
-  return <li className={`inbox-row ${thread.unread > 0 ? 'is-unread' : ''}`}>
-    <Link href={threadHref(thread, staff)}>
+  const open = (event: MouseEvent) => { if (!onSelect || event.metaKey || event.ctrlKey || event.shiftKey) return; event.preventDefault(); onSelect(thread); };
+  return <li className={`inbox-row ${thread.unread > 0 ? 'is-unread' : ''} ${selected ? 'is-selected' : ''}`}>
+    <Link href={threadHref(thread, staff)} onClick={open} aria-current={selected ? 'true' : undefined}>
       <div className="flex flex-wrap items-center gap-2 text-xs text-subtle">
         <span className={`inbox-type is-${thread.type}`}>{typeNames[thread.type]}</span>
         <span dir="ltr" className="nums">{thread.reference}</span>
@@ -51,7 +55,43 @@ function ThreadRow({ thread, staff }: { thread: Thread; staff: boolean }) {
 
 const chip = (active: boolean) => `min-h-11 rounded-full border px-4 text-xs font-bold transition-colors ${active ? 'border-teal bg-teal text-on-dark' : 'border-line-strong bg-surface text-quiet hover:bg-sage'}`;
 
+// The split view opens from 1024px; below that a row navigates to its page.
+function useDesktop(): boolean {
+  const [desktop, setDesktop] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(min-width: 1024px)').matches);
+  useEffect(() => {
+    const media = window.matchMedia?.('(min-width: 1024px)');
+    if (!media?.addEventListener) return;
+    const update = () => setDesktop(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  return desktop;
+}
+
+// The conversation pane beside the list: header with the reference, the
+// status and the full-page link, then the shared conversation.
+function ThreadPane({ thread, staff, onClose }: { thread: Thread; staff: boolean; onClose: () => void }) {
+  return <section className="inbox-pane" aria-label={`محادثة ${thread.reference}`}>
+    <div className="inbox-pane-head">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-subtle"><span className={`inbox-type is-${thread.type}`}>{typeNames[thread.type]}</span><span dir="ltr" className="nums">{thread.reference}</span>{staff && thread.customer && <span className="truncate">{thread.customer.fullName}</span>}<Status value={thread.status}/></div>
+        <h2 className="inbox-pane-title display">{thread.title}</h2>
+      </div>
+      <div className="flex flex-none items-center gap-1">
+        <WhatsappFollowUp link={thread.whatsapp?.link ?? null} number={thread.whatsapp?.number ?? null} verified={!!thread.whatsapp?.verified} scope={staff ? 'office' : 'customer'}/>
+        <Link href={threadHref(thread, staff)} className="btn btn-outline btn-sm">{thread.type === 'request' ? 'صفحة الطلب' : 'صفحة الاستفسار'}<ArrowUpLeft size={15} aria-hidden="true"/></Link>
+        <button type="button" className="rf-btn" onClick={onClose} aria-label="إغلاق المحادثة"><X size={18} aria-hidden="true"/></button>
+      </div>
+    </div>
+    <div className="inbox-pane-body">
+      <Conversation key={`${thread.type}-${thread.id}`} thread={{ type: thread.type, id: thread.id }} scope={staff ? 'office' : 'customer'} closed={thread.status === 'completed'} whatsapp={thread.whatsapp ?? null}/>
+    </div>
+  </section>;
+}
+
 function Inbox({ staff }: { staff: boolean }) {
+  const desktop = useDesktop();
+  const [selected, setSelected] = useState<Thread | null>(null);
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [type, setType] = useState<ThreadType | ''>('');
   const [search, setSearch] = useState('');
@@ -73,6 +113,8 @@ function Inbox({ staff }: { staff: boolean }) {
   useEffect(() => { if (list.data && page > 1 && page > Math.max(1, Math.ceil(total / pageSize))) setPage(Math.max(1, Math.ceil(total / pageSize))); }, [list.data, page, total]);
   const rows = list.data?.items ?? [];
   const filtered = unreadOnly || !!q || !!type;
+  // The selected row follows the list (unread count, last message) while it is on the page.
+  const current = selected ? rows.find(t => t.type === selected.type && t.id === selected.id) ?? selected : null;
   return <PortalLayout staff={staff}>
     <PageHeading eyebrow="صندوق الوارد" title="الرسائل" subtitle={staff ? 'كل محادثات الطلبات والاستفسارات مع العملاء في مكان واحد.' : 'محادثاتك مع المكتب على طلباتك واستفساراتك.'}/>
     <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -87,12 +129,18 @@ function Inbox({ staff }: { staff: boolean }) {
       </div>
       {staff && <label className="relative flex-1"><span className="sr-only">بحث في الرسائل</span><Search className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle" size={17} aria-hidden="true"/><input className="form-control !pr-10" placeholder="ابحث بالمرجع أو الموضوع أو اسم العميل أو نص الرسالة" value={search} onChange={e => setSearch(e.target.value)} maxLength={200}/></label>}
     </div>
-    {list.isLoading ? <LoadingBlock/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/>
-      : !rows.length ? <EmptyBlock title={unreadOnly ? 'لا توجد رسائل غير مقروءة' : filtered ? 'لا توجد محادثات مطابقة' : 'لا توجد محادثات بعد'}
-        text={unreadOnly ? 'قرأت كل شيء. تظهر الرسائل الجديدة هنا فور وصولها.' : filtered ? 'جرّب كلمة بحث أخرى أو أزل التصفية.' : staff ? 'تبدأ المحادثات عندما يكتب عميل في طلب أو يرسل استفسارًا.' : 'تظهر هنا محادثاتك مع المكتب على كل طلب أو استفسار ترسله.'}
-        {...(!staff && !filtered ? { action: 'استفسار جديد', href: '/inquiries' } : {})}/>
-      : <ul className={`surface m-0 list-none overflow-hidden p-0 transition-opacity ${list.isPlaceholderData ? 'opacity-60' : ''}`}>{rows.map(t => <ThreadRow key={`${t.type}-${t.id}`} thread={t} staff={staff}/>)}</ul>}
-    <Pager page={page} pageSize={pageSize} total={total} onPage={setPage}/>
+    <div className={`inbox-split ${desktop && current ? 'has-pane' : ''}`}>
+      <div className="inbox-list">
+        {list.isLoading ? <LoadingBlock/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/>
+          : !rows.length ? <EmptyBlock title={unreadOnly ? 'لا توجد رسائل غير مقروءة' : filtered ? 'لا توجد محادثات مطابقة' : 'لا توجد محادثات بعد'}
+            text={unreadOnly ? 'قرأت كل شيء. تظهر الرسائل الجديدة هنا فور وصولها.' : filtered ? 'جرّب كلمة بحث أخرى أو أزل التصفية.' : staff ? 'تبدأ المحادثات عندما يكتب عميل في طلب أو يرسل استفسارًا.' : 'تظهر هنا محادثاتك مع المكتب على كل طلب أو استفسار ترسله.'}
+            {...(!staff && !filtered ? { action: 'استفسار جديد', href: '/inquiries' } : {})}/>
+          : <ul className={`surface m-0 list-none overflow-hidden p-0 transition-opacity ${list.isPlaceholderData ? 'opacity-60' : ''}`}>{rows.map(t => <ThreadRow key={`${t.type}-${t.id}`} thread={t} staff={staff} selected={!!current && current.type === t.type && current.id === t.id} onSelect={desktop ? setSelected : undefined}/>)}</ul>}
+        <Pager page={page} pageSize={pageSize} total={total} onPage={setPage}/>
+      </div>
+      {desktop && (current ? <ThreadPane thread={current} staff={staff} onClose={() => setSelected(null)}/>
+        : rows.length > 0 && <div className="inbox-pane inbox-pane--empty" aria-hidden="true"><EmptyState compact icon={<MessagesSquare size={22} strokeWidth={1.5}/>} title="اختر محادثة" text="تُفتح هنا بجانب القائمة، وتبقى كل رسالة في سجل طلبها."/></div>)}
+    </div>
   </PortalLayout>;
 }
 export function MessagesInbox() { return <Inbox staff={false}/>; }

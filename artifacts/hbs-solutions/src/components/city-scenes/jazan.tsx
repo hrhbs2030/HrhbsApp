@@ -1,5 +1,5 @@
 import { memo, type ReactNode } from 'react';
-import { Layer, blocks, rng } from './kit';
+import { Atmosphere, Layer, blocks, rng } from './kit';
 import './jazan.css';
 import { Residents, jazanCrowd } from './people';
 
@@ -355,6 +355,7 @@ export const JazanScene = memo(function JazanScene() {
       <g fill="#f3ecdc">{Array.from({ length: 16 }, (_, i) => { const r = rng(300 + i); const w = 3 + i * 1.8 * (.5 + r()); return <rect key={i} className="jz-glint" style={{ animationDelay: `${n1(r() * 2.6)}s` }} x={n1(MOON[0] - w / 2 + (r() - .5) * (8 + i * 2))} y={n1(602 + i * 3.8 + r() * 2)} width={n1(w)} height=".8" rx=".4" opacity=".7" />; })}</g>
       <g fill="#9cc3bd" opacity=".1" className="cs-shimmer cs-shimmer--slow">{Array.from({ length: 12 }, (_, i) => <rect key={i} x={(i * 173) % 700} y={608 + (i % 6) * 9} width={14 + (i % 4) * 9} height=".7" />)}</g>
     </Layer>
+    <Atmosphere tint="#35656a" light="#c9d6dc" height={48} />
     <Layer depth={3}>
       <defs>
         <radialGradient id="jz-fhalo"><stop offset="0" stopColor="#f0b28a" stopOpacity=".34" /><stop offset=".5" stopColor="#e5a27b" stopOpacity=".1" /><stop offset="1" stopColor="#e5a27b" stopOpacity="0" /></radialGradient>

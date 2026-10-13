@@ -46,6 +46,20 @@
 @keyframes cs-drift-2 { from { transform: translate3d(1%, 0, 0); } to { transform: translate3d(-2%, 0, 0); } }
 @keyframes cs-drift-3 { from { transform: translate3d(2%, 0, 0); } to { transform: translate3d(-3.5%, 0, 0); } }
 @keyframes cs-drift-4 { from { transform: translate3d(3.5%, 0, 0) scale(1.02); } to { transform: translate3d(-5.5%, 0, 0) scale(1.02); } }
+/* Atmosphere (kit.tsx <Atmosphere/>): a horizon haze that breathes and a wide
+   band of day-light sweeping across the frame. Composited layers, animated on
+   transform and opacity only, sitting between the far and the near SVG layers. */
+.cs-haze { position: absolute; inset-inline: -6%; bottom: 0; height: var(--haze-h, 46%); pointer-events: none;
+  background: linear-gradient(to top, color-mix(in srgb, var(--haze) 55%, transparent) 0%, color-mix(in srgb, var(--haze) 28%, transparent) 42%, transparent 100%);
+  animation: cs-haze 19s ease-in-out infinite alternate; }
+@keyframes cs-haze { from { opacity: .55; transform: translate3d(-1.5%, 1%, 0) scaleY(.96); } to { opacity: .9; transform: translate3d(1.5%, 0, 0) scaleY(1.04); } }
+.cs-light { position: absolute; top: -10%; bottom: -10%; inset-inline-start: -40%; width: 70%; pointer-events: none; opacity: 0;
+  background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--light) 22%, transparent) 50%, transparent);
+  animation: cs-light 23s var(--ease-in-out-soft) infinite; }
+@keyframes cs-light { 0% { opacity: 0; transform: translateX(-30%) skewX(-14deg); } 18% { opacity: 1; } 60% { opacity: 1; } 100% { opacity: 0; transform: translateX(260%) skewX(-14deg); } }
+@media (max-width: 720px) { .cs-light { display: none; } .cs-haze { animation-duration: 26s; } }
+@media (prefers-reduced-motion: reduce) { .cs-haze { opacity: .7; } .cs-light { display: none; } }
+
 /* Each city enters with a short camera push. The fade-in is an animation, not
    a transition, so a city mounted at the moment of the switch still crossfades. */
 .cs-scene[data-active="true"] { animation: cs-enter 1.8s var(--ease-in-out-soft) both, cs-push 2.4s var(--ease-out-soft) both; }
@@ -64,8 +78,8 @@
 @keyframes cs-shimmer { from { transform: translateX(-14px); opacity: .55; } to { transform: translateX(14px); opacity: 1; } }
 
 /* Film grain and vignette add depth to the scene. */
-.cs-grain { position: absolute; inset: -50%; opacity: .09; mix-blend-mode: overlay; pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+.cs-grain { position: absolute; inset: -50%; opacity: .16; mix-blend-mode: overlay; pointer-events: none;
+  background-image: var(--grain); background-size: 180px;
   animation: cs-grain 1.2s steps(6) infinite; }
 /* The grain is a blended full-screen layer repainted five times a second:
    phones and data-saver visitors get the scene without it. */

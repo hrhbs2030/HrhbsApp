@@ -193,7 +193,7 @@ function CompanyCard({ company, api, readOnly, onChanged }: { company: Company |
   const [editing, setEditing] = useState(!company);
   useEffect(() => setEditing(!company), [company === null]);
   if (readOnly && !company) return <section className="surface p-5 text-sm leading-7 text-quiet sm:p-7">لم يُضِف مالك المنشأة بياناتها بعد.</section>;
-  if (editing && !readOnly) return <section className="surface p-5 sm:p-7"><h2 className="display mb-5 text-lg font-semibold">{company ? 'تعديل بيانات المنشأة' : 'أضف بيانات منشأتك'}</h2>
+  if (editing && !readOnly) return <section className="surface p-5 sm:p-7"><h2 className="display mb-1 text-lg font-semibold">{company ? 'تعديل بيانات المنشأة' : 'أضف بيانات منشأتك'}</h2><p className="muted mb-5 text-sm leading-7">{company ? 'حدّث ما تغيّر، ويرى المكتب البيانات الجديدة فورًا.' : 'الاسم ورقم السجل يكفيان للبدء؛ تحقق من السجل ليملأ المكتب الباقي.'}</p>
     <CompanyForm company={company} api={api} onSaved={() => { setEditing(false); onChanged(); }} onCancel={company ? () => setEditing(false) : undefined}/></section>;
   const rows: [string, string | null, boolean?][] = [
     ['السجل التجاري', company!.crNumber, true], ['الرقم الموحد', company!.unifiedNumber, true], ['الرقم الضريبي', company!.vatNumber, true],
@@ -201,12 +201,12 @@ function CompanyCard({ company, api, readOnly, onChanged }: { company: Company |
     ['المسؤول', company!.contactName], ['جوال المسؤول', company!.contactPhone, true],
   ];
   return <section className="surface overflow-hidden">
-    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line bg-sage px-5 py-5 sm:px-7">
-      <div className="flex items-center gap-3"><span className="cf-icon"><Building2 size={22} aria-hidden="true"/></span><div><h2 className="display text-xl font-semibold">{company!.name}</h2><span className="text-xs text-subtle">آخر تحديث {formatCalendarDate(company!.updatedAt)}</span></div></div>
-      {!readOnly && <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditing(true)}><Pencil size={15}/>تعديل</button>}
+    <div className="cf-company-head">
+      <div className="flex min-w-0 items-center gap-3"><span className="cf-icon"><Building2 size={22} aria-hidden="true"/></span><div className="min-w-0"><h2 className="display text-xl font-semibold">{company!.name}</h2><span className="text-xs text-subtle">آخر تحديث {formatCalendarDate(company!.updatedAt)}</span></div></div>
+      {!readOnly && <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditing(true)}><Pencil size={15} aria-hidden="true"/>تعديل</button>}
     </div>
-    <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-4 px-5 py-6 sm:px-7 lg:grid-cols-4">{rows.map(([label, value, ltr]) =>
-      <div key={label} className={`min-w-0 ${label === 'الرقم الضريبي' || label === 'العنوان' ? 'col-span-2 lg:col-span-1' : ''}`}><dt className="text-xs font-bold text-subtle">{label}</dt><dd className="m-0 mt-1 break-words font-semibold" dir={ltr && value ? 'ltr' : undefined} style={ltr ? { textAlign: 'right' } : undefined}>{value || '-'}</dd></div>)}</dl>
+    <dl className="cf-facts">{rows.map(([label, value, ltr]) =>
+      <div key={label} className={`cf-fact ${label === 'الرقم الضريبي' || label === 'العنوان' ? 'cf-fact--wide' : ''}`}><dt>{label}</dt><dd dir={ltr && value ? 'ltr' : undefined} className={ltr ? 'cf-num' : ''}>{value || '—'}</dd></div>)}</dl>
     {company!.notes && <p className="border-t border-line px-5 py-4 text-sm leading-7 text-quiet sm:px-7">{company!.notes}</p>}
   </section>;
 }
@@ -284,6 +284,21 @@ function Numbers({ employee, api, office }: { employee: Employee; api: CompanyAp
   </span>;
 }
 
+// A data table in the kit's markup (`.dt`, card fallback under 640px) without
+// the kit's router hook, so the shared file renders in every test harness.
+type FileColumn<T> = { key: string; header: string; cell: (row: T) => ReactNode; primary?: boolean; hideBelow?: 'sm' | 'md' | 'lg'; align?: 'start' | 'end'; actions?: boolean };
+function FileTable<T>({ columns, rows, rowKey, rowTone, caption, empty }: { columns: FileColumn<T>[]; rows: T[]; rowKey: (row: T) => string | number; rowTone?: (row: T) => 'warn' | 'danger' | 'ok' | undefined; caption: string; empty: ReactNode }) {
+  const cls = (c: FileColumn<T>) => `${c.align === 'end' ? 'is-end' : ''} ${c.hideBelow ? `dt-hide-${c.hideBelow}` : ''} ${c.actions ? 'cf-td-actions' : ''}`.replace(/\s+/g, ' ').trim();
+  return <div className="dt-wrap cf-table">
+    <table className="dt dt--zebra"><caption className="sr-only">{caption}</caption>
+      <thead><tr>{columns.map(c => <th key={c.key} scope="col" className={cls(c)}>{c.actions ? <span className="sr-only">{c.header}</span> : c.header}</th>)}</tr></thead>
+      <tbody>{rows.map(row => <tr key={rowKey(row)} data-tone={rowTone?.(row)}>{columns.map(c => <td key={c.key} className={cls(c)} data-label={c.actions || c.primary ? undefined : c.header} data-primary={c.primary || undefined}>{c.cell(row)}</td>)}</tr>)}</tbody>
+    </table>
+    {!rows.length && <div className="dt-empty">{empty}</div>}
+  </div>;
+}
+const employeeTone = (e: Employee) => { const n = nearestEmployeeExpiry(e); if (!n || e.status !== 'active') return undefined; const d = daysUntil(n.date); return d < 0 ? 'danger' : d <= 30 ? 'warn' : undefined; };
+
 function EmployeesSection({ employees, api, office, readOnly, onChanged }: { employees: Employee[]; api: CompanyApi; office: boolean; readOnly: boolean; onChanged: () => void }) {
   const [editing, setEditing] = useState<Employee | 'new' | null>(null);
   const [filter, setFilter] = useState<'active' | 'expiring' | 'left'>('active');
@@ -299,31 +314,29 @@ function EmployeesSection({ employees, api, office, readOnly, onChanged }: { emp
     try { await api.deleteEmployee(e.id); } catch { setRemoveError('تعذّر حذف الموظف. حدّث الصفحة وحاول مجددًا.'); }
     onChanged();
   }
+  const columns: FileColumn<Employee>[] = [
+    { key: 'name', header: 'الموظف', primary: true, cell: e => <span className="cf-cell-main"><strong>{e.fullName}</strong><small>{[e.occupation, e.nationality].filter(Boolean).join(' · ')}{e.addedBy === 'office' && <span className="cf-tag">أضافه المكتب</span>}</small></span> },
+    { key: 'numbers', header: 'الأرقام', hideBelow: 'lg', cell: e => <Numbers employee={e} api={api} office={office}/> },
+    { key: 'docs', header: 'الوثائق', cell: e => {
+      const docs = ([['iqama', e.iqamaExpiresOn], ['passport', e.passportExpiresOn], ['work_permit', e.workPermitExpiresOn]] as const).filter(([, d]) => d) as ['iqama' | 'passport' | 'work_permit', string][];
+      return docs.length ? <span className="cf-docs">{docs.map(([doc, date]) => <span key={doc} className="cf-doc"><span>{docNames[doc]}</span><span className="text-subtle">{formatCalendarDate(date)}</span><ExpiryBadge expiresOn={date}/>
+        {!office && !readOnly && e.status === 'active' && daysUntil(date) <= 60 && <Link href={employeeRenewal(e, doc)} className="cf-renew"><RefreshCw size={13} aria-hidden="true"/>طلب تجديد</Link>}</span>)}</span> : <span className="text-subtle">بلا تواريخ</span>;
+    } },
+    ...(readOnly ? [] : [{ key: 'actions', header: 'إجراءات', actions: true, align: 'end' as const, cell: (e: Employee) => <span className="cf-actions">
+      <button type="button" className="rf-btn" onClick={() => setEditing(e)} aria-label={`تعديل ${e.fullName}`}><Pencil size={16}/></button>
+      <button type="button" className="rf-btn" onClick={() => setRemoving(e)} aria-label={`حذف ${e.fullName}`}><Trash2 size={16}/></button>
+    </span> }]),
+  ];
   return <section className="surface overflow-hidden" aria-labelledby="cf-employees">
-    <div className="cf-head"><h2 id="cf-employees" className="display text-lg font-semibold"><UsersRound size={19} aria-hidden="true"/>الموظفون</h2>
-      {!editing && <div className="flex flex-wrap gap-2">{employees.length > 0 && <ExportButtons name="الموظفون" columns={employeeColumns} rows={() => employeeRows(shown)}/>}{!readOnly && <><ExcelImport kind="employees" onImport={api.importEmployees} onDone={onChanged}/><button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16}/>إضافة موظف</button></>}</div>}</div>
-    {editing && <div className="border-b border-line bg-paper p-5 sm:p-6"><EmployeeForm key={editing === 'new' ? 'new' : editing.id} employee={editing === 'new' ? null : editing} api={api} onDone={saved => { setEditing(null); if (saved) onChanged(); }}/></div>}
+    <div className="cf-head"><h2 id="cf-employees" className="display text-lg font-semibold"><UsersRound size={19} aria-hidden="true"/>الموظفون<span className="chip chip-sm nums" aria-label={`${formatNumber(employees.length)} موظف`}>{formatNumber(employees.length)}</span></h2>
+      {!editing && <div className="flex flex-wrap gap-2">{employees.length > 0 && <ExportButtons name="الموظفون" columns={employeeColumns} rows={() => employeeRows(shown)}/>}{!readOnly && <><ExcelImport kind="employees" onImport={api.importEmployees} onDone={onChanged}/><button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16} aria-hidden="true"/>إضافة موظف</button></>}</div>}</div>
+    {editing && <div className="cf-editor"><h3 className="cf-editor-title display">{editing === 'new' ? 'موظف جديد' : `تعديل ${editing.fullName}`}</h3><EmployeeForm key={editing === 'new' ? 'new' : editing.id} employee={editing === 'new' ? null : editing} api={api} onDone={saved => { setEditing(null); if (saved) onChanged(); }}/></div>}
     <div className="cf-tools">
-      <div className="flex flex-wrap gap-2" role="group" aria-label="تصفية الموظفين">{([['active', 'على رأس العمل'], ['expiring', 'وثائق تنتهي خلال 60 يومًا'], ['left', 'غادروا']] as const).map(([key, label]) =>
-        <button key={key} type="button" aria-pressed={filter === key} onClick={() => setFilter(key)} className={`cf-chip ${filter === key ? 'is-on' : ''}`}>{label}<span className="nums">{formatNumber(counts[key])}</span></button>)}</div>
-      <input className="form-control cf-search" placeholder="ابحث بالاسم أو الجنسية أو المهنة" value={search} onChange={e => setSearch(e.target.value)} aria-label="بحث في الموظفين"/>
+      <div className="kit-toolbar-filters" role="group" aria-label="تصفية الموظفين">{([['active', 'على رأس العمل'], ['expiring', 'وثائق تنتهي خلال 60 يومًا'], ['left', 'غادروا']] as const).map(([key, label]) =>
+        <button key={key} type="button" aria-pressed={filter === key} onClick={() => setFilter(key)} className="chip chip-select">{label}<span className="nums opacity-80">{formatNumber(counts[key])}</span></button>)}</div>
+      <input className="form-control cf-search" placeholder="ابحث بالاسم أو الجنسية أو المهنة" value={search} onChange={e => setSearch(e.target.value)} aria-label="بحث في الموظفين" type="search"/>
     </div>
-    {!shown.length ? <p className="px-6 py-10 text-center text-sm text-subtle">{employees.length ? 'لا يوجد موظفون مطابقون.' : 'لم يُضَف موظفون بعد. أضف موظفيك لتصلك تنبيهات تجديد وثائقهم.'}</p>
-      : <ul className="cf-list">{shown.map(e => {
-        const docs = ([['iqama', e.iqamaExpiresOn], ['passport', e.passportExpiresOn], ['work_permit', e.workPermitExpiresOn]] as const).filter(([, d]) => d) as ['iqama' | 'passport' | 'work_permit', string][];
-        return <li key={e.id} className="cf-row">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2"><strong>{e.fullName}</strong>{e.occupation && <span className="text-xs text-subtle">{e.occupation}</span>}{e.nationality && <span className="text-xs text-subtle">· {e.nationality}</span>}{e.addedBy === 'office' && <span className="cf-tag">أضافه المكتب</span>}</div>
-            <Numbers employee={e} api={api} office={office}/>
-            {docs.length > 0 && <div className="cf-docs">{docs.map(([doc, date]) => <span key={doc} className="cf-doc"><span>{docNames[doc]}</span><span className="text-subtle">{formatCalendarDate(date)}</span><ExpiryBadge expiresOn={date}/>
-              {!office && !readOnly && e.status === 'active' && daysUntil(date) <= 60 && <Link href={employeeRenewal(e, doc)} className="cf-renew"><RefreshCw size={13}/>طلب تجديد</Link>}</span>)}</div>}
-          </div>
-          {!readOnly && <div className="flex shrink-0 items-start gap-1">
-            <button type="button" className="rf-btn" onClick={() => setEditing(e)} aria-label={`تعديل ${e.fullName}`}><Pencil size={16}/></button>
-            <button type="button" className="rf-btn" onClick={() => setRemoving(e)} aria-label={`حذف ${e.fullName}`}><Trash2 size={16}/></button>
-          </div>}
-        </li>;
-      })}</ul>}
+    <FileTable columns={columns} rows={shown} rowKey={e => e.id} rowTone={employeeTone} caption="الموظفون" empty={<p className="cf-empty">{employees.length ? 'لا يوجد موظفون مطابقون.' : 'لم يُضَف موظفون بعد. أضف موظفيك لتصلك تنبيهات تجديد وثائقهم.'}</p>}/>
     {removeError && <p role="alert" className="px-6 pb-5 text-sm text-danger">{removeError}</p>}
     <ConfirmDialog open={!!removing} onOpenChange={o => { if (!o) setRemoving(null); }} danger confirmLabel="حذف"
       title={`حذف «${removing?.fullName ?? ''}» من ملف المنشأة؟`} description="تُحذف تنبيهات وثائقه أيضًا، ولا يمكن التراجع." onConfirm={() => removing && remove(removing)}/>
@@ -354,6 +367,7 @@ function LicenseForm({ license, api, onDone }: { license: License | null; api: C
   </form>;
 }
 
+const licenseTone = (l: License) => { if (!l.expiresOn) return undefined; const d = daysUntil(l.expiresOn); return d < 0 ? 'danger' : d <= 30 ? 'warn' : undefined; };
 function LicensesSection({ licenses, api, office, readOnly, onChanged }: { licenses: License[]; api: CompanyApi; office: boolean; readOnly: boolean; onChanged: () => void }) {
   const [editing, setEditing] = useState<License | 'new' | null>(null);
   const [removing, setRemoving] = useState<License | null>(null);
@@ -363,22 +377,21 @@ function LicensesSection({ licenses, api, office, readOnly, onChanged }: { licen
     try { await api.deleteLicense(l.id); } catch { setRemoveError('تعذّر حذف الترخيص. حدّث الصفحة وحاول مجددًا.'); }
     onChanged();
   }
+  const columns: FileColumn<License>[] = [
+    { key: 'title', header: 'الترخيص', primary: true, cell: l => <span className="cf-cell-main"><strong><BadgeCheck size={15} className="text-teal" aria-hidden="true"/>{l.title}</strong><small>{licenseKindNames[l.kind]}{l.addedBy === 'office' && <span className="cf-tag">أضافه المكتب</span>}</small></span> },
+    { key: 'number', header: 'الرقم', hideBelow: 'md', cell: l => l.number ? <b dir="ltr" className="nums cf-num">{l.number}</b> : <span className="text-subtle">—</span> },
+    { key: 'issued', header: 'الإصدار', hideBelow: 'lg', cell: l => l.issuedOn ? formatCalendarDate(l.issuedOn) : <span className="text-subtle">—</span> },
+    { key: 'expires', header: 'الانتهاء', cell: l => l.expiresOn ? <span className="cf-docs"><span className="cf-doc">{formatCalendarDate(l.expiresOn)}<ExpiryBadge expiresOn={l.expiresOn}/>{!office && !readOnly && daysUntil(l.expiresOn) <= 60 && <Link href={licenseRenewal(l)} className="cf-renew"><RefreshCw size={13} aria-hidden="true"/>طلب تجديد</Link>}</span></span> : <span className="text-subtle">بلا تاريخ انتهاء</span> },
+    ...(readOnly ? [] : [{ key: 'actions', header: 'إجراءات', actions: true, align: 'end' as const, cell: (l: License) => <span className="cf-actions">
+      <button type="button" className="rf-btn" onClick={() => setEditing(l)} aria-label={`تعديل ${l.title}`}><Pencil size={16}/></button>
+      <button type="button" className="rf-btn" onClick={() => setRemoving(l)} aria-label={`حذف ${l.title}`}><Trash2 size={16}/></button>
+    </span> }]),
+  ];
   return <section className="surface overflow-hidden" aria-labelledby="cf-licenses">
-    <div className="cf-head"><h2 id="cf-licenses" className="display text-lg font-semibold"><FileBadge size={19} aria-hidden="true"/>التراخيص والشهادات</h2>
-      {!editing && <div className="flex flex-wrap gap-2">{licenses.length > 0 && <ExportButtons name="التراخيص والشهادات" columns={licenseColumns} rows={() => licenseRows(licenses, licenseKindNames)}/>}{!readOnly && <><ExcelImport kind="licenses" onImport={api.importLicenses} onDone={onChanged}/><button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16}/>إضافة ترخيص</button></>}</div>}</div>
-    {editing && <div className="border-b border-line bg-paper p-5 sm:p-6"><LicenseForm key={editing === 'new' ? 'new' : editing.id} license={editing === 'new' ? null : editing} api={api} onDone={saved => { setEditing(null); if (saved) onChanged(); }}/></div>}
-    {!licenses.length ? <p className="px-6 py-10 text-center text-sm text-subtle">أضف السجل التجاري ورخصة البلدية والشهادات لتتابع تواريخ انتهائها.</p>
-      : <ul className="cf-list">{licenses.map(l => <li key={l.id} className="cf-row">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2"><BadgeCheck size={16} className="text-teal" aria-hidden="true"/><strong>{l.title}</strong><span className="text-xs text-subtle">{licenseKindNames[l.kind]}</span>{l.addedBy === 'office' && <span className="cf-tag">أضافه المكتب</span>}</div>
-          <div className="cf-docs">{l.number && <span className="cf-doc">الرقم <b dir="ltr" className="nums">{l.number}</b></span>}{l.issuedOn && <span className="cf-doc">أُصدر {formatCalendarDate(l.issuedOn)}</span>}
-            {l.expiresOn ? <span className="cf-doc">ينتهي {formatCalendarDate(l.expiresOn)}<ExpiryBadge expiresOn={l.expiresOn}/>{!office && !readOnly && daysUntil(l.expiresOn) <= 60 && <Link href={licenseRenewal(l)} className="cf-renew"><RefreshCw size={13}/>طلب تجديد</Link>}</span> : <span className="cf-doc text-subtle">بلا تاريخ انتهاء</span>}</div>
-        </div>
-        {!readOnly && <div className="flex shrink-0 items-start gap-1">
-          <button type="button" className="rf-btn" onClick={() => setEditing(l)} aria-label={`تعديل ${l.title}`}><Pencil size={16}/></button>
-          <button type="button" className="rf-btn" onClick={() => setRemoving(l)} aria-label={`حذف ${l.title}`}><Trash2 size={16}/></button>
-        </div>}
-      </li>)}</ul>}
+    <div className="cf-head"><h2 id="cf-licenses" className="display text-lg font-semibold"><FileBadge size={19} aria-hidden="true"/>التراخيص والشهادات<span className="chip chip-sm nums" aria-label={`${formatNumber(licenses.length)} ترخيص`}>{formatNumber(licenses.length)}</span></h2>
+      {!editing && <div className="flex flex-wrap gap-2">{licenses.length > 0 && <ExportButtons name="التراخيص والشهادات" columns={licenseColumns} rows={() => licenseRows(licenses, licenseKindNames)}/>}{!readOnly && <><ExcelImport kind="licenses" onImport={api.importLicenses} onDone={onChanged}/><button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Plus size={16} aria-hidden="true"/>إضافة ترخيص</button></>}</div>}</div>
+    {editing && <div className="cf-editor"><h3 className="cf-editor-title display">{editing === 'new' ? 'ترخيص جديد' : `تعديل ${editing.title}`}</h3><LicenseForm key={editing === 'new' ? 'new' : editing.id} license={editing === 'new' ? null : editing} api={api} onDone={saved => { setEditing(null); if (saved) onChanged(); }}/></div>}
+    <FileTable columns={columns} rows={licenses} rowKey={l => l.id} rowTone={licenseTone} caption="التراخيص والشهادات" empty={<p className="cf-empty">أضف السجل التجاري ورخصة البلدية والشهادات لتتابع تواريخ انتهائها.</p>}/>
     {removeError && <p role="alert" className="px-6 pb-5 text-sm text-danger">{removeError}</p>}
     <ConfirmDialog open={!!removing} onOpenChange={o => { if (!o) setRemoving(null); }} danger confirmLabel="حذف"
       title={`حذف «${removing?.title ?? ''}»؟`} description="يُحذف الترخيص وتنبيه انتهائه من الملف." onConfirm={() => removing && remove(removing)}/>

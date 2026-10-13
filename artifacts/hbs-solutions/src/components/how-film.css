@@ -16,10 +16,35 @@
 .hf-subs { display: none; }
 .hf-tag { position: absolute; inset-inline-start: 14px; bottom: 12px; padding: 3px 10px; border-radius: 999px; background: rgb(8 26 28 / .6); color: var(--color-on-dark-2); font-size: 12px; }
 
-/* Shared motions. Every animation keeps its end state (fill both). */
-.hf-pop { transform-box: fill-box; transform-origin: 50% 100%; animation: hf-pop .5s var(--ease-out-soft) both; }
+/* Parallax street: three groups lean toward a fine pointer (--hpx/--hpy set by
+   the component, deeper layers move less) while an idle drift keeps the frame
+   alive. Transform on SVG groups only; the outer group carries the pointer
+   offset and the inner one the drift so neither overrides the other. */
+.hf-par { transform-box: view-box; transition: transform .9s var(--ease-out-soft); }
+.hf-par--sky { transform: translate(calc(var(--hpx, 0) * -6px), calc(var(--hpy, 0) * -3px)); }
+.hf-par--far { transform: translate(calc(var(--hpx, 0) * -14px), calc(var(--hpy, 0) * -5px)); }
+.hf-par--near { transform: translate(calc(var(--hpx, 0) * -24px), calc(var(--hpy, 0) * -8px)); }
+.hf-drift { transform-box: view-box; animation: hf-drift 28s var(--ease-in-out-soft) infinite alternate; }
+.hf-drift--sky { --amp: 3px; }
+.hf-drift--far { --amp: 6px; }
+.hf-drift--near { --amp: 9px; animation-duration: 24s; }
+@keyframes hf-drift { from { transform: translateX(calc(var(--amp) * -1)); } to { transform: translateX(var(--amp)); } }
+/* Haze over the far blocks breathes slowly (depth of field, opacity only). */
+.hf-haze { animation: hf-haze 11s ease-in-out infinite alternate; }
+@keyframes hf-haze { from { opacity: .7; } to { opacity: 1; } }
+/* The client's idle sway: a slow lean about the feet, with the breathe/blink from people.css. */
+.hf-sway { transform-box: fill-box; transform-origin: 50% 100%; animation: hf-sway 5.2s ease-in-out infinite alternate; }
+@keyframes hf-sway { from { transform: rotate(-.8deg); } to { transform: rotate(.9deg); } }
+
+/* Shared motions. Every animation keeps its end state (fill both). Bubbles and
+   badges pop with a small overshoot (a spring curve), rooted at their tail. */
+.hf-pop { transform-box: fill-box; transform-origin: 50% 100%; animation: hf-pop .55s cubic-bezier(.22, 1.35, .36, 1) both; }
 .hf-pop--big { transform-origin: 50% 50%; animation-duration: .7s; }
-@keyframes hf-pop { from { opacity: 0; transform: translateY(8px) scale(.7); } to { opacity: 1; transform: none; } }
+.hf-pop--badge { transform-origin: 50% 50%; }
+@keyframes hf-pop { from { opacity: 0; transform: translateY(10px) scale(.6); } 45% { opacity: 1; } to { opacity: 1; transform: none; } }
+/* The badge's status dot pulses once as the digits finish counting. */
+.hf-dot { transform-box: fill-box; transform-origin: 50% 50%; animation: hf-dot 1.2s ease-out both; }
+@keyframes hf-dot { 0%, 25% { transform: scale(1); } 50% { transform: scale(1.9); opacity: .55; } 100% { transform: scale(1); opacity: 1; } }
 .hf-fade { animation: hf-fade .8s ease both .2s; }
 @keyframes hf-fade { from { opacity: 0; } }
 
@@ -67,6 +92,8 @@
 
 .hf-stage[data-running="false"]:not([data-still]) * { animation-play-state: paused !important; }
 .hf-stage[data-still] * { animation-delay: 0s !important; }
+.hf-stage[data-still] :is(.hf-drift, .hf-haze, .hf-sway, .hf-dot) { animation: none !important; }
+.hf-stage[data-still] .hf-par { transform: none; transition: none; }
 
 /* Caption and controls */
 .hf-caption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; min-height: 3.6em; color: var(--color-on-dark-2); font-size: 16px; line-height: 1.8; }
@@ -87,6 +114,8 @@
 
 @media (max-width: 720px) {
   .hf-stage { border-radius: 16px; }
+  /* Phones have no fine pointer; the idle drift alone carries the depth. */
+  .hf-par { transition: none; }
   .hf-top { inset: 8px 3% auto; }
   .hf-top .rail { padding: 8px 6px 6px; }
   .hf-top .rail-static { font-size: 11px; gap: 6px; }

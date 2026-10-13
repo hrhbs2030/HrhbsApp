@@ -82,8 +82,14 @@
 .rail-stations { position: relative; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .rail-stations button, .rail-static { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 4px; border: 0; background: none; color: rgb(246 239 227 / .55); font-size: 13px; font-weight: 600; text-align: center; }
 .rail--light .rail-stations button, .rail--light .rail-static { color: var(--color-subtle); }
-.rail-stations button { cursor: pointer; border-radius: 10px; transition: color var(--duration-hover) ease; }
+.rail-stations button { cursor: pointer; border-radius: 10px; --mx: 0; --my: 0; transform: translate3d(calc(var(--mx) * 1px), calc(var(--my) * 1px), 0); transition: color var(--duration-hover) ease, transform .6s var(--ease-spring); }
+/* While the pointer is over the station it tracks it tightly; the spring above handles the return. */
+.rail-stations button[data-magnet] { transition: color var(--duration-hover) ease, transform .12s linear; }
 .rail-stations button:hover { color: var(--color-on-dark); }
+.rail-stations button:hover .rail-node, .rail-stations button:focus-visible .rail-node { transform: scale(1.12); border-color: var(--color-copper-light); }
+.rail-stations button:active .rail-node { transform: scale(.94); transition-duration: var(--duration-press); }
+.rail-stations button:focus-visible { outline: 2px solid var(--color-copper-light); outline-offset: 3px; }
+.rail-stations [data-state="current"] > button:hover .rail-node { transform: scale(1.26); }
 .rail-node { width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgb(255 255 255 / .25); background: var(--color-night); transition: transform var(--duration-enter) var(--ease-out-soft), background-color var(--duration-enter) ease, border-color var(--duration-enter) ease; }
 .rail--light .rail-node { border-color: var(--color-line-strong); background: var(--color-surface); }
 [data-state="done"] > * > .rail-node { background: var(--color-copper-light); border-color: var(--color-copper-light); }
@@ -109,4 +115,5 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .ro-scene { transform: none; }
+  .rail-stations button { transform: none; transition: color var(--duration-hover) ease; }
 }

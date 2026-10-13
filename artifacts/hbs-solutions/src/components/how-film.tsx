@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Pause, Play, RotateCcw } from 'lucide-react';
 import { blocks, Palm, Skyline, Stars, Windows } from '@/components/city-scenes/kit';
 import { Defs, Person, Storefront, type Pose } from '@/components/city-scenes/people';
@@ -16,6 +16,10 @@ import './how-film.css';
 // scene decides when to move on, so pausing stops everything together.
 // Data shown is illustrative (the reference number and the cause are examples).
 // Stage names come from content/milestones.ts, the same list the portal shows.
+// Depth: the street is three parallax groups (sky, far blocks, near street)
+// that drift slowly and lean a few pixels with a fine pointer, all via CSS
+// transforms on SVG groups; the characters breathe, blink and sway; status
+// badges count their digits up as they pop in.
 
 const P = 'hf';
 const REF = 'HBS-2026-00041';
@@ -52,6 +56,41 @@ const CLIENT = { x: 742, g: 480 };
 const far = blocks(71, -20, 980, 110, 280, 34, 70);
 const near = blocks(29, -20, 980, 50, 150, 40, 90, [[40, 420]]);
 
+// What the badges need to know about playback: a still frame (reduced motion)
+// shows final digits at once; a paused film holds the count where it is.
+const FilmContext = createContext({ running: true, still: false });
+
+// Counts the last run of digits in `text` up from zero over `duration` ms,
+// starting `delay` s after mount (the badge's pop). Pure React state, one
+// rAF loop, so it holds together with the CSS animations around it.
+function useCountUp(text: string, delay: number, duration = 700) {
+  const { running, still } = useContext(FilmContext);
+  const match = text.match(/(\d+)(?!.*\d)/);
+  const target = match ? Number(match[1]) : 0;
+  const [value, setValue] = useState(still || !match ? target : 0);
+  const progress = useRef(0);
+  const runningRef = useRef(running);
+  runningRef.current = running;
+  useEffect(() => {
+    if (!match || still) { setValue(target); return; }
+    let frame = 0; let last = 0;
+    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+    const tick = (now: number) => {
+      if (!last) last = now;
+      if (runningRef.current) progress.current = Math.min(1, progress.current + (now - last) / duration);
+      last = now;
+      setValue(Math.round(ease(progress.current) * target));
+      if (progress.current < 1) frame = requestAnimationFrame(tick);
+    };
+    const timer = window.setTimeout(() => { frame = requestAnimationFrame(tick); }, delay * 1000);
+    return () => { window.clearTimeout(timer); cancelAnimationFrame(frame); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, still]);
+  if (!match) return text;
+  const digits = String(value).padStart(match[1].length, '0');
+  return text.slice(0, match.index) + digits + text.slice((match.index ?? 0) + match[1].length);
+}
+
 function Bubble({ x, y, text, delay, tail = 'center', tone = 'light' }: { x: number; y: number; text: string; delay: number; tail?: 'left' | 'right' | 'center'; tone?: 'light' | 'copper' }) {
   const w = Math.round(text.length * 7.7 + 34);
   const h = 34;
@@ -69,11 +108,12 @@ function Bubble({ x, y, text, delay, tail = 'center', tone = 'light' }: { x: num
 function Badge({ x, y, text, delay, tone = 'teal' }: { x: number; y: number; text: string; delay: number; tone?: 'teal' | 'ok' | 'warn' }) {
   const w = Math.round(text.length * 7.2 + 40);
   const colors = { teal: ['#10292c', '#8fd0c6'], ok: ['#173a2a', '#9fd9b0'], warn: ['#3b2d0c', '#ecd08a'] }[tone];
+  const shown = useCountUp(text, delay + .15);
   return (
-    <g className="hf-pop" style={{ animationDelay: `${delay}s` }}>
+    <g className="hf-pop hf-pop--badge" style={{ animationDelay: `${delay}s` }}>
       <rect x={x - w / 2} y={y - 17} width={w} height={34} rx="17" fill={colors[0]} stroke={colors[1]} strokeOpacity=".6" />
-      <circle cx={x + w / 2 - 17} cy={y} r="4" fill={colors[1]} />
-      <text x={x - 6} y={y + 5} textAnchor="middle" direction="rtl" className="hf-badge" fill={colors[1]}>{text}</text>
+      <circle cx={x + w / 2 - 17} cy={y} r="4" fill={colors[1]} className="hf-dot" style={{ animationDelay: `${delay + .4}s` }} />
+      <text x={x - 6} y={y + 5} textAnchor="middle" direction="rtl" className="hf-badge" fill={colors[1]}>{shown}</text>
     </g>
   );
 }
@@ -197,23 +237,34 @@ function Street({ pose }: { pose: Pose }) {
         </linearGradient>
         <linearGradient id="hf-ground" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1a2426" /><stop offset="1" stopColor="#0b1416" /></linearGradient>
         <radialGradient id="hf-lamp"><stop offset="0" stopColor="#ffd9a8" stopOpacity=".5" /><stop offset="1" stopColor="#ffd9a8" stopOpacity="0" /></radialGradient>
+        <linearGradient id="hf-haze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#4d3c43" stopOpacity="0" /><stop offset=".55" stopColor="#a86f55" stopOpacity=".22" /><stop offset="1" stopColor="#a86f55" stopOpacity=".05" /></linearGradient>
       </defs>
       <rect width="960" height="540" fill="url(#hf-sky)" />
-      <g transform="scale(.6)"><Stars seed={12} count={50} /></g>
-      <ellipse cx="300" cy="300" rx="420" ry="60" fill="#e5a27b" opacity=".07" />
-      <circle cx="840" cy="86" r="17" fill="#f6efe3" opacity=".85" /><circle cx="848" cy="80" r="15" fill="#274044" />
-      <g opacity=".75"><Skyline list={far} ground={452} fill="#1b3033" /></g>
-      <g fill="#ffcf96" opacity=".45"><Windows list={far} seed={5} ground={452} density={.1} /></g>
-      <Skyline list={near} ground={452} fill="#132326" />
-      <g fill="#ffcf96" opacity=".6"><Windows list={near} seed={9} ground={452} density={.14} /></g>
-      <Palm x={900} ground={456} s={1.5} fill="#0c1a1c" />
-      <Palm x={455} ground={452} s={1.15} fill="#0f1f21" />
-      <rect y="450" width="960" height="90" fill="url(#hf-ground)" />
-      <path d="M0 452 H960" stroke="#f0b28a" strokeOpacity=".25" />
-      <path d="M0 500 H960" stroke="#223033" strokeWidth="2" strokeDasharray="26 22" />
-      <g><rect x="598" y="300" width="4" height="152" fill="#0e1b1d" /><path d="M600 302 Q600 290 620 290 H628" stroke="#0e1b1d" strokeWidth="4" fill="none" /><circle cx="628" cy="296" r="5" fill="#ffd9a8" /><circle cx="628" cy="300" r="60" fill="url(#hf-lamp)" className="cs-glow" /></g>
-      <Storefront p={P} {...OFFICE} />
-      <Person kind="najdi" pose={pose} x={CLIENT.x} g={CLIENT.g} s={3.3} flip p={P} />
+      {/* Sky: stars and moon, the deepest layer (least movement). */}
+      <g className="hf-par hf-par--sky"><g className="hf-drift hf-drift--sky">
+        <g transform="scale(.6)"><Stars seed={12} count={50} /></g>
+        <ellipse cx="300" cy="300" rx="420" ry="60" fill="#e5a27b" opacity=".07" />
+        <circle cx="840" cy="86" r="17" fill="#f6efe3" opacity=".85" /><circle cx="848" cy="80" r="15" fill="#274044" />
+      </g></g>
+      {/* Far blocks, under a thin haze that softens them into the sky. */}
+      <g className="hf-par hf-par--far"><g className="hf-drift hf-drift--far">
+        <g opacity=".75"><Skyline list={far} ground={452} fill="#1b3033" /></g>
+        <g fill="#ffcf96" opacity=".45"><Windows list={far} seed={5} ground={452} density={.1} /></g>
+        <rect x="-40" y="300" width="1040" height="160" fill="url(#hf-haze)" className="hf-haze" />
+      </g></g>
+      {/* Near street: the stage everyone stands on (most movement). */}
+      <g className="hf-par hf-par--near"><g className="hf-drift hf-drift--near">
+        <Skyline list={near} ground={452} fill="#132326" />
+        <g fill="#ffcf96" opacity=".6"><Windows list={near} seed={9} ground={452} density={.14} /></g>
+        <Palm x={900} ground={456} s={1.5} fill="#0c1a1c" />
+        <Palm x={455} ground={452} s={1.15} fill="#0f1f21" />
+        <rect y="450" width="960" height="90" fill="url(#hf-ground)" />
+        <path d="M0 452 H960" stroke="#f0b28a" strokeOpacity=".25" />
+        <path d="M0 500 H960" stroke="#223033" strokeWidth="2" strokeDasharray="26 22" />
+        <g><rect x="598" y="300" width="4" height="152" fill="#0e1b1d" /><path d="M600 302 Q600 290 620 290 H628" stroke="#0e1b1d" strokeWidth="4" fill="none" /><circle cx="628" cy="296" r="5" fill="#ffd9a8" /><circle cx="628" cy="300" r="60" fill="url(#hf-lamp)" className="cs-glow" /></g>
+        <Storefront p={P} {...OFFICE} />
+        <g className="hf-sway"><Person kind="najdi" pose={pose} x={CLIENT.x} g={CLIENT.g} s={3.3} flip p={P} /></g>
+      </g></g>
     </>
   );
 }
@@ -238,6 +289,31 @@ export function HowFilm() {
 
   const running = playing && inView && !reduced;
   const current = scenes[scene];
+  const stageRef = useRef<HTMLDivElement>(null);
+
+  // Pointer parallax on fine pointers only: the three street groups lean a
+  // few pixels toward the cursor, written as CSS variables once per frame.
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || reduced || typeof window.matchMedia !== 'function' || !window.matchMedia('(pointer: fine)').matches) return;
+    let frame = 0;
+    let next: [number, number] | null = null;
+    const apply = () => {
+      frame = 0;
+      if (!next) return;
+      stage.style.setProperty('--hpx', next[0].toFixed(3));
+      stage.style.setProperty('--hpy', next[1].toFixed(3));
+    };
+    const onMove = (event: PointerEvent) => {
+      const rect = stage.getBoundingClientRect();
+      next = [(event.clientX - rect.left) / rect.width - .5, (event.clientY - rect.top) / rect.height - .5];
+      if (!frame) frame = requestAnimationFrame(apply);
+    };
+    const onLeave = () => { next = [0, 0]; if (!frame) frame = requestAnimationFrame(apply); };
+    stage.addEventListener('pointermove', onMove, { passive: true });
+    stage.addEventListener('pointerleave', onLeave);
+    return () => { stage.removeEventListener('pointermove', onMove); stage.removeEventListener('pointerleave', onLeave); cancelAnimationFrame(frame); };
+  }, [reduced]);
 
   function next() {
     if (reduced || !playing) return;
@@ -260,11 +336,13 @@ export function HowFilm() {
 
   return (
     <figure ref={ref} className="hf" aria-label="فيلم قصير يوضّح معالجة ملاحظة على ملف الأجور عبر البوابة، من إرسالها حتى إغلاقها">
-      <div className="hf-stage" data-running={running ? 'true' : 'false'} data-still={reduced ? 'true' : undefined}>
+      <div className="hf-stage" ref={stageRef} data-running={running ? 'true' : 'false'} data-still={reduced ? 'true' : undefined} style={{ '--hpx': 0, '--hpy': 0 } as CSSProperties}>
         <svg className="hf-svg" viewBox="0 0 960 540" role="img" aria-hidden="true">
           <Defs p={P} />
           <Street pose={current.pose} />
-          <g key={`${run}-${scene}`}><SceneLayer index={scene} /></g>
+          <FilmContext.Provider value={{ running, still: reduced }}>
+            <g key={`${run}-${scene}`}><SceneLayer index={scene} /></g>
+          </FilmContext.Provider>
         </svg>
         <div className="hf-top">
           {current.rail === null

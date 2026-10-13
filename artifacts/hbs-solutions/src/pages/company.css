@@ -1,8 +1,18 @@
-/* Company page: the members tab and the subscription tab. The file tab reuses company-file.css. */
-.cp-role { display: flex; align-items: center; gap: 8px; margin: -8px 0 20px; padding: 10px 14px; border-radius: 12px; background: var(--color-sage); color: var(--color-teal); font-size: 13.5px; }
+/* Company page: the section tabs, the members tab and the subscription tab. The file tab reuses company-file.css. */
+.cp-role { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -8px 0 20px; padding: 10px 14px; border-radius: 12px; background: var(--color-sage); color: var(--color-teal); font-size: 13.5px; }
+.cp-tabs { display: flex; gap: 4px; margin-bottom: 20px; padding: 4px; border: 1px solid var(--color-line); border-radius: var(--radius-control); background: var(--color-sunk); overflow-x: auto; scrollbar-width: none; }
+.cp-tabs::-webkit-scrollbar { display: none; }
+.cp-tab { display: inline-flex; flex: 1 1 0; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: var(--text-sm); font-weight: 700; color: var(--color-quiet); white-space: nowrap; cursor: pointer; transition: background-color var(--duration-hover) ease, color var(--duration-hover) ease, box-shadow var(--duration-hover) ease; }
+.cp-tab:hover { color: var(--color-ink); }
+.cp-tab[aria-selected="true"] { background: var(--color-surface); color: var(--color-ink); box-shadow: var(--shadow-card); }
+.cp-tab:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
+@media (min-width: 640px) { .cp-tabs { width: fit-content; } .cp-tab { flex: none; padding: 0 18px; } }
+@media (max-width: 639px) { .cp-tab { flex: 1 0 auto; padding: 0 10px; font-size: var(--text-xs); } .cp-tab > svg { display: none; } }
+.cp-panel { min-width: 0; }
+.cp-panel:focus-visible { outline: var(--focus-ring); outline-offset: 4px; border-radius: var(--radius-card); }
 .cp-invite { display: grid; gap: 12px; align-items: end; padding: 16px 20px; border-bottom: 1px solid var(--color-line); background: var(--color-paper); }
 @media (min-width: 640px) { .cp-invite { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; } }
-.cp-invite .btn { min-height: 49px; }
+.cp-invite .btn { min-height: 48px; }
 .cp-email { unicode-bidi: isolate; overflow-wrap: anywhere; }
 .cp-role-tag { padding: 2px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: var(--color-sunk); color: var(--color-quiet); }
 .cp-role-tag.is-owner { background: var(--color-teal); color: var(--color-on-dark); }
@@ -12,9 +22,13 @@
 .cp-state.is-accepted { color: var(--color-ok); }
 .cp-state.is-pending { color: var(--color-warn); }
 .cp-role-select { width: auto; min-height: 40px !important; padding-block: 4px; font-size: 13px; }
+.cf-list { list-style: none; margin: 0; padding: 0; }
+.cf-row { display: flex; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--color-line); }
+.cf-row:last-child { border-bottom: 0; }
 .cp-plans { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
 @media (min-width: 720px) { .cp-plans { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); } }
-.cp-plan { display: grid; gap: 12px; align-content: start; padding: 18px; border-radius: 14px; border: 1.5px solid var(--color-line); background: var(--color-field); }
+.cp-plan { display: grid; gap: 12px; align-content: start; min-width: 0; padding: 20px; border-radius: var(--radius-card); border: 1.5px solid var(--color-line); background: var(--color-field); transition: border-color var(--duration-hover) ease, box-shadow var(--duration-hover) ease, transform var(--duration-hover) var(--ease-out-soft); }
+.cp-plan:hover { border-color: var(--color-line-strong); box-shadow: var(--shadow-panel); transform: translateY(-2px); }
 .cp-plan .btn { margin-top: auto; }
 .cp-price { display: grid; gap: 2px; }
 .cp-plan-facts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
@@ -24,6 +38,7 @@
 .cp-sub-facts dt { font-size: 12px; font-weight: 700; color: var(--color-subtle); }
 .cp-sub-facts dd { margin: 2px 0 0; font-weight: 600; }
 .cp-toggle { display: flex; gap: 12px; align-items: flex-start; margin-top: 18px; padding: 12px 14px; border-radius: 12px; background: var(--color-paper); font-size: 14px; cursor: pointer; }
-.cp-toggle input { margin-top: 5px; width: 18px; height: 18px; flex: none; }
+.cp-toggle input { margin-top: 5px; width: 18px; height: 18px; flex: none; accent-color: var(--color-teal); }
 .cp-invoices { border: 0; border-radius: 0; }
-@media print { .cp-invite, .cp-role-select, .cp-toggle { display: none; } }
+@media (max-width: 640px) { .cf-row { padding: 14px 16px; } }
+@media print { .cp-invite, .cp-role-select, .cp-toggle, .cp-tabs { display: none; } }

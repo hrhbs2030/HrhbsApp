@@ -5,7 +5,8 @@
 .discovery-heading p:last-child { max-width: 680px; margin: 9px 0 0; color: var(--color-quiet); line-height: 1.8; }
 .discovery-heading-mark { display: grid; place-items: center; width: 52px; height: 52px; flex: none; border-radius: 17px 17px 17px 5px; color: var(--color-copper); background: var(--color-copper-soft); }
 .discovery-layout { display: grid; grid-template-columns: minmax(0, .88fr) minmax(0, 1.12fr); gap: 16px; align-items: stretch; }
-.discovery-carousel { position: relative; min-height: 372px; overflow: hidden; display: flex; flex-direction: column; padding: 25px 28px 18px; border-radius: var(--radius-panel); color: var(--color-on-dark); background: var(--color-night); }
+.discovery-carousel { position: relative; min-height: 372px; overflow: hidden; display: flex; flex-direction: column; padding: 25px 28px 18px; border-radius: var(--radius-panel); color: var(--color-on-dark); background: radial-gradient(90% 70% at 90% 0%, rgb(29 90 96 / .5), transparent 60%), linear-gradient(180deg, var(--color-night-2), var(--color-night)); box-shadow: var(--shadow-panel); }
+.discovery-carousel::before { content: ""; position: absolute; inset: 0; background: var(--grain) repeat; background-size: 160px; opacity: .07; mix-blend-mode: soft-light; pointer-events: none; }
 .discovery-carousel::after { content: ""; position: absolute; inset-inline-end: -76px; bottom: -106px; width: 260px; height: 260px; border: 1px solid rgb(229 162 123 / .22); border-radius: 50%; box-shadow: 0 0 0 24px rgb(229 162 123 / .035), 0 0 0 48px rgb(229 162 123 / .025); pointer-events: none; }
 .discovery-carousel-head { position: relative; z-index: 1; display: flex; justify-content: space-between; gap: 12px; color: var(--color-on-dark-2); font-size: 12px; }
 .discovery-carousel-head > div { display: flex; gap: 10px; align-items: center; }
@@ -19,7 +20,9 @@
 .discovery-platform { padding: 4px 9px; border-radius: 999px; background: rgb(246 239 227 / .1); }
 .discovery-slide h3 { max-width: 440px; margin: 16px 0 6px; color: var(--color-on-dark); font-size: clamp(25px, 3vw, 36px); font-weight: 600; line-height: 1.35; }
 .discovery-slide p { max-width: 420px; margin: 0; color: var(--color-on-dark-2); line-height: 1.9; font-size: 15px; }
-.discovery-slide-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 17px; color: var(--color-copper-light); font-weight: 700; font-size: 14px; text-decoration: none; }
+.discovery-slide-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 8px; color: var(--color-copper-light); font-weight: 700; font-size: 14px; text-decoration: none; }
+.discovery-slide-link svg { transition: transform var(--duration-hover) var(--ease-out-soft); }
+.discovery-slide-link:hover svg { transform: translateX(-4px); }
 .discovery-slide-link:hover { text-decoration: underline; }
 .discovery-carousel-controls { position: relative; z-index: 1; display: flex; align-items: center; gap: 12px; }
 .discovery-arrow { box-sizing: border-box; display: grid; place-items: center; width: 44px; height: 44px; flex: none; border: 1px solid var(--color-line-dark); border-radius: 12px; color: var(--color-on-dark); background: transparent; transition: background var(--duration-hover) ease, transform var(--duration-hover) ease; }
@@ -37,7 +40,7 @@
 .discovery-dot.is-active { width: 36px; }
 .discovery-dot.is-active::before { width: 26px; background: var(--color-copper-light); }
 .discovery-dot:focus-visible { outline: 2px solid var(--color-copper-light); outline-offset: 2px; }
-.discovery-guide { min-height: 372px; padding: 24px 26px 20px; border: 1px solid var(--color-line); border-radius: var(--radius-panel); background: var(--color-surface); box-shadow: var(--shadow-card); }
+.discovery-guide { min-height: 372px; padding: 24px 26px 20px; border: 1px solid var(--color-line); border-radius: var(--radius-panel); background: var(--color-surface); box-shadow: var(--shadow-panel); }
 .discovery-guide-top { display: flex; align-items: center; gap: 12px; }
 .discovery-guide-icon { display: grid; place-items: center; width: 42px; height: 42px; flex: none; border-radius: 13px; background: var(--color-sage); color: var(--color-teal); }
 .discovery-guide-top p { margin: 0 0 2px; }
@@ -68,6 +71,7 @@
 .discovery-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .discovery-choice { position: relative; min-height: 69px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; padding: 9px 13px; padding-inline-end: 33px; border: 1px solid var(--color-line); border-radius: 12px; color: var(--color-ink); background: var(--color-field); text-align: start; transition: border-color var(--duration-hover) ease, background var(--duration-hover) ease, transform var(--duration-hover) ease; }
 .discovery-choice:hover { transform: translateY(-1px); border-color: var(--color-teal-bright); background: var(--color-sage); }
+.discovery-choice:active, .discovery-problem:active { transform: translateY(0) scale(.99); transition-duration: var(--duration-press); }
 .discovery-choice > span { font-weight: 700; font-size: 14px; }
 .discovery-choice small { color: var(--color-quiet); font-size: 10px; line-height: 1.5; }
 .discovery-choice svg { position: absolute; inset-inline-end: 11px; top: 50%; transform: translateY(-50%); color: var(--color-copper); }

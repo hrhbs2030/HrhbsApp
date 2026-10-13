@@ -1,0 +1,16 @@
+/* Tailwind utilities for the portal-only parts of the shadcn kit. This file
+   is imported by portal-kit.tsx, so these rules ship in the portal chunk and
+   never with the public pages. index.css holds the theme and the utilities
+   for the kit pieces public pages may use (button, card, badge, skeleton,
+   tabs, tooltip, progress, accordion). A new portal-only ui/* import gets
+   its @source line here; a public-safe one goes in index.css. */
+@reference "../index.css";
+@import "tailwindcss/utilities" layer(utilities) source(none);
+@source "./ui/dialog.tsx";
+@source "./ui/sheet.tsx";
+@source "./ui/dropdown-menu.tsx";
+@source "./ui/select.tsx";
+@source "./ui/switch.tsx";
+@source "./ui/empty.tsx";
+@source "./ui/command.tsx";
+@source "./ui/table.tsx";

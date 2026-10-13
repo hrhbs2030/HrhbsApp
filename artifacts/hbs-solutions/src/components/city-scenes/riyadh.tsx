@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { Layer, blocks, rng, ridge } from './kit';
+import { Atmosphere, Layer, blocks, rng, ridge } from './kit';
 import './riyadh.css';
 import { Residents, riyadhCrowd } from './people';
 
@@ -205,6 +205,7 @@ export const RiyadhScene = memo(function RiyadhScene() {
       <rect y="460" width="1600" height="240" fill="url(#ry-haze)" />
     </Layer>
 
+    <Atmosphere tint="#6e4d62" light="#f6b882" height={44} />
     <Layer depth={3}>
       <defs>
         <linearGradient id="ry-mid" x1="0" y1="440" x2="0" y2="700" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#1b353d" /><stop offset="1" stopColor="#0d2227" /></linearGradient>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { Check, PauseCircle } from 'lucide-react';
 import { milestoneLabels, milestoneKeys, milestones, pauses, type PauseKey } from '@/content/milestones';
 import { prefersReducedMotion } from '@/lib/motion';
@@ -8,7 +8,11 @@ import './request-object.css';
 // that moves through the four real portal milestones (content/milestones.ts).
 // A pause («بانتظار العميل») is shown as a badge on the review milestone, not
 // as a step. Used by the intro, the hero and the journey section so the idea
-// reads the same everywhere.
+// reads the same everywhere. Each milestone change settles the card with a
+// short lift-and-land (Web Animations, transform only); the rail's stations
+// are magnetic under a fine pointer and spring back when it leaves.
+
+const finePointer = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: fine)').matches;
 
 export type StageFrame = { stage: number; pause?: PauseKey | null };
 
@@ -36,10 +40,27 @@ export function RequestObject({
   caption,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const current = Math.max(0, Math.min(milestones.length - 1, stage));
   const last = current === milestones.length - 1;
   const paused = pause && !last ? pauses[pause] : null;
   const status = paused ? paused.label : milestoneLabels[current];
+
+  // Settle: on every milestone or pause change the card lifts, tips a touch
+  // toward the new station and lands. Skipped on first paint and under reduced motion.
+  const mounted = useRef(false);
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!mounted.current) { mounted.current = true; return; }
+    if (!card || typeof card.animate !== 'function' || prefersReducedMotion()) return;
+    const animation = card.animate([
+      { transform: 'translateZ(0) translateY(0) rotateZ(0deg)' },
+      { transform: 'translateZ(0) translateY(-9px) rotateZ(-.7deg) scale(1.012)', offset: .32 },
+      { transform: 'translateZ(0) translateY(2px) rotateZ(.2deg)', offset: .72 },
+      { transform: 'translateZ(0) translateY(0) rotateZ(0deg)' },
+    ], { duration: 680, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+    return () => animation.cancel();
+  }, [current, paused?.key]);
 
   // Restrained pointer parallax on devices with a fine pointer only.
   useEffect(() => {
@@ -64,7 +85,7 @@ export function RequestObject({
       <div className="ro-scene" ref={ref} style={{ '--ro-progress': (current + 1) / milestones.length } as CSSProperties}>
         <div className="ro-sheet ro-sheet--back" aria-hidden="true" />
         <div className="ro-sheet ro-sheet--mid" aria-hidden="true" />
-        <div className="ro-card">
+        <div className="ro-card" ref={cardRef}>
           <div className="ro-head">
             <div>
               <span className="ro-ref" dir="ltr">{reference}</span>
@@ -99,6 +120,24 @@ export function RequestObject({
 // A `pause` marks the current station with the pause label underneath.
 export function StageRail({ stage, pause = null, onSelect, tone = 'dark' }: StageFrame & { onSelect?: (index: number) => void; tone?: 'dark' | 'light' }) {
   const paused = pause && stage < milestones.length - 1 ? pauses[pause] : null;
+  // Magnetic stations: a button follows a fine pointer by up to 5 px (set as
+  // CSS variables, transform in request-object.css) and springs back on leave.
+  const magnet = {
+    onPointerMove: (event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (event.pointerType !== 'mouse' || !finePointer() || prefersReducedMotion()) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      const dx = Math.max(-1, Math.min(1, ((event.clientX - rect.left) / rect.width - .5) * 2));
+      const dy = Math.max(-1, Math.min(1, ((event.clientY - rect.top) / rect.height - .5) * 2));
+      event.currentTarget.style.setProperty('--mx', (dx * 5).toFixed(2));
+      event.currentTarget.style.setProperty('--my', (dy * 4).toFixed(2));
+      event.currentTarget.dataset.magnet = 'on';
+    },
+    onPointerLeave: (event: ReactPointerEvent<HTMLButtonElement>) => {
+      event.currentTarget.style.setProperty('--mx', '0');
+      event.currentTarget.style.setProperty('--my', '0');
+      delete event.currentTarget.dataset.magnet;
+    },
+  };
   return (
     <div className={`rail rail--${tone}`} style={{ '--rail-progress': stage / (milestones.length - 1) } as CSSProperties}>
       <div className="rail-line" aria-hidden="true"><span /></div>
@@ -109,7 +148,7 @@ export function StageRail({ stage, pause = null, onSelect, tone = 'dark' }: Stag
           return (
             <li key={label} data-state={state} data-paused={tag ? 'true' : undefined}>
               {onSelect ? (
-                <button type="button" onClick={() => onSelect(index)} aria-pressed={index === stage}>
+                <button type="button" onClick={() => onSelect(index)} aria-pressed={index === stage} {...magnet}>
                   <span className="rail-node" aria-hidden="true" />{label}{tag}
                 </button>
               ) : (
