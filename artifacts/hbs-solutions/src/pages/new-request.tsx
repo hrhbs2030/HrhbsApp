@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, Camera, Check, Paperclip, Pencil, Send, Shapes, UsersRound, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, Camera, Check, Lightbulb, Paperclip, Pencil, Send, Shapes, UsersRound, X } from 'lucide-react';
 import { getGetCompanyFileQueryKey, getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, useCreateServiceRequest, useGetCompanyFile, type ServiceRequestInputCategory } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading } from '@/components/portal-ui';
 import { categories, categoryById, serviceBySlug, services, type ServiceCategory } from '@/content/services';
@@ -16,6 +16,7 @@ import './new-request.css';
 // Limits mirror ServiceRequestInput in lib/api-spec/openapi.yaml.
 const LIMITS = { service: [2, 120], description: [10, 5000], phone: [9, 24] } as const;
 const steps = ['الخدمة', 'التفاصيل', 'المراجعة'];
+const stepHints = ['ما الذي تحتاجه', 'ما يلزم المكتب معرفته', 'تأكد ثم أرسل'];
 const categoryIcons: Record<ServiceCategory, typeof BookUser> = { passports: BookUser, labor: BriefcaseBusiness, business: Building2, other: Shapes };
 // Labour and passport services are the ones done for many employees at once
 // (iqama renewals, work permits); there the picker takes several employees.
@@ -54,6 +55,11 @@ function validate(step: number, v: { service: string; description: string; conta
     if (!normalizePhone(v.contactPhone)) e.contactPhone = 'اكتب رقم جوال صحيحًا (مثال: 05xxxxxxxx)';
   }
   return e;
+}
+
+// One field at a time, for inline validation on blur: only its own message.
+function fieldError(field: keyof Errors, v: { service: string; description: string; contactPhone: string }): string | undefined {
+  return validate(2, v)[field];
 }
 
 export function NewRequest() {
@@ -112,6 +118,9 @@ export function NewRequest() {
     setPicked(on ? (picked.includes(id) || picked.length >= MAX_EMPLOYEES ? picked : [...picked, id]) : picked.filter((x) => x !== id));
   }
 
+  // A field checked as the person leaves it; a fixed field clears its message as they type.
+  const check = (field: keyof Errors) => () => setErrors((current) => ({ ...current, [field]: fieldError(field, values) }));
+  const clear = (field: keyof Errors) => setErrors((current) => current[field] ? { ...current, [field]: undefined } : current);
   function go(next: number) {
     setDirection(next > step ? 'forward' : 'back');
     setStep(next);
@@ -172,19 +181,22 @@ export function NewRequest() {
   return (
     <PortalLayout>
       <div className="nr">
-        <Link href="/requests" className="mb-4 inline-flex min-h-11 items-center gap-2 text-xs font-bold text-subtle no-underline hover:text-ink"><ArrowRight size={16} />طلباتي</Link>
-        <PageHeading eyebrow="" title="طلب خدمة جديد" />
+        <Link href="/requests" className="mb-4 inline-flex min-h-11 items-center gap-2 text-xs font-bold text-subtle no-underline hover:text-ink"><ArrowRight size={16} aria-hidden="true" />طلباتي</Link>
+        <PageHeading eyebrow="طلباتي" title="طلب خدمة جديد" subtitle="ثلاث خطوات قصيرة، ويتابع المكتب طلبك من لحظة وصوله." />
 
-        <ol className="nr-steps" aria-label="خطوات الطلب">
-          {steps.map((label, index) => (
-            <li key={label} data-state={index < step ? 'done' : index === step ? 'current' : 'next'} aria-current={index === step ? 'step' : undefined}>
-              <span className="nr-step-num" aria-hidden="true">{index < step ? <Check size={14} strokeWidth={3} /> : index + 1}</span>
-              <span>{label}</span>
-            </li>
-          ))}
-        </ol>
-        <div className="nr-progress" aria-hidden="true"><span style={{ transform: `scaleX(${(step + 1) / steps.length})` }} /></div>
+        <nav className="nr-stepper" aria-label="خطوات الطلب">
+          <ol className="nr-steps">
+            {steps.map((label, index) => (
+              <li key={label} data-state={index < step ? 'done' : index === step ? 'current' : 'next'} aria-current={index === step ? 'step' : undefined}>
+                <span className="nr-step-num" aria-hidden="true">{index < step ? <Check size={14} strokeWidth={3} /> : index + 1}</span>
+                <span className="nr-step-text"><span className="nr-step-label">{label}</span><span className="nr-step-hint">{stepHints[index]}</span></span>
+              </li>
+            ))}
+          </ol>
+          <div className="nr-progress" role="progressbar" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={step + 1} aria-valuetext={`الخطوة ${step + 1} من ${steps.length}`}><span style={{ transform: `scaleX(${(step + 1) / steps.length})` }} /></div>
+        </nav>
 
+        <div className="nr-layout">
         <form onSubmit={next} noValidate className="surface nr-form">
           <div ref={panelRef} key={step} className={direction === 'forward' ? 'step-enter' : 'step-enter-back'}>
             {step === 0 && (
@@ -204,7 +216,7 @@ export function NewRequest() {
                   })}
                 </div>
                 <label className="form-field mt-7" htmlFor="field-service">اسم الخدمة
-                  <input id="field-service" className="form-control" list="service-suggestions" placeholder="اكتب اسم الخدمة، أو ما ظهر لك: ملاحظة، مؤشر، وثيقة تنتهي" value={service} onChange={(e) => setService(e.target.value)} maxLength={LIMITS.service[1]} aria-invalid={!!errors.service} aria-describedby={errors.service ? 'err-service' : 'hint-service'} />
+                  <input id="field-service" className="form-control" list="service-suggestions" placeholder="اكتب اسم الخدمة، أو ما ظهر لك: ملاحظة، مؤشر، وثيقة تنتهي" value={service} onChange={(e) => { setService(e.target.value); clear('service'); }} onBlur={check('service')} maxLength={LIMITS.service[1]} aria-invalid={!!errors.service} aria-describedby={errors.service ? 'err-service' : 'hint-service'} />
                   <datalist id="service-suggestions">{suggestions.map((s) => <option key={s.slug} value={s.name} />)}</datalist>
                   {errors.service && <span id="err-service" className="field-error" role="alert">{errors.service}</span>}
                 </label>
@@ -228,7 +240,7 @@ export function NewRequest() {
                 {company.isLoading && <p role="status" className="muted mt-4 text-sm">جارٍ تحميل ملف المنشأة لاختيار الموظفين أو التراخيص المعنية…</p>}
                 {company.isError && !company.data && <p role="alert" className="mt-4 text-sm text-danger">تعذّر تحميل ملف المنشأة؛ يمكنك متابعة الطلب دون ربط موظف أو ترخيص، أو <button type="button" className="font-bold underline" onClick={() => company.refetch()}>إعادة المحاولة</button>.</p>}
                 <label className="form-field" htmlFor="field-description">ما الذي تحتاجه من المكتب؟
-                  <textarea id="field-description" className="form-control" placeholder="اكتب الملاحظة كما تظهر لك، مع التاريخ والجهة. وإن كانت وثيقة تنتهي أو مؤشرًا تغيّر، فاذكر ما تراه ومتى لاحظته." value={description} onChange={(e) => setDescription(e.target.value)} maxLength={LIMITS.description[1]} aria-invalid={!!errors.description} aria-describedby={errors.description ? 'err-description' : 'hint-description'} />
+                  <textarea id="field-description" className="form-control" placeholder="اكتب الملاحظة كما تظهر لك، مع التاريخ والجهة. وإن كانت وثيقة تنتهي أو مؤشرًا تغيّر، فاذكر ما تراه ومتى لاحظته." value={description} onChange={(e) => { setDescription(e.target.value); clear('description'); }} onBlur={check('description')} maxLength={LIMITS.description[1]} aria-invalid={!!errors.description} aria-describedby={errors.description ? 'err-description' : 'hint-description'} />
                   {errors.description ? <span id="err-description" className="field-error" role="alert">{errors.description}</span> : <small id="hint-description" className="muted flex justify-between gap-3 font-normal"><span>صورة الملاحظة أو الشاشة تُرفق في «المستندات» أدناه. لا تشارك كلمات مرور المنصات أو رموز التحقق.</span><span className="nums shrink-0" dir="ltr">{description.trim().length}/{LIMITS.description[1]}</span></small>}
                 </label>
                 {bulk ? <fieldset className="nr-pick" aria-describedby="hint-employees">
@@ -252,7 +264,7 @@ export function NewRequest() {
                   <small className="muted font-normal">يظهر الطلب في ملف الموظف أو الترخيص، ويرى المكتب بياناته مباشرة.</small>
                 </label>}
                 <label className="form-field mt-6" htmlFor="field-contactPhone">رقم للتواصل
-                  <input id="field-contactPhone" dir="ltr" className="form-control text-right" type="tel" inputMode="tel" autoComplete="tel" placeholder="05XXXXXXXX" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} maxLength={LIMITS.phone[1]} aria-invalid={!!errors.contactPhone} aria-describedby={errors.contactPhone ? 'err-contactPhone' : undefined} />
+                  <input id="field-contactPhone" dir="ltr" className="form-control text-right" type="tel" inputMode="tel" autoComplete="tel" placeholder="05XXXXXXXX" value={contactPhone} onChange={(e) => { setContactPhone(e.target.value); clear('contactPhone'); }} onBlur={check('contactPhone')} maxLength={LIMITS.phone[1]} aria-invalid={!!errors.contactPhone} aria-describedby={errors.contactPhone ? 'err-contactPhone' : undefined} />
                   {errors.contactPhone && <span id="err-contactPhone" className="field-error" role="alert">{errors.contactPhone}</span>}
                 </label>
                 <div className="nr-files">
@@ -295,12 +307,28 @@ export function NewRequest() {
           </div>
 
           <div className="nr-actions">
-            {step > 0 ? <button type="button" className="btn btn-outline" onClick={() => go(step - 1)} disabled={mutation.isPending}><ArrowRight size={16} />السابق</button> : <span />}
+            {step > 0 ? <button type="button" className="btn btn-outline" onClick={() => go(step - 1)} disabled={mutation.isPending}><ArrowRight size={16} aria-hidden="true" />السابق</button> : <span />}
+            <span className="nr-actions-step nums" aria-hidden="true">{step + 1} / {steps.length}</span>
             <button type="submit" className="btn btn-primary" disabled={mutation.isPending || uploadingFiles} aria-live="polite">
-              {step < 2 ? <>التالي<ArrowLeft size={16} /></> : uploadingFiles ? <><span className="nr-spinner" aria-hidden="true" />جارٍ رفع المستندات…</> : mutation.isPending ? <><span className="nr-spinner" aria-hidden="true" />جارٍ الإرسال…</> : <>إرسال الطلب<Send size={16} /></>}
+              {step < 2 ? <>التالي<ArrowLeft size={16} aria-hidden="true" /></> : uploadingFiles ? <><span className="nr-spinner" aria-hidden="true" />جارٍ رفع المستندات…</> : mutation.isPending ? <><span className="nr-spinner" aria-hidden="true" />جارٍ الإرسال…</> : <>إرسال الطلب<Send size={16} aria-hidden="true" /></>}
             </button>
           </div>
         </form>
+
+        <aside className="nr-aside" aria-label="ملخص الطلب">
+          <div className="surface nr-summary">
+            <h2 className="nr-summary-title display">ملخص الطلب</h2>
+            <dl className="nr-summary-list">
+              <div><dt>المجال</dt><dd>{categoryById[category].name}</dd></div>
+              <div><dt>الخدمة</dt><dd>{service.trim() || <span className="nr-summary-empty">لم تُحدَّد بعد</span>}</dd></div>
+              {subjectLabel && <div><dt>{bulk && pickedEmployees.length > 1 ? 'الموظفون' : 'يخص'}</dt><dd>{subjectLabel}</dd></div>}
+              {step > 0 && <div><dt>المستندات</dt><dd>{files.length ? `${files.length} ${files.length === 1 ? 'ملف' : 'ملفات'}` : <span className="nr-summary-empty">لا توجد</span>}</dd></div>}
+              {step > 0 && <div><dt>رقم التواصل</dt><dd dir="ltr" className="text-right">{normalizePhone(contactPhone) ?? (contactPhone.trim() || '—')}</dd></div>}
+            </dl>
+          </div>
+          <div className="nr-tip"><Lightbulb size={18} aria-hidden="true" /><p>{step === 0 ? 'لا تعرف اسم الخدمة؟ اكتب ما ظهر لك واسم المنصة، ويحدد المكتب الخدمة عند المراجعة.' : step === 1 ? 'كلما كانت التفاصيل أدق، كان رد المكتب أسرع. أرفق صورة الملاحظة إن وُجدت.' : 'راجع البيانات ثم أرسل. تصلك الحالة وكل رسالة من المكتب في صفحة الطلب.'}</p></div>
+        </aside>
+        </div>
       </div>
     </PortalLayout>
   );

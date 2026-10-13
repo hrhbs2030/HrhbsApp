@@ -1,20 +1,30 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Package, Plus, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
+import { Bot, CreditCard, FileText, History, Package, Plus, ReceiptText, ShieldCheck, Sparkles, Trash2, UserPlus, UserRound, UsersRound, Building2, MessageCircle, Settings2 } from 'lucide-react';
 import {
   getListOfficeAuditLogQueryKey, getListOfficeStaffQueryKey, useAddOfficeStaff, useListOfficeAuditLog, useListOfficeStaff, useRemoveOfficeStaff,
   getListOfficePlansQueryKey, getListOfficeSubscriptionsQueryKey, useCreateOfficePlan, useListOfficePlans, useUpdateOfficePlan, useListOfficeSubscriptions, useUpdateOfficeSubscription,
   type AuditLogEntry, type OfficeStaffMember, type OfficeSubscription, type Plan, type PlanInput, type SubscriptionStatus,
 } from '@workspace/api-client-react';
 import { EmptyBlock, ErrorBlock, LoadingBlock, PageHeading, Pager, PortalLayout, dateText } from '@/components/portal-ui';
+import { Chip, DataTable, FilterChip, SectionHeader, Toolbar, type DataColumn } from '@/components/portal-kit';
+import { OfficeCommandPalette } from '@/components/office-command';
 import { PrintButton } from '@/components/brand/print';
 import { ConfirmDialog } from '@/components/request-billing';
 import { LOCALE, formatDate, formatMoney, formatNumber, parseRiyals } from '@/lib/format';
+import './office.css';
 
 function serverMessage(error: unknown, fallback: string): string {
   const data = (error as { data?: unknown } | null)?.data;
   return data && typeof data === 'object' && 'error' in data && typeof data.error === 'string' ? data.error : fallback;
 }
+
+function Notice({ notice }: { notice: { kind: 'ok' | 'error'; text: string } | null }) {
+  if (!notice) return null;
+  return <div role={notice.kind === 'error' ? 'alert' : 'status'} className={`ad-notice ${notice.kind === 'error' ? 'is-error' : 'is-ok'}`}>{notice.text}</div>;
+}
+
+// ---- staff (owner) ---------------------------------------------------------------------
 
 export function OfficeStaff() {
   const qc = useQueryClient();
@@ -64,33 +74,38 @@ export function OfficeStaff() {
       setRemovingId(null);
     }
   }
+  const columns: DataColumn<OfficeStaffMember>[] = [
+    { key: 'member', header: 'العضو', primary: true, cell: member => <span className="ad-member"><strong dir="ltr">{member.email ?? 'بريد المالك غير مؤكد'}</strong><small>أُضيف في {dateText(member.createdAt)}</small></span> },
+    { key: 'role', header: 'الدور', cell: member => member.role === 'owner' ? <Chip tone="teal" icon={<ShieldCheck size={13} aria-hidden="true"/>}>المالك</Chip> : <Chip tone="info">موظف</Chip> },
+    { key: 'actions', header: <span className="sr-only">الإجراءات</span>, label: 'الإجراءات', align: 'end', width: '1%', cell: member => <div className="ad-actions">{member.role === 'staff'
+      ? <button type="button" onClick={() => setRevoking(member)} disabled={removingId === member.userId} className="btn btn-outline btn-sm" data-loading={removingId === member.userId || undefined}><Trash2 size={15} aria-hidden="true"/>{removingId === member.userId ? 'جارٍ الإزالة…' : 'إزالة الصلاحية'}</button>
+      : <span className="inline-flex items-center gap-1.5 text-xs text-subtle"><ShieldCheck size={15} aria-hidden="true"/>مرتبط ببريد المكتب المعتمد</span>}</div> },
+  ];
 
-  return <PortalLayout staff><PageHeading eyebrow="إدارة المكتب" title="فريق المكتب" subtitle="يدير الموظف الطلبات والاستفسارات والتسجيل. الأرشيف والفريق وسجل التدقيق للمالك فقط."/>
+  return <PortalLayout staff><OfficeCommandPalette /><PageHeading eyebrow="إدارة المكتب" title="فريق المكتب" subtitle="يدير الموظف الطلبات والاستفسارات والتسجيل. الأرشيف والفريق وسجل التدقيق للمالك فقط."/>
     <div className="space-y-6">
       <form onSubmit={submit} className="surface p-5 sm:p-6" aria-labelledby="add-staff-title">
-        <h2 id="add-staff-title" className="display mb-4 text-lg font-semibold">إضافة موظف</h2>
+        <SectionHeader id="add-staff-title" title="إضافة موظف" description="يجب أن يكون الموظف قد أنشأ حسابًا في البوابة وأكّد هذا البريد. تبقى صلاحيته ما دام البريد مؤكدًا في حسابه." />
         <label htmlFor="staff-email" className="form-field">البريد الإلكتروني للموظف
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="ad-form-row">
             <input id="staff-email" type="email" dir="ltr" className="form-control" placeholder="name@example.com" value={email} onChange={event => setEmail(event.target.value)} maxLength={254} required/>
-            <button className="btn btn-primary shrink-0" type="submit" disabled={add.isPending || !email.trim()}><UserPlus size={17}/>{add.isPending ? 'جارٍ الإضافة…' : 'إضافة موظف'}</button>
+            <button className="btn btn-primary shrink-0" type="submit" disabled={add.isPending || !email.trim()} data-loading={add.isPending || undefined}><UserPlus size={17} aria-hidden="true"/>{add.isPending ? 'جارٍ الإضافة…' : 'إضافة موظف'}</button>
           </div>
-          <small className="muted font-normal">يجب أن يكون الموظف قد أنشأ حسابًا في البوابة وأكّد هذا البريد. تبقى صلاحيته ما دام البريد مؤكدًا في حسابه.</small>
         </label>
-        {notice && <div role={notice.kind === 'error' ? 'alert' : 'status'} className={`mt-4 rounded-lg px-4 py-3 text-sm ${notice.kind === 'error' ? 'bg-danger-soft text-danger' : 'bg-ok-soft text-ok'}`}>{notice.text}</div>}
+        <div className="mt-4"><Notice notice={notice}/></div>
       </form>
       <section aria-labelledby="staff-list-title">
-        <h2 id="staff-list-title" className="display mb-3 text-lg font-semibold">الأعضاء{staff.data?.length ? <span className="nums mr-2 text-sm font-normal text-subtle">({new Intl.NumberFormat(LOCALE).format(staff.data.length)})</span> : null}</h2>
-        {staff.isLoading ? <LoadingBlock/> : staff.isError ? <ErrorBlock retry={() => staff.refetch()}/> : !staff.data?.length ? <EmptyBlock title="لا يوجد أعضاء بعد" text="سيظهر حساب المالك هنا بعد أول دخول له."/> :
-          <ul className="surface m-0 list-none overflow-hidden p-0">{staff.data.map(member => <li key={member.userId} className="flex flex-col gap-3 border-b border-line px-5 py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="min-w-0 truncate font-bold" dir="ltr">{member.email ?? 'بريد المالك غير مؤكد'}</span><span className={`pill ${member.role === 'owner' ? 'bg-teal text-on-dark' : 'bg-info-soft text-info'}`}>{member.role === 'owner' ? 'المالك' : 'موظف'}</span></div><div className="mt-1 text-xs text-subtle">أُضيف في {dateText(member.createdAt)}</div></div>
-            {member.role === 'staff' ? <button type="button" onClick={() => setRevoking(member)} disabled={removingId === member.userId} className="btn btn-outline btn-sm !min-h-11 self-start sm:self-auto"><Trash2 size={15}/>{removingId === member.userId ? 'جارٍ الإزالة…' : 'إزالة الصلاحية'}</button> : <span className="flex items-center gap-1.5 text-xs text-subtle"><ShieldCheck size={15}/>مرتبط ببريد المكتب المعتمد</span>}
-          </li>)}</ul>}
+        <SectionHeader id="staff-list-title" title="الأعضاء" count={staff.data?.length ? new Intl.NumberFormat(LOCALE).format(staff.data.length) : undefined} />
+        {staff.isLoading ? <LoadingBlock variant="table"/> : staff.isError ? <ErrorBlock retry={() => staff.refetch()}/> : !staff.data?.length ? <EmptyBlock title="لا يوجد أعضاء بعد" text="سيظهر حساب المالك هنا بعد أول دخول له."/> :
+          <DataTable columns={columns} rows={staff.data} rowKey={member => member.userId} caption="أعضاء فريق المكتب" stickyHeader={false} />}
       </section>
       <ConfirmDialog open={!!revoking} onOpenChange={o => { if (!o) setRevoking(null); }} danger busy={remove.isPending} confirmLabel="إزالة الصلاحية"
         title={`إزالة صلاحية المكتب من ${revoking?.email ?? 'هذا الحساب'}؟`} description="يفقد الحساب الوصول إلى مساحة المكتب فورًا، ويمكن إضافته مجددًا بالبريد." onConfirm={() => revoking && revoke(revoking)}/>
     </div>
   </PortalLayout>;
 }
+
+// ---- audit log (owner) ----------------------------------------------------------------
 
 const actionNames: Record<AuditLogEntry['action'], string> = {
   'staff.add': 'إضافة موظف',
@@ -142,6 +157,21 @@ const actionNames: Record<AuditLogEntry['action'], string> = {
   'whatsapp.reply': 'رد على رسالة واتساب',
 };
 
+// Action families for the timeline filter, by the prefix of the action key.
+type AuditGroup = 'requests' | 'documents' | 'billing' | 'customers' | 'team' | 'plans' | 'other';
+const auditGroups: [AuditGroup | '', string][] = [['', 'الكل'], ['requests', 'الطلبات'], ['documents', 'المستندات'], ['billing', 'الفواتير والعروض'], ['customers', 'ملفات العملاء'], ['team', 'الفريق والتسجيل'], ['plans', 'الباقات والاشتراكات'], ['other', 'أخرى']];
+export function auditGroupOf(action: string): AuditGroup {
+  if (action.startsWith('attachment.') || action === 'reminder.create' || action === 'service_request.checklist') return 'documents';
+  if (action.startsWith('invoice.') || action.startsWith('service_request.quote')) return 'billing';
+  if (action.startsWith('service_request.') || action.startsWith('inquiry.') || action === 'whatsapp.reply' || action === 'automation.update') return 'requests';
+  if (action.startsWith('company.') || action.startsWith('employee.') || action.startsWith('license.')) return 'customers';
+  if (action.startsWith('staff.') || action.startsWith('registration.')) return 'team';
+  if (action.startsWith('plan.') || action.startsWith('subscription.')) return 'plans';
+  return 'other';
+}
+const groupIcon: Record<AuditGroup, typeof History> = { requests: FileText, documents: FileText, billing: ReceiptText, customers: Building2, team: UsersRound, plans: Package, other: Settings2 };
+const groupTone: Partial<Record<AuditGroup, string>> = { billing: 'is-accent', team: 'is-ok' };
+
 function auditSummary(entry: AuditLogEntry): string {
   if (entry.action.startsWith('attachment.')) {
     const name = typeof entry.details.name === 'string' ? `«${entry.details.name}»` : 'مستند';
@@ -163,21 +193,46 @@ function auditSummary(entry: AuditLogEntry): string {
   if (entry.action.startsWith('information.')) return typeof entry.details.title === 'string' ? `«${entry.details.title}»` : `معلومة رقم ${entry.targetId}`;
   return typeof entry.details.email === 'string' ? entry.details.email : entry.targetId;
 }
+const actorName = (entry: AuditLogEntry) => entry.actorId === 'system' ? 'النظام' : entry.actorId === 'payment-gateway' ? 'بوابة الدفع' : entry.actorId === 'automation' ? 'أتمتة النظام' : entry.actorEmail ?? entry.actorId;
+const actorIcon = (entry: AuditLogEntry) => entry.actorId === 'system' || entry.actorId === 'automation' ? Bot : entry.actorId === 'payment-gateway' ? CreditCard : UserRound;
 
 export function OfficeAuditLog() {
   const log = useListOfficeAuditLog({ query: { queryKey: getListOfficeAuditLogQueryKey(), refetchInterval: 60_000 } });
-  const timeText = (value: string) => new Intl.DateTimeFormat(LOCALE, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-  return <PortalLayout staff><PageHeading eyebrow="إدارة المكتب" title="سجل التدقيق" subtitle="آخر 200 إجراء في المكتب: الصلاحيات، والطلبات، والمستندات، والتسجيل، ومعلومات المساعد. الأحدث أولًا." action={<PrintButton label="طباعة السجل"/>}/>
-    {log.isLoading ? <LoadingBlock/> : log.isError ? <ErrorBlock retry={() => log.refetch()}/> : !log.data?.length ? <EmptyBlock title="لا توجد إجراءات بعد" text="ستظهر هنا إجراءات فريق المكتب فور حدوثها."/> :
-      <div className="surface overflow-hidden">
-        <div className="hidden border-b border-line bg-sunk px-6 py-3 text-xs font-bold text-subtle lg:grid lg:grid-cols-[140px_minmax(0,1fr)_220px_170px] lg:gap-4" aria-hidden="true"><span>الإجراء</span><span>التفاصيل</span><span>المنفّذ</span><span>الوقت</span></div>
-        <ul className="m-0 list-none p-0">{log.data.map(entry => <li key={entry.id} className="grid gap-1.5 border-b border-line px-5 py-4 last:border-0 sm:px-6 lg:grid-cols-[140px_minmax(0,1fr)_220px_170px] lg:items-center lg:gap-4">
-          <span className="flex items-center justify-between gap-3 lg:block"><span className="inline-flex w-fit rounded-md bg-copper-soft px-2 py-0.5 text-xs font-bold text-copper">{actionNames[entry.action]}</span><span className="text-xs text-subtle lg:hidden">{timeText(entry.createdAt)}</span></span>
-          <span className="min-w-0 text-sm leading-7">{auditSummary(entry)}</span>
-          <span className="min-w-0 truncate text-xs text-quiet" dir="ltr" style={{ textAlign: 'right' }}>{entry.actorId === 'system' ? 'النظام' : entry.actorId === 'payment-gateway' ? 'بوابة الدفع' : entry.actorId === 'automation' ? 'أتمتة النظام' : entry.actorEmail ?? entry.actorId}</span>
-          <span className="hidden text-xs text-subtle lg:block">{timeText(entry.createdAt)}</span>
-        </li>)}</ul>
-      </div>}
+  const [group, setGroup] = useState<AuditGroup | ''>('');
+  const [actor, setActor] = useState('');
+  const [search, setSearch] = useState('');
+  const timeText = (value: string) => new Intl.DateTimeFormat(LOCALE, { timeStyle: 'short' }).format(new Date(value));
+  const dayText = (value: string) => new Intl.DateTimeFormat(LOCALE, { dateStyle: 'full' }).format(new Date(value));
+  const actors = useMemo(() => [...new Map((log.data ?? []).map(e => [e.actorId, actorName(e)])).entries()], [log.data]);
+  const needle = search.trim().toLowerCase();
+  const shown = (log.data ?? []).filter(e => (!group || auditGroupOf(e.action) === group) && (!actor || e.actorId === actor)
+    && (!needle || `${actionNames[e.action] ?? e.action} ${auditSummary(e)} ${actorName(e)} ${e.targetId}`.toLowerCase().includes(needle)));
+  // Group by calendar day, newest first (the API already orders newest first).
+  const days: { day: string; entries: AuditLogEntry[] }[] = [];
+  for (const entry of shown) {
+    const day = new Date(entry.createdAt).toDateString();
+    const last = days[days.length - 1];
+    if (last && last.day === day) last.entries.push(entry); else days.push({ day, entries: [entry] });
+  }
+  return <PortalLayout staff><OfficeCommandPalette /><PageHeading eyebrow="إدارة المكتب" title="سجل التدقيق" subtitle="آخر 200 إجراء في المكتب: الصلاحيات، والطلبات، والمستندات، والتسجيل، ومعلومات المساعد. الأحدث أولًا." action={<PrintButton label="طباعة السجل"/>}/>
+    {log.isLoading ? <LoadingBlock variant="table"/> : log.isError ? <ErrorBlock retry={() => log.refetch()}/> : !log.data?.length ? <EmptyBlock title="لا توجد إجراءات بعد" text="ستظهر هنا إجراءات فريق المكتب فور حدوثها."/> : <>
+      <Toolbar search={{ value: search, onChange: setSearch, label: 'بحث في السجل', placeholder: 'إجراء، طلب، بريد…' }}
+        filters={<>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="نوع الإجراء">{auditGroups.map(([key, label]) => <FilterChip key={label} active={group === key} onClick={() => setGroup(key)}>{label}</FilterChip>)}</div>
+          <label className="rq-toolbar-select"><span className="sr-only">المنفّذ</span><select className="form-control" value={actor} onChange={e => setActor(e.target.value)}><option value="">كل المنفّذين</option>{actors.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
+        </>} />
+      <p className="au-hint"><span className="nums">{formatNumber(shown.length)}</span> من <span className="nums">{formatNumber(log.data.length)}</span> إجراء</p>
+      {days.length ? days.map(({ day, entries }) => <section key={day} className="au-day" aria-label={dayText(entries[0].createdAt)}>
+        <div className="au-day-head">{dayText(entries[0].createdAt)}</div>
+        <ol className="au-list">{entries.map(entry => { const g = auditGroupOf(entry.action); const Icon = groupIcon[g]; const Actor = actorIcon(entry); return <li key={entry.id} className="au-item">
+          <span className={`au-dot ${groupTone[g] ?? ''}`} aria-hidden="true"><Icon size={16}/></span>
+          <div className="au-body">
+            <div className="au-body-top"><span className="au-action">{actionNames[entry.action] ?? entry.action}</span><span className="au-actor"><Actor size={12} aria-hidden="true"/><span className="actor-id">{actorName(entry)}</span></span><time className="au-time nums" dateTime={entry.createdAt}>{timeText(entry.createdAt)}</time></div>
+            <p className="au-summary">{auditSummary(entry)}</p>
+          </div>
+        </li>; })}</ol>
+      </section>) : <EmptyBlock title="لا توجد إجراءات مطابقة" text="جرّب تصفية أخرى أو امسح البحث."/>}
+    </>}
   </PortalLayout>;
 }
 
@@ -231,22 +286,22 @@ function PlanEditor({ plan, onSaved, onCancel }: { plan: Plan | null; onSaved: (
     }
   }
   const field = (key: keyof PlanForm, label: string, input: ReactNode, hint?: string) => <label className="form-field">{label}{input}{errors[key] ? <small role="alert" className="font-normal text-danger">{errors[key]}</small> : hint && <small className="muted font-normal">{hint}</small>}</label>;
-  return <form onSubmit={submit} className="surface space-y-4 p-5" aria-labelledby="plan-form-title">
-    <h2 id="plan-form-title" className="display text-lg font-semibold">{plan ? `تعديل «${plan.name}»` : 'باقة جديدة'}</h2>
+  return <form onSubmit={submit} className="surface ad-plan-form" aria-labelledby="plan-form-title">
+    <SectionHeader id="plan-form-title" title={plan ? `تعديل «${plan.name}»` : 'باقة جديدة'} className="!mb-0" />
     {field('name', 'اسم الباقة', <input className="form-control" value={form.name} onChange={e => set('name', e.target.value)} maxLength={120} placeholder="مثال: باقة المنشآت الصغيرة"/>)}
     {field('slug', 'المعرّف', <input className="form-control" dir="ltr" value={form.slug} onChange={e => set('slug', e.target.value)} maxLength={60} placeholder="small-business" disabled={!!plan}/>, plan ? 'لا يتغير المعرّف بعد الإنشاء.' : 'يظهر في الروابط؛ أحرف لاتينية صغيرة وأرقام وشرطات.')}
     {field('description', 'الوصف للعميل', <textarea className="form-control !min-h-24" value={form.description} onChange={e => set('description', e.target.value)} maxLength={2000} placeholder="ما تشمله الباقة..."/>)}
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid-2">
       {field('price', 'السعر الشهري قبل الضريبة (ر.س)', <input className="form-control" dir="ltr" inputMode="decimal" value={form.price} onChange={e => set('price', e.target.value)} placeholder="0.00"/>, halalas !== null ? `شامل ضريبة 15%: ${formatMoney(halalas + Math.round(halalas * 0.15))} شهريًا` : undefined)}
       {field('sort', 'الترتيب', <input className="form-control" dir="ltr" inputMode="numeric" value={form.sort} onChange={e => set('sort', e.target.value)}/>, 'الأصغر أولًا في صفحة الباقات.')}
       {field('employeeCap', 'حد الموظفين', <input className="form-control" dir="ltr" inputMode="numeric" value={form.employeeCap} onChange={e => set('employeeCap', e.target.value)} placeholder="غير محدود"/>)}
       {field('requestsPerMonth', 'الطلبات في الشهر', <input className="form-control" dir="ltr" inputMode="numeric" value={form.requestsPerMonth} onChange={e => set('requestsPerMonth', e.target.value)} placeholder="غير محدود"/>)}
     </div>
-    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.autoRenewals} onChange={e => set('autoRenewals', e.target.checked)}/>تشمل التجديد التلقائي من تنبيهات انتهاء الوثائق</label>
-    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.active} onChange={e => set('active', e.target.checked)}/>متاحة للاشتراك</label>
+    <label className="ad-check"><input type="checkbox" checked={form.autoRenewals} onChange={e => set('autoRenewals', e.target.checked)}/>تشمل التجديد التلقائي من تنبيهات انتهاء الوثائق</label>
+    <label className="ad-check"><input type="checkbox" checked={form.active} onChange={e => set('active', e.target.checked)}/>متاحة للاشتراك</label>
     <p className="muted text-xs leading-6">تعديل الباقة لا يغيّر اشتراكات العملاء الحالية؛ الباقة غير المتاحة تختفي عن العملاء الجدد فقط.</p>
     {failure && <p role="alert" className="text-xs text-danger">{failure}</p>}
-    <div className="flex gap-2"><button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'جارٍ الحفظ…' : plan ? 'حفظ التعديل' : 'إنشاء الباقة'}</button><button type="button" className="btn btn-outline" onClick={onCancel} disabled={busy}>إلغاء</button></div>
+    <div className="flex gap-2"><button type="submit" className="btn btn-primary" disabled={busy} data-loading={busy || undefined}>{busy ? 'جارٍ الحفظ…' : plan ? 'حفظ التعديل' : 'إنشاء الباقة'}</button><button type="button" className="btn btn-outline" onClick={onCancel} disabled={busy}>إلغاء</button></div>
   </form>;
 }
 
@@ -262,18 +317,23 @@ export function OfficePlans() {
     setEditing(null);
     await qc.invalidateQueries({ queryKey: getListOfficePlansQueryKey() });
   }
-  return <PortalLayout staff><PageHeading eyebrow="إدارة المكتب" title="الباقات" subtitle="باقات الاشتراك الشهري التي يختار منها أصحاب المنشآت: السعر، وحد الموظفين، وعدد الطلبات، والتجديد التلقائي." action={editing ? undefined : <button type="button" className="btn btn-primary" onClick={() => { setEditing('new'); setNotice(null); }}><Plus size={17}/>باقة جديدة</button>}/>
-    <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+  const columns: DataColumn<Plan>[] = [
+    { key: 'name', header: 'الباقة', primary: true, cell: plan => <span className="ad-member"><strong className="inline-flex items-center gap-2"><Package size={15} className="text-copper" aria-hidden="true"/>{plan.name}</strong><small dir="ltr" className="nums">{plan.slug}</small></span> },
+    { key: 'price', header: 'السعر الشهري', nums: true, cell: plan => <><span className="block">{formatMoney(plan.price)} شهريًا</span><span className="block text-xs text-subtle"> قبل الضريبة</span></> },
+    { key: 'employees', header: 'الموظفون', hideBelow: 'md', nums: true, cell: plan => plan.employeeCap == null ? 'غير محدود' : formatNumber(plan.employeeCap) },
+    { key: 'requests', header: 'الطلبات شهريًا', hideBelow: 'md', nums: true, cell: plan => plan.requestsPerMonth == null ? 'غير محدود' : formatNumber(plan.requestsPerMonth) },
+    { key: 'renew', header: 'تجديد تلقائي', hideBelow: 'lg', cell: plan => plan.autoRenewals ? <Chip tone="ok" size="sm" icon={<Sparkles size={12} aria-hidden="true"/>}>مشمول</Chip> : <span className="text-subtle">—</span> },
+    { key: 'active', header: 'الحالة', cell: plan => <Chip tone={plan.active ? 'ok' : 'neutral'} size="sm" dot>{plan.active ? 'متاحة' : 'غير متاحة'}</Chip> },
+    { key: 'actions', header: <span className="sr-only">الإجراءات</span>, label: 'الإجراءات', align: 'end', width: '1%', cell: plan => <div className="ad-actions"><button type="button" className="btn btn-outline btn-sm" onClick={() => { setEditing(plan); setNotice(null); }}>تعديل</button></div> },
+  ];
+  return <PortalLayout staff><OfficeCommandPalette /><PageHeading eyebrow="إدارة المكتب" title="الباقات" subtitle="باقات الاشتراك الشهري التي يختار منها أصحاب المنشآت: السعر، وحد الموظفين، وعدد الطلبات، والتجديد التلقائي." action={editing ? undefined : <button type="button" className="btn btn-primary" onClick={() => { setEditing('new'); setNotice(null); }}><Plus size={17} aria-hidden="true"/>باقة جديدة</button>}/>
+    <div className="ad-plan-grid">
       <div className="min-w-0">
-        {notice && <p role="status" className="mb-3 rounded-lg bg-ok-soft px-4 py-3 text-sm text-ok">{notice}</p>}
-        {plans.isLoading ? <LoadingBlock/> : plans.isError ? <ErrorBlock retry={() => plans.refetch()}/> : !sorted.length ? <EmptyBlock title="لا توجد باقات بعد" text="أنشئ أول باقة ليراها أصحاب المنشآت في صفحة الاشتراك." action="باقة جديدة" onAction={() => setEditing('new')}/>
-          : <ul className="surface m-0 list-none overflow-hidden p-0">{sorted.map(plan => <li key={plan.id} className={`flex flex-col gap-3 border-b border-line px-5 py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between sm:px-6 ${editing !== 'new' && editing?.id === plan.id ? 'bg-sage' : ''}`}>
-            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><Package size={16} className="text-copper" aria-hidden="true"/><strong>{plan.name}</strong><span className="text-xs text-subtle" dir="ltr">{plan.slug}</span><span className={`pill ${plan.active ? 'pill-completed' : 'pill-cancelled'}`}>{plan.active ? 'متاحة' : 'غير متاحة'}</span></div>
-              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-subtle"><span className="nums">{formatMoney(plan.price)} شهريًا قبل الضريبة</span><span>الموظفون: {plan.employeeCap == null ? 'غير محدود' : formatNumber(plan.employeeCap)}</span><span>الطلبات: {plan.requestsPerMonth == null ? 'غير محدود' : `${formatNumber(plan.requestsPerMonth)} شهريًا`}</span>{plan.autoRenewals && <span>تجديد تلقائي</span>}</div></div>
-            <button type="button" className="btn btn-outline btn-sm !min-h-11 self-start sm:self-auto" onClick={() => { setEditing(plan); setNotice(null); }}>تعديل</button>
-          </li>)}</ul>}
+        {notice && <p role="status" className="ad-notice is-ok">{notice}</p>}
+        {plans.isLoading ? <LoadingBlock variant="table"/> : plans.isError ? <ErrorBlock retry={() => plans.refetch()}/> : !sorted.length ? <EmptyBlock title="لا توجد باقات بعد" text="أنشئ أول باقة ليراها أصحاب المنشآت في صفحة الاشتراك." action="باقة جديدة" onAction={() => setEditing('new')}/>
+          : <DataTable columns={columns} rows={sorted} rowKey={plan => plan.id} caption="الباقات" rowSelected={plan => editing !== 'new' && editing?.id === plan.id} stickyHeader={false} />}
       </div>
-      <div className="xl:sticky xl:top-24">{editing && <PlanEditor key={editing === 'new' ? 'new' : editing.id} plan={editing === 'new' ? null : editing} onSaved={saved} onCancel={() => setEditing(null)}/>}</div>
+      <div className="ad-plan-editor">{editing && <PlanEditor key={editing === 'new' ? 'new' : editing.id} plan={editing === 'new' ? null : editing} onSaved={saved} onCancel={() => setEditing(null)}/>}</div>
     </div>
   </PortalLayout>;
 }
@@ -281,8 +341,7 @@ export function OfficePlans() {
 // ---- subscriptions (owner) ---------------------------------------------------------------
 
 export const subscriptionStatusNames: Record<SubscriptionStatus, string> = { active: 'نشط', past_due: 'متأخر السداد', cancelled: 'ملغى' };
-// Reuses the request pills' colours: green, amber, grey.
-const subscriptionPill: Record<SubscriptionStatus, string> = { active: 'pill-completed', past_due: 'pill-issued', cancelled: 'pill-cancelled' };
+const subscriptionTone: Record<SubscriptionStatus, 'ok' | 'warn' | 'neutral'> = { active: 'ok', past_due: 'warn', cancelled: 'neutral' };
 const invoiceStatusNames: Record<string, string> = { issued: 'غير مسددة', paid: 'مسددة', cancelled: 'ملغاة' };
 const subscriptionFilters: [SubscriptionStatus | '', string][] = [['', 'الكل'], ['active', 'النشطة'], ['past_due', 'متأخرة السداد'], ['cancelled', 'الملغاة']];
 const subscriptionsPageSize = 20;
@@ -309,24 +368,23 @@ export function OfficeSubscriptions() {
     } finally { setBusyId(null); }
   }
   const rows = list.data?.items ?? [];
-  return <PortalLayout staff><PageHeading eyebrow="إدارة المكتب" title="الاشتراكات" subtitle="اشتراكات المنشآت في الباقات الشهرية: حالتها، وموعد التجديد، وآخر فاتورة. الإلغاء يوقف الفواتير القادمة ولا يلغي الفاتورة الحالية."/>
-    <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="تصفية حسب الحالة">{subscriptionFilters.map(([key, label]) => <button type="button" key={label} onClick={() => setStatus(key)} aria-pressed={status === key} className={`min-h-11 rounded-full border px-4 text-xs font-bold transition-colors ${status === key ? 'border-teal bg-teal text-on-dark' : 'border-line-strong bg-surface text-quiet hover:bg-sage'}`}>{label}</button>)}</div>
-    {notice && <div role={notice.kind === 'error' ? 'alert' : 'status'} className={`mb-3 rounded-lg px-4 py-3 text-sm ${notice.kind === 'error' ? 'bg-danger-soft text-danger' : 'bg-ok-soft text-ok'}`}>{notice.text}</div>}
-    {list.isLoading ? <LoadingBlock/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/> : !list.data?.total
+  const columns: DataColumn<OfficeSubscription>[] = [
+    { key: 'company', header: 'المنشأة', primary: true, cell: s => <span className="ad-member"><strong>{s.companyName ?? 'منشأة بلا اسم'}</strong><small>{s.customerName ?? s.userId}</small></span> },
+    { key: 'plan', header: 'الباقة', cell: s => <><span className="block">{s.plan.name}</span><span className="block text-xs text-subtle nums">{formatMoney(s.plan.total)} شهريًا</span></> },
+    { key: 'status', header: 'الحالة', cell: s => <Chip tone={subscriptionTone[s.status]} dot size="sm">{subscriptionStatusNames[s.status]}</Chip> },
+    { key: 'renews', header: 'التجديد القادم', hideBelow: 'md', nums: true, cell: s => s.status === 'cancelled' ? <span className="text-subtle">أُلغي في {formatDate(s.cancelledAt)}</span> : formatDate(s.renewsAt) },
+    { key: 'invoice', header: 'آخر فاتورة', hideBelow: 'lg', cell: s => s.latestInvoice ? <><span className={`pill pill-${s.latestInvoice.status}`}>{invoiceStatusNames[s.latestInvoice.status] ?? s.latestInvoice.status}</span><span className="mt-1 block text-xs text-subtle nums" dir="ltr">{s.latestInvoice.reference}</span></> : <span className="text-subtle">-</span> },
+    { key: 'actions', header: <span className="sr-only">الإجراءات</span>, label: 'الإجراءات', align: 'end', width: '1%', cell: s => s.status !== 'cancelled' ? <div className="ad-actions">
+      <button type="button" className="btn btn-outline btn-sm" disabled={busyId === s.id} aria-pressed={s.autoRenewRequests} onClick={() => change(s, { autoRenewRequests: !s.autoRenewRequests }, s.autoRenewRequests ? 'أُوقف فتح طلبات التجديد تلقائيًا.' : 'تُفتح طلبات التجديد تلقائيًا الآن.')}>{s.autoRenewRequests ? 'إيقاف التجديد التلقائي' : 'تفعيل التجديد التلقائي'}</button>
+      <button type="button" className="btn btn-ghost btn-sm text-danger" disabled={busyId === s.id} onClick={() => setCancelling(s)}>إلغاء الاشتراك</button>
+    </div> : <span className="text-xs text-subtle">—</span> },
+  ];
+  return <PortalLayout staff><OfficeCommandPalette /><PageHeading eyebrow="إدارة المكتب" title="الاشتراكات" subtitle="اشتراكات المنشآت في الباقات الشهرية: حالتها، وموعد التجديد، وآخر فاتورة. الإلغاء يوقف الفواتير القادمة ولا يلغي الفاتورة الحالية."/>
+    <div className="ad-filters" role="group" aria-label="تصفية حسب الحالة">{subscriptionFilters.map(([key, label]) => <FilterChip key={label} active={status === key} onClick={() => setStatus(key)}>{label}</FilterChip>)}</div>
+    <Notice notice={notice}/>
+    {list.isLoading ? <LoadingBlock variant="table"/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/> : !list.data?.total
       ? <EmptyBlock title={status ? 'لا توجد اشتراكات بهذه الحالة' : 'لا توجد اشتراكات بعد'} text="تظهر هنا اشتراكات المنشآت فور بدئها من صفحة الباقات في البوابة."/>
-      : <><div className={`surface overflow-x-auto transition-opacity ${list.isPlaceholderData ? 'opacity-60' : ''}`}><table className="w-full min-w-[760px] text-sm">
-        <thead><tr className="border-b border-line bg-paper text-right text-xs text-subtle"><th className="px-4 py-3 font-bold">المنشأة</th><th className="px-4 py-3 font-bold">الباقة</th><th className="px-4 py-3 font-bold">الحالة</th><th className="px-4 py-3 font-bold">التجديد القادم</th><th className="px-4 py-3 font-bold">آخر فاتورة</th><th className="px-4 py-3 font-bold">الإجراءات</th></tr></thead>
-        <tbody>{rows.map(s => <tr key={s.id} className="border-b border-line last:border-0">
-          <td className="px-4 py-3"><strong>{s.companyName ?? 'منشأة بلا اسم'}</strong><span className="block text-xs text-subtle">{s.customerName ?? s.userId}</span></td>
-          <td className="px-4 py-3">{s.plan.name}<span className="block text-xs text-subtle nums">{formatMoney(s.plan.total)} شهريًا</span></td>
-          <td className="px-4 py-3"><span className={`pill ${subscriptionPill[s.status]}`}><span className="h-1.5 w-1.5 rounded-full bg-current"/>{subscriptionStatusNames[s.status]}</span></td>
-          <td className="px-4 py-3">{s.status === 'cancelled' ? <span className="text-subtle">أُلغي في {formatDate(s.cancelledAt)}</span> : formatDate(s.renewsAt)}</td>
-          <td className="px-4 py-3">{s.latestInvoice ? <><span className={`pill pill-${s.latestInvoice.status}`}>{invoiceStatusNames[s.latestInvoice.status] ?? s.latestInvoice.status}</span><span className="mt-1 block text-xs text-subtle nums" dir="ltr" style={{ textAlign: 'right' }}>{s.latestInvoice.reference}</span></> : <span className="text-subtle">-</span>}</td>
-          <td className="px-4 py-3">{s.status !== 'cancelled' && <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn btn-outline btn-sm" disabled={busyId === s.id} aria-pressed={s.autoRenewRequests} onClick={() => change(s, { autoRenewRequests: !s.autoRenewRequests }, s.autoRenewRequests ? 'أُوقف فتح طلبات التجديد تلقائيًا.' : 'تُفتح طلبات التجديد تلقائيًا الآن.')}>{s.autoRenewRequests ? 'إيقاف التجديد التلقائي' : 'تفعيل التجديد التلقائي'}</button>
-            <button type="button" className="rf-btn rf-btn--danger" disabled={busyId === s.id} onClick={() => setCancelling(s)}>إلغاء الاشتراك</button>
-          </div>}</td>
-        </tr>)}</tbody></table></div>
+      : <><div className={`transition-opacity ${list.isPlaceholderData ? 'opacity-60' : ''}`}><DataTable columns={columns} rows={rows} rowKey={s => s.id} caption="الاشتراكات" rowTone={s => s.status === 'past_due' ? 'warn' : undefined} stickyHeader={false} /></div>
       <Pager page={page} pageSize={subscriptionsPageSize} total={list.data.total} onPage={setPage}/></>}
     <ConfirmDialog open={!!cancelling} onOpenChange={o => { if (!o) setCancelling(null); }} danger busy={update.isPending} confirmLabel="إلغاء الاشتراك"
       title={`إلغاء اشتراك ${cancelling?.companyName ?? cancelling?.customerName ?? 'هذه المنشأة'}؟`} description="تتوقف الفواتير الشهرية القادمة وطلبات التجديد التلقائية. لا يمكن التراجع، ويمكن للعميل الاشتراك مجددًا من البوابة."

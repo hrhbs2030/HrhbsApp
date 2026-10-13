@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Search } from 'lucide-react';
 import {
   getGetOfficeReportQueryKey, getListOfficeRemindersQueryKey, getListOfficeServiceOffersQueryKey,
   useGetOfficeReport, useListOfficeReminders, useListOfficeServiceOffers, useSaveOfficeServiceOffer,
@@ -9,6 +8,14 @@ import {
   type GetOfficeReportDays, type ServiceOffer,
 } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock, categoryNames, statusNames } from '@/components/portal-ui';
+import { Chip, DataTable, FilterChip, SectionHeader, Tile, TileGrid, Toolbar, type DataColumn } from '@/components/portal-kit';
+import { BarList, ChartTable, Columns, StackedBar } from '@/components/office-charts';
+import { OfficeCommandPalette } from '@/components/office-command';
+import { chartSeries } from '@/design/tokens';
+import { Reveal, stagger } from '@/lib/motion';
+import { BarChart3, Banknote, CalendarDays, ReceiptText, Search, Star } from 'lucide-react';
+import type { OfficeReminder } from '@workspace/api-client-react';
+import './office.css';
 import { ExpiryBadge, reminderKindNames } from '@/components/reminder-ui';
 import { ExportButtons } from '@/components/excel-import';
 import type { ExportColumn } from '@/lib/export';
@@ -22,20 +29,20 @@ export function OfficeReminders() {
   const [within, setWithin] = useState<number>(60);
   const params = { withinDays: within };
   const list = useListOfficeReminders(params, { query: { queryKey: getListOfficeRemindersQueryKey(params), refetchInterval: 300_000 } });
+  const columns: DataColumn<OfficeReminder>[] = [
+    { key: 'doc', header: 'الوثيقة', primary: true, cell: item => <><strong>{reminderKindNames[item.kind]}</strong><span className="block text-xs text-subtle">«{item.label}»{item.addedBy === 'office' ? ' · أضافها المكتب' : ''}</span></> },
+    { key: 'customer', header: 'العميل', cell: item => item.customer ? <>{item.customer.fullName}<span className="block text-xs text-subtle nums" dir="ltr">{item.customer.email}</span></> : <span className="text-subtle">عميل سابق للتسجيل</span> },
+    { key: 'phone', header: 'التواصل', hideBelow: 'md', nums: true, cell: item => item.contactPhone ? <a href={`tel:${item.contactPhone}`} dir="ltr" className="nums">{item.contactPhone}</a> : '-' },
+    { key: 'expires', header: 'تنتهي في', cell: item => <><span className="block nums">{formatCalendarDate(item.expiresOn)}</span><ExpiryBadge expiresOn={item.expiresOn} /></> },
+  ];
   return <PortalLayout staff>
+    <OfficeCommandPalette />
     <PageHeading eyebrow="فرص تجديد" title="وثائق العملاء التي تنتهي قريبًا" subtitle="وثائق أضافها العملاء أو المكتب. يصل للعميل تنبيه بالبريد قبل الانتهاء بـ30 يومًا ثم 7 ثم يوم واحد، ويمكنك التواصل معه لعرض التجديد."/>
-    <div className="mb-4 flex gap-2" role="group" aria-label="المدة">{windows.map(days => <button key={days} type="button" aria-pressed={within === days} onClick={() => setWithin(days)} className={`min-h-11 rounded-full border px-4 text-xs font-bold ${within === days ? 'border-teal bg-teal text-on-dark' : 'border-line-strong bg-surface text-quiet hover:bg-sage'}`}>خلال {formatNumber(days)} يومًا</button>)}</div>
-    {list.isLoading ? <LoadingBlock/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/> : !list.data?.length
+    <Toolbar filters={<div className="flex flex-wrap gap-2" role="group" aria-label="المدة">{windows.map(days => <FilterChip key={days} active={within === days} onClick={() => setWithin(days)}>خلال {formatNumber(days)} يومًا</FilterChip>)}</div>}
+      actions={list.data?.length ? <ExportButtons compact name={`وثائق تنتهي خلال ${within} يومًا`} columns={[{ key: 'kind', label: 'النوع' }, { key: 'label', label: 'الوثيقة' }, { key: 'customer', label: 'العميل' }, { key: 'phone', label: 'التواصل' }, { key: 'expiresOn', label: 'تنتهي في' }]} rows={() => (list.data ?? []).map(i => ({ kind: reminderKindNames[i.kind], label: i.label, customer: i.customer?.fullName ?? '', phone: i.contactPhone ?? '', expiresOn: i.expiresOn }))}/> : undefined} />
+    {list.isLoading ? <LoadingBlock variant="table"/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/> : !list.data?.length
       ? <EmptyBlock title="لا توجد وثائق تنتهي في هذه المدة" text="عند إضافة العملاء تواريخ انتهاء وثائقهم تظهر هنا مرتبة بالأقرب."/>
-      : <div className="surface overflow-x-auto"><table className="w-full min-w-[640px] text-sm">
-        <thead><tr className="border-b border-line bg-paper text-right text-xs text-subtle"><th className="px-5 py-3 font-bold">الوثيقة</th><th className="px-5 py-3 font-bold">العميل</th><th className="px-5 py-3 font-bold">التواصل</th><th className="px-5 py-3 font-bold">تنتهي في</th></tr></thead>
-        <tbody>{list.data.map(item => <tr key={item.id} className="border-b border-line last:border-0">
-          <td className="px-5 py-3"><strong>{reminderKindNames[item.kind]}</strong><span className="block text-xs text-subtle">«{item.label}»{item.addedBy === 'office' ? ' · أضافها المكتب' : ''}</span></td>
-          <td className="px-5 py-3">{item.customer ? <>{item.customer.fullName}<span className="block text-xs text-subtle" dir="ltr" style={{ textAlign: 'right' }}>{item.customer.email}</span></> : <span className="text-subtle">عميل سابق للتسجيل</span>}</td>
-          <td className="px-5 py-3" dir="ltr" style={{ textAlign: 'right' }}>{item.contactPhone ? <a href={`tel:${item.contactPhone}`}>{item.contactPhone}</a> : '-'}</td>
-          <td className="px-5 py-3"><span className="block">{formatCalendarDate(item.expiresOn)}</span><ExpiryBadge expiresOn={item.expiresOn}/></td>
-        </tr>)}</tbody>
-      </table></div>}
+      : <DataTable columns={columns} rows={list.data} rowKey={item => item.id} caption="وثائق تنتهي قريبًا" rowTone={item => new Date(item.expiresOn).getTime() < Date.now() ? 'danger' : undefined} />}
   </PortalLayout>;
 }
 
@@ -127,6 +134,7 @@ export function OfficeCatalog() {
   const shown = services.filter(s => !search.trim() || s.name.includes(search.trim()));
   const active = services.find(s => s.slug === selected);
   return <PortalLayout staff>
+    <OfficeCommandPalette />
     <PageHeading eyebrow="دليل الخدمات والأتمتة" title="الأسعار والمتطلبات" subtitle="وزّع الطلبات الجديدة تلقائيًا، وحدّد أتعاب كل خدمة ومدتها ومستنداتها وانشرها ليراها العميل قبل إرسال طلبه."/>
     <AssignmentRules/>
     {offers.isLoading ? <LoadingBlock/> : offers.isError ? <ErrorBlock retry={() => offers.refetch()}/> : <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
@@ -153,65 +161,88 @@ export function OfficeCatalog() {
 
 const periods: [GetOfficeReportDays, string][] = [[7, '7 أيام'], [30, '30 يومًا'], [90, '90 يومًا'], [365, 'سنة']];
 
-// Labelled rows with a proportional bar; the number is always written, so
-// the bar only helps comparison and nothing depends on colour.
-function BarRows({ rows, label }: { rows: { key: string; label: string; value: number }[]; label: string }) {
-  const max = Math.max(1, ...rows.map(r => r.value));
-  if (!rows.length) return <p className="muted text-sm">لا توجد بيانات في هذه المدة.</p>;
-  return <table className="w-full text-sm" aria-label={label}><tbody>{rows.map(row => <tr key={row.key} className="align-middle">
-    <th scope="row" className="w-[42%] py-1.5 pl-3 text-right font-semibold">{row.label}</th>
-    <td className="py-1.5"><div className="flex items-center gap-2"><span className="block h-2.5 rounded-sm bg-teal" style={{ width: `${Math.max(2, (row.value / max) * 100)}%` }} aria-hidden="true"/><span className="nums text-xs font-bold">{formatNumber(row.value)}</span></div></td>
-  </tr>)}</tbody></table>;
-}
-
 // A report section's heading with its own Excel / print buttons; each table
 // goes out on its own, with the period in the file name.
 const countColumns: ExportColumn[] = [{ key: 'label', label: 'البند' }, { key: 'value', label: 'العدد', type: 'number' }];
-function ReportHead({ title, name, columns, rows }: { title: string; name: string; columns: ExportColumn[]; rows: object[] }) {
-  return <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="display text-lg font-semibold">{title}</h2>{rows.length > 0 && <ExportButtons compact name={name} columns={columns} rows={() => rows}/>}</div>;
+function ReportHead({ id, title, name, columns, rows, description }: { id?: string; title: string; name: string; columns: ExportColumn[]; rows: object[]; description?: string }) {
+  return <SectionHeader id={id} title={title} description={description} action={rows.length > 0 ? <ExportButtons compact name={name} columns={columns} rows={() => rows}/> : undefined}/>;
 }
 
-function Tile({ label, value, note, long = false }: { label: string; value: string; note?: string; long?: boolean }) {
-  return <div className="surface min-w-0 p-4 sm:p-5"><div className="text-xs font-bold text-subtle">{label}</div><div className={`display nums mt-3 break-words font-semibold ${long ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl'}`}>{value}</div>{note && <div className="mt-1 text-xs text-subtle">{note}</div>}</div>;
-}
-
+// What the report returns, drawn honestly: created vs completed in the
+// period (throughput), the open pipeline by stage, demand by category, the top
+// services, the team, ratings and revenue. There is no per-week series or
+// time-in-stage in the API, so neither is invented here.
 export function OfficeReports() {
   const [days, setDays] = useState<GetOfficeReportDays>(30);
   const params = { days };
-  const report = useGetOfficeReport(params, { query: { queryKey: getGetOfficeReportQueryKey(params) } });
+  const report = useGetOfficeReport(params, { query: { queryKey: getGetOfficeReportQueryKey(params), placeholderData: previous => previous } });
   const r = report.data;
   const period = periods.find(([value]) => value === days)?.[1] ?? '';
   const byStatus = (r?.byStatus ?? []).map(row => ({ key: row.key, label: statusNames[row.key] ?? row.key, value: row.count }));
   const byCategory = (r?.byCategory ?? []).map(row => ({ key: row.key, label: categoryNames[row.key] ?? row.key, value: row.count }));
-  const ratingRows = (r?.ratings.distribution ?? []).map(d => ({ key: d.key, label: `${'★'.repeat(Number(d.key))}`, value: d.count }));
-  const staffRows = (r?.staff ?? []).map(s => ({ member: s.userId ? s.email ?? 'عضو سابق' : 'غير مسندة', active: s.active, completed: s.completed, overdue: s.overdue }));
+  const ratingRows = [5, 4, 3, 2, 1].map(star => ({ key: String(star), label: `${formatNumber(star)} ${star === 1 ? 'نجمة' : 'نجوم'}`, value: r?.ratings.distribution.find(d => Number(d.key) === star)?.count ?? 0 }));
+  const staffRows = (r?.staff ?? []).map(s => ({ key: s.userId ?? 'none', member: s.userId ? s.email ?? 'عضو سابق' : 'غير مسندة', active: s.active, completed: s.completed, overdue: s.overdue }));
+  const maxActive = Math.max(1, ...staffRows.map(s => s.active));
+  const completionRate = r && r.created > 0 ? Math.round((r.completed / r.created) * 100) : null;
+  const staffColumns: DataColumn<typeof staffRows[number]>[] = [
+    { key: 'member', header: 'المسؤول', primary: true, cell: s => <span dir={s.key === 'none' ? undefined : 'ltr'} className="nums">{s.member}</span> },
+    { key: 'active', header: 'نشطة الآن', nums: true, cell: s => <span className="rp-mini"><span className="rp-mini-bar" aria-hidden="true"><span style={{ width: `${(s.active / maxActive) * 100}%` }}/></span>{formatNumber(s.active)}</span> },
+    { key: 'completed', header: 'أُنجزت في المدة', nums: true, cell: s => formatNumber(s.completed) },
+    { key: 'overdue', header: 'متأخرة', nums: true, cell: s => s.overdue ? <Chip tone="danger" size="sm" dot>{formatNumber(s.overdue)}</Chip> : <span className="text-subtle">0</span> },
+  ];
   return <PortalLayout staff>
+    <OfficeCommandPalette />
     <PageHeading eyebrow="الأداء" title="التقارير" subtitle="أرقام المكتب في المدة المختارة: الطلبات والإنجاز والفريق ورضا العملاء والإيرادات."/>
-    <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="المدة">{periods.map(([value, name]) => <button key={value} type="button" aria-pressed={days === value} onClick={() => setDays(value)} className={`min-h-11 rounded-full border px-4 text-xs font-bold ${days === value ? 'border-teal bg-teal text-on-dark' : 'border-line-strong bg-surface text-quiet hover:bg-sage'}`}>آخر {name}</button>)}</div>
-    {report.isLoading ? <LoadingBlock/> : report.isError ? <ErrorBlock retry={() => report.refetch()}/> : r && <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Tile label="طلبات جديدة" value={formatNumber(r.created)}/>
-        <Tile label="طلبات أُنجزت" value={formatNumber(r.completed)} note={r.averageCompletionDays != null ? `متوسط الإنجاز ${formatNumber(r.averageCompletionDays)} يوم` : undefined}/>
-        <Tile label="رضا العملاء" value={r.ratings.average != null ? `${formatNumber(r.ratings.average)} من 5` : '-'} note={`${formatNumber(r.ratings.count)} تقييم`}/>
-        <Tile long label="المحصّل شامل الضريبة" value={formatMoney(r.revenue.paidTotal)} note={`منها ضريبة ${formatMoney(r.revenue.paidVat)} · ${formatNumber(r.revenue.paidCount)} فاتورة`}/>
+    <Toolbar filters={<div className="flex flex-wrap gap-2" role="group" aria-label="المدة">{periods.map(([value, name]) => <FilterChip key={value} active={days === value} onClick={() => setDays(value)}><CalendarDays size={14} aria-hidden="true"/>آخر {name}</FilterChip>)}</div>} />
+    {report.isLoading ? <LoadingBlock variant="tiles"/> : report.isError ? <ErrorBlock retry={() => report.refetch()}/> : r && <div className={`rp transition-opacity ${report.isPlaceholderData ? 'opacity-60' : ''}`} aria-busy={report.isPlaceholderData || undefined}>
+      <TileGrid cols={4}>
+        <Tile label="طلبات جديدة" value={formatNumber(r.created)} note={`خلال آخر ${period}`} icon={<BarChart3 size={15}/>} tone="accent"/>
+        <Tile label="طلبات أُنجزت" value={formatNumber(r.completed)} icon={<BarChart3 size={15}/>}
+          trend={completionRate != null ? { direction: completionRate >= 100 ? 'up' : completionRate >= 50 ? 'flat' : 'down', value: `${formatNumber(completionRate)}٪`, label: 'من الجديدة', good: completionRate >= 50 } : undefined}
+          note={r.averageCompletionDays != null ? `متوسط الإنجاز ${formatNumber(r.averageCompletionDays)} يوم` : undefined}/>
+        <Tile label="رضا العملاء" value={r.ratings.average != null ? `${formatNumber(r.ratings.average)} من 5` : '-'} note={`${formatNumber(r.ratings.count)} تقييم`} icon={<Star size={15}/>}/>
+        <Tile long label="المحصّل شامل الضريبة" value={formatMoney(r.revenue.paidTotal)} note={`${formatNumber(r.revenue.paidCount)} فاتورة · ضريبة ${formatMoney(r.revenue.paidVat)}`} icon={<Banknote size={15}/>}/>
+      </TileGrid>
+      {r.revenue.outstandingCount > 0 && <p className="rp-outstanding"><span><ReceiptText size={16} className="inline-block align-middle" aria-hidden="true"/> فواتير غير مسددة: <strong className="nums">{formatNumber(r.revenue.outstandingCount)}</strong> بإجمالي <strong className="nums">{formatMoney(r.revenue.outstandingTotal)}</strong></span></p>}
+      <div className="rp-grid">
+        <Reveal as="section" className="surface rp-card" style={stagger(0)} aria-labelledby="rp-throughput">
+          <SectionHeader id="rp-throughput" title="الإنجاز مقابل الوارد" description={`ما وصل وما أُنجز خلال آخر ${period}.`} />
+          <Columns label="الطلبات الجديدة مقابل المنجزة" groups={[{ key: 'period', label: `آخر ${period}`, values: [r.created, r.completed] }]} seriesList={[{ key: 'created', label: 'جديدة', color: chartSeries[0] }, { key: 'completed', label: 'أُنجزت', color: chartSeries[1] }]} height={200} />
+          <ChartTable columns={['البند', 'العدد']} rows={[['طلبات جديدة', formatNumber(r.created)], ['طلبات أُنجزت', formatNumber(r.completed)], ['متوسط أيام الإنجاز', r.averageCompletionDays != null ? formatNumber(r.averageCompletionDays) : '-']]} />
+        </Reveal>
+        <Reveal as="section" className="surface rp-card" style={stagger(1)} aria-labelledby="rp-status">
+          <ReportHead id="rp-status" title="الطلبات الحالية حسب الحالة" description="أين تقف الطلبات الآن؛ عدد كل مرحلة." name={`الطلبات حسب الحالة - آخر ${period}`} columns={countColumns} rows={byStatus}/>
+          {byStatus.length ? <><StackedBar segments={byStatus} label="الطلبات حسب الحالة" height={20} /><ChartTable columns={['الحالة', 'العدد']} rows={byStatus.map(row => [row.label, formatNumber(row.value)])} /></> : <p className="oc-empty">لا توجد بيانات في هذه المدة.</p>}
+        </Reveal>
+        <Reveal as="section" className="surface rp-card" style={stagger(2)} aria-labelledby="rp-category">
+          <ReportHead id="rp-category" title="الطلبات الجديدة حسب المجال" name={`الطلبات حسب المجال - آخر ${period}`} columns={countColumns} rows={byCategory}/>
+          <BarList label="الطلبات حسب المجال" rows={byCategory} />
+          <ChartTable columns={['المجال', 'العدد']} rows={byCategory.map(row => [row.label, formatNumber(row.value)])} />
+        </Reveal>
+        <Reveal as="section" className="surface rp-card" style={stagger(3)} aria-labelledby="rp-ratings">
+          <ReportHead id="rp-ratings" title="توزيع التقييمات" description={r.ratings.count ? `${formatNumber(r.ratings.count)} تقييمًا بمتوسط ${formatNumber(r.ratings.average ?? 0)} من 5.` : undefined} name={`توزيع التقييمات - آخر ${period}`} columns={countColumns} rows={ratingRows.filter(x => x.value > 0)}/>
+          {r.ratings.count ? <><BarList label="توزيع التقييمات" rows={ratingRows} emphasis="5" /><ChartTable columns={['التقييم', 'العدد']} rows={ratingRows.map(row => [row.label, formatNumber(row.value)])} /></> : <p className="oc-empty">لا توجد تقييمات في هذه المدة.</p>}
+        </Reveal>
       </div>
-      {r.revenue.outstandingCount > 0 && <p className="rounded-xl border border-warn-line bg-warn-soft px-5 py-4 text-sm text-warn">فواتير غير مسددة: {formatNumber(r.revenue.outstandingCount)} بإجمالي {formatMoney(r.revenue.outstandingTotal)}</p>}
-      <div className="grid gap-5 lg:grid-cols-2">
-        <section className="surface p-5"><ReportHead title="الطلبات الحالية حسب الحالة" name={`الطلبات حسب الحالة - آخر ${period}`} columns={countColumns} rows={byStatus}/>
-          <BarRows label="الطلبات حسب الحالة" rows={byStatus}/></section>
-        <section className="surface p-5"><ReportHead title="الطلبات الجديدة حسب المجال" name={`الطلبات حسب المجال - آخر ${period}`} columns={countColumns} rows={byCategory}/>
-          <BarRows label="الطلبات حسب المجال" rows={byCategory}/></section>
-      </div>
-      <section className="surface overflow-x-auto p-5"><ReportHead title="أكثر الخدمات طلبًا" name={`أكثر الخدمات طلبًا - آخر ${period}`} columns={[{ key: 'service', label: 'الخدمة' }, { key: 'created', label: 'طلبات', type: 'number' }, { key: 'completed', label: 'مكتملة منها', type: 'number' }]} rows={r.topServices}/>
-        {r.topServices.length ? <table className="w-full min-w-[480px] text-sm"><thead><tr className="text-right text-xs text-subtle"><th className="py-2 font-bold">الخدمة</th><th className="py-2 font-bold">طلبات</th><th className="py-2 font-bold">مكتملة منها</th></tr></thead>
-          <tbody>{r.topServices.map(s => <tr key={s.service} className="border-t border-line"><td className="py-2">{s.service}</td><td className="nums py-2 text-right">{formatNumber(s.created)}</td><td className="nums py-2 text-right">{formatNumber(s.completed)}</td></tr>)}</tbody></table>
-          : <p className="muted text-sm">لا توجد طلبات في هذه المدة.</p>}</section>
-      <section className="surface overflow-x-auto p-5"><ReportHead title="الفريق" name={`الفريق - آخر ${period}`} columns={[{ key: 'member', label: 'المسؤول' }, { key: 'active', label: 'نشطة الآن', type: 'number' }, { key: 'completed', label: 'أُنجزت في المدة', type: 'number' }, { key: 'overdue', label: 'متأخرة', type: 'number' }]} rows={staffRows}/>
-        {r.staff.length ? <table className="w-full min-w-[480px] text-sm"><thead><tr className="text-right text-xs text-subtle"><th className="py-2 font-bold">المسؤول</th><th className="py-2 font-bold">نشطة الآن</th><th className="py-2 font-bold">أُنجزت في المدة</th><th className="py-2 font-bold">متأخرة</th></tr></thead>
-          <tbody>{r.staff.map(s => <tr key={s.userId ?? 'none'} className="border-t border-line"><td className="py-2" dir={s.email ? 'ltr' : undefined} style={{ textAlign: 'right' }}>{s.userId ? s.email ?? 'عضو سابق' : 'غير مسندة'}</td><td className="nums py-2 text-right">{formatNumber(s.active)}</td><td className="nums py-2 text-right">{formatNumber(s.completed)}</td><td className={`nums py-2 text-right ${s.overdue ? 'font-bold text-danger' : ''}`}>{formatNumber(s.overdue)}</td></tr>)}</tbody></table>
-          : <p className="muted text-sm">لا توجد طلبات مسندة بعد.</p>}</section>
-      <section className="surface p-5"><ReportHead title="توزيع التقييمات" name={`توزيع التقييمات - آخر ${period}`} columns={countColumns} rows={ratingRows}/>
-        <BarRows label="توزيع التقييمات" rows={ratingRows}/></section>
+      <Reveal as="section" className="surface rp-card" style={stagger(4)} aria-labelledby="rp-services">
+        <ReportHead id="rp-services" title="أكثر الخدمات طلبًا" description="الخدمات الأكثر ورودًا في المدة، وكم اكتمل منها." name={`أكثر الخدمات طلبًا - آخر ${period}`} columns={[{ key: 'service', label: 'الخدمة' }, { key: 'created', label: 'طلبات', type: 'number' }, { key: 'completed', label: 'مكتملة منها', type: 'number' }]} rows={r.topServices}/>
+        <Columns label="أكثر الخدمات طلبًا" groups={r.topServices.map(s => ({ key: s.service, label: s.service, values: [s.created, s.completed] }))} seriesList={[{ key: 'created', label: 'طلبات', color: chartSeries[0] }, { key: 'completed', label: 'مكتملة منها', color: chartSeries[1] }]} />
+        <ChartTable columns={['الخدمة', 'طلبات', 'مكتملة منها']} rows={r.topServices.map(s => [s.service, formatNumber(s.created), formatNumber(s.completed)])} />
+      </Reveal>
+      <Reveal as="section" className="surface rp-card" style={stagger(5)} aria-labelledby="rp-staff">
+        <ReportHead id="rp-staff" title="الفريق" description="حمل كل مسؤول الآن، وما أنجزه في المدة، وما تأخر لديه." name={`الفريق - آخر ${period}`} columns={[{ key: 'member', label: 'المسؤول' }, { key: 'active', label: 'نشطة الآن', type: 'number' }, { key: 'completed', label: 'أُنجزت في المدة', type: 'number' }, { key: 'overdue', label: 'متأخرة', type: 'number' }]} rows={staffRows}/>
+        {staffRows.length ? <DataTable columns={staffColumns} rows={staffRows} rowKey={s => s.key} caption="الفريق" rowTone={s => s.overdue ? 'danger' : undefined} dense stickyHeader={false} /> : <p className="oc-empty">لا توجد طلبات مسندة بعد.</p>}
+      </Reveal>
+      <Reveal as="section" className="surface rp-card" style={stagger(6)} aria-labelledby="rp-revenue">
+        <SectionHeader id="rp-revenue" title="الإيرادات" description={`الفواتير المسددة وغير المسددة خلال آخر ${period}، شاملة الضريبة.`} />
+        <div className="rp-revenue">
+          <StackedBar segments={[{ key: 'paid', label: 'مسددة', value: r.revenue.paidTotal }, { key: 'outstanding', label: 'غير مسددة', value: r.revenue.outstandingTotal }]} label="الإيرادات" format={formatMoney} height={20} />
+          <div className="rp-revenue-tiles">
+            <div className="rp-revenue-tile"><div className="label"><Banknote size={13} aria-hidden="true"/>المحصّل</div><div className="value display nums">{formatMoney(r.revenue.paidTotal)}</div><div className="note nums">{formatNumber(r.revenue.paidCount)} فاتورة · منها ضريبة {formatMoney(r.revenue.paidVat)}</div></div>
+            <div className="rp-revenue-tile"><div className="label"><ReceiptText size={13} aria-hidden="true"/>غير المسدد</div><div className="value display nums">{formatMoney(r.revenue.outstandingTotal)}</div><div className="note nums">{formatNumber(r.revenue.outstandingCount)} فاتورة بانتظار السداد</div></div>
+          </div>
+        </div>
+      </Reveal>
     </div>}
   </PortalLayout>;
 }

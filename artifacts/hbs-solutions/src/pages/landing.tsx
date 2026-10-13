@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ArrowLeft, BookUser, BriefcaseBusiness, Building2, CalendarClock, FileText, Gauge, MessageSquareWarning, Search, ShieldCheck, Shapes, Hash, History, PlayCircle } from 'lucide-react';
 import { SiteFooter, SiteHeader } from '@/components/site-chrome';
@@ -8,7 +8,7 @@ import { AssistantShowcase, DashboardPreview } from '@/components/landing-previe
 import { HowFilm } from '@/components/how-film';
 import { categories, services, type ServiceCategory } from '@/content/services';
 import { faqs, journey, problemHref, problems, trustFacts, type ProblemKey } from '@/content/site';
-import { useReducedMotion, useRevealOnScroll } from '@/lib/motion';
+import { Reveal, useReducedMotion } from '@/lib/motion';
 import './landing.css';
 
 const ICON = 1.75;
@@ -74,10 +74,24 @@ function ServiceSearch({ compact = false }: { compact?: boolean }) {
   );
 }
 
+// Section heading row: title + copy on one side, an optional arrow link on the
+// other. `dark` flips the text tokens for night bands.
+function SectionHead({ id, title, text, dark = false, action }: { id: string; title: string; text: string; dark?: boolean; action?: ReactNode }) {
+  return (
+    <Reveal className="lp-section-head">
+      <div>
+        <h2 id={id} className={`lp-heading ${dark ? 'lp-heading--dark' : ''}`}>{title}</h2>
+        <p className={`lp-copy ${dark ? 'lp-copy--dark' : ''}`}>{text}</p>
+      </div>
+      {action}
+    </Reveal>
+  );
+}
+
 export default function Landing() {
   const intro = useIntroState();
   const reduced = useReducedMotion();
-  const rootRef = useRevealOnScroll<HTMLDivElement>();
+  const rootRef = useRef<HTMLDivElement>(null);
   const hero = useHeroStage(!intro.playing, reduced);
   // The film returns focus to whichever replay button is visible (hero on desktop, journey section on phones).
   const replayHero = useRef<HTMLButtonElement>(null);
@@ -106,6 +120,8 @@ export default function Landing() {
 
       <main id="main" tabIndex={-1}>
         <section className="lp-hero" aria-labelledby="landing-title">
+          {/* Depth over the city scene: a night gradient, a copper glow and film grain. Decorative only. */}
+          <div className="lp-hero-depth" aria-hidden="true" />
           <div className="site-wrap lp-hero-grid">
             <div className="lp-hero-content">
               <h1 id="landing-title">
@@ -144,20 +160,18 @@ export default function Landing() {
         </section>
 
         <div className="lp-body">
-        <section id="problems" className="lp-problems" aria-labelledby="problems-title">
+        <section id="problems" className="lp-section lp-problems band-paper" aria-labelledby="problems-title">
           <div className="site-wrap">
-            <div className="lp-section-head reveal">
-              <div>
-                <h2 id="problems-title" className="lp-heading">مشاكل نحلّها</h2>
-                <p className="lp-copy">ثلاث حالات يصل بها أصحاب المنشآت إلى المكتب أكثر من غيرها. في كل واحدة: ما الذي يفعله المكتب، وما الذي تراه أنت في حسابك.</p>
-              </div>
-            </div>
+            <SectionHead id="problems-title" title="مشاكل نحلّها" text="ثلاث حالات يصل بها أصحاب المنشآت إلى المكتب أكثر من غيرها. في كل واحدة: ما الذي يفعله المكتب، وما الذي تراه أنت في حسابك." />
             <ul className="lp-problem-grid">
               {problems.map((problem, index) => {
                 const Icon = problemIcons[problem.key];
                 return (
-                  <li key={problem.key} className={`lp-problem lp-problem--${problem.key} reveal`} style={{ transitionDelay: `${index * 80}ms` }}>
-                    <span className="lp-problem-icon"><Icon size={22} strokeWidth={ICON} aria-hidden="true" /></span>
+                  <Reveal as="li" key={problem.key} className={`lp-problem lp-problem--${problem.key}`} delay={index * 90}>
+                    <div className="lp-problem-top">
+                      <span className="lp-problem-icon"><Icon size={22} strokeWidth={ICON} aria-hidden="true" /></span>
+                      <span className="lp-problem-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                    </div>
                     <h3>{problem.title}</h3>
                     <p className="lp-problem-pain">{problem.pain}</p>
                     <dl className="lp-problem-detail">
@@ -176,46 +190,41 @@ export default function Landing() {
                       </ul>
                     </div>
                     <Link href={problemHref[problem.key]} className="btn btn-accent lp-problem-cta">{problem.cta} <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
-                  </li>
+                  </Reveal>
                 );
               })}
             </ul>
           </div>
         </section>
 
-        <section className="lp-categories" aria-labelledby="categories-title">
+        <section className="lp-section lp-categories band-sage" aria-labelledby="categories-title">
           <div className="site-wrap">
-            <div className="lp-section-head reveal">
-              <div>
-                <h2 id="categories-title" className="lp-heading">بماذا يخدمك المكتب؟</h2>
-                <p className="lp-copy">خدمات المنشأة في الجوازات والعمل والتراخيص، مرتّبة بحسب المجال. لكل خدمة صفحة تبيّن ما يفيد المكتب أن تذكره في طلبك.</p>
-              </div>
-              <Link href="/services" className="lp-arrow-link">كل الخدمات <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
-            </div>
-            <div className="lp-search-wrap lp-search-wrap--mobile reveal"><ServiceSearch compact /></div>
+            <SectionHead id="categories-title" title="بماذا يخدمك المكتب؟" text="خدمات المنشأة في الجوازات والعمل والتراخيص، مرتّبة بحسب المجال. لكل خدمة صفحة تبيّن ما يفيد المكتب أن تذكره في طلبك."
+              action={<Link href="/services" className="lp-arrow-link">كل الخدمات <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>} />
+            <Reveal className="lp-search-wrap lp-search-wrap--mobile"><ServiceSearch compact /></Reveal>
             <ul className="lp-category-grid">
               {categories.map((category, index) => {
                 const Icon = categoryIcons[category.id];
                 const count = services.filter((s) => s.category === category.id).length;
                 return (
-                  <li key={category.id} className="reveal" style={{ transitionDelay: `${index * 70}ms` }}>
+                  <Reveal as="li" key={category.id} delay={index * 70}>
                     <Link href={`/services?category=${category.slug}`} className={`lp-category lp-category--${category.id}`}>
                       <span className="lp-category-icon"><Icon size={24} strokeWidth={ICON} aria-hidden="true" /></span>
                       <strong>{category.name}</strong>
                       <span className="lp-category-text">{category.description}</span>
                       <span className="lp-category-foot">{servicesLabel(count)} <ArrowLeft size={15} strokeWidth={ICON} aria-hidden="true" /></span>
                     </Link>
-                  </li>
+                  </Reveal>
                 );
               })}
             </ul>
           </div>
         </section>
 
-        <section id="how" className="lp-journey" aria-labelledby="journey-title">
+        <section id="how" className="lp-section lp-journey night-gradient grain" aria-labelledby="journey-title">
           <div className="lp-journey-glow" aria-hidden="true" />
           <div className="site-wrap">
-            <div className="lp-journey-head reveal">
+            <Reveal className="lp-journey-head">
               <div>
                 <h2 id="journey-title" className="lp-heading lp-heading--dark">من الملاحظة إلى إغلاقها: كيف تعمل البوابة</h2>
                 <p className="lp-copy lp-copy--dark">الطريق نفسه لكل طلب: تجديد قبل الانتهاء، أو تصحيح ما يؤثر في المؤشر، أو معالجة ملاحظة. تعرف الحالة في كل خطوة، وتعرف متى يلزم شيء من طرفك.</p>
@@ -223,96 +232,91 @@ export default function Landing() {
               <button type="button" className="intro-replay lp-replay--how" onClick={intro.replay} ref={replayHow}>
                 <PlayCircle size={18} strokeWidth={ICON} aria-hidden="true" /> شاهد الجولة السريعة
               </button>
-            </div>
-            <div className="lp-film reveal"><HowFilm /></div>
-            <ol className="lp-chapters">
+            </Reveal>
+            <Reveal className="lp-film"><HowFilm /></Reveal>
+            {/* Timeline: a rail with one stop per chapter; on phones it scrolls sideways and snaps per chapter. */}
+            <ol className="lp-chapters" aria-labelledby="journey-title" tabIndex={0}>
               {journey.map((chapter, index) => (
-                <li key={chapter.title} className="lp-chapter">
+                <Reveal as="li" key={chapter.title} className="lp-chapter" delay={index * 60}>
+                  <span className="lp-chapter-rail" aria-hidden="true"><i /></span>
+                  <span className="lp-chapter-kicker">{chapter.kicker}</span>
                   <span className="lp-chapter-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
                   <div>
                     <h3>{chapter.title}</h3>
                     <p>{chapter.text}</p>
                   </div>
-                </li>
+                </Reveal>
               ))}
             </ol>
           </div>
         </section>
 
-        <section id="dashboard" className="lp-dashboard" aria-labelledby="dashboard-title">
+        <section id="dashboard" className="lp-section lp-dashboard band-paper" aria-labelledby="dashboard-title">
           <div className="site-wrap">
-            <div className="lp-section-head reveal">
-              <div>
-                <h2 id="dashboard-title" className="lp-heading">حسابك: التزام منشأتك أمامك</h2>
-                <p className="lp-copy">ما ينتهي قريبًا، وما يعالجه المكتب الآن، وما ينتظر شيئًا منك: في صفحة واحدة، بدل الاتصال للسؤال.</p>
-              </div>
-            </div>
-            <div className="reveal"><DashboardPreview /></div>
+            <SectionHead id="dashboard-title" title="حسابك: التزام منشأتك أمامك" text="ما ينتهي قريبًا، وما يعالجه المكتب الآن، وما ينتظر شيئًا منك: في صفحة واحدة، بدل الاتصال للسؤال." />
+            <Reveal><DashboardPreview /></Reveal>
             <ul className="dp-points">
               {dashboardPoints.map((point, index) => (
-                <li key={point.title} className="reveal" style={{ transitionDelay: `${index * 70}ms` }}>
+                <Reveal as="li" key={point.title} delay={index * 70}>
                   <strong>{point.title}</strong>
                   <span>{point.text}</span>
-                </li>
+                </Reveal>
               ))}
             </ul>
           </div>
         </section>
 
-        <section id="assistant" className="lp-assistant" aria-labelledby="assistant-title">
+        <section id="assistant" className="lp-section lp-assistant night-gradient grain" aria-labelledby="assistant-title">
           <div className="lp-journey-glow" aria-hidden="true" />
-          <div className="site-wrap reveal"><AssistantShowcase /></div>
+          <Reveal className="site-wrap"><AssistantShowcase /></Reveal>
         </section>
 
-        <section className="lp-trust" aria-labelledby="trust-title">
+        <section className="lp-section lp-trust band-sage" aria-labelledby="trust-title">
           <div className="site-wrap">
-            <div className="lp-section-head reveal">
-              <div>
-                <h2 id="trust-title" className="lp-heading">الخصوصية والأمان</h2>
-                <p className="lp-copy">ملف الأجور والملاحظات وبيانات الموظفين تبقى بين منشأتك والمكتب. هذا ما تعنيه الثقة هنا عمليًا.</p>
-              </div>
-              <Link href="/trust" className="lp-arrow-link">كيف نحمي بياناتك <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
-            </div>
+            <SectionHead id="trust-title" title="الخصوصية والأمان" text="ملف الأجور والملاحظات وبيانات الموظفين تبقى بين منشأتك والمكتب. هذا ما تعنيه الثقة هنا عمليًا."
+              action={<Link href="/trust" className="lp-arrow-link">كيف نحمي بياناتك <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>} />
             <ul className="lp-trust-grid">
               {trustFacts.map((fact, index) => {
                 const Icon = trustIcons[index] ?? FileText;
                 return (
-                  <li key={fact.title} className="lp-trust-card reveal" style={{ transitionDelay: `${index * 80}ms` }}>
+                  <Reveal as="li" key={fact.title} className="lp-trust-card" delay={index * 80}>
                     <span className="lp-trust-icon"><Icon size={20} strokeWidth={ICON} aria-hidden="true" /></span>
                     <h3>{fact.title}</h3>
                     <p>{fact.text}</p>
-                  </li>
+                  </Reveal>
                 );
               })}
             </ul>
           </div>
         </section>
 
-        <section id="questions" className="lp-faq" aria-labelledby="faq-title">
+        <section id="questions" className="lp-section lp-faq band-paper" aria-labelledby="faq-title">
           <div className="site-wrap lp-faq-grid">
-            <div className="lp-faq-head reveal">
+            <Reveal className="lp-faq-head">
               <h2 id="faq-title" className="lp-heading">الأسئلة الشائعة</h2>
               <Link href="/help" className="lp-arrow-link">كل الأسئلة <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
-            </div>
-            <div className="lp-faq-list reveal">
-              {faqs.slice(0, 5).map((faq) => (
-                <details key={faq.question} className="lp-faq-item">
+            </Reveal>
+            <div className="lp-faq-list">
+              {faqs.slice(0, 5).map((faq, index) => (
+                <Reveal as="details" key={faq.question} className="lp-faq-item" delay={index * 60}>
                   <summary>{faq.question}</summary>
                   <p>{faq.answer}</p>
-                </details>
+                </Reveal>
               ))}
             </div>
           </div>
         </section>
 
-        <section className="site-wrap lp-final reveal" aria-labelledby="final-title">
+        <section className="lp-final night-gradient grain" aria-labelledby="final-title">
           <div className="lp-final-orbit" aria-hidden="true" />
-          <h2 id="final-title">ابدأ قبل أن يصبح التأخير ملاحظة</h2>
-          <p>قدّم طلب التسجيل، وبعد موافقة المكتب أرسل ما يظهر لك على منشأتك، وتابع معالجته من حسابك برقم مرجعي لكل طلب.</p>
-          <div className="lp-final-actions">
-            <Link href="/sign-up" className="btn btn-light lp-btn-lg">طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
-            <Link href="/sign-in" className="btn btn-ghost-dark lp-btn-lg">تسجيل الدخول</Link>
-          </div>
+          <Reveal className="site-wrap lp-final-inner">
+            <h2 id="final-title">ابدأ قبل أن يصبح التأخير ملاحظة</h2>
+            <p>قدّم طلب التسجيل، وبعد موافقة المكتب أرسل ما يظهر لك على منشأتك، وتابع معالجته من حسابك برقم مرجعي لكل طلب.</p>
+            <div className="lp-final-actions">
+              <Link href="/sign-up" className="btn btn-light lp-btn-lg">طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
+              <Link href="/sign-in" className="btn btn-ghost-dark lp-btn-lg">تسجيل الدخول</Link>
+            </div>
+          </Reveal>
         </section>
         </div>
       </main>

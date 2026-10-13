@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Link, useLocation, useParams, useSearch } from 'wouter';
-import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, CircleHelp, FileText, Hash, History, Info, KeyRound, MessageSquareText, MessagesSquare, Search, ShieldCheck, Shapes, UserRoundCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookUser, BriefcaseBusiness, Building2, CircleHelp, FileText, Hash, History, Info, KeyRound, LayoutGrid, MessageSquareText, MessagesSquare, Search, ShieldCheck, Shapes, UserRoundCheck } from 'lucide-react';
 import { PublicPage } from '@/components/site-chrome';
 import { siteUrl } from '@/App';
-import { prefersReducedMotion } from '@/lib/motion';
+import { prefersReducedMotion, stagger, useActiveChapter } from '@/lib/motion';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ContactCard } from '@/components/contact-card';
 import { ServiceDiscovery } from '@/components/service-discovery';
 import { ServiceOffer } from '@/components/service-offer';
@@ -64,11 +65,26 @@ function useJsonLd(id: string, data: Record<string, unknown> | null) {
 // bare domain never leaks into the data.
 const pageUrl = (path: string) => `${siteUrl}${basePath}${path}`;
 
-function ServiceCard({ service }: { service: ServiceEntry }) {
+// Questions and answers as a Radix accordion (ui/accordion is scanned for the
+// public bundle). The first one opens by default, as the old <details> did.
+function FaqAccordion({ items, compact = false }: { items: { q: string; a: string }[]; compact?: boolean }) {
+  return (
+    <Accordion type="single" collapsible defaultValue="faq-0" className={`pub-faq ${compact ? 'pub-faq-compact' : ''}`}>
+      {items.map((item, index) => (
+        <AccordionItem key={item.q} value={`faq-${index}`} className="pub-faq-item">
+          <AccordionTrigger className="pub-faq-trigger">{item.q}</AccordionTrigger>
+          <AccordionContent className="pub-faq-answer"><p>{item.a}</p></AccordionContent>
+        </AccordionItem>
+      ))}
+    </Accordion>
+  );
+}
+
+function ServiceCard({ service, index = 0 }: { service: ServiceEntry; index?: number }) {
   const Icon = categoryIcons[service.category];
   return (
     <li>
-      <Link href={`/services/${service.slug}`} className="pub-service-card">
+      <Link href={`/services/${service.slug}`} className="pub-service-card" style={stagger(Math.min(index, 9), 40)}>
         <span className="pub-service-cat"><Icon size={16} strokeWidth={ICON} aria-hidden="true" />{categoryById[service.category].name}</span>
         <strong>{service.name}</strong>
         {service.platform && <span className="pub-platform-name">المنصة: {service.platform}</span>}
@@ -76,6 +92,57 @@ function ServiceCard({ service }: { service: ServiceEntry }) {
         <ArrowLeft className="pub-service-arrow" size={18} strokeWidth={ICON} aria-hidden="true" />
       </Link>
     </li>
+  );
+}
+
+// Arrow keys move between the cards of a catalogue grid (Tab still walks
+// them one by one). In RTL, ArrowRight is "previous" and ArrowLeft "next";
+// Up/Down jump a row, using the column count measured from the first row.
+function moveInGrid(event: ReactKeyboardEvent<HTMLElement>) {
+  const target = event.target as HTMLElement;
+  if (!target.classList.contains('pub-service-card')) return;
+  const cards = [...event.currentTarget.querySelectorAll<HTMLAnchorElement>('a.pub-service-card')];
+  const index = cards.indexOf(target as HTMLAnchorElement);
+  if (index < 0) return;
+  const top = cards[0].offsetTop;
+  const columns = Math.max(1, cards.filter((card) => card.offsetTop === top).length);
+  const step: Record<string, number> = { ArrowLeft: 1, ArrowRight: -1, ArrowDown: columns, ArrowUp: -columns };
+  const delta = step[event.key];
+  if (delta === undefined && event.key !== 'Home' && event.key !== 'End') return;
+  event.preventDefault();
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? cards.length - 1 : Math.min(cards.length - 1, Math.max(0, index + delta));
+  cards[next]?.focus();
+}
+
+// Category tabs with roving focus (WAI-ARIA tabs): arrows move between the
+// tabs, Home/End jump to the ends, and the results region is the panel.
+const allTab = 'all';
+function CategoryTabs({ value, onChange }: { value: ServiceCategory | null; onChange: (next: ServiceCategory | null) => void }) {
+  const list = useRef<HTMLDivElement>(null);
+  const items: { id: string; label: string; category: ServiceCategory | null }[] = [{ id: allTab, label: 'كل المجالات', category: null }, ...categories.map((c) => ({ id: c.id, label: c.name, category: c.id }))];
+  const current = value ?? allTab;
+  function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const tabs = [...(list.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? [])];
+    const index = tabs.indexOf(document.activeElement as HTMLButtonElement);
+    if (index < 0) return;
+    const next = event.key === 'ArrowLeft' ? index + 1 : event.key === 'ArrowRight' ? index - 1 : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : null;
+    if (next === null) return;
+    event.preventDefault();
+    const tab = tabs[(next + tabs.length) % tabs.length];
+    tab.focus();
+    onChange(items[(next + tabs.length) % tabs.length].category);
+  }
+  return (
+    <div ref={list} className="pub-tabs" role="tablist" aria-label="تصفية حسب المجال" onKeyDown={onKeyDown}>
+      {items.map((item) => {
+        const selected = current === item.id;
+        return (
+          <button key={item.id} id={`tab-${item.id}`} type="button" role="tab" aria-selected={selected} aria-controls="directory-list" tabIndex={selected ? 0 : -1} onClick={() => onChange(item.category)}>
+            {item.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -113,35 +180,32 @@ export function ServicesDirectory() {
 
   return (
     <PublicPage intro={<PageIntro kicker="دليل الخدمات" title="ما الخدمة التي تحتاجها؟" text="ابحث باسم المعاملة أو المنصة، أو ابدأ من مشكلتك: وثيقة تنتهي قريبًا، أو مؤشر تغيّر، أو ملاحظة وصلتك. يستقبل المكتب طلبك ويراجع إمكانية المساعدة قبل البدء." />}>
-      <div className="site-wrap pub-page">
-        {/* On phones the toolbar comes first (CSS order): the search is the primary tool, the wizard an alternative. */}
+      {/* On phones the toolbar comes first (CSS order): the search is the primary tool, the wizard an alternative. The toolbar sticks under the header while the catalogue scrolls. */}
+      <div className="site-wrap pub-page pub-directory">
         <div className="pub-directory-top">
-        <ServiceDiscovery onViewAllMatches={({ query: nextQuery, category: nextCategory, platform: nextPlatform }) => {
-          setQuery(nextQuery);
-          setCategory(nextCategory);
-          setPlatform(nextPlatform);
-          requestAnimationFrame(() => scrollTo(document.getElementById('directory-results')));
-        }} />
-        <div id="directory-tools" className="pub-toolbar">
-          <label className="pub-search">
-            <span className="sr-only">ابحث في الخدمات</span>
-            <Search size={19} strokeWidth={ICON} aria-hidden="true" />
-            <input ref={searchField} type="search" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') scrollTo(document.getElementById('directory-results')); }} placeholder="ابحث: إقامة، سجل تجاري، تأمينات" autoComplete="off" />
-          </label>
-          <label className="pub-platform-filter" htmlFor="platform-filter">
-            <span>المنصة</span>
-            <select id="platform-filter" value={platform ?? ''} onChange={(event) => setPlatform(event.target.value || null)}>
-              <option value="">كل المنصات</option>
-              {platforms.map((name) => <option key={name} value={name}>{name}</option>)}
-            </select>
-          </label>
-          <div className="pub-chips" role="group" aria-label="تصفية حسب المجال">
-            <button type="button" aria-pressed={category === null} onClick={() => setCategory(null)}>كل المجالات</button>
-            {categories.map((c) => (
-              <button key={c.id} type="button" aria-pressed={category === c.id} onClick={() => setCategory(category === c.id ? null : c.id)}>{c.name}</button>
-            ))}
-          </div>
+          <ServiceDiscovery onViewAllMatches={({ query: nextQuery, category: nextCategory, platform: nextPlatform }) => {
+            setQuery(nextQuery);
+            setCategory(nextCategory);
+            setPlatform(nextPlatform);
+            requestAnimationFrame(() => scrollTo(document.getElementById('directory-results')));
+          }} />
         </div>
+        <div id="directory-tools" className="pub-toolbar">
+          <div className="pub-toolbar-row">
+            <label className="pub-search">
+              <span className="sr-only">ابحث في الخدمات</span>
+              <Search size={19} strokeWidth={ICON} aria-hidden="true" />
+              <input ref={searchField} type="search" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') scrollTo(document.getElementById('directory-results')); }} placeholder="ابحث: إقامة، سجل تجاري، تأمينات" autoComplete="off" />
+            </label>
+            <label className="pub-platform-filter" htmlFor="platform-filter">
+              <span>المنصة</span>
+              <select id="platform-filter" value={platform ?? ''} onChange={(event) => setPlatform(event.target.value || null)}>
+                <option value="">كل المنصات</option>
+                {platforms.map((name) => <option key={name} value={name}>{name}</option>)}
+              </select>
+            </label>
+          </div>
+          <CategoryTabs value={category} onChange={setCategory} />
         </div>
         <p className="pub-directory-intro">يجمع هذا الدليل الخدمات التي يقدّمها {ORG}، مكتب خدمات عامة في {contact.city}، للمنشآت والأفراد. أكثر ما يصل المكتب ثلاث مشاكل: التزام المنشأة، حين تنتهي إقامات ورخص وعقود وتأمينات في تواريخ متفرقة ويوقف تأخير واحدة منها معاملة أخرى؛ ومؤشرات المنشأة في قوى ومُدد والتأمينات، حين يتغير النطاق أو مؤشر الالتزام دون أن تعرف السبب؛ ومعالجة الملاحظات، سواء كانت ملاحظة على ملف الأجور أو من زيارة تفتيشية أو رفضًا في منصة. تفتح كل خدمة صفحة توضح متى تحتاجها وما يفيد أن تكتبه في طلبك، ثم ترسل الطلب من حسابك ويتابعه المكتب معك حتى «مكتملة».</p>
         <p className="pub-directory-intro">
@@ -152,20 +216,25 @@ export function ServicesDirectory() {
             </span>
           ))}
         </p>
-        <p id="directory-results" className="pub-count" role="status" aria-live="polite">{resultsLabel(results.length)} · طلب الخدمة عبر المكتب بعد مراجعة الحالة، وليس ربطًا مباشرًا بالمنصة.</p>
+        <p id="directory-results" className="pub-count" role="status" aria-live="polite"><LayoutGrid size={15} strokeWidth={ICON} aria-hidden="true" />{resultsLabel(results.length)} · طلب الخدمة عبر المكتب بعد مراجعة الحالة، وليس ربطًا مباشرًا بالمنصة.</p>
+        <div id="directory-list" role="tabpanel" aria-labelledby={`tab-${category ?? allTab}`}>
         {results.length ? (
           <div className="pub-groups">
             {categories.map((group) => {
               const items = results.filter((service) => service.category === group.id);
               if (!items.length) return null;
+              const Icon = categoryIcons[group.id];
               return (
                 <section key={group.id} className="pub-group" aria-labelledby={`group-${group.slug}`}>
                   <div className="pub-group-head">
-                    <h2 id={`group-${group.slug}`} className="display">{group.name}</h2>
-                    <p>{group.description} <span className="pub-group-count">{resultsLabel(items.length)}</span></p>
+                    <span className="pub-group-icon"><Icon size={18} strokeWidth={ICON} aria-hidden="true" /></span>
+                    <div>
+                      <h2 id={`group-${group.slug}`} className="display">{group.name}</h2>
+                      <p>{group.description} <span className="pub-group-count">{resultsLabel(items.length)}</span></p>
+                    </div>
                   </div>
-                  <ul className="pub-service-grid">
-                    {items.map((service) => <ServiceCard key={service.slug} service={service} />)}
+                  <ul className="pub-service-grid" onKeyDown={moveInGrid}>
+                    {items.map((service, index) => <ServiceCard key={service.slug} service={service} index={index} />)}
                   </ul>
                 </section>
               );
@@ -179,6 +248,7 @@ export function ServicesDirectory() {
             <Link href="/services/other-service" className="btn btn-primary">خدمة غير مدرجة</Link>
           </div>
         )}
+        </div>
       </div>
     </PublicPage>
   );
@@ -219,6 +289,17 @@ export function ServiceDetail() {
     mainEntity: service.faq.map((item) => ({ '@type': 'Question', name: item.q, acceptedAnswer: { '@type': 'Answer', text: item.a } })),
   } : null);
 
+  const related = service ? (service.related ?? []).map((s) => serviceBySlug[s]).filter(Boolean) : [];
+  // In-page contents (desktop sidebar): the article's sections, in order. The
+  // one crossing the middle of the screen is marked as current.
+  const toc = [
+    { id: 'write-title', label: 'ما يفيد أن تكتبه في طلبك' },
+    { id: 'flow-title', label: 'كيف تتم الخدمة عبر البوابة' },
+    { id: 'faq-title', label: 'أسئلة شائعة' },
+    ...(related.length ? [{ id: 'related-title', label: 'خدمات ذات صلة' }] : []),
+  ];
+  const chapters = useActiveChapter(toc.length);
+
   if (!service || !category) {
     return (
       <PublicPage intro={<PageIntro kicker="دليل الخدمات" title="الخدمة غير موجودة" text="قد يكون الرابط قديمًا. تصفّح دليل الخدمات للعثور على ما تحتاجه." />}>
@@ -234,7 +315,6 @@ export function ServiceDetail() {
     );
   }
   const Icon = categoryIcons[service.category];
-  const related = (service.related ?? []).map((s) => serviceBySlug[s]).filter(Boolean);
   const samePlatform = services.filter((s) => s.platform && s.platform === service.platform && s.slug !== service.slug && !related.includes(s)).slice(0, 3);
   const steps = service.steps ?? portalFlow;
   const startHref = `/requests/new?service=${service.slug}`;
@@ -266,7 +346,7 @@ export function ServiceDetail() {
             </p>
             <p className="pub-detail-intro">{service.intro}</p>
             <ServiceOffer slug={service.slug} />
-            <section className="surface pub-block" aria-labelledby="write-title">
+            <section className="surface pub-block" aria-labelledby="write-title" ref={chapters.register(0)}>
               <h2 id="write-title" className="display"><FileText size={20} strokeWidth={ICON} aria-hidden="true" />ما يفيد أن تكتبه في طلبك</h2>
               <ul className="pub-checklist">
                 {service.whatToWrite.map((item) => <li key={item}>{item}</li>)}
@@ -274,7 +354,7 @@ export function ServiceDetail() {
               <p className="pub-note"><Info size={16} strokeWidth={ICON} aria-hidden="true" />هذه إرشادات لوصف حالتك، لا قائمة مستندات رسمية. يحدد المكتب ما يحتاجه من معلومات أو مستندات بعد مراجعة طلبك.</p>
             </section>
 
-            <section className="surface pub-block" aria-labelledby="flow-title">
+            <section className="surface pub-block" aria-labelledby="flow-title" ref={chapters.register(1)}>
               <h2 id="flow-title" className="display"><History size={20} strokeWidth={ICON} aria-hidden="true" />كيف تتم الخدمة عبر البوابة</h2>
               <ol className="pub-flow-list">
                 {steps.map((step, index) => (
@@ -293,23 +373,16 @@ export function ServiceDetail() {
               <p className="pub-note"><Info size={16} strokeWidth={ICON} aria-hidden="true" />{pauseNote}</p>
             </section>
 
-            <section className="surface pub-block" aria-labelledby="faq-title">
+            <section className="surface pub-block" aria-labelledby="faq-title" ref={chapters.register(2)}>
               <h2 id="faq-title" className="display"><MessagesSquare size={20} strokeWidth={ICON} aria-hidden="true" />أسئلة شائعة</h2>
-              <div className="pub-faq pub-faq-compact">
-                {service.faq.map((item, i) => (
-                  <details key={item.q} className="pub-faq-item" open={i === 0}>
-                    <summary>{item.q}</summary>
-                    <p>{item.a}</p>
-                  </details>
-                ))}
-              </div>
+              <FaqAccordion items={service.faq} compact />
             </section>
 
             {related.length > 0 && (
-              <section className="pub-related-block" aria-labelledby="related-title">
+              <section className="pub-related-block" aria-labelledby="related-title" ref={chapters.register(3)}>
                 <h2 id="related-title" className="display">خدمات ذات صلة</h2>
-                <ul className="pub-service-grid pub-related-grid">
-                  {related.map((s) => <ServiceCard key={s.slug} service={s} />)}
+                <ul className="pub-service-grid pub-related-grid" onKeyDown={moveInGrid}>
+                  {related.map((s, index) => <ServiceCard key={s.slug} service={s} index={index} />)}
                 </ul>
               </section>
             )}
@@ -322,6 +395,14 @@ export function ServiceDetail() {
               <Link href={startHref} className="btn btn-light">ابدأ الطلب <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
               <Link href="/sign-up" className="pub-cta-link">لا أملك حسابًا: طلب التسجيل</Link>
             </div>
+            <nav className="pub-toc" aria-label="محتويات الصفحة">
+              <p>المحتويات</p>
+              <ol>
+                {toc.map((entry, index) => (
+                  <li key={entry.id}><a href={`#${entry.id}`} aria-current={chapters.active === index ? 'location' : undefined}>{entry.label}</a></li>
+                ))}
+              </ol>
+            </nav>
             {samePlatform.length > 0 && (
               <div className="pub-related">
                 <h2>خدمات أخرى عبر {service.platform}</h2>
@@ -349,8 +430,8 @@ export function TrustPage() {
     <PublicPage intro={<PageIntro kicker="الخصوصية والأمان" title="كيف نتعامل مع طلباتك" text="ملاحظة على ملف الأجور، أو رخصة تنتهي، أو مؤشر تغيّر: كل ما ترسله عن منشأتك يبقى في حسابك، ويراه فريق المكتب المخوّل وحده. هنا ما يحدث له، ومن يراه، وما لا يطلبه المكتب منك." />}>
       <div className="site-wrap pub-page pub-split">
         <ul className="surface pub-facts">
-          {facts.map(({ title, text, Icon }) => (
-            <li key={title}>
+          {facts.map(({ title, text, Icon }, index) => (
+            <li key={title} style={stagger(index, 60)}>
               <span className="pub-fact-icon"><Icon size={20} strokeWidth={ICON} aria-hidden="true" /></span>
               <div><h2 className="display">{title}</h2><p>{text}</p></div>
             </li>
@@ -371,9 +452,10 @@ export function HelpPage() {
   return (
     <PublicPage intro={<PageIntro kicker="المساعدة" title="الأسئلة الشائعة" text="وصلتك ملاحظة ولا تعرف ماذا ترسل؟ تغيّر مؤشر منشأتك؟ وثيقة تنتهي قريبًا؟ هنا إجابات قصيرة عن ذلك وعن حالات الطلب في البوابة." />}>
       <div className="site-wrap pub-page pub-split">
+        {/* Native disclosure here, not the accordion: Radix's header is an h3, and this page has no h2 above the questions. */}
         <div className="pub-faq">
           {faqs.map((faq, i) => (
-            <details key={faq.question} className="pub-faq-item" open={i === 0}>
+            <details key={faq.question} className="pub-faq-item" open={i === 0} style={stagger(Math.min(i, 9), 40)}>
               <summary>{faq.question}</summary>
               <p>{faq.answer}</p>
             </details>

@@ -1,5 +1,5 @@
 import { memo, type ReactNode } from 'react';
-import { Layer, blocks, rng, type Block } from './kit';
+import { Atmosphere, Layer, blocks, rng, type Block } from './kit';
 import './jeddah.css';
 import { Residents, jeddahCrowd } from './people';
 
@@ -281,6 +281,7 @@ export const JeddahScene = memo(function JeddahScene() {
       <g fill="#ff4b3a">{[[1191, 239], [1233, 279], [1009, 322], ...farB.filter((b) => b.h > 150).map((b) => [b.x + b.w / 2, HZ - b.h - (b.cap > .84 ? 21 : 2)])].map(([x, y], i) => <circle key={i} cx={n1(x)} cy={n1(y)} r="1.6" className="jd-blink" style={{ animationDelay: `${(i * .37) % 2.4}s` }} />)}</g>
     </Layer>
 
+    <Atmosphere tint="#b85a55" light="#ffd49c" height={40} />
     <Layer depth={3}>
       <defs>
         <linearGradient id="jd-tl" x1={TX - 44} y1="0" x2={TX} y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#4a3a48" /><stop offset=".35" stopColor="#262632" /><stop offset="1" stopColor="#171b25" /></linearGradient>
