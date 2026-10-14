@@ -184,7 +184,7 @@ test("notification pipeline", async (t) => {
       assert.equal(mails.length, 1);
       assert.equal(mails[0].to, `${quiet}@digest.invalid`);
       assert.equal(mails[0].subject, "ملخص إشعاراتك اليومي");
-      assert.ok(mails[0].lines.some(line => line.includes("ملف جديد في الطلب (2)")), mails[0].lines.join("\n"));
+      assert.ok(mails[0].lines.some(line => line.includes("مستند جديد في الطلب (2)")), mails[0].lines.join("\n"));
       const after = await rowById(second.notification.id);
       assert.ok(after.digestedAt);
       assert.deepEqual(after.delivered, { email: "sent", push: "sent", whatsapp: "skipped" });

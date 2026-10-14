@@ -295,7 +295,7 @@ test("notification centre, preferences, push, brief, WhatsApp inbox and the live
 
       const brief = await call(alice, "GET", "/notifications/brief");
       assert.equal(brief.status, 200, JSON.stringify(brief.data));
-      assert.notEqual(brief.data.headline, "كل شيء هادئ، لا يوجد ما يحتاج انتباهك الآن.");
+      assert.notEqual(brief.data.headline, "لا شيء يحتاج انتباهك الآن.");
       const kinds = brief.data.items.map((i: any) => i.kind);
       assert.deepEqual(kinds.slice(0, 2).sort(), ["invoice.overdue", "reminder.expiring"], "urgent items lead");
       const overdue = brief.data.items.find((i: any) => i.kind === "invoice.overdue");

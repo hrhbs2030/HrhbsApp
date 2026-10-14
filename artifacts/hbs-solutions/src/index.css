@@ -4,17 +4,13 @@
 @import 'tailwindcss';
 /* The shadcn kit under components/ui is mostly unused; scanning it all adds
    ~70 KB of utilities to every page. Only the pieces the product imports are
-   scanned. Importing a new ui/* component means adding its line here. */
+   scanned (card, badge, skeleton, tabs, tooltip and progress have no importer:
+   the product uses .surface, .chip, .skeleton from this file). Importing a new
+   ui/* component means adding its line here. */
 @source not "./components/ui";
 /* Scanned here (every page, public ones included): */
 @source "./components/ui/alert-dialog.tsx";
-@source "./components/ui/button.tsx";
-@source "./components/ui/card.tsx";
-@source "./components/ui/badge.tsx";
-@source "./components/ui/skeleton.tsx";
-@source "./components/ui/tabs.tsx";
-@source "./components/ui/tooltip.tsx";
-@source "./components/ui/progress.tsx";
+@source "./components/ui/button.tsx";  /* alert-dialog's action/cancel use buttonVariants */
 @source "./components/ui/accordion.tsx";
 /* dialog, sheet, dropdown-menu, select, switch, empty, command and table are
    scanned by components/ui-portal.css (imported by portal-kit.tsx), so their
@@ -52,8 +48,8 @@
   --color-sunk-2: #ebe8dd;       /* pressed / selected on sunk */
   --color-line: #e4e0d4;         /* hairlines, card borders */
   --color-line-strong: #7d8a83;  /* input borders, outlined buttons — 3.5:1 on field, 3.4:1 on surface, 3.3:1 on paper */
-  --color-line-dark: #376064;    /* hairlines on the sidebar */
-  --color-line-dark-2: #709590;  /* outlined controls on the sidebar */
+  --color-line-dark: #243f43;    /* hairlines on the sidebar (night-2) — decorative */
+  --color-line-dark-2: #709590;  /* outlined controls on the sidebar — 4.65:1 on night-2 */
 
   /* Brand */
   --color-ink: #173e42;          /* body text — 10.6:1 on paper */
@@ -61,13 +57,14 @@
   --color-teal-2: #216067;       /* primary hover */
   --color-teal-bright: #1d6164;  /* links on light */
   --color-teal-soft: #dfeae7;    /* primary tint — teal on it 7.4:1 */
-  --color-sidebar: #173e42;
-  --color-sidebar-2: #245257;    /* sidebar hover */
+  --color-sidebar: #10292c;      /* = night-2: the portal/office sidebar is the same night as the top bar — on-dark 13.4:1, on-dark-2 9.8:1 */
+  --color-sidebar-2: #163538;    /* = night-3: sidebar hover — on-dark 11.5:1, on-dark-2 8.4:1 */
   --color-sage: #eaf0e9;         /* calm tint */
   --color-sage-2: #dce7dd;
   --color-copper: #9e4d2d;       /* the one accent — 5.4:1 on paper, 4.6:1 on sage-2 (its darkest tint) */
   --color-copper-2: #8a4125;     /* accent hover */
-  --color-copper-light: #edb08c; /* accent on dark / active nav — ink on it 6.2:1, 4.6:1 on sidebar-2 */
+  --color-copper-light: #edb08c; /* accent on night: night primary CTA, active nav — ink on it 6.2:1; 9.5:1 on night, 8.1:1 on night-2 */
+  --color-copper-light-2: #f2bd9e; /* night primary hover */
   --color-copper-soft: #f4e6db;  /* accent tint — copper on it 4.6:1 */
   --color-focus: #9e4d2d;        /* focus ring on light surfaces */
   --color-focus-dark: #edb08c;   /* focus ring on night / sidebar */
@@ -78,7 +75,18 @@
 
   /* Text on dark */
   --color-on-dark: #f6efe3;
-  --color-on-dark-2: #c2d3ce;    /* 7.5:1 on sidebar, 4.6:1 on teal-2, 11.5:1 on night */
+  --color-on-dark-2: #c2d3ce;    /* 9.8:1 on sidebar (night-2), 4.6:1 on teal-2, 11.5:1 on night */
+
+  /* Alpha helpers: the only translucent colours a page may use. Never spell
+     an rgb(r g b / a) triplet in page CSS; use one of these (or Tailwind's
+     bg-night/60, which derives from the token). */
+  --color-night-line: rgb(255 255 255 / .10);        /* hairlines on any night surface */
+  --color-night-line-strong: rgb(255 255 255 / .30); /* outlined controls on night (ghost buttons, search field) ≈ 3.1:1 */
+  --color-night-veil: rgb(8 26 28 / .62);            /* rails, top bar, menu toggle over scenes */
+  --color-scrim: rgb(8 26 28 / .72);                 /* dialog / sheet / drawer overlay */
+  --color-on-dark-hover: rgb(246 239 227 / .08);     /* hover fill on night */
+  --color-copper-glow: rgb(237 176 140 / .18);       /* halos, from the current copper-light */
+  --color-paper-veil: rgb(246 244 237 / .96);        /* sticky toolbars over content */
 
   /* Status pairs: text (4.5:1 on the soft fill and on paper) / soft fill / line.
      The line is a decorative edge on an already tinted fill, not the cue. */
@@ -86,6 +94,7 @@
   --color-ok: #2f6446;    --color-ok-soft: #e2eee4;    --color-ok-line: #a9cbb3;
   --color-info: #255a5e;  --color-info-soft: #e2ece8;  --color-info-line: #a6c6c2;
   --color-danger: #a83f2e; --color-danger-soft: #f9e6df; --color-danger-line: #ecb9a9;
+  --color-danger-2: #8f3426;   /* danger hover */
   --color-neutral: #4a605e; --color-neutral-soft: #ecebe3; --color-neutral-line: #cfcdc1;
 
   /* Type */
@@ -115,6 +124,7 @@
   --radius-card: 16px;
   --radius-panel: 22px;
   --radius-overlay: 24px;
+  --radius-sheet: 32px;          /* the paper sheet's corner on night (24px on phones, see the 767px rule) */
 
   /* Elevation tiers */
   --shadow-card: 0 1px 0 rgb(23 62 66 / .03), 0 10px 30px -18px rgb(23 62 66 / .18);
@@ -122,7 +132,8 @@
   --shadow-overlay: 0 2px 0 rgb(23 62 66 / .04), 0 32px 72px -24px rgb(4 12 13 / .45);
   --shadow-lift: 0 1px 0 rgb(14 42 44 / .04), 0 28px 56px -28px rgb(14 42 44 / .35);
   --shadow-sunk: inset 0 1px 2px rgb(23 62 66 / .08);
-  --shadow-focus: 0 0 0 3px rgb(163 80 47 / .28);
+  --shadow-sheet: 0 -20px 40px -24px rgb(0 0 0 / .45), 0 28px 48px -26px rgb(4 12 13 / .7);
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--color-copper) 28%, transparent);
 
   /* Motion vocabulary: one set of durations and curves for the whole product. */
   --ease-out-soft: cubic-bezier(.16, .84, .24, 1);
@@ -136,60 +147,41 @@
   --duration-scene: 900ms;
 }
 
+/* shadcn/ui names (used only by components/ui) are aliases onto the brand
+   tokens above, so every dialog border, menu surface and ring is the exact
+   brand colour. `--color-accent` is sage, not copper: Radix menu highlights
+   then match .portal-menu-item[data-highlighted]. */
 @theme inline {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-card-border: hsl(var(--card-border));
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
-  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-background: var(--color-paper);
+  --color-foreground: var(--color-ink);
+  --color-border: var(--color-line);
+  --color-input: var(--color-line-strong);
+  --color-ring: var(--color-focus);
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-ink);
+  --color-card-border: var(--color-line);
+  --color-popover: var(--color-raised);
+  --color-popover-foreground: var(--color-ink);
+  --color-primary: var(--color-teal);
+  --color-primary-foreground: var(--color-on-dark);
+  --color-secondary: var(--color-sunk);
+  --color-secondary-foreground: var(--color-ink);
+  --color-muted: var(--color-sunk);
+  --color-muted-foreground: var(--color-quiet);
+  --color-accent: var(--color-sage);
+  --color-accent-foreground: var(--color-ink);
+  --color-destructive: var(--color-danger);
+  --color-destructive-foreground: var(--color-on-dark);
+  --color-sidebar-foreground: var(--color-on-dark);
+  --color-sidebar-border: var(--color-line-dark);
   --font-sans: var(--app-font-sans);
   --font-mono: var(--app-font-mono);
 }
-/* shadcn/ui variables (used by components/ui), aligned with the palette. */
 :root {
-  --background: 47 30% 95%;
-  --foreground: 185 48% 18%;
-  --border: 44 22% 86%;
-  --input: 148 5% 52%;           /* mirrors --color-line-strong */
-  --ring: 17 56% 40%;            /* mirrors --color-focus */
-  --card: 45 55% 97%;
-  --card-foreground: 185 48% 18%;
-  --card-border: 44 22% 86%;
-  --popover: 43 100% 98%;        /* mirrors --color-raised */
-  --popover-foreground: 185 48% 18%;
-  --primary: 184 55% 20%;
-  --primary-foreground: 38 58% 93%;
-  --secondary: 46 25% 92%;
-  --secondary-foreground: 185 48% 18%;
-  --muted: 46 25% 92%;
-  --muted-foreground: 174 13% 33%;
-  --accent: 17 56% 40%;
-  --accent-foreground: 38 58% 93%;
-  --destructive: 8 57% 42%;
-  --destructive-foreground: 38 58% 93%;
-  --sidebar-foreground: 38 58% 93%;
-  --sidebar-border: 184 24% 29%;
   --app-font-sans: 'IBM Plex Sans Arabic', sans-serif;
   --app-font-display: 'Readex Pro', 'IBM Plex Sans Arabic', sans-serif;
   --app-font-mono: 'IBM Plex Sans Arabic', monospace;
-  --radius: .85rem;
+  --radius: 10px;                /* shadcn radius = --radius-control */
   /* Type weights: one readable scale. Body 400/500, labels 500, headings 600.
      Nothing here is 700; `.kbd` and tiny chips are the only places 600 may
      stand in for "bold". Once no file under src/ asks for 700 any more
@@ -218,7 +210,7 @@
   --icon-tile-night-bg: var(--color-night-3);      --icon-tile-night-fg: var(--color-copper-light);
   /* Focus ring: one token, used by :focus-visible and the .focus-ring utility. */
   --focus-ring: 3px solid var(--color-focus);
-  --focus-ring-dark: 2px solid var(--color-focus-dark);
+  --focus-ring-dark: 3px solid var(--color-focus-dark);
   /* Grain: a tiny SVG turbulence tile, blended over night sections for depth. */
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
 }
@@ -233,8 +225,9 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .6; }
 ::selection { background: var(--color-copper-light); color: var(--color-ink); }
 :focus-visible { outline: var(--focus-ring); outline-offset: 3px; }
-/* Dark surfaces (night, sidebar, topbar) switch to the light ring so it stays visible. */
-.on-night :focus-visible, [data-tone="dark"] :focus-visible { outline: var(--focus-ring-dark); outline-offset: 3px; }
+/* Dark surfaces (night bands, sidebar, top bar) redefine the ring token itself, so
+   every `outline: var(--focus-ring)` in page CSS turns copper-light there too. */
+.on-night, .surface-night, [data-tone="dark"] { --focus-ring: var(--focus-ring-dark); }
 /* Arabic display type: no tracking, so cursive joins stay intact. */
 .display { font-family: var(--font-display); letter-spacing: 0; line-height: var(--leading-display); }
 .shell { width: min(100% - 48px, 1240px); margin-inline: auto; }
@@ -244,20 +237,21 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .btn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: .6rem; min-height: 48px; padding: .72rem 1.35rem; border-radius: var(--radius-control); border: 1px solid transparent; font-weight: var(--weight-semibold); line-height: 1.5; text-decoration: none; white-space: nowrap; transition: transform var(--duration-hover) var(--ease-out-soft), background-color var(--duration-hover) ease, border-color var(--duration-hover) ease, box-shadow var(--duration-hover) ease, color var(--duration-hover) ease; }
 .btn:hover:not(:disabled) { transform: translateY(-1px); }
 .btn:active:not(:disabled), .btn[data-pressed="true"]:not(:disabled) { transform: translateY(0) scale(.98); transition-duration: var(--duration-press); }
-.btn-primary { color: var(--color-on-dark); background: var(--color-teal); box-shadow: 0 1px 0 rgb(255 255 255 / .08) inset, 0 8px 20px -12px rgb(23 75 80 / .6); }
-.btn-primary:hover:not(:disabled) { background: var(--color-teal-2); box-shadow: 0 1px 0 rgb(255 255 255 / .1) inset, 0 12px 24px -12px rgb(23 75 80 / .7); }
-.btn-light { color: var(--color-teal); background: var(--color-on-dark); }
-.btn-light:hover:not(:disabled) { background: #fff; }
+/* Primary on light: teal. `.btn-accent` (copper on paper) is retired and now equals it. */
+.btn-primary, .btn-accent { color: var(--color-on-dark); background: var(--color-teal); box-shadow: 0 1px 0 var(--color-on-dark-hover) inset, 0 8px 20px -12px color-mix(in srgb, var(--color-teal) 60%, transparent); }
+.btn-primary:hover:not(:disabled), .btn-accent:hover:not(:disabled) { background: var(--color-teal-2); box-shadow: 0 1px 0 var(--color-night-line) inset, 0 12px 24px -12px color-mix(in srgb, var(--color-teal) 70%, transparent); }
+/* Primary on night: copper-light fill, ink text (6.2:1) — the lamplight. `.btn-light` (cream) is retired and now equals it. */
+.btn-light { color: var(--color-ink); background: var(--color-copper-light); }
+.btn-light:hover:not(:disabled) { background: var(--color-copper-light-2); }
 .btn-outline { color: var(--color-teal); background: transparent; border-color: var(--color-line-strong); }
 .btn-outline:hover:not(:disabled) { background: var(--color-sage); }
 .btn-ghost { color: var(--color-teal); background: transparent; }
 .btn-ghost:hover:not(:disabled) { background: var(--color-sage); }
-.btn-ghost-dark { color: var(--color-on-dark); background: transparent; border-color: rgb(246 239 227 / .28); }
-.btn-ghost-dark:hover:not(:disabled) { background: rgb(246 239 227 / .08); }
-.btn-accent { color: var(--color-on-dark); background: var(--color-copper); }
-.btn-accent:hover:not(:disabled) { background: var(--color-copper-2); }
+/* Secondary on night (`.btn-ghost-dark` is the old name). */
+.btn-ghost-dark, .btn-secondary-dark { color: var(--color-on-dark); background: transparent; border-color: var(--color-night-line-strong); }
+.btn-ghost-dark:hover:not(:disabled), .btn-secondary-dark:hover:not(:disabled) { background: var(--color-on-dark-hover); }
 .btn-danger { color: var(--color-on-dark); background: var(--color-danger); }
-.btn-danger:hover:not(:disabled) { background: #8f3426; }
+.btn-danger:hover:not(:disabled) { background: var(--color-danger-2); }
 .btn-sm { min-height: 40px; padding: .45rem 1rem; font-size: .875rem; }
 /* Square icon-only button: always a 44px target; the label lives in aria-label. */
 .btn-icon { width: 44px; min-height: 44px; padding: 0; }
@@ -266,17 +260,27 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 @media (pointer: coarse) { .btn-sm, .btn-icon.btn-sm { min-height: 44px; } .btn-icon.btn-sm { width: 44px; } }
 /* Loading: the label dims and a ring spins in place; the width never jumps. */
 .btn[data-loading="true"] { color: transparent !important; pointer-events: none; }
-.btn[data-loading="true"]::after { content: ""; position: absolute; width: 18px; height: 18px; border-radius: 50%; border: 2px solid currentColor; border-color: rgb(255 255 255 / .35); border-top-color: var(--color-on-dark); animation: spin 0.8s linear infinite; }
-.btn-outline[data-loading="true"]::after, .btn-ghost[data-loading="true"]::after, .btn-light[data-loading="true"]::after { border-color: rgb(23 75 80 / .25); border-top-color: var(--color-teal); }
+.btn[data-loading="true"]::after { content: ""; position: absolute; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--color-night-line-strong); border-top-color: var(--color-on-dark); animation: spin 0.8s linear infinite; }
+.btn-outline[data-loading="true"]::after, .btn-ghost[data-loading="true"]::after { border-color: color-mix(in srgb, var(--color-teal) 25%, transparent); border-top-color: var(--color-teal); }
+.btn-light[data-loading="true"]::after { border-top-color: var(--color-ink); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .eyebrow { color: var(--color-copper); font-size: .8rem; font-weight: var(--weight-medium); letter-spacing: 0; }
+/* Links: teal-bright is the only link colour on light (6.5:1 paper). On night, links are on-dark text (page CSS). */
+.link { color: var(--color-teal-bright); text-decoration: underline; text-underline-offset: 3px; font-weight: var(--weight-medium); }
+.link:hover { color: var(--color-teal-2); }
+/* Icon tiles: sage/teal by default (8.4:1), 40/12 (`-sm` 28/8, `-lg` 48/14). A status
+   tile sets --tile-bg/--tile-fg from its --icon-tile-* pair; `-copper` is the one "needs you" tile per view. */
+.icon-tile { --tile-bg: var(--icon-tile-sage-bg); --tile-fg: var(--icon-tile-sage-fg); display: inline-flex; align-items: center; justify-content: center; flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--tile-bg); color: var(--tile-fg); }
+.icon-tile-sm { width: 28px; height: 28px; border-radius: 8px; }
+.icon-tile-lg { width: 48px; height: 48px; border-radius: 14px; }
+.icon-tile-copper { --tile-bg: var(--icon-tile-copper-bg); --tile-fg: var(--icon-tile-copper-fg); }
 /* Surface tiers as classes: card (default), panel (larger radius + shadow), sunk (inset), night. */
 .surface { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
 .surface-panel { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-panel); box-shadow: var(--shadow-panel); }
 .surface-raised { background: var(--color-raised); border: 1px solid var(--color-line); border-radius: var(--radius-card); box-shadow: var(--shadow-overlay); }
 .surface-sunk { background: var(--color-sunk); border: 1px solid transparent; border-radius: var(--radius-card); box-shadow: var(--shadow-sunk); }
-.surface-night { background: var(--color-night-2); border: 1px solid rgb(255 255 255 / .08); border-radius: var(--radius-card); color: var(--color-on-dark); }
+.surface-night { background: var(--color-night-2); border: 1px solid var(--color-night-line); border-radius: var(--radius-card); color: var(--color-on-dark); }
 /* Interactive surface: lifts on hover, settles on press. */
 .surface-hover { transition: transform var(--duration-hover) var(--ease-out-soft), box-shadow var(--duration-hover) ease, border-color var(--duration-hover) ease; }
 .surface-hover:hover { transform: translateY(-2px); box-shadow: var(--shadow-panel); border-color: var(--color-line-strong); }
@@ -284,43 +288,39 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .muted { color: var(--color-quiet); }
 /* Night bands: gradient depth + grain for hero and cinematic sections. Grain
    sits on a pseudo-element so it never touches text contrast. */
-.night-gradient { background: radial-gradient(120% 90% at 85% 0%, rgb(29 90 96 / .55), transparent 55%), radial-gradient(80% 60% at 10% 100%, rgb(163 80 47 / .22), transparent 60%), linear-gradient(180deg, var(--color-night-2), var(--color-night)); }
+.night-gradient { background: radial-gradient(120% 90% at 85% 0%, rgb(29 90 96 / .55), transparent 55%), radial-gradient(80% 60% at 10% 100%, var(--color-copper-glow), transparent 60%), linear-gradient(180deg, var(--color-night-2), var(--color-night)); }
 .grain { position: relative; isolation: isolate; }
 .grain::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: var(--grain) repeat; background-size: 160px; opacity: .07; mix-blend-mode: soft-light; }
 .grain > * { position: relative; z-index: 1; }
-.glow-copper { background: radial-gradient(60% 50% at 50% 0%, rgb(229 162 123 / .28), transparent 70%); }
+.glow-copper { background: radial-gradient(60% 50% at 50% 0%, var(--color-copper-glow), transparent 70%); }
 .band-paper { background: var(--color-paper); }
-.band-sage { background: linear-gradient(180deg, var(--color-sage), var(--color-paper)); }
+/* `.band-sage` is retired as a section background: it now equals `.band-paper` (the sheet has one tone). */
+.band-sage { background: var(--color-paper); }
 .band-night { background: var(--color-night); color: var(--color-on-dark); }
 .form-field { display: flex; flex-direction: column; gap: .5rem; color: var(--color-ink); font-weight: var(--weight-medium); font-size: .9rem; }
 .form-control { width: 100%; min-height: 48px; padding: .7rem .95rem; border: 1px solid var(--color-line-strong); border-radius: var(--radius-control); background: var(--color-field); color: var(--color-ink); outline: none; transition: border-color var(--duration-hover) ease, box-shadow var(--duration-hover) ease; font-weight: var(--weight-regular); line-height: 1.5; }
 .form-control:hover:not(:disabled):not(:focus) { border-color: var(--color-quiet); }
-.form-control:focus { border-color: var(--color-teal-bright); box-shadow: 0 0 0 3px rgb(29 97 100 / .14); }
+.form-control:focus { border-color: var(--color-teal-bright); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-teal-bright) 14%, transparent); }
 .form-control[aria-invalid="true"] { border-color: var(--color-danger); }
-.form-control[aria-invalid="true"]:focus { box-shadow: 0 0 0 3px rgb(168 63 46 / .16); }
+.form-control[aria-invalid="true"]:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 16%, transparent); }
 .form-control::placeholder { color: var(--color-subtle); opacity: .85; }
 .form-control:disabled { background: var(--color-sunk); color: var(--color-quiet); }
 textarea.form-control { resize: vertical; min-height: 145px; line-height: 1.8; }
 .field-error { color: var(--color-danger); font-size: .82rem; font-weight: var(--weight-medium); }
 .field-hint { color: var(--color-subtle); font-size: .8rem; font-weight: var(--weight-regular); }
-/* Status pills: tone comes from the state class; the dot inherits the text colour. */
-.pill { display: inline-flex; align-items: center; gap: .4rem; width: fit-content; border-radius: 100px; padding: .3rem .75rem; font-size: .75rem; font-weight: var(--weight-semibold); white-space: nowrap; line-height: 1.3; }
-.pill-received, .pill-open { background: var(--color-copper-soft); color: var(--color-copper); }
-.pill-reviewing { background: var(--color-info-soft); color: var(--color-info); }
-.pill-waiting_on_customer, .pill-awaiting_payment, .pill-issued { background: var(--color-warn-soft); color: var(--color-warn); }
-.pill-submitted_to_authority { background: var(--color-info-soft); color: var(--color-info); }
-.pill-cancelled { background: var(--color-sunk); color: var(--color-quiet); }
-.pill-completed, .pill-answered, .pill-paid { background: var(--color-ok-soft); color: var(--color-ok); }
-/* Chips: labels, filters and counts. `.chip-*` sets the tone; `.chip-select` is a toggle. */
-.chip { display: inline-flex; align-items: center; gap: .4rem; min-height: 28px; padding: .2rem .65rem; border-radius: 100px; border: 1px solid transparent; font-size: .75rem; font-weight: var(--weight-semibold); line-height: 1.3; white-space: nowrap; background: var(--color-neutral-soft); color: var(--color-neutral); }
-.chip-ok { background: var(--color-ok-soft); color: var(--color-ok); }
-.chip-warn { background: var(--color-warn-soft); color: var(--color-warn); }
-.chip-info { background: var(--color-info-soft); color: var(--color-info); }
-.chip-danger { background: var(--color-danger-soft); color: var(--color-danger); }
+/* Chips: one family for labels, status, filters and counts. `.chip-*` sets the
+   tone; `.chip-select` is a toggle. `.pill` / `.pill-<status>` are aliases of the
+   same declarations (status → tone: received/open teal, reviewing/submitted info,
+   waiting/awaiting_payment/issued warn, completed/answered/paid ok, cancelled neutral). */
+.chip, .pill { display: inline-flex; align-items: center; gap: .4rem; min-height: 28px; padding: .2rem .65rem; border-radius: 100px; border: 1px solid transparent; font-size: .75rem; font-weight: var(--weight-semibold); line-height: 1.3; white-space: nowrap; background: var(--color-neutral-soft); color: var(--color-neutral); }
+.chip-ok, .pill-completed, .pill-answered, .pill-paid { background: var(--color-ok-soft); color: var(--color-ok); }
+.chip-warn, .pill-waiting_on_customer, .pill-awaiting_payment, .pill-issued { background: var(--color-warn-soft); color: var(--color-warn); }
+.chip-info, .pill-reviewing, .pill-submitted_to_authority { background: var(--color-info-soft); color: var(--color-info); }
+.chip-danger, .pill-overdue { background: var(--color-danger-soft); color: var(--color-danger); }
 .chip-accent { background: var(--color-copper-soft); color: var(--color-copper); }
-.chip-teal { background: var(--color-teal-soft); color: var(--color-teal); }
+.chip-teal, .pill-received, .pill-open { background: var(--color-teal-soft); color: var(--color-teal); }
 .chip-outline { background: transparent; border-color: var(--color-line-strong); color: var(--color-quiet); }
-.chip-dark { background: rgb(255 255 255 / .1); color: var(--color-on-dark); }
+.chip-dark { background: var(--color-night-line); color: var(--color-on-dark); }
 .chip-sm { min-height: 22px; padding: .1rem .5rem; font-size: .7rem; }
 .chip-dot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
 .chip-select { min-height: 40px; padding-inline: .9rem; font-size: .82rem; cursor: pointer; background: var(--color-surface); border-color: var(--color-line); color: var(--color-quiet); transition: background-color var(--duration-hover) ease, border-color var(--duration-hover) ease, color var(--duration-hover) ease; }
@@ -359,5 +359,5 @@ textarea.form-control { resize: vertical; min-height: 145px; line-height: 1.8; }
 .kbd { display: inline-flex; align-items: center; gap: 2px; min-height: 20px; padding: 0 6px; border-radius: 6px; border: 1px solid currentColor; font-family: var(--font-display); font-size: 11px; font-weight: var(--weight-semibold); line-height: 1; opacity: .7; direction: ltr; }
 /* Scrollbar on dense office panes: thin, token-coloured. */
 .scroll-thin { scrollbar-width: thin; scrollbar-color: var(--color-line-strong) transparent; }
-@media (max-width: 767px) { .shell { width: min(100% - 32px, 1240px); } }
+@media (max-width: 767px) { :root { --radius-sheet: 24px; } .shell { width: min(100% - 32px, 1240px); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } .reveal-ready .reveal, .reveal-self { opacity: 1; transform: none; } }

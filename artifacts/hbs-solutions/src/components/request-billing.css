@@ -13,10 +13,10 @@
 .rb-note { font-size: 12.5px; line-height: 1.8; color: var(--color-quiet); margin: 0; }
 .rb-stars { display: flex; gap: 4px; color: var(--color-copper); }
 .rb-stars button { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; border-radius: 10px; color: inherit; }
-.rb-stars button:focus-visible { outline: 2px solid var(--color-teal); outline-offset: 2px; }
+.rb-stars button:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 @media print { .rb-actions, .rb-form { display: none; } }
 /* Confirmation dialogs: the sheet's own surface, type and corners over the primitive's defaults. */
-.rb-dialog { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-card); color: var(--color-ink); font-family: inherit; box-shadow: 0 24px 80px rgba(23, 75, 80, .22); width: min(100% - 32px, 440px); }
+.rb-dialog { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-card); color: var(--color-ink); font-family: inherit; box-shadow: var(--shadow-overlay); width: min(100% - 32px, 440px); }
 .rb-dialog .btn { min-height: 44px; }
 .rb-dialog .btn-danger { color: var(--color-on-dark); background: var(--color-danger); }
 .rb-dialog .btn-danger:hover:not(:disabled) { filter: brightness(1.08); }

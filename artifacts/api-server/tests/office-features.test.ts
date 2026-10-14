@@ -116,7 +116,7 @@ test("assignment, statuses, ratings, invoices, reminders, catalogue and reports"
         status: "submitted_to_authority", expectedUpdatedAt: reqA.updatedAt.toISOString(),
       });
       assert.equal(skipped.status, 409);
-      assert.equal(skipped.data.error, "لا يمكن نقل الطلب من تم الاستلام إلى تم الرفع للجهة المختصة.");
+      assert.equal(skipped.data.error, "لا يمكن نقل الطلب من تم الاستلام إلى تم الرفع للجهة.");
       const reviewing = await call(owner, "PATCH", `/office/service-requests/${reqA.id}`, {
         status: "reviewing", expectedUpdatedAt: reqA.updatedAt.toISOString(),
       });

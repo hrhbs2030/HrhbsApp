@@ -86,8 +86,8 @@ function OfferEditor({ service, offer, onSaved }: { service: Service; offer: Ser
     <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={published} onChange={e => setPublished(e.target.checked)}/>نشر في دليل الخدمات وصفحة الطلب الجديد</label>
     <p className="muted text-xs leading-6">لا يظهر للعملاء إلا ما تنشره هنا. الحقل الفارغ لا يُعرض.</p>
     {invalid && <p role="alert" className="text-xs text-danger">تحقق من المبلغ ومدة الإنجاز (1-365) وعدد المستندات (15 كحد أقصى).</p>}
-    {save.isError && <p role="alert" className="text-xs text-danger">تعذّر الحفظ. حاول مجددًا.</p>}
-    {saved && <p role="status" className="text-xs font-semibold text-ok">تم الحفظ{published ? ' والنشر' : ''}.</p>}
+    {save.isError && <p role="alert" className="text-xs text-danger">تعذّر الحفظ. حاول مرة أخرى.</p>}
+    {saved && <p role="status" className="text-xs font-semibold text-ok">{published ? 'حُفظت ونُشرت.' : 'حُفظت.'}</p>}
     <button type="submit" className="btn btn-primary w-full" disabled={save.isPending || invalid}>{save.isPending ? 'جارٍ الحفظ…' : 'حفظ'}</button>
   </form>;
 }
@@ -105,7 +105,7 @@ function AssignmentRules() {
     try {
       await saveAssignmentRule(rule.category, { assignee: change.assignee !== undefined ? change.assignee : rule.assignee, dueDays: change.dueDays !== undefined ? change.dueDays : rule.dueDays });
       await qc.invalidateQueries({ queryKey: getListAssignmentRulesQueryKey() });
-      setMessage('تم الحفظ. يُطبّق على الطلبات الجديدة.');
+      setMessage('حُفظ التوزيع، ويُطبّق على الطلبات الجديدة.');
     } catch { setMessage('تعذّر الحفظ.'); } finally { setSaving(null); }
   }
   if (!rules.data) return null;
@@ -194,7 +194,7 @@ export function OfficeReports() {
       <TileGrid cols={4}>
         <Tile label="طلبات جديدة" value={formatNumber(r.created)} note={`خلال آخر ${period}`} icon={<BarChart3 size={15}/>} tone="accent"/>
         <Tile label="طلبات أُنجزت" value={formatNumber(r.completed)} icon={<BarChart3 size={15}/>}
-          trend={completionRate != null ? { direction: completionRate >= 100 ? 'up' : completionRate >= 50 ? 'flat' : 'down', value: `${formatNumber(completionRate)}٪`, label: 'من الجديدة', good: completionRate >= 50 } : undefined}
+          trend={completionRate != null ? { direction: completionRate >= 100 ? 'up' : completionRate >= 50 ? 'flat' : 'down', value: `${formatNumber(completionRate)}%`, label: 'من الجديدة', good: completionRate >= 50 } : undefined}
           note={r.averageCompletionDays != null ? `متوسط الإنجاز ${formatNumber(r.averageCompletionDays)} يوم` : undefined}/>
         <Tile label="رضا العملاء" value={r.ratings.average != null ? `${formatNumber(r.ratings.average)} من 5` : '-'} note={`${formatNumber(r.ratings.count)} تقييم`} icon={<Star size={15}/>}/>
         <Tile long label="المحصّل شامل الضريبة" value={formatMoney(r.revenue.paidTotal)} note={`${formatNumber(r.revenue.paidCount)} فاتورة · ضريبة ${formatMoney(r.revenue.paidVat)}`} icon={<Banknote size={15}/>}/>

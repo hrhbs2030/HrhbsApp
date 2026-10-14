@@ -371,7 +371,7 @@ test('the request page shows the header, tabs and update bar; J/K move through t
   assert.ok(calls.invalidated.some(key => key[0] === 'getGetOfficeServiceRequestQueryKey' && key[1] === 1), 'the request itself is refetched');
   state.request = () => loaded({ ...current, status: 'reviewing', officeNote: 'للفريق', updatedAt: '2026-09-21T12:00:00.000Z' });
   await act(async () => tree.update(React.createElement(OfficeRequestPage)));
-  assert.match(text(nodes(tree, 'form')[0]), /تم حفظ التحديث/);
+  assert.match(text(nodes(tree, 'form')[0]), /حُفظ التحديث/);
   // Waiting on the customer needs their message: the drawer opens on it instead of saving.
   await change(within(nodes(tree, 'form')[0], 'select')[0], 'waiting_on_customer');
   await press({ key: 'Escape' });

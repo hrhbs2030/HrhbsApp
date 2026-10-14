@@ -36,7 +36,7 @@ export function Documents() {
       setEditing(null);
       await refresh();
     } catch (e) {
-      setError((e as { status?: number })?.status === 409 ? 'وصلت إلى الحد الأقصى من التنبيهات (50).' : 'تعذّر الحفظ. تحقق من البيانات وحاول مجددًا.');
+      setError((e as { status?: number })?.status === 409 ? 'وصلت إلى الحد الأقصى من التنبيهات (50).' : 'تعذّر الحفظ. تحقق من البيانات وحاول مرة أخرى.');
     }
   }
   const [dropping, setDropping] = useState<Reminder | null>(null);
@@ -142,7 +142,7 @@ export function NotificationSettings() {
   const statusTone = status === 'verified' ? 'ok' : status === 'pending' && !expired ? 'info' : status === 'not_set' ? 'neutral' : 'warn';
   const statusText = status === 'verified' ? 'موثّق' : status === 'pending' && !expired ? 'بانتظار التحقق' : status === 'pending' && expired ? 'انتهت مهلة التحقق' : status === 'unverified' ? 'غير موثّق' : 'لم يُضف رقم';
   return <PortalLayout>
-    <PageHeading eyebrow="الإعدادات" title="الإعدادات" subtitle="تصلك رسائل البريد دائمًا عند تحديث طلباتك. اختر إن كنت تريد رسائل واتساب أيضًا، وتحقق من ملكية رقمك." action={<Link href="/notifications" className="btn btn-outline"><Bell size={18} aria-hidden="true"/>مركز الإشعارات وتفضيلاتها</Link>}/>
+    <PageHeading eyebrow="حسابك" title="الإعدادات" subtitle="تصلك رسائل البريد دائمًا عند تحديث طلباتك. اختر إن كنت تريد رسائل واتساب أيضًا، وتحقق من ملكية رقمك." action={<Link href="/notifications" className="btn btn-outline"><Bell size={18} aria-hidden="true"/>مركز الإشعارات وتفضيلاتها</Link>}/>
     <div className="settings">
       <div className="settings-main">
         {settings.isLoading ? <LoadingBlock/> : settings.isError ? <ErrorBlock retry={() => settings.refetch()}/> : settings.data && <form onSubmit={submit} className="settings-form">
@@ -166,9 +166,9 @@ export function NotificationSettings() {
               <div><button type="button" className="btn btn-outline btn-sm" disabled={!savedPhone || !savedPhoneMatchesInput || !settings.data.whatsappVerificationAvailable || verification.isPending} onClick={requestChallenge}>
                 {verification.isPending ? 'جارٍ طلب التحقق…' : status === 'pending' || status === 'unverified' ? 'طلب تحدٍ جديد' : 'طلب تحدي التحقق'}
               </button></div>
-              {(verification.isError || challengeErrorStatus !== null) && <p role="alert" className="m-0 text-danger">{((verification.error as { status?: number })?.status ?? challengeErrorStatus) === 503 ? 'خدمة التحقق غير مهيأة لدى المكتب حاليًا.' : ((verification.error as { status?: number })?.status ?? challengeErrorStatus) === 410 ? 'انتهت صلاحية التحدي؛ اطلب تحديًا جديدًا.' : 'تعذّر طلب التحقق. تأكد من حفظ الرقم وحاول مجددًا.'}</p>}
+              {(verification.isError || challengeErrorStatus !== null) && <p role="alert" className="m-0 text-danger">{((verification.error as { status?: number })?.status ?? challengeErrorStatus) === 503 ? 'خدمة التحقق غير مهيأة لدى المكتب حاليًا.' : ((verification.error as { status?: number })?.status ?? challengeErrorStatus) === 410 ? 'انتهت صلاحية التحدي؛ اطلب تحديًا جديدًا.' : 'تعذّر طلب التحقق. تأكد من حفظ الرقم وحاول مرة أخرى.'}</p>}
               {localChallenge && <div className="settings-challenge">
-                {settings.data.whatsappVerificationStatus === 'verified' || localChallenge.status === 'verified' ? <p role="status" className="m-0 font-semibold text-ok">تم توثيق الرقم.</p> : localChallenge.challengeText && <>
+                {settings.data.whatsappVerificationStatus === 'verified' || localChallenge.status === 'verified' ? <p role="status" className="m-0 font-semibold text-ok">وُثّق الرقم.</p> : localChallenge.challengeText && <>
                   <p className="m-0">{localChallenge.instructions}</p>
                   <p className="m-0">{challengeExpired ? 'انتهت صلاحية هذه المسودة؛ اطلب تحديًا جديدًا.' : 'المسودة الدقيقة لإرسالها من الرقم الذي تريد توثيقه:'}</p>
                   <pre dir="auto" className="settings-draft">{localChallenge.challengeText}</pre>
@@ -181,8 +181,8 @@ export function NotificationSettings() {
           </Surface>
           <div className="settings-save">
             <div className="min-w-0 flex-1 text-sm">
-              {save.isError && <p role="alert" className="m-0 text-danger">{(save.error as { status?: number })?.status === 409 ? 'تغيّرت حالة التحقق أثناء الحفظ. حدّث الصفحة وحاول مجددًا.' : 'تعذّر حفظ الإعدادات. تحقق من رقم الجوال وحاول مجددًا.'}</p>}
-              {saved && <p role="status" className="m-0 font-semibold text-ok">تم حفظ الإعدادات.</p>}
+              {save.isError && <p role="alert" className="m-0 text-danger">{(save.error as { status?: number })?.status === 409 ? 'تغيّرت حالة التحقق أثناء الحفظ. حدّث الصفحة وحاول مرة أخرى.' : 'تعذّر حفظ الإعدادات. تحقق من رقم الجوال وحاول مرة أخرى.'}</p>}
+              {saved && <p role="status" className="m-0 font-semibold text-ok">حُفظت الإعدادات.</p>}
               {!saved && !save.isError && <p className="m-0 text-quiet">{dirty ? 'لديك تغييرات غير محفوظة.' : 'يُحفظ الرقم والموافقة معًا.'}</p>}
             </div>
             <button type="submit" className="btn btn-primary" disabled={save.isPending}>{save.isPending ? 'جارٍ الحفظ…' : 'حفظ'}</button>

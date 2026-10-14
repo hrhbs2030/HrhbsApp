@@ -34,7 +34,7 @@ h3.kit-section-title { font-size: var(--text-base); }
 .kit-tile-trend-label { font-weight: var(--weight-regular); }
 .kit-tile--accent { background: linear-gradient(135deg, var(--color-teal-2), var(--color-teal)); border-color: transparent; color: var(--color-on-dark); }
 .kit-tile--accent .kit-tile-label, .kit-tile--accent .kit-tile-foot, .kit-tile--accent .kit-tile-arrow { color: var(--color-on-dark-2); }
-.kit-tile--accent .kit-tile-icon { background: rgb(255 255 255 / .12); color: var(--color-on-dark); }
+.kit-tile--accent .kit-tile-icon { background: var(--color-night-line); color: var(--color-on-dark); }
 .kit-tile--accent .kit-tile-spark { color: var(--color-copper-light); }
 .kit-tile--warn { background: var(--color-warn-soft); border-color: var(--color-warn-line); }
 .kit-tile--warn .kit-tile-label { color: var(--color-warn); }
@@ -43,9 +43,15 @@ h3.kit-section-title { font-size: var(--text-base); }
 .kit-tile--danger { background: var(--color-danger-soft); border-color: var(--color-danger-line); }
 .kit-tile--danger .kit-tile-label { color: var(--color-danger); }
 
+/* Count badges: one style for every count. `.badge-count` = solid copper (unread / waiting: nav, bell, tab bar, inbox);
+   `.badge-count--quiet` = sage with ink for non-urgent counts (tab counts, column counts, section heads). The page
+   classes listed here are the same badge under their old names. */
+.badge-count, .badge-count--quiet, .portal-nav-badge, .portal-tab-badge, .notif-badge, .inbox-unread, .ov-unread, .req-tab-count, .orq-badge, .rf-count, .rq-col-count, .notif-panel-count, .nr-pick-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--color-copper); color: var(--color-on-dark); font-size: 11px; font-weight: var(--weight-semibold); line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.badge-count--quiet, .req-tab-count, .orq-badge, .rf-count, .rq-col-count, .notif-panel-count, .nr-pick-count { background: var(--color-sage); color: var(--color-ink); }
+
 /* Toolbar + search */
 .kit-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-bottom: 16px; }
-.kit-toolbar--sticky { position: sticky; top: calc(var(--portal-topbar-h, 64px) + 8px); z-index: 5; padding: 10px 12px; margin-inline: -12px; border-radius: var(--radius-card); background: rgb(246 244 237 / .92); backdrop-filter: blur(8px); }
+.kit-toolbar--sticky { position: sticky; top: calc(var(--portal-topbar-h, 64px) + 8px); z-index: 5; padding: 10px 12px; margin-inline: -12px; border-radius: var(--radius-card); background: color-mix(in srgb, var(--color-paper) 92%, transparent); backdrop-filter: blur(8px); }
 .kit-toolbar-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .kit-toolbar-actions { display: flex; align-items: center; gap: 8px; margin-inline-start: auto; }
 .kit-search { position: relative; flex: 1 1 240px; min-width: 0; max-width: 420px; }
@@ -73,18 +79,21 @@ h3.kit-section-title { font-size: var(--text-base); }
 .dt th { position: relative; font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--color-quiet); background: var(--color-sunk); white-space: nowrap; }
 .dt-wrap--sticky .dt thead th { position: sticky; top: 0; z-index: 2; }
 .dt tbody tr:last-child td { border-bottom: 0; }
-.dt--zebra tbody tr:nth-child(even) td { background: rgb(241 239 230 / .45); }
+.dt--zebra tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--color-sunk) 45%, transparent); }
 .dt tbody tr { transition: background-color var(--duration-hover) ease; }
 .dt tbody tr:hover td { background: var(--color-sage); }
 .dt--interactive tbody tr { cursor: pointer; }
 .dt--interactive tbody tr:focus-visible { outline: var(--focus-ring); outline-offset: -3px; }
-.dt tbody tr[data-selected] td { background: var(--color-teal-soft); }
 .dt tbody tr[data-tone="warn"] td:first-child { box-shadow: inset 3px 0 0 var(--color-warn); }
 .dt tbody tr[data-tone="danger"] td:first-child { box-shadow: inset 3px 0 0 var(--color-danger); }
 .dt tbody tr[data-tone="ok"] td:first-child { box-shadow: inset 3px 0 0 var(--color-ok); }
 [dir="rtl"] .dt tbody tr[data-tone] td:first-child { box-shadow: inset -3px 0 0 var(--color-warn); }
 [dir="rtl"] .dt tbody tr[data-tone="danger"] td:first-child { box-shadow: inset -3px 0 0 var(--color-danger); }
 [dir="rtl"] .dt tbody tr[data-tone="ok"] td:first-child { box-shadow: inset -3px 0 0 var(--color-ok); }
+/* Selected row: the one look everywhere (office tables, inbox rows, inquiry rows): teal-soft + a 3px teal inline-start bar. */
+.dt tbody tr[data-selected] td { background: var(--color-teal-soft); }
+.dt tbody tr[data-selected] td:first-child { box-shadow: inset 3px 0 0 var(--color-teal); }
+[dir="rtl"] .dt tbody tr[data-selected] td:first-child { box-shadow: inset -3px 0 0 var(--color-teal); }
 .dt .is-end { text-align: end; }
 .dt .is-center { text-align: center; }
 .dt-primary-link { color: inherit; font-weight: var(--weight-semibold); text-decoration: none; }
@@ -108,7 +117,8 @@ h3.kit-section-title { font-size: var(--text-base); }
   .dt td:not([data-label])::before { content: none; }
   .dt td[data-primary] { display: block; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid var(--color-line); font-size: var(--text-base); font-weight: var(--weight-semibold); text-align: start; }
   .dt td[data-primary]::before { content: none; }
-  .dt tbody tr[data-tone] td:first-child, [dir="rtl"] .dt tbody tr[data-tone] td:first-child { box-shadow: none; }
+  .dt tbody tr[data-tone] td:first-child, [dir="rtl"] .dt tbody tr[data-tone] td:first-child, .dt tbody tr[data-selected] td:first-child { box-shadow: none; }
+  .dt tbody tr[data-selected] { border-inline-start: 3px solid var(--color-teal); }
   .dt tbody tr[data-tone="warn"] { border-inline-start: 3px solid var(--color-warn); }
   .dt tbody tr[data-tone="danger"] { border-inline-start: 3px solid var(--color-danger); }
   .dt tbody tr[data-tone="ok"] { border-inline-start: 3px solid var(--color-ok); }

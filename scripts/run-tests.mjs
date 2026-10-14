@@ -18,6 +18,7 @@ const webChecks = [
   [hbs, 'test:city'],
   [hbs, 'test:assistant-source'],
   [hbs, 'test:services-contrast'],
+  [hbs, 'test:tokens'],
   [hbs, 'test:react-build-check'],
   [hbs, 'test:react-query-build-check'],
   [hbs, 'build'],
@@ -27,6 +28,7 @@ const apiChecks = [
   [api, 'test:db-guards'],
   [api, 'test:assistant-retrieval'],
   [api, 'test:notifications'],
+  [api, 'test:brand'],
   [api, 'test:notification-intelligence'],
   [api, 'test:api-security'],
   [api, 'test:office-access'],
@@ -60,8 +62,11 @@ const databaseChecks = [
 const storageCheck = [api, 'test:attachment-storage'];
 
 const mode = process.argv[2] ?? 'all';
-if (!['all', 'hbs', 'api', 'api-db'].includes(mode)) {
-  console.error('Usage: node scripts/run-tests.mjs [all|hbs|api|api-db]');
+// A single suite can be named instead of a mode: `tokens` or `test:tokens`
+// runs just that entry from the lists above (DB suites still need TEST_DATABASE_URL).
+const single = [...webChecks, ...apiChecks, ...databaseChecks, storageCheck].find(([, script]) => script === mode || script === `test:${mode}`);
+if (!single && !['all', 'hbs', 'api', 'api-db'].includes(mode)) {
+  console.error('Usage: node scripts/run-tests.mjs [all|hbs|api|api-db|<suite name>]');
   process.exit(2);
 }
 
@@ -103,12 +108,20 @@ function run([pkg, script], env = {}) {
   }
 }
 
-if (includesWeb) {
+if (single) {
+  const isDb = databaseChecks.includes(single) || single === storageCheck;
+  if (isDb && !process.env.TEST_DATABASE_URL) {
+    console.error(`${single[1]} needs TEST_DATABASE_URL (a separate test database).`);
+    process.exit(2);
+  }
+  if (isDb) await testDbEnv();
+  run(single, single[1] === 'build' ? { PORT: '21172', BASE_PATH: '/', NODE_ENV: 'production' } : apiChecks.includes(single) ? { DATABASE_URL: 'postgresql://localhost:1/hbs_non_db_tests', NODE_ENV: 'test' } : {});
+} else if (includesWeb) {
   for (const check of webChecks) {
     run(check, check[1] === 'build' ? { PORT: '21172', BASE_PATH: '/', NODE_ENV: 'production' } : {});
   }
 }
-if (includesApi && mode !== 'api-db') {
+if (!single && includesApi && mode !== 'api-db') {
   // Safe suites may import the DB module without querying it. A deliberately
   // unreachable URL makes accidental DB access fail instead of using the
   // workspace's development (or production) connection.
@@ -116,7 +129,7 @@ if (includesApi && mode !== 'api-db') {
     run(check, { DATABASE_URL: 'postgresql://localhost:1/hbs_non_db_tests', NODE_ENV: 'test' });
   }
 }
-if (includesApi) {
+if (!single && includesApi) {
   if (!runDb) {
     skipped += databaseChecks.length + 1;
     console.log(`\nSkipped ${databaseChecks.length + 1} DB/storage suites: set TEST_DATABASE_URL to a separate test database to run them.`);

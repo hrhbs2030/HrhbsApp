@@ -1,5 +1,6 @@
 import type { Employee, License, OfficeServiceRequest } from '@workspace/api-client-react';
 import { formatCalendarDate, formatDateTime, formatNumber } from '@/lib/format';
+import { color } from '@/design/tokens';
 
 // Tables the office and customers take with them: an .xlsx download or a
 // print-ready page (which the browser saves as PDF). The row shaping is pure
@@ -53,7 +54,7 @@ export function toSheetCell(value: unknown, column: ExportColumn): SheetCell {
 
 // Header row plus one row per record, in column order.
 export function shapeSheet(columns: ExportColumn[], rows: ExportRow[]): SheetCell[][] {
-  const header = columns.map(c => ({ value: c.label, type: String, fontWeight: 'bold' as const, backgroundColor: '#E2ECE8' }));
+  const header = columns.map(c => ({ value: c.label, type: String, fontWeight: 'bold' as const, backgroundColor: color.infoSoft }));
   return [header, ...rows.map(row => columns.map(c => toSheetCell(field(row, c.key), c)))];
 }
 
@@ -79,7 +80,7 @@ export function tableHtml(title: string, columns: ExportColumn[], rows: ExportRo
     ? rows.map(row => `<tr>${columns.map(c => `<td${ltr(c, field(row, c.key))}>${esc(displayValue(field(row, c.key), c))}</td>`).join('')}</tr>`).join('')
     : `<tr><td colspan="${columns.length}" class="muted">لا توجد بيانات.</td></tr>`;
   return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(title)}</title>
-<style>body{font-family:Tahoma,Arial,sans-serif;margin:32px;color:#173e42}h1{font-size:20px;margin:0 0 4px}.muted{color:#5d706a;font-size:12px}table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12.5px}td,th{border:1px solid #d9d4c5;padding:7px 9px;text-align:right;vertical-align:top}th{background:#f6f4ed}td[dir=ltr]{font-variant-numeric:tabular-nums}@media print{body{margin:12mm}}</style></head><body>
+<style>body{font-family:Tahoma,Arial,sans-serif;margin:32px;color:${color.ink}}h1{font-size:20px;margin:0 0 4px}.muted{color:${color.quiet};font-size:12px}table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12.5px}td,th{border:1px solid ${color.line};padding:7px 9px;text-align:right;vertical-align:top}th{background:${color.paper}}td[dir=ltr]{font-variant-numeric:tabular-nums}@media print{body{margin:12mm}}</style></head><body>
 <h1>${esc(title)}</h1><div class="muted">طُبع في ${esc(formatDateTime(printedAt))} · ${esc(formatNumber(rows.length))} صفًا</div>
 <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
 <script>window.onload=()=>window.print()</script></body></html>`;

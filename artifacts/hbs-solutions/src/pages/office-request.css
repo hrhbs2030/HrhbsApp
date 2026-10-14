@@ -2,16 +2,16 @@
 .orq { padding-bottom: 150px; }
 .orq-back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px; font-size: 13px; font-weight: var(--weight-medium); color: var(--color-quiet); text-decoration: none; }
 .orq-back:hover { color: var(--color-ink); }
-/* Under the portal top bar (72px, sticky) so the reference and status stay in view while reading. */
-.orq-head { position: sticky; top: 80px; z-index: 20; display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 20px; padding: 16px 20px; }
+/* Under the portal top bar (sticky) so the reference and status stay in view while reading. */
+.orq-head { position: sticky; top: calc(var(--portal-topbar-h, 64px) + 16px); z-index: 20; display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 20px; padding: 16px 20px; }
 .orq-head-main { min-width: 0; flex: 1 1 24rem; display: grid; gap: 6px; }
 .orq-head-side { display: grid; justify-items: end; gap: 10px; }
 .orq-ref { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 12px; color: var(--color-subtle); }
-.orq-overdue { display: inline-flex; align-items: center; white-space: nowrap; border-radius: 6px; padding: 2px 8px; background: var(--color-danger-soft); color: var(--color-danger); font-weight: var(--weight-semibold); }
-.orq-title { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.3; }
+.orq-overdue { display: inline-flex; align-items: center; white-space: nowrap; border-radius: 100px; padding: 2px 8px; background: var(--color-danger-soft); color: var(--color-danger); font-weight: var(--weight-semibold); }
+.orq-title { margin: 0; font-size: var(--text-xl); font-weight: var(--weight-semibold); line-height: 1.3; }
 .orq-who { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 13px; color: var(--color-quiet); }
 .orq-customer { display: inline-flex; align-items: center; gap: 5px; color: var(--color-ink); text-decoration: none; }
-a.orq-customer:hover { color: var(--color-copper); }
+a.orq-customer:hover { color: var(--color-teal-bright); text-decoration: underline; text-underline-offset: 3px; }
 .orq-phone { color: var(--color-ink); text-decoration: none; }
 .orq-assignee { display: inline-flex; align-items: center; gap: 5px; }
 .orq-nav { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--color-subtle); }
@@ -32,7 +32,7 @@ a.orq-customer:hover { color: var(--color-copper); }
 .orq-kv > div { display: flex; justify-content: space-between; gap: 12px; min-height: 32px; padding: 5px 0; border-bottom: 1px solid var(--color-line); font-size: 12.5px; }
 .orq-kv > div:last-child { border-bottom: 0; }
 .orq-kv dt { display: inline-flex; align-items: center; gap: 4px; flex: none; color: var(--color-subtle); }
-.orq-kv dd { margin: 0; min-width: 0; font-weight: 600; text-align: end; overflow-wrap: anywhere; }
+.orq-kv dd { margin: 0; min-width: 0; font-weight: var(--weight-semibold); text-align: end; overflow-wrap: anywhere; }
 .orq-rail-note { margin: 0; white-space: pre-wrap; font-size: 13px; line-height: 1.8; }
 .orq-rail-empty { margin: 0; font-size: 12.5px; color: var(--color-subtle); }
 .orq-rail-card .btn-sm { justify-self: start; min-height: 36px; }
@@ -47,17 +47,16 @@ a.orq-customer:hover { color: var(--color-copper); }
 .orq-tab { display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: 44px; padding: 0 14px; border: 1px solid transparent; border-bottom: 0; border-radius: 12px 12px 0 0; font-size: 13.5px; font-weight: var(--weight-medium); color: var(--color-quiet); background: transparent; cursor: pointer; }
 .orq-tab:hover { color: var(--color-ink); }
 .orq-tab[aria-selected="true"] { color: var(--color-teal); background: var(--color-surface); border-color: var(--color-line); box-shadow: 0 1px 0 var(--color-surface); }
-.orq-tab:focus-visible { outline: 2px solid var(--color-copper); outline-offset: -2px; }
-.orq-badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--color-sage); color: var(--color-ink); font-size: 11px; }
+.orq-tab:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .orq-panel { position: relative; padding: 20px; border-start-start-radius: 0; }
 .orq-request { display: grid; gap: 20px; }
 .orq-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 10px; font-size: 12.5px; }
 .orq-facts > div { padding: 10px 12px; border-radius: 10px; background: var(--color-sunk); }
 .orq-label { margin-bottom: 6px; font-size: 12px; font-weight: var(--weight-medium); color: var(--color-subtle); }
 .orq-description { margin: 0; white-space: pre-wrap; font-size: 14px; line-height: 1.9; }
-/* The update bar spans the sheet: the sidebar (270px, on the right in RTL) stays clear of it on wide screens. */
-.orq-bar { position: fixed; bottom: 0; inset-inline: 0; z-index: 25; display: grid; gap: 8px; padding: 10px 16px 12px; background: var(--color-surface); border-top: 1px solid var(--color-line); box-shadow: 0 -12px 40px rgba(23, 75, 80, .10); }
-@media (min-width: 1024px) { .orq-bar { inset-inline-start: 270px; } }
+/* The update bar spans the sheet: the sidebar (or the icon rail) stays clear of it on wide screens. */
+.orq-bar { position: fixed; bottom: 0; inset-inline: 0; z-index: 25; display: grid; gap: 8px; padding: 10px 16px 12px; background: var(--color-surface); border-top: 1px solid var(--color-line); box-shadow: 0 -12px 40px color-mix(in srgb, var(--color-teal) 10%, transparent); }
+@media (min-width: 1024px) { .orq-bar { inset-inline-start: var(--portal-side-w, 272px); } .portal[data-sidebar="rail"] .orq-bar { inset-inline-start: var(--portal-rail-w, 80px); } }
 .orq-bar-row { display: grid; grid-template-columns: minmax(9rem, 1.3fr) minmax(9rem, 1.3fr) minmax(8rem, 1fr) auto auto; align-items: end; gap: 10px; max-width: 1130px; margin: 0 auto; width: 100%; }
 .orq-field { display: grid; gap: 3px; font-size: 11.5px; font-weight: var(--weight-medium); color: var(--color-subtle); }
 .orq-field .form-control { min-height: 42px; padding: .4rem .7rem; font-size: 13px; }

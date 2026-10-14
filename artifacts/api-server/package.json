@@ -19,6 +19,7 @@
     "test:attachment-storage": "HBS_OFFICE_EMAIL=attachment-storage-office@example.invalid node ../../scripts/run-db-test.mjs tests/request-attachment-storage.test.ts",
     "test:assistant-retrieval": "tsx --test tests/assistant-retrieval.test.ts",
     "test:notifications": "tsx --test tests/notifications.test.ts tests/notification-hardening.test.ts",
+    "test:brand": "tsx --test tests/brand.test.ts",
     "test:notification-intelligence": "tsx --test tests/notification-intelligence.test.ts",
     "test:notification-pipeline": "HBS_OFFICE_EMAIL=notification-pipeline-owner@example.invalid node ../../scripts/run-db-test.mjs tests/notification-pipeline.test.ts",
     "test:assistant-citations": "node ../../scripts/run-db-test.mjs tests/assistant-citations.test.ts",

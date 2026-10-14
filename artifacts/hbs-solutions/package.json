@@ -16,6 +16,7 @@
     "test:city": "tsx --test tests/city-scene.test.ts",
     "test:assistant-source": "tsx --test tests/customer-assistant-source.test.tsx",
     "test:services-contrast": "tsx tests/services-contrast.test.ts",
+    "test:tokens": "tsx --test tests/tokens-mirror.test.ts",
     "test:react-build-check": "tsx --test tests/react-build-check.test.ts",
     "test:react-query-build-check": "tsx --test tests/react-query-build-check.test.ts",
     "test:excel": "tsx --test tests/excel-rows.test.ts",

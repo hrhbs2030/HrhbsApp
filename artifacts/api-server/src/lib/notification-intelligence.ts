@@ -17,16 +17,16 @@ export type KindInfo = { audience: Audience; label: string; basePriority: Priori
 export const KINDS: Record<NotificationKind, KindInfo> = {
   "request.status": { audience: "customer", label: "تحديث حالة الطلب", basePriority: "normal", category: "request" },
   "request.message": { audience: "customer", label: "رسالة من المكتب", basePriority: "normal", category: "request" },
-  "request.file": { audience: "customer", label: "ملف جديد في الطلب", basePriority: "low", category: "request" },
-  "request.assigned": { audience: "customer", label: "تعيين موظف للطلب", basePriority: "low", category: "request" },
-  "quote.sent": { audience: "customer", label: "عرض سعر بانتظار ردك", basePriority: "high", category: "billing" },
+  "request.file": { audience: "customer", label: "مستند جديد في الطلب", basePriority: "low", category: "request" },
+  "request.assigned": { audience: "customer", label: "إسناد الطلب", basePriority: "low", category: "request" },
+  "quote.sent": { audience: "customer", label: "عرض سعر", basePriority: "high", category: "billing" },
   "invoice.issued": { audience: "customer", label: "فاتورة جديدة", basePriority: "high", category: "billing" },
   "invoice.overdue": { audience: "customer", label: "فاتورة متأخرة", basePriority: "high", category: "billing" },
   "reminder.expiring": { audience: "customer", label: "وثيقة تقترب من الانتهاء", basePriority: "high", category: "reminder" },
   "registration.decision": { audience: "customer", label: "قرار طلب التسجيل", basePriority: "high", category: "account" },
   "inquiry.answered": { audience: "customer", label: "رد على استفسارك", basePriority: "normal", category: "request" },
   "inquiry.message": { audience: "customer", label: "رسالة من المكتب في استفسارك", basePriority: "normal", category: "request" },
-  "company.invite": { audience: "customer", label: "دعوة للانضمام إلى شركة", basePriority: "normal", category: "account" },
+  "company.invite": { audience: "customer", label: "دعوة إلى منشأة", basePriority: "normal", category: "account" },
   "subscription.started": { audience: "customer", label: "بدء الاشتراك", basePriority: "normal", category: "subscription" },
   "subscription.invoice": { audience: "customer", label: "فاتورة الاشتراك", basePriority: "high", category: "subscription" },
   "subscription.past_due": { audience: "customer", label: "اشتراك متأخر السداد", basePriority: "urgent", category: "subscription" },
@@ -35,10 +35,10 @@ export const KINDS: Record<NotificationKind, KindInfo> = {
   "office.registration_new": { audience: "office", label: "طلب تسجيل جديد", basePriority: "normal", category: "account" },
   "office.inquiry_new": { audience: "office", label: "استفسار جديد", basePriority: "normal", category: "inbox" },
   "office.inquiry_message": { audience: "office", label: "رسالة عميل في استفسار", basePriority: "normal", category: "inbox" },
-  "office.file_new": { audience: "office", label: "ملف جديد من العميل", basePriority: "normal", category: "request" },
+  "office.file_new": { audience: "office", label: "مستند جديد من العميل", basePriority: "normal", category: "request" },
   "office.message_new": { audience: "office", label: "رسالة جديدة من العميل", basePriority: "normal", category: "request" },
   "office.quote_answered": { audience: "office", label: "رد العميل على عرض السعر", basePriority: "high", category: "billing" },
-  "office.invoice_paid": { audience: "office", label: "تم سداد فاتورة", basePriority: "normal", category: "billing" },
+  "office.invoice_paid": { audience: "office", label: "سداد فاتورة", basePriority: "normal", category: "billing" },
   "office.whatsapp_unmatched": { audience: "office", label: "رسالة واتساب من رقم غير معروف", basePriority: "normal", category: "inbox" },
   "office.whatsapp_message": { audience: "office", label: "رسالة واتساب من عميل", basePriority: "normal", category: "inbox" },
 };
@@ -124,8 +124,8 @@ export function groupKeyFor(kind: NotificationKind, targetType: string | null | 
 const COALESCE_FORMS: Partial<Record<NotificationKind, CountForms>> = {
   "request.message": { one: "رسالة جديدة في الطلب", two: "رسالتان جديدتان في الطلب", few: "رسائل جديدة في الطلب", many: "رسالة جديدة في الطلب" },
   "office.message_new": { one: "رسالة جديدة من العميل في الطلب", two: "رسالتان جديدتان من العميل في الطلب", few: "رسائل جديدة من العميل في الطلب", many: "رسالة جديدة من العميل في الطلب" },
-  "request.file": { one: "ملف جديد في الطلب", two: "ملفان جديدان في الطلب", few: "ملفات جديدة في الطلب", many: "ملفًا جديدًا في الطلب" },
-  "office.file_new": { one: "ملف جديد من العميل في الطلب", two: "ملفان جديدان من العميل في الطلب", few: "ملفات جديدة من العميل في الطلب", many: "ملفًا جديدًا من العميل في الطلب" },
+  "request.file": { one: "مستند جديد في الطلب", two: "مستندان جديدان في الطلب", few: "مستندات جديدة في الطلب", many: "مستندًا جديدًا في الطلب" },
+  "office.file_new": { one: "مستند جديد من العميل في الطلب", two: "مستندان جديدان من العميل في الطلب", few: "مستندات جديدة من العميل في الطلب", many: "مستندًا جديدًا من العميل في الطلب" },
   "request.status": { one: "تحديث على الطلب", two: "تحديثان على الطلب", few: "تحديثات على الطلب", many: "تحديثًا على الطلب" },
   "office.whatsapp_message": { one: "رسالة واتساب من العميل", two: "رسالتا واتساب من العميل", few: "رسائل واتساب من العميل", many: "رسالة واتساب من العميل" },
   "office.whatsapp_unmatched": { one: "رسالة واتساب من رقم غير معروف", two: "رسالتا واتساب من أرقام غير معروفة", few: "رسائل واتساب من أرقام غير معروفة", many: "رسالة واتساب من أرقام غير معروفة" },
@@ -325,28 +325,30 @@ export function intentOf(text: string): MessageIntent {
 
 export type ReplyContext = { customerName?: string | null; reference?: string | null; status?: string | null; freeText: boolean };
 
+// The same names the customer sees in the portal (hbs-solutions content/milestones.ts).
 const STATUS_LABELS: Record<string, string> = {
-  received: "تم استلامه",
+  received: "تم الاستلام",
   reviewing: "قيد المراجعة",
-  waiting_on_customer: "بانتظار استكمال من طرفكم",
-  submitted_to_authority: "مرفوع للجهة المختصة",
+  waiting_on_customer: "بانتظار العميل",
+  submitted_to_authority: "تم الرفع للجهة",
   awaiting_payment: "بانتظار السداد",
-  completed: "مكتمل",
+  completed: "مكتملة",
 };
 export const MAX_REPLY_LENGTH = 300;
 
 export function suggestReplies(intent: MessageIntentIntent, ctx: ReplyContext): string[] {
-  const greeting = ctx.customerName ? `أهلًا ${ctx.customerName.trim()}،` : "أهلًا بك،";
-  const request = ctx.reference ? `طلبكم ${ctx.reference}` : "طلبكم";
+  // Office voice, singular address, no sign-off: the greeting is the only
+  // thing that differs from the automated mails.
+  const greeting = ctx.customerName ? `أهلًا ${ctx.customerName.trim()}،` : "أهلًا،";
+  const request = ctx.reference ? `طلبك ${ctx.reference}` : "طلبك";
   const status = ctx.status ? STATUS_LABELS[ctx.status] ?? null : null;
-  const closing = "نسعد بخدمتكم.";
-  const portal = "يمكنكم متابعة التفاصيل من حسابكم في الموقع.";
+  const portal = "تتابع التفاصيل من حسابك.";
   // Outside the 24 h window only a template goes out, so keep to a short
   // nudge the office can paste into it.
   if (!ctx.freeText) {
     return [
-      `${greeting} لدينا تحديث بخصوص ${request}. ${portal} ${closing}`,
-      `${greeting} نرجو التواصل معنا على هذا الرقم لمتابعة ${request}. ${closing}`,
+      `${greeting} على ${request} تحديث جديد. ${portal}`,
+      `${greeting} راسل المكتب على هذا الرقم لمتابعة ${request}.`,
     ].map(trimReply);
   }
   let drafts: string[];
@@ -354,57 +356,57 @@ export function suggestReplies(intent: MessageIntentIntent, ctx: ReplyContext): 
     case "status_question":
       drafts = [
         status
-          ? `${greeting} ${request} حاليًا ${status}. سنوافيكم بأي جديد فور حدوثه. ${closing}`
-          : `${greeting} ${request} قيد المتابعة لدى فريقنا، وسنوافيكم بأي جديد فور حدوثه. ${closing}`,
-        `${greeting} ${portal} وإن احتجتم أي توضيح فنحن في خدمتكم.`,
-        `${greeting} نتحقق الآن من آخر مستجدات ${request} ونعود إليكم خلال وقت قصير. شكرًا لصبركم.`,
+          ? `${greeting} ${request} الآن «${status}». يصلك كل تحديث، وتتابع التفاصيل من حسابك.`
+          : `${greeting} ${request} قيد المتابعة لدى المكتب، ويصلك كل تحديث فور حدوثه.`,
+        `${greeting} ${portal} وإن احتجت توضيحًا فاكتبه هنا ويرد عليك المكتب.`,
+        `${greeting} يتحقق المكتب الآن من آخر مستجدات ${request} ويعود إليك خلال وقت قصير.`,
       ];
       break;
     case "payment":
       drafts = [
-        `${greeting} يمكنكم سداد الفاتورة إلكترونيًا من صفحة ${request} في حسابكم، وسيُحدَّث الطلب تلقائيًا بعد السداد. ${closing}`,
-        `${greeting} شكرًا لتحويلكم. سنتحقق من وصول المبلغ ونؤكد لكم خلال وقت قصير.`,
-        `${greeting} إن واجهتكم صعوبة في السداد فأرسلوا لنا صورة الإيصال وسنتولى الباقي. ${closing}`,
+        `${greeting} تسدّد الفاتورة إلكترونيًا من صفحة ${request} في حسابك، ويُحدَّث الطلب تلقائيًا بعد السداد.`,
+        `${greeting} شكرًا لتحويلك. يتحقق المكتب من وصول المبلغ ويؤكده لك خلال وقت قصير.`,
+        `${greeting} إن واجهتك صعوبة في السداد فأرسل صورة الإيصال ويتولى المكتب الباقي.`,
       ];
       break;
     case "document":
       drafts = [
-        `${greeting} وصلنا المستند، شكرًا لكم. سنراجعه ونوافيكم إن احتجنا شيئًا آخر.`,
-        `${greeting} نرجو رفع المستندات من صفحة ${request} في حسابكم حتى تُحفظ مع الطلب مباشرة. ${closing}`,
-        `${greeting} نحتاج نسخة واضحة من المستند المطلوب لاستكمال ${request}. شكرًا لتعاونكم.`,
+        `${greeting} وصل المستند، شكرًا لك. يراجعه المكتب ويخبرك إن احتاج شيئًا آخر.`,
+        `${greeting} ارفع المستندات من صفحة ${request} في حسابك حتى تُحفظ مع الطلب مباشرة.`,
+        `${greeting} يحتاج المكتب نسخة واضحة من المستند المطلوب لاستكمال ${request}.`,
       ];
       break;
     case "complaint":
       drafts = [
-        `${greeting} نعتذر عن الإزعاج. أحلنا الأمر إلى المسؤول المباشر وسنتواصل معكم اليوم بالحل. شكرًا لصبركم.`,
-        `${greeting} نأسف لما حصل بخصوص ${request}. نرجو منكم تزويدنا بالتفاصيل لنعالج الأمر فورًا.`,
-        `${greeting} ملاحظتكم محل اهتمامنا، وسنحرص على ألا يتكرر ذلك. ${closing}`,
+        `${greeting} يعتذر المكتب عن الإزعاج. أُحيل الأمر إلى المسؤول المباشر ويتواصل معك اليوم بالحل.`,
+        `${greeting} يأسف المكتب لما حصل بخصوص ${request}. اكتب التفاصيل هنا ليعالج الأمر فورًا.`,
+        `${greeting} تحفّظك محل اهتمام المكتب، ويحرص على ألا يتكرر ذلك.`,
       ];
       break;
     case "new_request":
       drafts = [
-        `${greeting} يسعدنا خدمتكم. يمكنكم تقديم الطلب من حسابكم في الموقع وسنبدأ العمل عليه مباشرة.`,
-        `${greeting} أخبرونا بتفاصيل الخدمة المطلوبة وسنوافيكم بالمتطلبات والتكلفة. ${closing}`,
-        `${greeting} أسعار الخدمات ومتطلباتها موضحة في صفحة الخدمات على الموقع، ونحن جاهزون للإجابة عن أي سؤال.`,
+        `${greeting} أرسل الطلب من حسابك، ويراجعه المكتب ويحدد ما يلزم.`,
+        `${greeting} اكتب تفاصيل الخدمة المطلوبة ويوافيك المكتب بالمتطلبات والتكلفة.`,
+        `${greeting} أسعار الخدمات ومتطلباتها في دليل الخدمات، ويجيب المكتب عن أي سؤال.`,
       ];
       break;
     case "thanks":
       drafts = [
-        `${greeting} العفو، سعدنا بخدمتكم ونتطلع لخدمتكم دائمًا.`,
-        `${greeting} شكرًا لثقتكم بنا. ${closing}`,
+        `${greeting} العفو، وشكرًا لثقتك بالمكتب.`,
+        `${greeting} شكرًا لك. ${portal}`,
       ];
       break;
     case "greeting":
       drafts = [
-        `${greeting} وعليكم السلام ورحمة الله. كيف نقدر نخدمكم؟`,
-        `${greeting} حياكم الله، تفضلوا بطرح استفساركم ونحن في خدمتكم.`,
+        `${greeting} وعليكم السلام. اكتب ما ظهر لك ويرد عليك المكتب.`,
+        `${greeting} كيف يساعدك المكتب؟`,
       ];
       break;
     default:
       drafts = [
-        `${greeting} وصلتنا رسالتكم وسيتواصل معكم فريقنا قريبًا. ${closing}`,
-        `${greeting} هل يمكنكم توضيح طلبكم أكثر حتى نخدمكم بشكل أفضل؟`,
-        `${greeting} ${portal} ${closing}`,
+        `${greeting} وصلت رسالتك، ويرد عليك المكتب قريبًا.`,
+        `${greeting} وضّح طلبك أكثر ليساعدك المكتب بشكل أفضل.`,
+        `${greeting} ${portal}`,
       ];
   }
   return drafts.slice(0, 3).map(trimReply);
@@ -454,7 +456,7 @@ export function buildBrief(input: BriefInput): NotificationBrief {
       kind: "reminder.expiring",
       priority: reminder.days <= 7 ? "urgent" : reminder.days <= 30 ? "high" : "normal",
       title: reminder.days <= 0 ? `${reminder.label} انتهت صلاحيتها` : `${reminder.label} تنتهي خلال ${dayPhrase(reminder.days)}`,
-      reason: reminder.days <= 7 ? "يلزم البدء في التجديد الآن لتفادي الغرامات" : "ابدأ التجديد مبكرًا",
+      reason: reminder.days <= 7 ? "ابدأ التجديد الآن قبل أن يصبح الانتهاء تأخيرًا" : "ابدأ التجديد مبكرًا",
       path: reminder.path ?? (office ? "/office/reminders" : "/documents"),
     });
   }
@@ -522,7 +524,7 @@ export function buildBrief(input: BriefInput): NotificationBrief {
 }
 
 export function briefHeadline(items: BriefItem[]): string {
-  if (items.length === 0) return "كل شيء هادئ، لا يوجد ما يحتاج انتباهك الآن.";
+  if (items.length === 0) return "لا شيء يحتاج انتباهك الآن.";
   const pressing = items.filter(item => item.priority === "urgent" || item.priority === "high").length;
   if (pressing === 0) {
     return `لديك ${countPhrase(items.length, { one: "تحديث واحد", two: "تحديثان", few: "تحديثات جديدة", many: "تحديثًا جديدًا" })} دون أمور عاجلة.`;

@@ -9,13 +9,13 @@
 .rc-meta { font-size: 11.5px; color: var(--color-subtle); }
 .rc-form { display: flex; gap: 8px; align-items: flex-end; }
 .rc-form textarea { min-height: 52px !important; resize: vertical; }
-.rc-subject { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; background: var(--color-sage); font-size: 12px; color: var(--color-quiet); }
+.rc-subject { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 100px; background: var(--color-sage); font-size: 12px; color: var(--color-quiet); }
 .rc-subject b { color: var(--color-ink); }
-.rc-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; background: var(--color-info-soft); color: var(--color-info); font-size: 12px; font-weight: var(--weight-semibold); white-space: nowrap; }
+.rc-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 100px; background: var(--color-info-soft); color: var(--color-info); font-size: 12px; font-weight: var(--weight-semibold); white-space: nowrap; }
 .rc-compose { display: grid; flex: 1; min-width: 0; gap: 6px; }
 .rc-via { display: inline-flex; align-items: center; gap: 6px; width: fit-content; font-size: 12.5px; font-weight: var(--weight-medium); color: var(--color-ok); cursor: pointer; }
 .rc-via input { accent-color: var(--color-ok); }
-.rc-channel { display: inline-flex; align-items: center; gap: 3px; margin-inline-start: 6px; padding: 1px 6px; border-radius: 6px; background: var(--color-ok-soft); color: var(--color-ok); font-size: 11px; font-weight: var(--weight-semibold); vertical-align: middle; }
+.rc-channel { display: inline-flex; align-items: center; gap: 3px; margin-inline-start: 6px; padding: 1px 6px; border-radius: 100px; background: var(--color-ok-soft); color: var(--color-ok); font-size: 11px; font-weight: var(--weight-semibold); vertical-align: middle; }
 /* The WhatsApp follow-up button: a 44px target on every pointer. */
 .wa-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 12px; border: 1px solid var(--color-ok-soft); background: var(--color-ok-soft); color: var(--color-ok); text-decoration: none; transition: background-color .15s, color .15s; }
 a.wa-btn:hover, a.wa-btn:focus-visible { background: var(--color-ok); color: var(--color-on-dark); }
@@ -24,23 +24,22 @@ a.wa-btn:hover, a.wa-btn:focus-visible { background: var(--color-ok); color: var
 .inbox-row { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--color-line); padding: 0 12px 0 0; }
 .inbox-row:last-child { border-bottom: 0; }
 .inbox-row > a { flex: 1; min-width: 0; padding: 14px 20px; color: inherit; text-decoration: none; transition: background-color .15s; }
-.inbox-row > a:hover { background: var(--color-paper); }
-.inbox-row.is-unread .inbox-title { font-weight: 800; }
-.inbox-unread { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--color-copper); color: var(--color-on-dark); font-size: 11.5px; font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
-.inbox-type { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 11.5px; font-weight: var(--weight-semibold); white-space: nowrap; }
+.inbox-row > a:hover { background: var(--color-sage); }
+.inbox-row.is-unread .inbox-title { font-weight: var(--weight-semibold); }
+.inbox-type { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 100px; font-size: 11.5px; font-weight: var(--weight-semibold); white-space: nowrap; }
 .inbox-type.is-request { background: var(--color-info-soft); color: var(--color-info); }
-.inbox-type.is-inquiry { background: var(--color-copper-soft); color: var(--color-copper); }
+.inbox-type.is-inquiry { background: var(--color-teal-soft); color: var(--color-teal); }
 .inbox-preview { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 /* Inbox split view: list beside the open conversation from 1024px. */
 .inbox-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
 @media (min-width: 1024px) { .inbox-split { grid-template-columns: minmax(0, 1fr); } .inbox-split.has-pane, .inbox-split:has(.inbox-pane--empty) { grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 24px; } .inbox-pane { position: sticky; top: calc(var(--portal-topbar-h, 64px) + 16px); } }
 .inbox-list { min-width: 0; }
-.inbox-row.is-selected { background: var(--color-sage); box-shadow: inset 3px 0 0 var(--color-teal); }
+.inbox-row.is-selected { background: var(--color-teal-soft); box-shadow: inset 3px 0 0 var(--color-teal); }
 [dir="rtl"] .inbox-row.is-selected { box-shadow: inset -3px 0 0 var(--color-teal); }
 .inbox-row > a:focus-visible { outline: var(--focus-ring); outline-offset: -3px; border-radius: 10px; }
 .inbox-pane { display: flex; flex-direction: column; min-width: 0; max-height: calc(100dvh - var(--portal-topbar-h, 64px) - 32px); border: 1px solid var(--color-line); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-card); overflow: hidden; animation: page-enter var(--duration-page, .2s) var(--ease-out-soft, ease-out) both; }
 .inbox-pane--empty { justify-content: center; min-height: 320px; background: var(--color-paper); border-style: dashed; box-shadow: none; }
 .inbox-pane-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--color-line); background: var(--color-paper); }
-.inbox-pane-title { margin: 6px 0 0; font-size: var(--text-lg); font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.inbox-pane-title { margin: 6px 0 0; font-size: var(--text-lg); font-weight: var(--weight-semibold); line-height: 1.4; overflow-wrap: anywhere; }
 .inbox-pane-body { min-height: 0; flex: 1; overflow-y: auto; padding: 16px 20px 20px; }
 .inbox-pane-body .rc-thread { max-height: none; min-height: 240px; }

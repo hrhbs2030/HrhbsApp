@@ -22,28 +22,28 @@ import './notifications.css';
 // Every kind in NotificationKind, labelled in Arabic. Customers see the
 // customer kinds, office staff the office kinds (prefix `office.`).
 export const kindLabels: Record<NotificationKind, string> = {
-  'request.status': 'تغيّر حالة الطلب',
-  'request.message': 'رسالة جديدة في الطلب',
-  'request.file': 'ملف جديد في الطلب',
-  'request.assigned': 'إسناد الطلب لموظف',
-  'quote.sent': 'عرض سعر جديد',
-  'invoice.issued': 'إصدار فاتورة',
-  'invoice.overdue': 'تأخر سداد فاتورة',
-  'reminder.expiring': 'اقتراب انتهاء وثيقة',
+  'request.status': 'تحديث حالة الطلب',
+  'request.message': 'رسالة من المكتب',
+  'request.file': 'مستند جديد في الطلب',
+  'request.assigned': 'إسناد الطلب',
+  'quote.sent': 'عرض سعر',
+  'invoice.issued': 'فاتورة جديدة',
+  'invoice.overdue': 'فاتورة متأخرة',
+  'reminder.expiring': 'وثيقة تقترب من الانتهاء',
   'registration.decision': 'قرار طلب التسجيل',
-  'inquiry.answered': 'الرد على استفسار',
-  'inquiry.message': 'رسالة من المكتب في استفسار',
+  'inquiry.answered': 'رد على استفسارك',
+  'inquiry.message': 'رسالة من المكتب في استفسارك',
   'company.invite': 'دعوة إلى منشأة',
   'subscription.started': 'بدء الاشتراك',
   'subscription.invoice': 'فاتورة الاشتراك',
-  'subscription.past_due': 'تأخر سداد الاشتراك',
+  'subscription.past_due': 'اشتراك متأخر السداد',
   'subscription.cancelled': 'إلغاء الاشتراك',
-  'office.request_new': 'طلب خدمة جديد',
+  'office.request_new': 'طلب جديد',
   'office.registration_new': 'طلب تسجيل جديد',
   'office.inquiry_new': 'استفسار جديد',
   'office.inquiry_message': 'رسالة عميل في استفسار',
-  'office.file_new': 'ملف جديد من عميل',
-  'office.message_new': 'رسالة جديدة من عميل',
+  'office.file_new': 'مستند جديد من العميل',
+  'office.message_new': 'رسالة جديدة من العميل',
   'office.quote_answered': 'رد العميل على عرض السعر',
   'office.invoice_paid': 'سداد فاتورة',
   'office.whatsapp_unmatched': 'رسالة واتساب من رقم غير معروف',
@@ -73,7 +73,7 @@ function Brief() {
     <SectionHeader id="brief-title" eyebrow="اليوم" title={<span className="inline-flex items-center gap-2"><Sparkles size={19} className="text-copper" aria-hidden="true"/>الملخص الذكي</span>} action={brief.data ? <span className="text-xs text-subtle">حُدّث {formatRelative(brief.data.generatedAt)}</span> : undefined}/>
     {brief.isLoading ? <LoadingBlock variant="text"/> : brief.isError ? <ErrorBlock retry={() => brief.refetch()}/> : brief.data && <>
       <p className="notif-brief-headline">{brief.data.headline}</p>
-      {!brief.data.items.length ? <p className="notif-brief-calm"><BellRing size={16} aria-hidden="true"/>كل شيء هادئ: لا شيء يحتاج تدخلك الآن.</p> : <ul className="notif-brief-list">{brief.data.items.map((item, index) => <li key={`${item.kind}-${index}`} className="notif-brief-item">
+      {!brief.data.items.length ? <p className="notif-brief-calm"><BellRing size={16} aria-hidden="true"/>لا شيء يحتاج انتباهك الآن.</p> : <ul className="notif-brief-list">{brief.data.items.map((item, index) => <li key={`${item.kind}-${index}`} className="notif-brief-item">
         <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><strong className="text-sm">{item.title}</strong><PriorityChip priority={item.priority}/></div><p className="m-0 mt-0.5 text-xs leading-6 text-quiet">{item.reason}</p></div>
         {item.path && <Link href={item.path} className="btn btn-outline btn-sm">افتح<ArrowLeft size={15} aria-hidden="true"/></Link>}
       </li>)}</ul>}
@@ -131,7 +131,7 @@ function Feed() {
       </li>)}</ul>}
     {rows.length > 0 && !exhausted && <div className="mt-4 text-center">
       {more === 'error' && <p role="alert" className="mb-2 text-sm text-danger">تعذّر تحميل المزيد.</p>}
-      <button type="button" className="btn btn-outline" disabled={more === 'loading'} onClick={() => void loadMore()}>{more === 'loading' ? 'جارٍ التحميل…' : 'المزيد'}</button>
+      <button type="button" className="btn btn-outline" disabled={more === 'loading'} onClick={() => void loadMore()}>{more === 'loading' ? 'جارٍ التحميل…' : 'إشعارات أقدم'}</button>
     </div>}
   </section>;
 }
@@ -189,7 +189,7 @@ function Preferences({ staff }: { staff: boolean }) {
         <div className="notif-kinds">{kinds.map((kind) => <label key={kind} className="notif-kind"><input type="checkbox" checked={draft.mutedKinds.includes(kind)} onChange={(event) => toggleKind(kind, event.target.checked)}/>{kindLabels[kind]}</label>)}</div>
       </Surface>
       {save.isError && <p role="alert" className="m-0 text-sm text-danger">تعذّر حفظ التفضيلات. حاول مرة أخرى.</p>}
-      {saved && <p role="status" className="m-0 text-sm font-semibold text-ok">تم حفظ التفضيلات.</p>}
+      {saved && <p role="status" className="m-0 text-sm font-semibold text-ok">حُفظت التفضيلات.</p>}
       <button type="submit" className="btn btn-primary" disabled={save.isPending}>{save.isPending ? 'جارٍ الحفظ…' : 'حفظ التفضيلات'}</button>
     </form>}
   </section>;
@@ -200,7 +200,7 @@ function Preferences({ staff }: { staff: boolean }) {
 export const pushStateText: Record<PushState, string> = {
   unsupported: 'هذا المتصفح لا يدعم الإشعارات الفورية.',
   unavailable: 'الإشعارات الفورية غير مهيأة على الخادم حاليًا.',
-  blocked: 'حظر المتصفح الإشعارات لهذا الموقع. اسمح بها من إعدادات الموقع في المتصفح ثم أعد المحاولة.',
+  blocked: 'حظر المتصفح الإشعارات لهذا الموقع. اسمح بها من إعدادات الموقع في المتصفح ثم حاول مرة أخرى.',
   off: 'الإشعارات الفورية غير مفعّلة على هذا الجهاز.',
   on: 'الإشعارات الفورية مفعّلة على هذا الجهاز.',
 };
@@ -225,6 +225,6 @@ function PushDevice({ available }: { available: boolean }) {
       {needsHomeScreen && shown !== 'unsupported' && <p className="m-0 text-xs leading-6 text-warn">على iPhone وiPad: أضف الموقع إلى الشاشة الرئيسية أولًا، ثم فعّل الإشعارات من هناك.</p>}
       {error && <p role="alert" className="m-0 text-xs text-danger">{error}</p>}
     </div></div>
-    {canToggle && <button type="button" className={`btn btn-sm ${shown === 'on' ? 'btn-outline' : 'btn-primary'}`} disabled={busy} onClick={() => void toggle()}>{busy ? 'لحظة…' : shown === 'on' ? 'إيقاف على هذا الجهاز' : 'تفعيل على هذا الجهاز'}</button>}
+    {canToggle && <button type="button" className={`btn btn-sm ${shown === 'on' ? 'btn-outline' : 'btn-primary'}`} disabled={busy} onClick={() => void toggle()}>{busy ? (shown === 'on' ? 'جارٍ الإيقاف…' : 'جارٍ التفعيل…') : shown === 'on' ? 'إيقاف على هذا الجهاز' : 'تفعيل على هذا الجهاز'}</button>}
   </div>;
 }

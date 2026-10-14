@@ -59,7 +59,7 @@ export function StackedBar({ segments, label, format = formatNumber, height = 18
         const index = segments.indexOf(segment);
         const w = Math.max(3, (segment.value / total) * available);
         const rect = <rect key={segment.key} className="oc-mark" x={x} y="0" width={w} height={height} fill={series(index)} tabIndex={0} role="img" aria-label={`${segment.label}: ${format(segment.value)}`}>
-          <title>{`${segment.label}: ${format(segment.value)} (${Math.round((segment.value / total) * 100)}٪)`}</title>
+          <title>{`${segment.label}: ${format(segment.value)} (${Math.round((segment.value / total) * 100)}%)`}</title>
         </rect>;
         x += w + gap;
         return rect;

@@ -54,7 +54,7 @@ test("group keys and coalesced copy count the repeats in Arabic", () => {
   assert.equal(three.title, "3 رسائل جديدة في الطلب HBS-2026-00041");
   assert.equal(three.body, "آخر تحديث: المكتب: تم رفع الطلب");
   assert.equal(coalesced("request.message", 12, base).title, "12 رسالة جديدة في الطلب HBS-2026-00041");
-  assert.equal(coalesced("company.invite", 4, { title: "دعوة", body: "x" }).title, "4 إشعارات · دعوة للانضمام إلى شركة");
+  assert.equal(coalesced("company.invite", 4, { title: "دعوة", body: "x" }).title, "4 إشعارات · دعوة إلى منشأة");
 });
 
 test("Riyadh wall clock does not depend on the server time zone", () => {
@@ -211,7 +211,7 @@ test("buildBrief ranks urgent money and documents first and counts the headline"
   assert.equal(brief.items[3].path, "/requests/41");
   assert.equal(brief.items[4].path, "/requests/3");
   // The two low notifications of one kind fold into a single line.
-  assert.equal(brief.items[5].title, "3 إشعارات · ملف جديد في الطلب");
+  assert.equal(brief.items[5].title, "3 إشعارات · مستند جديد في الطلب");
   assert.equal(brief.items[5].path, "/notifications");
   assert.equal(brief.headline, "لديك 5 أمور تحتاج انتباهك اليوم.");
   // Same input, same brief.
@@ -221,7 +221,7 @@ test("buildBrief ranks urgent money and documents first and counts the headline"
 test("buildBrief office queues and the empty state", () => {
   const empty = buildBrief({ audience: "office", now: utc("2026-10-11T09:00:00Z"), unread: [], overdueInvoices: [], expiringReminders: [], waitingRequests: [], office: { unassigned: 0, openInquiries: 0, unmatchedWhatsapp: 0, overdueTotalHalalas: 0 } });
   assert.deepEqual(empty.items, []);
-  assert.equal(empty.headline, "كل شيء هادئ، لا يوجد ما يحتاج انتباهك الآن.");
+  assert.equal(empty.headline, "لا شيء يحتاج انتباهك الآن.");
   const busy = buildBrief({ audience: "office", now: utc("2026-10-11T09:00:00Z"), unread: [], overdueInvoices: [], expiringReminders: [], waitingRequests: [], office: { unassigned: 2, openInquiries: 1, unmatchedWhatsapp: 3, overdueTotalHalalas: 123_450 } });
   assert.deepEqual(busy.items.map(item => item.path), ["/office/requests?sort=due_soon", "/office/whatsapp", "/office/reports", "/office/inquiries"]);
   assert.equal(busy.items[0].title, "طلبان بلا موظف مسؤول");

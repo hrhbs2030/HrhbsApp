@@ -89,7 +89,7 @@ export function ExcelImport({ kind, onImport, onDone }: { kind: ImportKind; onIm
     } catch (e) {
       const data = (e as { status?: number; data?: ImportResult })?.status === 422 ? (e as { data?: ImportResult }).data : null;
       if (data?.problems?.length) setProblems(data.problems.map(p => ({ row: p.row ? parsed.sheetRows[p.row - 1] ?? p.row : 0, message: p.message })));
-      else setError('تعذّر الاستيراد. حاول مجددًا.');
+      else setError('تعذّر الاستيراد. حاول مرة أخرى.');
     } finally { setBusy(false); }
   }
 

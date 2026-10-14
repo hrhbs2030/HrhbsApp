@@ -196,7 +196,7 @@ test('the dashboard lists what needs the customer, or says nothing does', async 
   await act(async () => tree.unmount());
   setup({ summary: summary(), requests: [request(1)] });
   const calm = await mount(React.createElement(Dashboard));
-  assert.match(text(calm.root), /لا شيء مطلوب منك الآن/);
+  assert.match(text(calm.root), /لا شيء يحتاج انتباهك الآن/);
   assert.ok(!text(calm.root).includes('مطلوب منك الآن ('));
   await act(async () => calm.unmount());
 });
@@ -257,7 +257,7 @@ test('notification settings disclose verification state and provide only a revie
   state.settings.whatsappVerificationStatus = 'verified';
   const consent = nodes(tree, 'input').find(input => input.props.type === 'checkbox');
   await act(async () => consent.props.onChange({ target: { checked: false } }));
-  assert.match(text(tree.root), /تم توثيق الرقم/);
+  assert.match(text(tree.root), /وُثّق الرقم/);
   assert.doesNotMatch(text(tree.root), /VERIFY exact 123/, 'a refreshed proof result replaces the spent draft');
   await act(async () => consent.props.onChange({ target: { checked: true } }));
 
@@ -323,11 +323,11 @@ test('the quote card accepts, declines with a reason, and refreshes the request,
   const tree = await mount(React.createElement(RequestDetail));
   const body = text(tree.root);
   assert.match(body, /عرض السعر/); assert.match(body, /1,000\.00/); assert.match(body, /150\.00/); assert.match(body, /1,150\.00/); assert.match(body, /يشمل الرسوم/);
-  await click(button(tree, 'أوافق وابدأ'));
+  await click(button(tree, 'أوافق على العرض'));
   assert.deepEqual(log.accept, [{ id: 1 }]);
   const invalidated = log.invalidated.map(k => k[0]);
   for (const key of ['getGetServiceRequestQueryKey', 'getListServiceRequestInvoicesQueryKey', 'getListServiceRequestsQueryKey', 'getGetPortalSummaryQueryKey']) assert.ok(invalidated.includes(key), key);
-  await click(button(tree, 'لديّ ملاحظة'));
+  await click(button(tree, 'لديّ تحفّظ'));
   await act(async () => nodes(tree, 'textarea')[0].props.onChange({ target: { value: '  هل يشمل رسوم الجهة؟ ' } }));
   await act(async () => nodes(tree, 'form')[0].props.onSubmit({ preventDefault() {} }));
   assert.deepEqual(log.decline, [{ id: 1, data: { reason: 'هل يشمل رسوم الجهة؟' } }]);
@@ -335,7 +335,7 @@ test('the quote card accepts, declines with a reason, and refreshes the request,
   state.requests = [request(1, { quote: { ...quote, acceptedAt: date } })];
   await act(async () => tree.update(React.createElement(RequestDetail)));
   assert.match(text(tree.root), /وافقت على العرض/);
-  assert.equal(button(tree, 'أوافق وابدأ'), undefined);
+  assert.equal(button(tree, 'أوافق على العرض'), undefined);
   state.requests = [request(1, { quote: { ...quote, declinedAt: date } })];
   await act(async () => tree.update(React.createElement(RequestDetail)));
   assert.match(text(tree.root), /أرسلت ملاحظتك/);
@@ -376,7 +376,7 @@ test('the dashboard asks the owner to pay a past-due subscription, and ignores a
   // No company, or a server without subscriptions yet: nothing is asked.
   setup({ summary: summary({ hasCompany: false }), requests: [request(1)] });
   const calm = await mount(React.createElement(Dashboard));
-  assert.match(text(calm.root), /لا شيء مطلوب منك الآن/);
+  assert.match(text(calm.root), /لا شيء يحتاج انتباهك الآن/);
   await act(async () => calm.unmount());
 });
 
@@ -567,7 +567,7 @@ test('company members: viewers and finance see no composers or new-request actio
     const tree = await mount(React.createElement(Page));
     const body = text(tree.root);
     // The page heading's action is mocked away; the documents page's renewal link is the real new-request entry here.
-    const result = { renew: nodes(tree, 'a').some(a => a.props.href?.startsWith('/requests/new?')), reply: !!button(tree, 'ردّ على المكتب'), accept: !!button(tree, 'أوافق وابدأ'), readOnly: body.includes('صلاحيتك للعرض فقط'), finance: body.includes('صلاحيتك مالية') };
+    const result = { renew: nodes(tree, 'a').some(a => a.props.href?.startsWith('/requests/new?')), reply: !!button(tree, 'ردّ على المكتب'), accept: !!button(tree, 'أوافق على العرض'), readOnly: body.includes('صلاحيتك للعرض فقط'), finance: body.includes('صلاحيتك مالية') };
     await act(async () => tree.unmount());
     return result;
   };
