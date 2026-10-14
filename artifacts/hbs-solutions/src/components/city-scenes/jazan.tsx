@@ -1,7 +1,7 @@
 import { memo, type ReactNode } from 'react';
 import { Atmosphere, Layer, blocks, rng } from './kit';
 import './jazan.css';
-import { Residents, jazanCrowd } from './people';
+import { Dialogue, Residents, Subtitles, jazanCrowd } from './people';
 
 /* ---------------- Jazan by moonlight: Fayfa ranges with coffee terraces and hill villages,
    the floodlit Dosariyah fort over the city and the Red Sea bay, Tihama huts and palms ---------------- */
@@ -389,7 +389,7 @@ export const JazanScene = memo(function JazanScene() {
       {/* corniche lamps */}
       <g>{Array.from({ length: 12 }, (_, i) => { const x = 14 + i * 36; return <g key={i}><rect x={x} y="652" width="1.2" height="12" fill="#081c1f" /><circle cx={x + .6} cy="651.5" r="1.4" fill="#ffe0b4" /><ellipse cx={x + .6} cy="664" rx="10" ry="1.8" fill="#ffd2a0" opacity=".14" /><circle cx={x + .6} cy="651.5" r="4" fill="#ffd2a0" opacity=".1" /></g>; })}</g>
     </Layer>
-    <Layer depth={4}>
+    <Layer depth={4} after={<Dialogue crowd={jazanCrowd} />} strip={<Subtitles crowd={jazanCrowd} />}>
       <defs>
         <radialGradient id="jz-door"><stop offset="0" stopColor="#ffbf85" stopOpacity=".45" /><stop offset="1" stopColor="#ffbf85" stopOpacity="0" /></radialGradient>
         <linearGradient id="jz-doorway" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stopColor="#ffe1b4" /><stop offset="1" stopColor="#d9854d" /></linearGradient>

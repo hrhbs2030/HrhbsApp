@@ -78,8 +78,21 @@ export function Stars({ seed, count = 60 }: { seed: number; count?: number }) {
   })}</g>;
 }
 
-export function Layer({ depth, children }: { depth: 1 | 2 | 3 | 4; children: ReactNode }) {
-  return <svg className={`cs-layer cs-layer--${depth}`} viewBox={VB} preserveAspectRatio="xMidYMax slice" aria-hidden="true">{children}</svg>;
+// `after` is HTML drawn over the layer's SVG and moved with it (the residents'
+// speech bubbles, people.tsx <Dialogue/>): the layer becomes a div carrying the
+// drift animation, with the SVG and the HTML as its two children, so one
+// animation moves both and the bubbles stay on their speakers.
+// `strip` is HTML that must not drift (the phone subtitle strip along the
+// scene's lower edge): it is a sibling of the layer, inside the scene box.
+export function Layer({ depth, children, after, strip }: { depth: 1 | 2 | 3 | 4; children: ReactNode; after?: ReactNode; strip?: ReactNode }) {
+  if (!after) return <svg className={`cs-layer cs-layer--${depth}`} viewBox={VB} preserveAspectRatio="xMidYMax slice" aria-hidden="true">{children}</svg>;
+  return <>
+    <div className={`cs-layer cs-layer--${depth} cs-layer--stage`} aria-hidden="true">
+      <svg className="cs-layer-svg" viewBox={VB} preserveAspectRatio="xMidYMax slice">{children}</svg>
+      {after}
+    </div>
+    {strip}
+  </>;
 }
 
 // Atmosphere between the distant and the near layers: a horizon haze that

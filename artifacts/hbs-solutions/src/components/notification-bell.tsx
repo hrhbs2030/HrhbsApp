@@ -13,11 +13,13 @@ export const priorityLabels: Partial<Record<NotificationPriority, string>> = { u
 export function PriorityChip({ priority }: { priority: NotificationPriority }) {
   const label = priorityLabels[priority];
   if (!label) return null;
-  return <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-bold ${priority === 'urgent' ? 'bg-danger-soft text-danger' : 'bg-warn-soft text-warn'}`}>{label}</span>;
+  return <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${priority === 'urgent' ? 'bg-danger-soft text-danger' : 'bg-warn-soft text-warn'}`}>{label}</span>;
 }
 export const badgeText = (count: number) => count > 99 ? '99+' : String(count);
 
 const PANEL_SIZE = 8;
+// Lucide stroke mirrors --icon-stroke (index.css).
+const ICON = 1.75;
 export function NotificationBell({ staff = false }: { staff?: boolean }) {
   const [, navigate] = useLocation();
   const feed = useNotificationFeed();
@@ -49,13 +51,13 @@ export function NotificationBell({ staff = false }: { staff?: boolean }) {
   const unread = feed.unreadCount;
   return <div className="notif-bell">
     <button ref={button} type="button" className="notif-bell-btn" aria-label={unread > 0 ? `الإشعارات، ${badgeText(unread)} غير مقروءة` : 'الإشعارات'} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-      <Bell size={21} strokeWidth={1.8} aria-hidden="true"/>
+      <Bell size={22} strokeWidth={ICON} aria-hidden="true"/>
       {unread > 0 && <span className="notif-badge" aria-hidden="true">{badgeText(unread)}</span>}
     </button>
     {open && <div ref={panel} role="dialog" aria-labelledby={titleId} className="notif-panel" dir="rtl" onKeyDown={onPanelKey}>
       <div className="notif-panel-head">
-        <h2 id={titleId} className="m-0 text-sm font-bold">الإشعارات{unread > 0 && <span className="notif-panel-count">{badgeText(unread)} جديدة</span>}</h2>
-        <button type="button" className="notif-panel-close" onClick={() => close()} aria-label="إغلاق الإشعارات"><X size={18}/></button>
+        <h2 id={titleId} className="m-0 text-sm font-semibold">الإشعارات{unread > 0 && <span className="notif-panel-count">{badgeText(unread)} جديدة</span>}</h2>
+        <button type="button" className="notif-panel-close" onClick={() => close()} aria-label="إغلاق الإشعارات"><X size={20} strokeWidth={ICON} aria-hidden="true"/></button>
       </div>
       {feed.isLoading ? <p className="notif-panel-empty">جارٍ التحميل…</p> : !latest.length ? <p className="notif-panel-empty">لا توجد إشعارات بعد.</p> : <ul className="notif-list">{latest.map((item) => <li key={item.id}>
         <button type="button" className={`notif-item ${item.readAt ? '' : 'notif-item--unread'}`} onClick={() => void openItem(item)}>
@@ -66,7 +68,7 @@ export function NotificationBell({ staff = false }: { staff?: boolean }) {
       </li>)}</ul>}
       <div className="notif-panel-foot">
         <Link href={allHref} className="notif-panel-link" onClick={() => close(false)}>كل الإشعارات</Link>
-        <button type="button" className="notif-panel-link" disabled={unread === 0 || feed.marking} onClick={() => { void feed.markAllRead().catch(() => {}); }}><CheckCheck size={15} aria-hidden="true"/>تعليم الكل كمقروء</button>
+        <button type="button" className="notif-panel-link" disabled={unread === 0 || feed.marking} onClick={() => { void feed.markAllRead().catch(() => {}); }}><CheckCheck size={16} strokeWidth={ICON} aria-hidden="true"/>تعليم الكل كمقروء</button>
       </div>
     </div>}
   </div>;
@@ -80,8 +82,8 @@ export function NotificationToasts() {
     <div className="min-w-0 flex-1">
       <div className="flex items-center gap-2"><strong className="truncate text-sm">{toast.title}</strong><PriorityChip priority={toast.priority}/></div>
       <p className="m-0 mt-1 line-clamp-2 text-xs leading-6 text-quiet">{toast.body}</p>
-      {toast.path && <button type="button" className="mt-1 text-xs font-bold text-teal-bright" onClick={() => { dismissToast(toast.id); navigate(toast.path!); }}>فتح</button>}
+      {toast.path && <button type="button" className="mt-1 text-xs font-semibold text-teal-bright" onClick={() => { dismissToast(toast.id); navigate(toast.path!); }}>فتح</button>}
     </div>
-    <button type="button" className="notif-panel-close" onClick={() => dismissToast(toast.id)} aria-label="إغلاق التنبيه"><X size={16}/></button>
+    <button type="button" className="notif-panel-close" onClick={() => dismissToast(toast.id)} aria-label="إغلاق التنبيه"><X size={18} strokeWidth={ICON} aria-hidden="true"/></button>
   </div>)}</div>;
 }

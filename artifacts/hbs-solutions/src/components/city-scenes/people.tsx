@@ -1,4 +1,4 @@
-import { memo, type ReactNode } from 'react';
+import { memo, type CSSProperties, type ReactNode } from 'react';
 import './people.css';
 
 // Decorative SVG residents in each city's foreground. Coordinates use the
@@ -13,6 +13,10 @@ type Walker = Figure & { dur: number; delay: number; dir: 1 | -1 };
 export type Crowd = { pools: [number, number, number?][]; people: Figure[]; lines: Line[]; walkers?: Walker[]; office?: { x: number; g: number; s?: number } };
 
 const EDGE = '#f0b28a';
+// Rim light from the shopfront and the street lamps: a warm edge drawn behind
+// each garment and headdress, so dark cloth separates from the night street.
+const HALO = '#ffd9b0';
+const halo = (d: string, w = 2.6) => <path d={d} fill="none" stroke={HALO} strokeOpacity=".6" strokeWidth={w} strokeLinejoin="round" />;
 // Skin tones within the Saudi range, light to deep: [highlight, base, shade].
 const TONES = [['#d9a77e', '#b98159', '#8c5c3e'], ['#c48f66', '#a06a47', '#74482f'], ['#ae7651', '#8a5a3c', '#5f3c28'], ['#946145', '#734a32', '#4c3021']] as const;
 // A face for each resident, so a group never looks cloned.
@@ -26,15 +30,15 @@ const LOOKS: Look[] = [
   { tone: 3, beard: 'full', tilt: 1 },
   { tone: 0, beard: 'goatee', tilt: -3 },
 ];
-const SLEEVE = { thobe: '#cfc6b4', white: '#e4ded2', abaya: '#1f1b1f' } as const;
+const SLEEVE = { thobe: '#cfc6b4', white: '#e4ded2', abaya: '#3a343b' } as const;
 
 export function Defs({ p }: { p: string }) {
   return (
     <defs>
       <linearGradient id={`${p}-thobe`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ebe4d4" /><stop offset=".55" stopColor="#bab19f" /><stop offset="1" stopColor="#6c6558" /></linearGradient>
       <linearGradient id={`${p}-white`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f6f2e9" /><stop offset="1" stopColor="#a39b8c" /></linearGradient>
-      <linearGradient id={`${p}-abaya`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#2e2a2e" /><stop offset=".6" stopColor="#161416" /><stop offset="1" stopColor="#080708" /></linearGradient>
-      <linearGradient id={`${p}-bisht`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#4a3020" /><stop offset="1" stopColor="#1a100a" /></linearGradient>
+      <linearGradient id={`${p}-abaya`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#4d454e" /><stop offset=".6" stopColor="#2c272d" /><stop offset="1" stopColor="#1b171c" /></linearGradient>
+      <linearGradient id={`${p}-bisht`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#6a4530" /><stop offset="1" stopColor="#2c1b10" /></linearGradient>
       <linearGradient id={`${p}-gold`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ecc066" /><stop offset="1" stopColor="#9a6a24" /></linearGradient>
       <linearGradient id={`${p}-straw`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#e2bd78" /><stop offset="1" stopColor="#9b7440" /></linearGradient>
       <pattern id={`${p}-shemagh`} width="2.2" height="2.2" patternUnits="userSpaceOnUse">
@@ -43,20 +47,20 @@ export function Defs({ p }: { p: string }) {
       <pattern id={`${p}-izar`} width="4" height="5" patternUnits="userSpaceOnUse">
         <rect width="4" height="5" fill="#2b5c5b" /><rect y="1.2" width="4" height="1" fill="#e5a27b" /><rect y="3.3" width="4" height=".5" fill="#b8453c" />
       </pattern>
-      <radialGradient id={`${p}-pool`}><stop offset="0" stopColor="#ffc890" stopOpacity=".34" /><stop offset=".55" stopColor="#ffb070" stopOpacity=".1" /><stop offset="1" stopColor="#ffb070" stopOpacity="0" /></radialGradient>
+      <radialGradient id={`${p}-pool`}><stop offset="0" stopColor="#ffc890" stopOpacity=".42" /><stop offset=".55" stopColor="#ffb070" stopOpacity=".14" /><stop offset="1" stopColor="#ffb070" stopOpacity="0" /></radialGradient>
       {/* Faces are lit from the shopfront: warm highlight up-front, shade at the jaw. */}
       {TONES.map(([hi, base, shade], i) => (
         <radialGradient key={i} id={`${p}-skin${i}`} cx=".42" cy=".36" r=".75"><stop offset="0" stopColor={hi} /><stop offset=".62" stopColor={base} /><stop offset="1" stopColor={shade} /></radialGradient>
       ))}
       {/* Garment volume: darker at the sides, a soft highlight toward the light. */}
       <linearGradient id={`${p}-volume`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#000" stopOpacity=".34" /><stop offset=".3" stopColor="#000" stopOpacity="0" /><stop offset=".62" stopColor="#fff" stopOpacity=".1" /><stop offset=".86" stopColor="#000" stopOpacity="0" /><stop offset="1" stopColor="#000" stopOpacity=".26" /></linearGradient>
-      <linearGradient id={`${p}-sheen`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset=".5" stopColor="#fff" stopOpacity=".09" /><stop offset="1" stopColor="#fff" stopOpacity="0" /></linearGradient>
+      <linearGradient id={`${p}-sheen`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset=".5" stopColor="#fff" stopOpacity=".16" /><stop offset="1" stopColor="#fff" stopOpacity="0" /></linearGradient>
       <linearGradient id={`${p}-stone`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#1b2124" /><stop offset=".7" stopColor="#2b3235" /><stop offset="1" stopColor="#3a3431" /></linearGradient>
       <linearGradient id={`${p}-shop`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffe1b4" /><stop offset=".7" stopColor="#f2b27a" /><stop offset="1" stopColor="#c47a4a" /></linearGradient>
       <linearGradient id={`${p}-door`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#bfeee6" stopOpacity=".75" /><stop offset="1" stopColor="#5b9c95" stopOpacity=".55" /></linearGradient>
       <radialGradient id={`${p}-signglow`}><stop offset="0" stopColor="#e5a27b" stopOpacity=".28" /><stop offset="1" stopColor="#e5a27b" stopOpacity="0" /></radialGradient>
       {/* Warm spill from the office over the street, so residents read against the dark ground. */}
-      <radialGradient id={`${p}-wash`} cy=".7"><stop offset="0" stopColor="#ffb87a" stopOpacity=".2" /><stop offset=".5" stopColor="#e98f55" stopOpacity=".07" /><stop offset="1" stopColor="#e98f55" stopOpacity="0" /></radialGradient>
+      <radialGradient id={`${p}-wash`} cy=".7"><stop offset="0" stopColor="#ffb87a" stopOpacity=".32" /><stop offset=".5" stopColor="#e98f55" stopOpacity=".12" /><stop offset="1" stopColor="#e98f55" stopOpacity="0" /></radialGradient>
       <radialGradient id={`${p}-screen`}><stop offset="0" stopColor="#bfeee6" stopOpacity=".8" /><stop offset="1" stopColor="#8fd0c6" stopOpacity="0" /></radialGradient>
     </defs>
   );
@@ -136,6 +140,10 @@ function Arms({ pose, fill, sleeve, skin, p }: { pose: Pose; fill: string; sleev
 // sits over the forehead and frames it.
 function Headgear({ kind, p, layer }: { kind: Kind; p: string; layer: 'back' | 'front' }) {
   const cap = 'M-5.3 -56.6 Q-5.8 -62.6 0 -63.1 Q5.8 -62.6 5.3 -56.6 Q0 -59.3 -5.3 -56.6Z';
+  const SHEMAGH = 'M-6.2 -57.4 Q-6.6 -62.6 0 -63.3 Q6.6 -62.6 6.2 -57.4 L8.7 -45.6 Q8.9 -44 7 -44.3 L4.6 -50 Q4.3 -53 4.1 -56 L-4.1 -56 Q-4.3 -53 -4.6 -50 L-7 -44.3 Q-8.9 -44 -8.7 -45.6Z';
+  const GHUTRA = 'M-6.2 -57.4 Q-6.6 -62.6 0 -63.2 Q6.6 -62.6 6.2 -57.4 L8.9 -44.6 Q9 -43 7 -43.4 L4.6 -50 Q4.3 -53 4.1 -56 L-4.1 -56 Q-4.3 -53 -4.6 -50 L-7 -43.4 Q-9 -43 -8.9 -44.6Z';
+  const GHABANA = 'M-6.8 -56.2 Q-8.2 -65.8 0 -66.3 Q8.2 -65.8 6.8 -56.2 Q0 -58.8 -6.8 -56.2Z';
+  const CURLS = 'M-4.6 -59 Q-6.6 -55 -6.2 -49.6 Q-5.4 -47.2 -3.6 -48.4 L3.6 -48.4 Q5.4 -47.2 6.2 -49.6 Q6.6 -55 4.6 -59Z';
   const veil = 'M-6 -53.6 Q-6.6 -62.4 0 -62.8 Q6.6 -62.4 6 -53.6 L7.8 -45.4 Q0 -47.4 -7.8 -45.4Z';
   // The scarf tucked close around a woman's face.
   const rim = <path d="M-3.75 -54.6 Q-3.9 -59.5 0 -59.6 Q3.9 -59.5 3.75 -54.6 Q3.6 -50.2 0 -50 Q-3.6 -50.2 -3.75 -54.6Z" fill="none" stroke="#141114" strokeWidth=".95" />;
@@ -143,7 +151,7 @@ function Headgear({ kind, p, layer }: { kind: Kind; p: string; layer: 'back' | '
   switch (kind) {
     case 'najdi': case 'najdi-bisht':
       return back
-        ? <path d="M-6.2 -57.4 Q-6.6 -62.6 0 -63.3 Q6.6 -62.6 6.2 -57.4 L8.7 -45.6 Q8.9 -44 7 -44.3 L4.6 -50 Q4.3 -53 4.1 -56 L-4.1 -56 Q-4.3 -53 -4.6 -50 L-7 -44.3 Q-8.9 -44 -8.7 -45.6Z" fill={`url(#${p}-shemagh)`} />
+        ? <g>{halo(SHEMAGH)}<path d={SHEMAGH} fill={`url(#${p}-shemagh)`} /></g>
         : <g>
           <path d={cap} fill={`url(#${p}-shemagh)`} />
           <path d="M-1.6 -62.9 L0 -64.8 L1.6 -62.9Z" fill="#b02a30" />
@@ -154,7 +162,7 @@ function Headgear({ kind, p, layer }: { kind: Kind; p: string; layer: 'back' | '
         </g>;
     case 'hijazi':
       return back
-        ? <path d="M-6.2 -57.4 Q-6.6 -62.6 0 -63.2 Q6.6 -62.6 6.2 -57.4 L8.9 -44.6 Q9 -43 7 -43.4 L4.6 -50 Q4.3 -53 4.1 -56 L-4.1 -56 Q-4.3 -53 -4.6 -50 L-7 -43.4 Q-9 -43 -8.9 -44.6Z" fill={`url(#${p}-white)`} />
+        ? <g>{halo(GHUTRA)}<path d={GHUTRA} fill={`url(#${p}-white)`} /></g>
         : <g>
           <path d={cap} fill={`url(#${p}-white)`} />
           <path d="M-1.4 -62.8 L0 -64.4 L1.4 -62.8Z" fill="#ece6da" />
@@ -164,12 +172,12 @@ function Headgear({ kind, p, layer }: { kind: Kind; p: string; layer: 'back' | '
       return back
         ? <path d="M5.4 -58.4 Q10.4 -55.4 9.4 -47.6 L7.8 -47.6 Q8.4 -53.6 4.6 -56.8Z" fill={`url(#${p}-gold)`} />
         : <g>
-          <path d="M-6.8 -56.2 Q-8.2 -65.8 0 -66.3 Q8.2 -65.8 6.8 -56.2 Q0 -58.8 -6.8 -56.2Z" fill={`url(#${p}-gold)`} />
+          {halo(GHABANA)}<path d={GHABANA} fill={`url(#${p}-gold)`} />
           <path d="M-6.2 -60.2 Q0 -63.6 6.2 -60.2 M-6.7 -57.8 Q0 -61.2 6.7 -57.8 M-4.8 -63.4 Q0 -65.2 4.8 -63.4" fill="none" stroke="#6e4212" strokeWidth=".7" opacity=".7" />
         </g>;
     case 'janubi-wreath': case 'janubi-hat':
       // Shoulder-length curls behind, the traditional southern look.
-      if (back) return <path d="M-4.6 -59 Q-6.6 -55 -6.2 -49.6 Q-5.4 -47.2 -3.6 -48.4 L3.6 -48.4 Q5.4 -47.2 6.2 -49.6 Q6.6 -55 4.6 -59Z" fill="#1a1210" />;
+      if (back) return <g>{halo(CURLS)}<path d={CURLS} fill="#1a1210" /></g>;
       return kind === 'janubi-wreath'
         ? <g>
           <path d="M-4.6 -56.4 Q-5.9 -62 0 -62.3 Q5.9 -62 4.6 -56.4 Q2.6 -58.4 0 -58.3 Q-2.6 -58.4 -4.6 -56.4Z" fill="#1a1210" />
@@ -184,7 +192,7 @@ function Headgear({ kind, p, layer }: { kind: Kind; p: string; layer: 'back' | '
         </g>;
     case 'janubiya':
       return back
-        ? <path d={veil} fill="#121012" />
+        ? <g>{halo(veil)}<path d={veil} fill="#1d191e" /></g>
         : <g>
           {rim}
           <ellipse cx="0" cy="-61" rx="13.4" ry="2.6" fill="#b88c4c" />
@@ -193,7 +201,7 @@ function Headgear({ kind, p, layer }: { kind: Kind; p: string; layer: 'back' | '
         </g>;
     case 'abaya':
       return back
-        ? <path d={veil} fill="#121012" />
+        ? <g>{halo(veil)}<path d={veil} fill="#1d191e" /></g>
         : <g>{rim}<path d="M-3.9 -56.4 Q-4.2 -60.6 0 -60.7 Q4.2 -60.6 3.9 -56.4 Q2 -58.9 0 -58.9 Q-2 -58.9 -3.9 -56.4Z" fill="#141114" /></g>;
   }
 }
@@ -201,6 +209,7 @@ function Headgear({ kind, p, layer }: { kind: Kind; p: string; layer: 'back' | '
 function Body({ kind, pose, p, skin }: { kind: Kind; pose: Pose; p: string; skin: string }) {
   const thobeShape = "M-7.8 -47 Q-9.6 -46 -10 -43 L-11.2 -2 Q0 .4 11.2 -2 L10 -43 Q9.6 -46 7.8 -47 Q0 -49 -7.8 -47Z";
   const thobe = <g className="pp-breathe">
+    {halo(thobeShape)}
     <path d={thobeShape} fill={`url(#${p}-thobe)`} />
     <path d={thobeShape} fill={`url(#${p}-volume)`} />
     <path d="M-4.5 -30 Q-5.4 -16 -6.2 -3 M4.2 -26 Q5 -14 5.8 -3" stroke="#6f6758" strokeWidth=".5" fill="none" opacity=".55" />
@@ -208,14 +217,19 @@ function Body({ kind, pose, p, skin }: { kind: Kind; pose: Pose; p: string; skin
     <circle cx=".9" cy="-44.6" r=".42" fill="#7d7466" /><circle cx=".9" cy="-41.4" r=".42" fill="#7d7466" /><circle cx=".9" cy="-38.2" r=".42" fill="#7d7466" />
     <path d="M-3.6 -47.8 Q0 -46.2 3.6 -47.8" stroke="#8f8676" strokeWidth=".6" fill="none" />
   </g>;
-  const rim = (d: string) => <path d={d} fill="none" stroke={EDGE} strokeOpacity=".42" strokeWidth=".8" />;
+  const rim = (d: string) => <path d={d} fill="none" stroke={EDGE} strokeOpacity=".7" strokeWidth="1.1" strokeLinecap="round" />;
+  const BISHT = 'M-7.8 -47.4 Q-12.6 -44.6 -13.6 -38 L-15 -4 Q-9.4 -3 -4.2 -3.6 L-2.4 -44.4Z M7.8 -47.4 Q12.6 -44.6 13.6 -38 L15 -4 Q9.4 -3 4.2 -3.6 L2.4 -44.4Z';
+  const SHIRT = 'M-7.6 -47 Q-9.6 -45.5 -9.9 -42 L-10.3 -25 Q0 -23.6 10.3 -25 L9.9 -42 Q9.6 -45.5 7.6 -47 Q0 -49 -7.6 -47Z';
+  const IZAR = 'M-10.4 -26.4 L-11 -8 Q0 -6.6 11 -8 L10.4 -26.4 Q0 -24.8 -10.4 -26.4Z';
+  const ABAYA_W = 'M-7.4 -47 Q-10 -45 -10.4 -40 L-12.2 -1.6 Q0 .4 12.2 -1.6 L10.4 -40 Q10 -45 7.4 -47Z';
+  const ABAYA = 'M-7.4 -47 Q-10 -45 -10.4 -40 L-12.6 -1.5 Q0 .6 12.6 -1.5 L10.4 -40 Q10 -45 7.4 -47Z';
   switch (kind) {
     case 'najdi': case 'hijazi':
       return <>{thobe}{rim('M10 -43 L11.2 -2')}<Arms pose={pose} fill={`url(#${p}-thobe)`} sleeve={SLEEVE.thobe} skin={skin} p={p} /></>;
     case 'najdi-bisht':
       return <>{thobe}
         <Arms pose="idle" fill={`url(#${p}-thobe)`} sleeve={SLEEVE.thobe} skin={skin} p={p} />
-        <path d="M-7.8 -47.4 Q-12.6 -44.6 -13.6 -38 L-15 -4 Q-9.4 -3 -4.2 -3.6 L-2.4 -44.4Z M7.8 -47.4 Q12.6 -44.6 13.6 -38 L15 -4 Q9.4 -3 4.2 -3.6 L2.4 -44.4Z" fill={`url(#${p}-bisht)`} />
+        {halo(BISHT)}<path d={BISHT} fill={`url(#${p}-bisht)`} />
         <path d="M-2.4 -44.4 L-4.2 -3.6 M2.4 -44.4 L4.2 -3.6 M-7.8 -47.4 Q0 -45.4 7.8 -47.4" fill="none" stroke="#d9a64a" strokeWidth=".9" />
         {rim('M13.6 -38 L15 -4')}</>;
     case 'hijazi-ghabana':
@@ -227,33 +241,36 @@ function Body({ kind, pose, p, skin }: { kind: Kind; pose: Pose; p: string; skin
     case 'janubi-wreath': case 'janubi-hat':
       return <>
         <path d="M-6 -8.4 L-6.4 -1 L-3 -1 L-2.8 -8.4Z M6 -8.4 L6.4 -1 L3 -1 L2.8 -8.4Z" fill="#5c3a26" />
-        <path d="M-7.6 -47 Q-9.6 -45.5 -9.9 -42 L-10.3 -25 Q0 -23.6 10.3 -25 L9.9 -42 Q9.6 -45.5 7.6 -47 Q0 -49 -7.6 -47Z" fill={`url(#${p}-white)`} />
-        <path d="M-7.6 -47 Q-9.6 -45.5 -9.9 -42 L-10.3 -25 Q0 -23.6 10.3 -25 L9.9 -42 Q9.6 -45.5 7.6 -47 Q0 -49 -7.6 -47Z" fill={`url(#${p}-volume)`} />
-        <path d="M-10.4 -26.4 L-11 -8 Q0 -6.6 11 -8 L10.4 -26.4 Q0 -24.8 -10.4 -26.4Z" fill={`url(#${p}-izar)`} />
-        <path d="M-10.4 -26.4 L-11 -8 Q0 -6.6 11 -8 L10.4 -26.4 Q0 -24.8 -10.4 -26.4Z" fill={`url(#${p}-volume)`} />
+        {halo(SHIRT)}{halo(IZAR)}
+        <path d={SHIRT} fill={`url(#${p}-white)`} />
+        <path d={SHIRT} fill={`url(#${p}-volume)`} />
+        <path d={IZAR} fill={`url(#${p}-izar)`} />
+        <path d={IZAR} fill={`url(#${p}-volume)`} />
         <rect x="-10.5" y="-27.6" width="21" height="2.2" rx=".6" fill="#4d3120" />
         <path d="M-7 -26.5h.01M-3.5 -26.5h.01M0 -26.5h.01M3.5 -26.5h.01M7 -26.5h.01" stroke="#d8d2c2" strokeWidth="1" strokeLinecap="round" />
         <Arms pose={pose} fill={`url(#${p}-white)`} sleeve={SLEEVE.white} skin={skin} p={p} />
         {rim('M10.4 -26.4 L11 -8')}</>;
     case 'janubiya':
       return <>
-        <path d="M-7.4 -47 Q-10 -45 -10.4 -40 L-12.2 -1.6 Q0 .4 12.2 -1.6 L10.4 -40 Q10 -45 7.4 -47Z" fill={`url(#${p}-abaya)`} />
-        <path d="M-7.4 -47 Q-10 -45 -10.4 -40 L-12.2 -1.6 Q0 .4 12.2 -1.6 L10.4 -40 Q10 -45 7.4 -47Z" fill={`url(#${p}-sheen)`} />
+        {halo(ABAYA_W, 3)}
+        <path d={ABAYA_W} fill={`url(#${p}-abaya)`} />
+        <path d={ABAYA_W} fill={`url(#${p}-sheen)`} />
         <path d="M-3.8 -46.4 L3.8 -46.4 L3.2 -33 L-3.2 -33Z" fill="#a8403a" />
         <path d="M-2.4 -44 h4.8 M-2.2 -40.6 h4.4 M-2 -37.2 h4" stroke="#e5a27b" strokeWidth=".8" strokeDasharray=".9 .9" />
         <path d="M-12 -5 Q0 -3.2 12 -5" stroke="#c9763f" strokeWidth="1.4" fill="none" />
-        <Arms pose={pose} fill="#171417" sleeve={SLEEVE.abaya} skin={skin} p={p} />
+        <Arms pose={pose} fill="#2e292f" sleeve={SLEEVE.abaya} skin={skin} p={p} />
         {rim('M10.4 -40 L12.2 -1.6')}</>;
     case 'abaya':
       return <>
         <g className="pp-breathe">
-          <path d="M-7.4 -47 Q-10 -45 -10.4 -40 L-12.6 -1.5 Q0 .6 12.6 -1.5 L10.4 -40 Q10 -45 7.4 -47Z" fill={`url(#${p}-abaya)`} />
+          {halo(ABAYA, 3)}
+          <path d={ABAYA} fill={`url(#${p}-abaya)`} />
           <path d="M-3 -46 L-4.4 -2 L3.6 -2 L2.2 -46Z" fill={`url(#${p}-sheen)`} />
-          <path d="M0 -46 V-2" stroke="#2c282b" strokeWidth=".6" />
+          <path d="M0 -46 V-2" stroke="#4a434b" strokeWidth=".6" />
           <path d="M-12.4 -3.4 Q0 -1.6 12.4 -3.4" stroke="#8a5a3a" strokeWidth=".7" fill="none" opacity=".8" />
           <path d="M-.9 -46 V-8 M.9 -46 V-8" stroke="#6d4a33" strokeWidth=".35" strokeDasharray=".8 .8" opacity=".8" />
         </g>
-        <Arms pose={pose} fill="#161316" sleeve={SLEEVE.abaya} skin={skin} p={p} />
+        <Arms pose={pose} fill="#2e292f" sleeve={SLEEVE.abaya} skin={skin} p={p} />
         {rim('M10.4 -40 L12.6 -1.5')}</>;
   }
 }
@@ -276,7 +293,7 @@ export const Person = memo(function Person({ kind, pose = 'idle', x, g, s = 1, f
       </g>
     </g>
   </>;
-  return <g className={className} transform={`translate(${x} ${g}) scale(${flip ? -s : s} ${s})`}>{kids}</g>;
+  return <g className={className ? `pp-person ${className}` : 'pp-person'} transform={`translate(${x} ${g}) scale(${flip ? -s : s} ${s})`}>{kids}</g>;
 });
 
 
@@ -293,9 +310,9 @@ export function Storefront({ p, x, g, s = 1 }: { p: string; x: number; g: number
       <rect x="-64" y="-82" width="128" height="20" rx="3" fill="#0e2629" />
       <rect x="-64" y="-82" width="128" height="20" rx="3" fill="none" stroke="#e5a27b" strokeWidth=".9" />
       <rect x="-60" y="-78" width="120" height="12" rx="2" fill={`url(#${p}-signglow)`} className="cs-glow" />
-      <text x="-26" y="-68.6" textAnchor="middle" className="pp-sign pp-sign--latin" direction="ltr">HBS</text>
+      <text x="-27" y="-68.2" textAnchor="middle" className="pp-sign pp-sign--latin" direction="ltr">HBS</text>
       <path d="M-8 -77 V-67" stroke="#e5a27b" strokeWidth=".7" />
-      <text x="24" y="-68" textAnchor="middle" direction="rtl" className="pp-sign">حلول الغد</text>
+      <text x="26" y="-67.6" textAnchor="middle" direction="rtl" className="pp-sign">حلول الغد</text>
       {/* awning */}
       <path d="M-70 -60 H70 L64 -50 H-64Z" fill="#8d4a30" />
       {[-56, -40, -24, -8, 8, 24, 40, 56].map((ax) => <path key={ax} d={`M${ax - 4} -60 H${ax + 4} L${ax + 3.6} -50 H${ax - 3.6}Z`} fill="#e5a27b" opacity=".55" />)}
@@ -330,24 +347,52 @@ export function Storefront({ p, x, g, s = 1 }: { p: string; x: number; g: number
   );
 }
 
-function Say({ x, y, text, at, tail }: { x: number; y: number; text: string; at: number; tail: 'left' | 'right' }) {
-  const w = Math.round(text.length * 6.3 + 22);
-  const h = 24;
-  const tx = tail === 'right' ? x + w / 2 - 16 : x - w / 2 + 16;
-  return (
-    <g className="pp-say" style={{ animationDelay: `${at}s` }}>
-      <rect x={x - w / 2} y={y - h} width={w} height={h} rx="11" fill="#f6efe3" />
-      <path d={`M${tx - 5} ${y - 1} L${tx} ${y + 6} L${tx + 5} ${y - 1}Z`} fill="#f6efe3" />
-      <text x={x} y={y - 7.6} textAnchor="middle" direction="rtl" className="pp-text">{text}</text>
-    </g>
-  );
+// Where a bubble's tail lands: a little above the top of each headdress, in
+// the figure's own units (feet at 0; the head is scaled 1.16 about y=-48).
+const HEADROOM: Record<Kind, number> = { najdi: 70, 'najdi-bisht': 70, hijazi: 70, 'hijazi-ghabana': 73, abaya: 66, 'janubi-wreath': 70, 'janubi-hat': 76, janubiya: 82 };
+
+// One line of dialogue as an HTML bubble (solid paper, ink text, a tail to
+// the speaker). It is laid out in CSS px, not in the SVG's scaled units, so
+// the text is the same size at every scene size; people.css projects --ax/--ay
+// (scene viewBox units) onto the layer box with container-query units, the
+// same xMidYMax-slice mapping the SVG uses, and applies the variant's --pp-zoom.
+function Say({ who, text, at, tail }: { who: Figure; text: string; at: number; tail: 'l' | 'r' }) {
+  const s = who.s ?? 1;
+  const style = { '--ax': who.x, '--ay': who.g - HEADROOM[who.kind] * s, animationDelay: `${at}s` } as CSSProperties;
+  return <div className={`pp-say pp-say--${tail}`} style={style} lang="ar" dir="rtl">{text}</div>;
 }
+
+// The residents' exchange: four bubbles, one at a time (each shows for ~2.6 s
+// of the 12 s cycle and their `at` times never overlap), each above its own
+// speaker. A figure facing the street's centre gets the bubble opening away
+// from the office sign, so no bubble ever sits on the sign or on a neighbour.
+export const Dialogue = memo(function Dialogue({ crowd }: { crowd: Crowd }) {
+  return (
+    <div className="pp-dialogue">
+      {crowd.lines.map((l, i) => {
+        const f = crowd.people[l.who];
+        return <Say key={i} who={f} text={l.text} at={l.at} tail={f.flip ? 'r' : 'l'} />;
+      })}
+    </div>
+  );
+});
+
+// On phones the crop shows only the pair by the office door, so the same four
+// lines run, one at a time, as a subtitle strip along the scene's lower edge
+// (people.css); it sits beside the layer, so it does not drift with the street.
+export const Subtitles = memo(function Subtitles({ crowd }: { crowd: Crowd }) {
+  return (
+    <div className="pp-subtitles" aria-hidden="true">
+      {crowd.lines.map((l, i) => <p key={i} className="pp-subtitle" style={{ animationDelay: `${l.at}s` }} lang="ar" dir="rtl">{l.text}</p>)}
+    </div>
+  );
+});
 
 export const Residents = memo(function Residents({ id, crowd }: { id: string; crowd: Crowd }) {
   return (
     <g className="pp">
       <Defs p={id} />
-      {crowd.office && <ellipse cx={crowd.office.x} cy={crowd.office.g - 40} rx="330" ry="78" fill={`url(#${id}-wash)`} />}
+      {crowd.office && <ellipse cx={crowd.office.x} cy={crowd.office.g - 44} rx="360" ry="92" fill={`url(#${id}-wash)`} />}
       {crowd.office && <Storefront p={id} {...crowd.office} />}
       {crowd.pools.map(([x, g, rx = 90], i) => <ellipse key={i} cx={x} cy={g} rx={rx} ry="12" fill={`url(#${id}-pool)`} />)}
       {crowd.walkers?.map((w, i) => (
@@ -356,17 +401,6 @@ export const Residents = memo(function Residents({ id, crowd }: { id: string; cr
         </g>
       ))}
       {crowd.people.map((f, i) => <Person key={i} {...f} p={id} />)}
-      <g className="pp-lines">{crowd.lines.map((l, i) => {
-        const f = crowd.people[l.who]; const s = f.s ?? 1;
-        const w = Math.round(l.text.length * 6.3 + 22);
-        // The scene is center-cropped on desktop. Keep the leftmost bubbles
-        // within that crop and point their tails back toward the speaker.
-        const preferredLeft = f.flip ? f.x - 20 : f.x - w + 20;
-        const left = Math.max(440, preferredLeft);
-        const tail = left > preferredLeft || f.flip ? 'left' : 'right';
-        const x = left + w / 2;
-        return <Say key={i} x={x} y={f.g - 72 * s - 4} text={l.text} at={l.at} tail={tail} />;
-      })}</g>
     </g>
   );
 });

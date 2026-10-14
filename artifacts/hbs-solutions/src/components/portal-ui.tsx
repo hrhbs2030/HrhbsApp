@@ -38,7 +38,7 @@ export function Status({ value, className = '' }: { value: string; className?: s
 export function PageHeading({ eyebrow, title, subtitle, action, back, meta }: { eyebrow: string; title: string; subtitle?: string; action?: ReactNode; back?: { href: string; label: string }; meta?: ReactNode }) {
   return <div className="page-head">
     <div className="min-w-0">
-      {back && <Link href={back.href} className="page-head-back"><ArrowUpLeft size={15} className="rotate-180" aria-hidden="true" />{back.label}</Link>}
+      {back && <Link href={back.href} className="page-head-back"><ArrowUpLeft size={16} strokeWidth={ICON} className="rotate-180" aria-hidden="true" />{back.label}</Link>}
       <span className="eyebrow">{eyebrow}</span>
       <h1 className="page-head-title display">{title}</h1>
       {subtitle && <p className="page-head-sub">{subtitle}</p>}
@@ -55,16 +55,16 @@ export function LoadingBlock({ variant = 'card', rows = 5 }: { variant?: 'card' 
   return <div className="surface space-y-4 p-6" aria-label="جارٍ تحميل البيانات" aria-busy="true"><div className="skeleton h-6 w-1/3"/><div className="skeleton h-16 w-full"/><div className="skeleton h-16 w-full"/><div className="skeleton h-16 w-3/4"/></div>;
 }
 // Error state with a retry button; `message` replaces the generic line.
-export function ErrorBlock({ retry, message }: { retry: () => void; message?: string }) { return <div className="surface p-10 text-center" role="alert"><div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-danger-soft text-danger"><CircleHelp size={28} strokeWidth={1.6} aria-hidden="true"/></div><h2 className="display text-xl">تعذّر تحميل البيانات</h2><p className="muted my-3 text-sm">{message ?? 'حدث خطأ مؤقت. حاول مرة أخرى.'}</p><button className="btn btn-outline" onClick={retry}>إعادة المحاولة</button></div>; }
+export function ErrorBlock({ retry, message }: { retry: () => void; message?: string }) { return <div className="surface p-10 text-center" role="alert"><div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-danger-soft text-danger"><CircleHelp size={28} strokeWidth={ICON} aria-hidden="true"/></div><h2 className="display text-xl">تعذّر تحميل البيانات</h2><p className="muted my-3 text-sm">{message ?? 'حدث خطأ مؤقت. حاول مرة أخرى.'}</p><button className="btn btn-outline" onClick={retry}>إعادة المحاولة</button></div>; }
 // Empty state in a card: title, text and one action (link or button).
 export function EmptyBlock({ title, text, action, href, onAction, icon }: { title: string; text: string; action?: string; href?: string; onAction?: () => void; icon?: ReactNode }) {
-  return <div className="surface px-6 py-6"><EmptyState title={title} text={text} action={action} href={href} onAction={onAction} icon={icon ?? <Inbox size={29} strokeWidth={1.5}/>} /></div>;
+  return <div className="surface px-6 py-6"><EmptyState title={title} text={text} action={action} href={href} onAction={onAction} icon={icon ?? <Inbox size={28} strokeWidth={ICON}/>} /></div>;
 }
 export function RequestRow({ request }: { request: ServiceRequest }) { return <Link href={`/requests/${request.id}`} className="group flex min-h-[64px] items-center justify-between gap-4 border-b border-line px-5 py-4 text-inherit no-underline transition-colors last:border-0 hover:bg-sage/70 sm:px-6">
-  <div className="min-w-0"><div className="mb-1 flex flex-wrap items-center gap-2"><span className="font-bold">{request.service}</span><span className="text-xs text-subtle">/ {categoryNames[request.category]}</span></div><div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-subtle"><span dir="ltr" className="nums">{request.reference}</span><span className="whitespace-nowrap">{dateText(request.createdAt)}</span><SubjectChip subject={request.subject}/><ReplyBadge lastMessage={request.lastMessage} status={request.status} viewer="customer"/></div></div>
-  <div className="flex shrink-0 items-center gap-3"><Status value={request.status}/><ArrowUpLeft size={16} className="hidden text-subtle transition-transform group-hover:-translate-x-1 group-hover:-translate-y-1 sm:block" aria-hidden="true"/></div>
+  <div className="min-w-0"><div className="mb-1 flex flex-wrap items-center gap-2"><span className="font-semibold">{request.service}</span><span className="text-xs text-subtle">/ {categoryNames[request.category]}</span></div><div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-subtle"><span dir="ltr" className="nums">{request.reference}</span><span className="whitespace-nowrap">{dateText(request.createdAt)}</span><SubjectChip subject={request.subject}/><ReplyBadge lastMessage={request.lastMessage} status={request.status} viewer="customer"/></div></div>
+  <div className="flex shrink-0 items-center gap-3"><Status value={request.status}/><ArrowUpLeft size={18} strokeWidth={ICON} className="hidden text-subtle transition-transform group-hover:-translate-x-1 group-hover:-translate-y-1 sm:block" aria-hidden="true"/></div>
 </Link>; }
-export function InquiryRow({ inquiry }: { inquiry: Inquiry }) { return <div className="border-b border-line px-5 py-5 last:border-0 sm:px-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold">{inquiry.subject}</h3><span className="mt-1 block text-xs text-subtle">{dateText(inquiry.createdAt)}</span></div><Status value={inquiry.status}/></div><p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-quiet">{inquiry.message}</p>{inquiry.answer && <div className="mt-4 rounded-lg border-s-[3px] border-copper bg-copper-soft p-4"><div className="mb-1 flex justify-between gap-2 text-xs font-bold text-copper"><span>رد المكتب</span><span className="font-normal">{dateText(inquiry.answeredAt)}</span></div><p className="whitespace-pre-wrap text-sm leading-7">{inquiry.answer}</p></div>}</div>; }
+export function InquiryRow({ inquiry }: { inquiry: Inquiry }) { return <div className="border-b border-line px-5 py-5 last:border-0 sm:px-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">{inquiry.subject}</h3><span className="mt-1 block text-xs text-subtle">{dateText(inquiry.createdAt)}</span></div><Status value={inquiry.status}/></div><p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-quiet">{inquiry.message}</p>{inquiry.answer && <div className="mt-4 rounded-lg border-s-[3px] border-copper bg-copper-soft p-4"><div className="mb-1 flex justify-between gap-2 text-xs font-semibold text-copper"><span>رد المكتب</span><span className="font-normal">{dateText(inquiry.answeredAt)}</span></div><p className="whitespace-pre-wrap text-sm leading-7">{inquiry.answer}</p></div>}</div>; }
 
 // The unread count on the sidebar's «الرسائل»: seeded from the thread list
 // once per mount, then kept current by `thread` stream events and read
@@ -83,6 +83,8 @@ export const badgeText = (count: number) => count > 99 ? '99+' : formatNumber(co
 type NavLink = { href: string; label: string; icon: typeof Home; badge?: number };
 export const companyRoleNames: Record<string, string> = { owner: 'مالك', hr: 'موارد بشرية', finance: 'مالية', viewer: 'قراءة' };
 const SIDEBAR_KEY = 'hbs.sidebar';
+// Lucide stroke mirrors --icon-stroke (index.css): sidebar icons 20 px, tab bar 24 px, topbar 20–22 px.
+const ICON = 1.75;
 const isActive = (location: string, href: string) => location === href || (href !== '/office' && href !== '/dashboard' && location.startsWith(href + '/'));
 
 // The portal frame: sidebar (collapsible to an icon rail on desktop, a drawer
@@ -161,49 +163,49 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
     <aside ref={menuRef} id="portal-mobile-nav" aria-label="القائمة الرئيسية" role={drawer ? 'dialog' : undefined} aria-modal={drawer ? true : undefined} aria-hidden={isMobile && !menuOpen ? true : undefined} inert={isMobile && !menuOpen} data-open={menuOpen || undefined} className="portal-side on-night">
       <div className="portal-side-head">
         {rail ? <Link href="/" className="portal-side-mark" aria-label="HBS حلول الغد - الرئيسية"><LogoMark size={36}/></Link> : <Brand light/>}
-        <button type="button" className="portal-side-close lg:hidden" onClick={() => setMenuOpen(false)} aria-label="إغلاق القائمة"><X size={20} aria-hidden="true"/></button>
+        <button type="button" className="portal-side-close lg:hidden" onClick={() => setMenuOpen(false)} aria-label="إغلاق القائمة"><X size={22} strokeWidth={ICON} aria-hidden="true"/></button>
       </div>
       <span id="portal-menu-title" className="portal-side-space">{space}</span>
       <nav className="portal-nav" aria-label={space}>{links.map(({ href, label, icon: Icon, badge }) => {
         const active = isActive(location, href);
         return <Link key={href} href={href} className={`portal-nav-link ${active ? 'is-active' : ''}`} aria-current={active ? 'page' : undefined} data-label={label} aria-label={rail ? (badge ? `${label}، ${badgeText(badge)} غير مقروءة` : label) : undefined}>
-          <Icon size={19} strokeWidth={1.8} aria-hidden="true"/><span className="portal-nav-label">{label}</span>
+          <Icon size={20} strokeWidth={ICON} aria-hidden="true"/><span className="portal-nav-label">{label}</span>
           {badge ? <span className="portal-nav-badge nums" aria-label={`${badgeText(badge)} رسائل غير مقروءة`}>{badgeText(badge)}</span> : null}
         </Link>;
       })}</nav>
-      {!staff && !registrationOnly && canCreate && <Link href="/requests/new" className="portal-side-cta" data-label="طلب خدمة جديد" aria-label={rail ? 'طلب خدمة جديد' : undefined}><Plus size={18} aria-hidden="true"/><span className="portal-nav-label">طلب خدمة جديد</span></Link>}
+      {!staff && !registrationOnly && canCreate && <Link href="/requests/new" className="portal-side-cta" data-label="طلب خدمة جديد" aria-label={rail ? 'طلب خدمة جديد' : undefined}><Plus size={20} strokeWidth={ICON} aria-hidden="true"/><span className="portal-nav-label">طلب خدمة جديد</span></Link>}
       <div className="portal-side-foot">
         <div className="portal-side-user">
           <Avatar name={user?.firstName} tone="dark" size={36}/>
           <div className="portal-nav-label min-w-0"><div className="truncate text-xs font-semibold">{accountName}</div><div className="mt-0.5 text-xs text-on-dark-2">{role}</div></div>
         </div>
-        <button type="button" onClick={() => signOut({redirectUrl: import.meta.env.BASE_URL})} className="portal-nav-link portal-side-signout" data-label="تسجيل الخروج" aria-label={rail ? 'تسجيل الخروج' : undefined}><LogOut size={17} aria-hidden="true"/><span className="portal-nav-label">تسجيل الخروج</span></button>
-        <button type="button" className="portal-side-collapse" onClick={toggleCollapsed} aria-expanded={!collapsed} aria-controls="portal-mobile-nav" aria-label={collapsed ? 'توسيع القائمة' : 'طيّ القائمة'} data-label={collapsed ? 'توسيع القائمة' : 'طيّ القائمة'}>{collapsed ? <PanelRightOpen size={18} aria-hidden="true"/> : <PanelRightClose size={18} aria-hidden="true"/>}<span className="portal-nav-label">طيّ القائمة</span></button>
+        <button type="button" onClick={() => signOut({redirectUrl: import.meta.env.BASE_URL})} className="portal-nav-link portal-side-signout" data-label="تسجيل الخروج" aria-label={rail ? 'تسجيل الخروج' : undefined}><LogOut size={20} strokeWidth={ICON} aria-hidden="true"/><span className="portal-nav-label">تسجيل الخروج</span></button>
+        <button type="button" className="portal-side-collapse" onClick={toggleCollapsed} aria-expanded={!collapsed} aria-controls="portal-mobile-nav" aria-label={collapsed ? 'توسيع القائمة' : 'طيّ القائمة'} data-label={collapsed ? 'توسيع القائمة' : 'طيّ القائمة'}>{collapsed ? <PanelRightOpen size={20} strokeWidth={ICON} aria-hidden="true"/> : <PanelRightClose size={20} strokeWidth={ICON} aria-hidden="true"/>}<span className="portal-nav-label">طيّ القائمة</span></button>
       </div>
     </aside>
     {menuOpen && <button onClick={() => setMenuOpen(false)} className="portal-scrim lg:hidden" aria-label="إغلاق القائمة"/>}
     <div className="portal-col">
       <header className="portal-topbar on-night">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <button ref={menuButtonRef} type="button" className="portal-topbar-btn lg:hidden" onClick={() => setMenuOpen(true)} aria-label="فتح القائمة" aria-controls="portal-mobile-nav" aria-expanded={menuOpen}><Menu size={21} aria-hidden="true"/></button>
+          <button ref={menuButtonRef} type="button" className="portal-topbar-btn lg:hidden" onClick={() => setMenuOpen(true)} aria-label="فتح القائمة" aria-controls="portal-mobile-nav" aria-expanded={menuOpen}><Menu size={22} strokeWidth={ICON} aria-hidden="true"/></button>
           <nav className="portal-crumb" aria-label="مسار الصفحة"><span>{space}</span>{current && <><span aria-hidden="true" className="portal-crumb-sep">/</span><strong aria-current="page">{current.label}</strong></>}</nav>
         </div>
         <span className="portal-topbar-brand lg:hidden" aria-hidden="true"><LogoMark size={28}/><span className="hidden min-[400px]:inline">HBS حلول الغد</span></span>
-        {actingFor && <span className="portal-acting" role="status" title={`أنت عضو في منشأة ${actingFor.companyName ?? ''}؛ ما تراه وترسله هنا باسمها.`}><Briefcase size={14} aria-hidden="true"/><span className="portal-acting-text">تتصرف باسم منشأة {actingFor.companyName ?? 'العميل'}</span></span>}
+        {actingFor && <span className="portal-acting" role="status" title={`أنت عضو في منشأة ${actingFor.companyName ?? ''}؛ ما تراه وترسله هنا باسمها.`}><Briefcase size={16} strokeWidth={ICON} aria-hidden="true"/><span className="portal-acting-text">تتصرف باسم منشأة {actingFor.companyName ?? 'العميل'}</span></span>}
         <div className="flex flex-none items-center gap-1.5 sm:gap-2">
-          {!registrationOnly && <button type="button" className="portal-search" onClick={openCommandPalette} aria-label="بحث سريع" aria-keyshortcuts="Control+K Meta+K"><Search size={18} strokeWidth={1.9} aria-hidden="true"/><span className="portal-search-label">بحث</span><kbd className="kbd portal-search-kbd" aria-hidden="true">⌘K</kbd></button>}
-          <Link href="/help" className="portal-topbar-help hidden lg:inline-flex"><CircleHelp size={17} strokeWidth={1.8} aria-hidden="true"/>المساعدة</Link>
+          {!registrationOnly && <button type="button" className="portal-search" onClick={openCommandPalette} aria-label="بحث سريع" aria-keyshortcuts="Control+K Meta+K"><Search size={20} strokeWidth={ICON} aria-hidden="true"/><span className="portal-search-label">بحث</span><kbd className="kbd portal-search-kbd" aria-hidden="true">⌘K</kbd></button>}
+          <Link href="/help" className="portal-topbar-help hidden lg:inline-flex"><CircleHelp size={18} strokeWidth={ICON} aria-hidden="true"/>المساعدة</Link>
           <NotificationBell staff={staff}/>
           <DropdownMenu dir="rtl" modal={false}>
-            <DropdownMenuTrigger asChild><button type="button" className="portal-avatar-btn" aria-label={`حسابي: ${accountName}`}><Avatar name={user?.firstName} tone="dark" size={32}/><ChevronDown size={14} className="hidden sm:block" aria-hidden="true"/></button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><button type="button" className="portal-avatar-btn" aria-label={`حسابي: ${accountName}`}><Avatar name={user?.firstName} tone="dark" size={32}/><ChevronDown size={16} strokeWidth={ICON} className="hidden sm:block" aria-hidden="true"/></button></DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={8} className="portal-menu">
-              <DropdownMenuLabel className="portal-menu-head"><span className="block truncate font-bold">{accountName}</span><span className="block text-xs font-normal text-quiet">{role}</span></DropdownMenuLabel>
+              <DropdownMenuLabel className="portal-menu-head"><span className="block truncate font-semibold">{accountName}</span><span className="block text-xs font-normal text-quiet">{role}</span></DropdownMenuLabel>
               <DropdownMenuSeparator/>
-              {!staff && !registrationOnly && <DropdownMenuItem className="portal-menu-item" onSelect={() => navigate('/settings')}><Settings size={16} aria-hidden="true"/>الإعدادات</DropdownMenuItem>}
-              {!registrationOnly && <DropdownMenuItem className="portal-menu-item" onSelect={() => navigate(staff ? '/office/notifications' : '/notifications')}><Bell size={16} aria-hidden="true"/>الإشعارات</DropdownMenuItem>}
-              <DropdownMenuItem className="portal-menu-item" onSelect={() => navigate('/help')}><CircleHelp size={16} aria-hidden="true"/>المساعدة</DropdownMenuItem>
+              {!staff && !registrationOnly && <DropdownMenuItem className="portal-menu-item" onSelect={() => navigate('/settings')}><Settings size={18} strokeWidth={ICON} aria-hidden="true"/>الإعدادات</DropdownMenuItem>}
+              {!registrationOnly && <DropdownMenuItem className="portal-menu-item" onSelect={() => navigate(staff ? '/office/notifications' : '/notifications')}><Bell size={18} strokeWidth={ICON} aria-hidden="true"/>الإشعارات</DropdownMenuItem>}
+              <DropdownMenuItem className="portal-menu-item" onSelect={() => navigate('/help')}><CircleHelp size={18} strokeWidth={ICON} aria-hidden="true"/>المساعدة</DropdownMenuItem>
               <DropdownMenuSeparator/>
-              <DropdownMenuItem className="portal-menu-item" onSelect={() => signOut({redirectUrl: import.meta.env.BASE_URL})}><LogOut size={16} aria-hidden="true"/>تسجيل الخروج</DropdownMenuItem>
+              <DropdownMenuItem className="portal-menu-item" onSelect={() => signOut({redirectUrl: import.meta.env.BASE_URL})}><LogOut size={18} strokeWidth={ICON} aria-hidden="true"/>تسجيل الخروج</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -217,8 +219,8 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
       </div></main>
     </div>
     {tabs.length > 1 && <nav className="portal-tabbar" aria-label="التنقل السريع">
-      {tabs.map(({ href, label, icon: Icon, badge }) => { const active = isActive(location, href); return <Link key={href} href={href} className={`portal-tab ${active ? 'is-active' : ''}`} aria-current={active ? 'page' : undefined} aria-label={badge ? `${label}، ${badgeText(badge)} غير مقروءة` : undefined}><span className="portal-tab-icon"><Icon size={21} strokeWidth={1.8} aria-hidden="true"/>{badge ? <span className="portal-tab-badge nums" aria-hidden="true">{badgeText(badge)}</span> : null}</span><span>{label}</span></Link>; })}
-      <button type="button" className={`portal-tab ${menuOpen ? 'is-active' : ''}`} onClick={() => setMenuOpen(true)} aria-controls="portal-mobile-nav" aria-expanded={menuOpen}><span className="portal-tab-icon"><LayoutGrid size={21} strokeWidth={1.8} aria-hidden="true"/></span><span>المزيد</span></button>
+      {tabs.map(({ href, label, icon: Icon, badge }) => { const active = isActive(location, href); return <Link key={href} href={href} className={`portal-tab ${active ? 'is-active' : ''}`} aria-current={active ? 'page' : undefined} aria-label={badge ? `${label}، ${badgeText(badge)} غير مقروءة` : undefined}><span className="portal-tab-icon"><Icon size={24} strokeWidth={ICON} aria-hidden="true"/>{badge ? <span className="portal-tab-badge nums" aria-hidden="true">{badgeText(badge)}</span> : null}</span><span>{label}</span></Link>; })}
+      <button type="button" className={`portal-tab ${menuOpen ? 'is-active' : ''}`} onClick={() => setMenuOpen(true)} aria-controls="portal-mobile-nav" aria-expanded={menuOpen}><span className="portal-tab-icon"><LayoutGrid size={24} strokeWidth={ICON} aria-hidden="true"/></span><span>المزيد</span></button>
     </nav>}
   </div>;
 }

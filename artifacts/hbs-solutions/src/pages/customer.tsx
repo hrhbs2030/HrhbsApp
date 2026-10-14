@@ -80,7 +80,7 @@ function greeting(now = new Date()): string {
 }
 
 function LinkedRequest({ reference }: { reference: string }) {
-  return <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-sunk px-2 py-0.5 text-xs text-quiet"><Link2 size={12} aria-hidden="true"/>الطلب <span dir="ltr" className="nums font-bold">{reference}</span></span>;
+  return <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-sunk px-2 py-0.5 text-xs text-quiet"><Link2 size={12} aria-hidden="true"/>الطلب <span dir="ltr" className="nums font-semibold">{reference}</span></span>;
 }
 
 const taskIcons: Record<TaskKind, typeof CircleAlert> = { quote: FileSignature, request: MessagesSquare, invoice: CreditCard, subscription: CalendarClock, document: FileClock, registration: UserRoundCheck };
@@ -231,7 +231,7 @@ export function Requests() {
 export { NewRequest } from './new-request';
 
 function BackLink({ href, children }: { href: string; children: ReactNode }) {
-  return <Link href={href} className="mb-4 inline-flex min-h-11 items-center gap-2 text-xs font-bold text-subtle no-underline hover:text-ink"><ArrowRight size={16} aria-hidden="true"/>{children}</Link>;
+  return <Link href={href} className="mb-4 inline-flex min-h-11 items-center gap-2 text-xs font-medium text-subtle no-underline hover:text-ink"><ArrowRight size={16} aria-hidden="true"/>{children}</Link>;
 }
 
 /* ------------------------------------------------------- request detail */
@@ -270,7 +270,7 @@ export function RequestDetail() {
   const { canCreate: canWrite } = useCompanyRole();
   return <PortalLayout><div className="req"><BackLink href="/requests">طلباتي</BackLink>
     {!Number.isInteger(parsed)||parsed<=0 ? <EmptyBlock title="الطلب غير متاح" text="تحقق من رابط الطلب وحاول مرة أخرى."/> : q.isLoading ? <LoadingBlock/> : q.error?.status === 404 ? <EmptyBlock title="الطلب غير متاح" text="هذا الطلب غير موجود في حسابك."/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : r && <>
-      {justSent && <div role="status" className="rise req-notice"><CircleCheck size={22} aria-hidden="true"/><div><strong>تم إرسال طلبك إلى المكتب</strong><span>الرقم المرجعي <span dir="ltr" className="nums font-bold">{r.reference}</span>. تابع حالته من هذه الصفحة.</span></div></div>}
+      {justSent && <div role="status" className="rise req-notice"><CircleCheck size={22} aria-hidden="true"/><div><strong>تم إرسال طلبك إلى المكتب</strong><span>الرقم المرجعي <span dir="ltr" className="nums font-semibold">{r.reference}</span>. تابع حالته من هذه الصفحة.</span></div></div>}
       {/* One channel per request: the conversation tab. Questions unrelated to a request go through the Inquiries page. */}
       <PageHeading eyebrow={`طلب رقم ${r.reference}`} title={r.service} meta={<><Status value={r.status}/><Chip tone="outline">{categoryNames[r.category]}</Chip>{r.subject && <SubjectChip subject={r.subject}/>}</>} action={<div className="flex flex-wrap items-center gap-2"><CustomerWhatsapp thread={{ type: 'request', id: r.id }}/><PrintButton label="طباعة الطلب"/>{/* One reply CTA per page: the waiting banner below carries it when the request waits on the customer. */}{canWrite && r.status !== 'completed' && r.status !== 'waiting_on_customer' && <button type="button" className="btn btn-primary" onClick={reply}><MessagesSquare size={17} aria-hidden="true"/>ردّ على المكتب</button>}</div>}/>
       <RoleNotice/>
@@ -334,7 +334,7 @@ function QuoteCard({ requestId, quote, canDecide = true }: { requestId: number; 
   }
   const busy = accept.isPending || decline.isPending;
   const amounts = <dl className="m-0 mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3"><div className="min-w-0"><dt className="text-xs text-subtle">المبلغ</dt><dd className="nums m-0 font-semibold">{formatMoney(quote.amount)}</dd></div><div className="min-w-0"><dt className="text-xs text-subtle">الضريبة</dt><dd className="nums m-0 font-semibold">{formatMoney(quote.vat)}</dd></div><div className="col-span-2 min-w-0 sm:col-span-1"><dt className="text-xs text-subtle">الإجمالي</dt><dd className="nums display m-0 text-lg font-semibold">{formatMoney(quote.total)}</dd></div></dl>;
-  if (quote.acceptedAt) return <p id="quote" className="m-0 flex items-center gap-2 border-t border-line bg-ok-soft px-5 py-3 text-sm font-bold text-ok sm:px-6"><CircleCheck size={16} aria-hidden="true"/>وافقت على العرض ({formatMoney(quote.total)}) بتاريخ {formatDateTime(quote.acceptedAt)}.</p>;
+  if (quote.acceptedAt) return <p id="quote" className="m-0 flex items-center gap-2 border-t border-line bg-ok-soft px-5 py-3 text-sm font-semibold text-ok sm:px-6"><CircleCheck size={16} aria-hidden="true"/>وافقت على العرض ({formatMoney(quote.total)}) بتاريخ {formatDateTime(quote.acceptedAt)}.</p>;
   if (quote.declinedAt) return <p id="quote" className="m-0 flex items-center gap-2 border-t border-line bg-sunk px-5 py-3 text-sm text-quiet sm:px-6"><MessageSquareText size={16} aria-hidden="true"/>أرسلت ملاحظتك؛ المكتب سيراجعها ويعود إليك.</p>;
   return <section id="quote" aria-labelledby={`quote-${requestId}`} className="req-card-sec scroll-mt-24 bg-copper-soft">
     <h2 id={`quote-${requestId}`} className="display flex items-center gap-2 text-lg font-semibold"><FileSignature size={18} className="text-copper" aria-hidden="true"/>عرض السعر</h2>
@@ -387,7 +387,7 @@ function InquiryItem({ inquiry }: { inquiry: Inquiry }) {
   return <article className="inq-item">
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
-        <h3 className="font-bold leading-7"><Link href={`/inquiries/${inquiry.id}`} className="text-inherit no-underline hover:text-teal">{inquiry.subject}</Link></h3>
+        <h3 className="font-semibold leading-7"><Link href={`/inquiries/${inquiry.id}`} className="text-inherit no-underline hover:text-teal">{inquiry.subject}</Link></h3>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span>{dateText(inquiry.createdAt)}</span>{inquiry.linkedServiceRequestReference && <LinkedRequest reference={inquiry.linkedServiceRequestReference}/>}</div>
       </div>
       <Status value={inquiry.status}/>
@@ -397,7 +397,7 @@ function InquiryItem({ inquiry }: { inquiry: Inquiry }) {
       <div className="inq-answer-head"><span>رد المكتب</span><span>{dateText(inquiry.answeredAt)}</span></div>
       <p className="m-0 whitespace-pre-wrap text-sm leading-7">{inquiry.answer}</p>
     </div>}
-    <Link href={`/inquiries/${inquiry.id}`} className="mt-3 inline-flex min-h-11 items-center gap-1 text-xs font-bold text-teal no-underline"><MessagesSquare size={14} aria-hidden="true"/>افتح المحادثة<ArrowLeft size={14} aria-hidden="true"/></Link>
+    <Link href={`/inquiries/${inquiry.id}`} className="mt-3 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-teal no-underline"><MessagesSquare size={14} aria-hidden="true"/>افتح المحادثة<ArrowLeft size={14} aria-hidden="true"/></Link>
   </article>;
 }
 

@@ -254,13 +254,13 @@ export function OfficeCustomers() {
     {list.isLoading ? <LoadingBlock/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/> : !list.data?.length
       ? <EmptyBlock title={q ? 'لا يوجد عملاء مطابقون' : 'لا يوجد عملاء بعد'} text="يظهر هنا كل عميل وافق المكتب على تسجيله أو أرسل طلبًا."/>
       : <div className="surface overflow-x-auto"><table className="w-full min-w-[720px] text-sm">
-        <thead><tr className="border-b border-line bg-paper text-right text-xs text-subtle"><th className="px-5 py-3 font-bold">العميل</th><th className="px-5 py-3 font-bold">المنشأة</th><th className="px-5 py-3 font-bold">موظفون</th><th className="px-5 py-3 font-bold">طلبات نشطة</th><th className="px-5 py-3 font-bold">وثائق تنتهي خلال 60 يومًا</th><th className="px-5 py-3 font-bold">آخر نشاط</th><th/></tr></thead>
+        <thead><tr className="border-b border-line bg-paper text-right text-xs text-subtle"><th className="px-5 py-3 font-medium">العميل</th><th className="px-5 py-3 font-medium">المنشأة</th><th className="px-5 py-3 font-medium">موظفون</th><th className="px-5 py-3 font-medium">طلبات نشطة</th><th className="px-5 py-3 font-medium">وثائق تنتهي خلال 60 يومًا</th><th className="px-5 py-3 font-medium">آخر نشاط</th><th/></tr></thead>
         <tbody>{list.data.map(c => <tr key={c.userId} className="border-b border-line last:border-0 hover:bg-paper">
-          <td className="px-5 py-3"><Link href={`/office/customers/${encodeURIComponent(c.userId)}`} className="font-bold text-inherit no-underline hover:underline">{c.customer?.fullName ?? 'عميل سابق للتسجيل'}</Link>{c.customer && <span className="block text-xs text-subtle" dir="ltr" style={{ textAlign: 'right' }}>{c.customer.email}</span>}</td>
+          <td className="px-5 py-3"><Link href={`/office/customers/${encodeURIComponent(c.userId)}`} className="font-semibold text-inherit no-underline hover:underline">{c.customer?.fullName ?? 'عميل سابق للتسجيل'}</Link>{c.customer && <span className="block text-xs text-subtle" dir="ltr" style={{ textAlign: 'right' }}>{c.customer.email}</span>}</td>
           <td className="px-5 py-3">{c.companyName ?? <span className="text-subtle">-</span>}</td>
           <td className="nums px-5 py-3 text-right">{formatNumber(c.employees)}</td>
           <td className="nums px-5 py-3 text-right">{formatNumber(c.activeRequests)}</td>
-          <td className={`nums px-5 py-3 text-right ${c.expiringSoon ? 'font-bold text-warn' : ''}`}>{formatNumber(c.expiringSoon)}</td>
+          <td className={`nums px-5 py-3 text-right ${c.expiringSoon ? 'font-semibold text-warn' : ''}`}>{formatNumber(c.expiringSoon)}</td>
           <td className="px-5 py-3 text-xs text-subtle">{dateText(c.lastActivityAt)}</td>
           <td className="px-3 py-3"><Link href={`/office/customers/${encodeURIComponent(c.userId)}`} className="rf-btn" aria-label={`فتح ملف ${c.customer?.fullName ?? c.userId}`}><ArrowLeft size={16}/></Link></td>
         </tr>)}</tbody></table></div>}
@@ -304,7 +304,7 @@ export function OfficeCustomerFilePage() {
   const title = d?.company?.name ?? d?.customer?.fullName ?? 'عميل';
   const messagesHref = `/office/messages?q=${encodeURIComponent(d?.customer?.fullName ?? '')}`;
   return <PortalLayout staff>
-    <Link href="/office/customers" className="mb-4 inline-flex min-h-11 items-center gap-2 text-xs font-bold text-subtle no-underline hover:text-ink"><ArrowRight size={16}/>ملفات العملاء</Link>
+    <Link href="/office/customers" className="mb-4 inline-flex min-h-11 items-center gap-2 text-xs font-medium text-subtle no-underline hover:text-ink"><ArrowRight size={16}/>ملفات العملاء</Link>
     {file.isLoading ? <LoadingBlock/> : file.error?.status === 404 ? <EmptyBlock title="العميل غير موجود" text="تحقق من الرابط أو ابحث في ملفات العملاء."/> : file.isError ? <ErrorBlock retry={() => file.refetch()}/> : d && <>
       <header className="surface ocf-head" data-testid="customer-file-head">
         <div className="ocf-who">
@@ -341,7 +341,7 @@ export function OfficeCustomerFilePage() {
       <div id={`office-customer-panel-${tab}`} role="tabpanel" aria-labelledby={`office-customer-tab-${tab}`} tabIndex={0} className="cp-panel">
         {tab === 'file' && <CompanyFileView file={d} api={officeCompanyApi(userId)} office onChanged={refresh}/>}
         {tab === 'requests' && (d.requests.length ? <div className="surface overflow-hidden">{d.requests.map(r => <Link key={r.id} href={`/office/requests/${r.id}`} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 text-inherit no-underline last:border-0 hover:bg-paper">
-          <div className="min-w-0"><div className="font-bold">{r.service}</div><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span dir="ltr" className="nums">{r.reference}</span><span>{dateText(r.createdAt)}</span><SubjectChip subject={r.subject}/></div></div><Status value={r.status}/>
+          <div className="min-w-0"><div className="font-semibold">{r.service}</div><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span dir="ltr" className="nums">{r.reference}</span><span>{dateText(r.createdAt)}</span><SubjectChip subject={r.subject}/></div></div><Status value={r.status}/>
         </Link>)}</div> : <EmptyBlock title="لا توجد طلبات" text="لم يرسل هذا العميل طلبات بعد. يمكنك إنشاء طلب باسمه من أعلى الصفحة." action="إنشاء طلب للعميل" onAction={() => setIntake(true)}/>)}
         {tab === 'reminders' && (d.reminders.length ? <div className="surface overflow-hidden">{d.reminders.map(r => <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 last:border-0">
           <div><strong>{reminderKindNames[r.kind]}</strong> <span className="text-quiet">«{r.label}»</span><span className="block text-xs text-subtle">تنتهي في {formatCalendarDate(r.expiresOn)}{r.source !== 'manual' ? ' · من ملف المنشأة' : ''}</span></div><ExpiryBadge expiresOn={r.expiresOn}/>

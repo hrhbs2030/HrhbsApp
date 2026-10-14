@@ -53,7 +53,7 @@ function ThreadRow({ thread, staff, selected, onSelect }: { thread: Thread; staf
   </li>;
 }
 
-const chip = (active: boolean) => `min-h-11 rounded-full border px-4 text-xs font-bold transition-colors ${active ? 'border-teal bg-teal text-on-dark' : 'border-line-strong bg-surface text-quiet hover:bg-sage'}`;
+const chip = (active: boolean) => `min-h-11 rounded-full border px-4 text-xs font-semibold transition-colors ${active ? 'border-teal bg-teal text-on-dark' : 'border-line-strong bg-surface text-quiet hover:bg-sage'}`;
 
 // The split view opens from 1024px; below that a row navigates to its page.
 function useDesktop(): boolean {
@@ -155,7 +155,7 @@ export function InquiryThread() {
   const list = useListInquiries({ query: { queryKey: getListInquiriesQueryKey(), enabled: valid } });
   const inquiry = list.data?.find(i => i.id === parsed);
   return <PortalLayout><div className="max-w-[860px]">
-    <Link href="/inquiries" className="mb-4 inline-flex min-h-11 items-center gap-2 text-xs font-bold text-subtle no-underline hover:text-ink"><ArrowRight size={16}/>استفساراتي</Link>
+    <Link href="/inquiries" className="mb-4 inline-flex min-h-11 items-center gap-2 text-xs font-medium text-subtle no-underline hover:text-ink"><ArrowRight size={16}/>استفساراتي</Link>
     {!valid ? <EmptyBlock title="الاستفسار غير متاح" text="تحقق من الرابط وحاول مرة أخرى."/>
       : list.isLoading ? <LoadingBlock/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/>
       : !inquiry ? <EmptyBlock title="الاستفسار غير متاح" text="هذا الاستفسار غير موجود في حسابك." action="استفساراتي" href="/inquiries"/>
@@ -164,7 +164,7 @@ export function InquiryThread() {
         <div className="surface p-5 sm:p-8">
           <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle">
             <span>أُرسل في {dateText(inquiry.createdAt)}</span>
-            {inquiry.linkedServiceRequestReference && <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-sunk px-2 py-0.5 text-quiet"><Link2 size={12} aria-hidden="true"/>الطلب <span dir="ltr" className="nums font-bold">{inquiry.linkedServiceRequestReference}</span></span>}
+            {inquiry.linkedServiceRequestReference && <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-sunk px-2 py-0.5 text-quiet"><Link2 size={12} aria-hidden="true"/>الطلب <span dir="ltr" className="nums font-semibold">{inquiry.linkedServiceRequestReference}</span></span>}
           </div>
           <Conversation thread={{ type: 'inquiry', id: inquiry.id }} scope="customer"/>
         </div>

@@ -9,9 +9,9 @@
 .nr-stepper { margin-bottom: 24px; }
 .nr-steps { list-style: none; margin: 0 0 12px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .nr-steps li { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; border-radius: var(--radius-control); background: var(--color-surface); border: 1px solid var(--color-line); color: var(--color-subtle); transition: background-color var(--duration-enter) ease, border-color var(--duration-enter) ease; }
-.nr-step-num { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--color-line-strong); background: var(--color-surface); font-size: 13px; font-weight: 700; transition: background-color var(--duration-enter) ease, border-color var(--duration-enter) ease, color var(--duration-enter) ease; }
+.nr-step-num { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--color-line-strong); background: var(--color-surface); font-size: 13px; font-weight: var(--weight-semibold); transition: background-color var(--duration-enter) ease, border-color var(--duration-enter) ease, color var(--duration-enter) ease; }
 .nr-step-text { display: grid; min-width: 0; gap: 1px; }
-.nr-step-label { font-size: var(--text-sm); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nr-step-label { font-size: var(--text-sm); font-weight: var(--weight-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nr-step-hint { font-size: var(--text-xs); color: var(--color-subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nr-steps li[data-state="current"] { color: var(--color-ink); border-color: var(--color-copper-light); background: var(--color-copper-soft); }
 .nr-steps li[data-state="current"] .nr-step-num { border-color: var(--color-copper); background: var(--color-copper); color: var(--color-on-dark); }
@@ -44,12 +44,12 @@
 .nr-review { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
 .nr-review > div { position: relative; padding: 14px 16px; padding-inline-end: 52px; border-radius: 12px; background: var(--color-sunk); min-width: 0; }
 .nr-review-wide { grid-column: 1 / -1; }
-.nr-review dt { font-size: var(--text-xs); font-weight: 700; color: var(--color-subtle); }
+.nr-review dt { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--color-subtle); }
 .nr-review dd { margin: 4px 0 0; font-weight: 600; line-height: 1.8; overflow-wrap: anywhere; }
 .nr-review button { position: absolute; inset-inline-end: 4px; top: 4px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: var(--color-teal-bright); }
 .nr-review button:hover { background: var(--color-sage); }
 .nr-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--color-line); }
-.nr-actions-step { margin-inline: auto; font-size: var(--text-xs); font-weight: 700; color: var(--color-subtle); }
+.nr-actions-step { margin-inline: auto; font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--color-subtle); }
 .nr-spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgb(246 239 227 / .35); border-top-color: var(--color-on-dark); animation: nr-spin .8s linear infinite; }
 @keyframes nr-spin { to { transform: rotate(360deg); } }
 @media (max-width: 560px) {
@@ -66,7 +66,7 @@
 /* Optional attachments on the details step. */
 .nr-files { display: grid; gap: 10px; margin-top: 24px; padding: 16px; border-radius: 14px; border: 1px dashed var(--color-line-strong); background: var(--color-paper); min-width: 0; }
 .nr-files-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
-.nr-files-label { font-size: var(--text-sm); font-weight: 700; color: var(--color-ink); }
+.nr-files-label { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--color-ink); }
 .nr-files-label small { font-weight: 500; color: var(--color-subtle); }
 .nr-files-hint { display: block; margin-top: 2px; font-size: var(--text-xs); line-height: 1.6; }
 .nr-files-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -79,7 +79,7 @@
 .nr-files-errors p { margin: 0; }
 /* Several employees on one labour or passport request. */
 .nr-pick { margin: 24px 0 0; padding: 14px 16px; border: 1px solid var(--color-line); border-radius: 14px; background: var(--color-paper); min-width: 0; }
-.nr-pick-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 6px; font-size: var(--text-sm); font-weight: 700; }
+.nr-pick-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 6px; font-size: var(--text-sm); font-weight: var(--weight-medium); }
 .nr-pick-legend svg { color: var(--color-teal-bright); }
 .nr-pick-legend small { font-weight: 500; color: var(--color-subtle); }
 .nr-pick-count { margin-inline-start: 4px; padding: 2px 10px; border-radius: 999px; background: var(--color-teal); color: var(--color-on-dark); font-size: 12px; direction: ltr; }
@@ -100,7 +100,7 @@
 .nr-summary-list { margin: 0; display: grid; gap: 0; }
 .nr-summary-list > div { padding: 8px 0; border-top: 1px solid var(--color-line); min-width: 0; }
 .nr-summary-list > div:first-child { border-top: 0; padding-top: 0; }
-.nr-summary-list dt { font-size: var(--text-xs); font-weight: 700; color: var(--color-subtle); }
+.nr-summary-list dt { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--color-subtle); }
 .nr-summary-list dd { margin: 2px 0 0; font-size: var(--text-sm); font-weight: 600; line-height: 1.7; overflow-wrap: anywhere; }
 .nr-summary-empty { font-weight: 500; color: var(--color-subtle); }
 .nr-tip { display: flex; gap: 10px; padding: 14px 16px; border-radius: var(--radius-card); background: var(--color-sage); color: var(--color-quiet); font-size: var(--text-xs); line-height: 1.8; }

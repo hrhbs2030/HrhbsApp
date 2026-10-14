@@ -44,7 +44,7 @@ function Counts({ summary, label }: { summary: LegacyBackupSummary; label: strin
 function Ids({ summary, prefix }: { summary: LegacyBackupSummary; prefix: string }) {
   return <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
     {groups.map(({ key, label }) => <div key={key} className="min-w-0 border-b border-line pb-3">
-      <div className="mb-1 text-xs font-bold text-quiet">{label} <span className="font-normal text-subtle">({summary.ids[key].length})</span></div>
+      <div className="mb-1 text-xs font-medium text-quiet">{label} <span className="font-normal text-subtle">({summary.ids[key].length})</span></div>
       <div dir="ltr" className="max-h-24 overflow-auto break-all rounded-md bg-sunk px-2.5 py-2 text-left font-mono text-[11px] leading-5 text-quiet" data-testid={`ids-${prefix}-${key}`}>
         {summary.ids[key].length ? summary.ids[key].join(' · ') : '-'}
       </div>
@@ -53,7 +53,7 @@ function Ids({ summary, prefix }: { summary: LegacyBackupSummary; prefix: string
 }
 
 function Digest({ value, prefix }: { value: string; prefix: string }) {
-  return <div className="min-w-0"><span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-subtle"><Fingerprint size={14}/>بصمة النسخة</span>
+  return <div className="min-w-0"><span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-subtle"><Fingerprint size={14}/>بصمة النسخة</span>
     <code dir="ltr" className="block overflow-x-auto rounded-md border border-sage-2 bg-surface px-3 py-2 text-left text-[11px] leading-5 text-info" data-testid={`digest-${prefix}`}>{value}</code>
   </div>;
 }
@@ -157,7 +157,7 @@ export default function Legacy() {
             <div className="p-5 sm:p-7">
               <label className={`group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-line-strong bg-surface px-5 py-9 text-center transition-colors hover:bg-sage ${importMutation.isPending ? 'pointer-events-none opacity-50' : ''}`}>
                 <UploadCloud size={31} strokeWidth={1.5} className="text-teal-bright"/>
-                <span className="mt-3 text-sm font-bold text-info">اختر ملف النسخة من جهازك</span>
+                <span className="mt-3 text-sm font-semibold text-info">اختر ملف النسخة من جهازك</span>
                 <span className="mt-1 text-xs text-subtle">سيُرسل محتواه للتحقق عند الاختيار، ولن يُحفظ قبل التأكيد</span>
                 <input data-testid="input-legacy-json" type="file" accept=".json,application/json" className="sr-only" onChange={chooseFile} disabled={importMutation.isPending} aria-label="اختيار ملف نسخة احتياطية JSON"/>
               </label>
@@ -168,7 +168,7 @@ export default function Legacy() {
                 <div className="flex flex-wrap gap-x-8 gap-y-2 border-y border-line py-4 text-sm"><span className="text-subtle">تاريخ التصدير <strong className="mr-2 text-teal" data-testid="text-legacy-exported-at">{readableDate(prepared.summary.exportedAt)}</strong></span><span className="text-subtle">الحالة <strong className="mr-2 text-ok">جاهزة للمراجعة</strong></span></div>
                 <Counts summary={prepared.summary} label="source"/>
                 <Digest value={prepared.summary.digest} prefix="source"/>
-                <details className="rounded-lg border border-line bg-surface p-4"><summary className="cursor-pointer text-sm font-bold text-info" data-testid="toggle-source-ids">عرض معرّفات السجلات من المصدر</summary><div className="mt-4"><Ids summary={prepared.summary} prefix="source"/></div></details>
+                <details className="rounded-lg border border-line bg-surface p-4"><summary className="cursor-pointer text-sm font-semibold text-info" data-testid="toggle-source-ids">عرض معرّفات السجلات من المصدر</summary><div className="mt-4"><Ids summary={prepared.summary} prefix="source"/></div></details>
               </div>}
             </div>
           </section>
@@ -189,9 +189,9 @@ export default function Legacy() {
             <div className={`flex items-start gap-3 border-b px-5 py-5 sm:px-7 ${consistent ? 'border-sage-2 bg-sage' : 'border-warn-line bg-warn-soft'}`}><CheckCircle2 size={24} className={consistent ? 'text-ok' : 'text-copper'}/><div><h2 id="result-title" className="display text-lg font-semibold">تم حفظ النسخة في الأرشيف</h2><p className="mt-1 text-sm leading-6">{consistent ? 'تطابقت البصمة والأعداد ومعرّفات السجلات المحفوظة مع معاينة المصدر.' : 'اكتمل الحفظ، لكن بيانات الرد لا تطابق معاينة المصدر بالكامل. راجع الأرشيف مع مسؤول النظام قبل الاعتماد عليها.'}</p></div></div>
             <div className="space-y-5 p-5 sm:p-7">
               <div className="grid gap-3 text-sm sm:grid-cols-3"><div><span className="block text-xs text-subtle">رقم عملية الاستيراد</span><strong data-testid="text-import-id" dir="ltr" className="mt-1 block font-mono">#{completed.stored.id}</strong></div><div><span className="block text-xs text-subtle">وقت الحفظ</span><strong className="mt-1 block">{readableDate(completed.stored.importedAt)}</strong></div><div><span className="block text-xs text-subtle">تاريخ النسخة الأصلية</span><strong className="mt-1 block">{readableDate(completed.source.exportedAt)}</strong></div></div>
-               <div className="overflow-x-auto"><table className="w-full min-w-[420px] text-right text-sm"><thead className="border-b border-sage-2 text-xs text-subtle"><tr><th className="py-2 font-semibold">نوع السجلات</th><th className="py-2 font-semibold">المصدر</th><th className="py-2 font-semibold">المحفوظ</th><th className="py-2 font-semibold">المقارنة</th></tr></thead><tbody>{groups.map(({ key, label }) => { const same = completed.source.counts[key] === completed.stored.counts[key] && JSON.stringify([...completed.source.ids[key]].sort()) === JSON.stringify([...completed.stored.ids[key]].sort()); return <tr key={key} className="border-b border-line last:border-0"><td className="py-2.5 font-semibold">{label}</td><td className="py-2.5 font-mono">{completed.source.counts[key]}</td><td className="py-2.5 font-mono">{completed.stored.counts[key]}</td><td className={`py-2.5 text-xs font-bold ${same ? 'text-ok' : 'text-copper'}`}>{same ? 'العدد والمعرّفات متطابقة' : 'توجد فروقات'}</td></tr>; })}</tbody></table></div>
+               <div className="overflow-x-auto"><table className="w-full min-w-[420px] text-right text-sm"><thead className="border-b border-sage-2 text-xs text-subtle"><tr><th className="py-2 font-semibold">نوع السجلات</th><th className="py-2 font-semibold">المصدر</th><th className="py-2 font-semibold">المحفوظ</th><th className="py-2 font-semibold">المقارنة</th></tr></thead><tbody>{groups.map(({ key, label }) => { const same = completed.source.counts[key] === completed.stored.counts[key] && JSON.stringify([...completed.source.ids[key]].sort()) === JSON.stringify([...completed.stored.ids[key]].sort()); return <tr key={key} className="border-b border-line last:border-0"><td className="py-2.5 font-semibold">{label}</td><td className="py-2.5 font-mono">{completed.source.counts[key]}</td><td className="py-2.5 font-mono">{completed.stored.counts[key]}</td><td className={`py-2.5 text-xs font-medium ${same ? 'text-ok' : 'text-copper'}`}>{same ? 'العدد والمعرّفات متطابقة' : 'توجد فروقات'}</td></tr>; })}</tbody></table></div>
               <div className="grid gap-4 sm:grid-cols-2"><Digest value={completed.source.digest} prefix="completed-source"/><Digest value={completed.stored.digest} prefix="completed-stored"/></div>
-              <div className="grid gap-3 sm:grid-cols-2"><details className="rounded-lg border border-line p-3"><summary className="cursor-pointer text-xs font-bold text-info">معرّفات المصدر</summary><div className="mt-3"><Ids summary={completed.source} prefix="completed-source"/></div></details><details className="rounded-lg border border-line p-3"><summary className="cursor-pointer text-xs font-bold text-info">معرّفات الأرشيف المحفوظة</summary><div className="mt-3"><Ids summary={completed.stored} prefix="completed-stored"/></div></details></div>
+              <div className="grid gap-3 sm:grid-cols-2"><details className="rounded-lg border border-line p-3"><summary className="cursor-pointer text-xs font-semibold text-info">معرّفات المصدر</summary><div className="mt-3"><Ids summary={completed.source} prefix="completed-source"/></div></details><details className="rounded-lg border border-line p-3"><summary className="cursor-pointer text-xs font-semibold text-info">معرّفات الأرشيف المحفوظة</summary><div className="mt-3"><Ids summary={completed.stored} prefix="completed-stored"/></div></details></div>
               <p className="border-t border-line pt-4 text-xs leading-6 text-subtle">أُزيل محتوى الملف من حالة هذه الصفحة بعد نجاح العملية. تأكد من الأرشيف ثم تخلص من الملف المحلي غير المشفّر بطريقة آمنة.</p>
             </div>
           </section>}
@@ -201,11 +201,11 @@ export default function Legacy() {
           <div><div className="flex items-center gap-2 text-ink"><History size={18}/><h2 className="display text-lg font-semibold">سجل الاستيراد السابق</h2></div><p className="mt-1 text-xs leading-6 text-subtle">بيانات الأرشيف المحفوظة، لا ملفات JSON الأصلية. قارن البصمة قبل إعادة استيراد نسخة.</p></div>
           {imports.isLoading ? <LoadingBlock/> : imports.isError ? <ErrorBlock retry={() => { void imports.refetch(); }}/> : !imports.data?.length ? <EmptyBlock title="لا توجد نسخ محفوظة بعد" text="ستظهر هنا عمليات الاستيراد الناجحة مع بصماتها وأعدادها للتحقق لاحقًا."/> : <div className="space-y-3">
             {imports.data.map(item => <article key={item.id} className="surface overflow-hidden" data-testid={`card-legacy-import-${item.id}`}>
-              <div className="flex items-start justify-between gap-2 border-b border-line px-4 py-4"><div><div className="text-sm font-bold text-teal">عملية #{item.id}</div><div className="mt-1 text-xs text-subtle">{readableDate(item.importedAt)}</div></div><span className="rounded-full bg-ok-soft px-2 py-1 text-[11px] font-bold text-ok">محفوظة</span></div>
+              <div className="flex items-start justify-between gap-2 border-b border-line px-4 py-4"><div><div className="text-sm font-semibold text-teal">عملية #{item.id}</div><div className="mt-1 text-xs text-subtle">{readableDate(item.importedAt)}</div></div><span className="rounded-full bg-ok-soft px-2 py-1 text-[11px] font-semibold text-ok">محفوظة</span></div>
               <div className="space-y-3 p-4"><div className="text-xs text-subtle">تصدير المصدر: <strong className="text-info">{readableDate(item.exportedAt)}</strong></div>
                 <div className="grid grid-cols-2 gap-2">{groups.map(({ key, label }) => <div key={key} className="flex justify-between rounded-md bg-paper px-2 py-1.5 text-xs"><span className="text-subtle">{label}</span><strong className="font-mono text-info">{item.counts[key]}</strong></div>)}</div>
                 <Digest value={item.digest} prefix={`history-${item.id}`}/>
-                <details className="border-t border-line pt-3"><summary className="cursor-pointer text-xs font-bold text-teal-bright" data-testid={`toggle-history-ids-${item.id}`}>التحقق من معرّفات السجلات المحفوظة</summary><div className="mt-3"><Ids summary={item} prefix={`history-${item.id}`}/></div></details>
+                <details className="border-t border-line pt-3"><summary className="cursor-pointer text-xs font-semibold text-teal-bright" data-testid={`toggle-history-ids-${item.id}`}>التحقق من معرّفات السجلات المحفوظة</summary><div className="mt-3"><Ids summary={item} prefix={`history-${item.id}`}/></div></details>
               </div>
             </article>)}
           </div>}

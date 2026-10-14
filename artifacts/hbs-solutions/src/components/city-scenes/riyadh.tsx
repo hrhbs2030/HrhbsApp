@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react';
 import { Atmosphere, Layer, blocks, rng, ridge } from './kit';
 import './riyadh.css';
-import { Residents, riyadhCrowd } from './people';
+import { Dialogue, Residents, Subtitles, riyadhCrowd } from './people';
 
 /* ---------------- Riyadh at dusk: a matte painting in four depths ----------------
    1 sky (afterglow, stratus, crescent moon, airliner) · 2 far city in desert haze + KAFD
@@ -277,7 +277,7 @@ export const RiyadhScene = memo(function RiyadhScene() {
       <Warn x={716} y={105} /><Warn x={774} y={105} d={.3} />
     </Layer>
 
-    <Layer depth={4}>
+    <Layer depth={4} after={<Dialogue crowd={riyadhCrowd} />} strip={<Subtitles crowd={riyadhCrowd} />}>
       <defs>
         <linearGradient id="ry-road" x1="0" y1="620" x2="0" y2="700" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#15272a" /><stop offset=".45" stopColor="#0a1719" /><stop offset="1" stopColor="#040d0e" /></linearGradient>
         <linearGradient id="ry-head" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#fffdf5" /><stop offset=".12" stopColor="#ffeccc" stopOpacity=".85" /><stop offset="1" stopColor="#ffd9a8" stopOpacity="0" /></linearGradient>

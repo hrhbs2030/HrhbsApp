@@ -1,15 +1,59 @@
 /* City residents. Transform/opacity only; paused with the rest of the scene. */
-.pp-text { font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; fill: #173e42; }
+
+/* Street scale per variant (city-scene.css sets --pp-zoom): the residents and
+   their office grow about the office's doorstep (622, 696 in scene units), and
+   --pp-lift raises them (scene units) above the phone subtitle strip. The
+   bubbles below apply the same numbers, so tails stay on their speakers. */
+.pp { transform-origin: 0 0; transform: translate(622px, calc(696px - var(--pp-lift, 0) * 1px)) scale(var(--pp-zoom, 1)) translate(-622px, -696px); }
+
+/* Speech bubbles: HTML over the people's SVG layer, in CSS px. The layer box
+   (kit.tsx <Layer after>) is the size container; --s is the SVG's own
+   xMidYMax-slice scale, so --ax/--ay (scene units, set per bubble) land on the
+   same spot as the speaker's head. */
+.pp-dialogue { position: absolute; inset: 0; pointer-events: none; }
+.pp-say {
+  --s: max(calc(100cqw / 1600), calc(100cqh / 700));
+  --z: var(--pp-zoom, 1);
+  --px: calc((100cqw - 1600 * var(--s)) / 2 + (622 + (var(--ax) - 622) * var(--z)) * var(--s));
+  position: absolute; box-sizing: border-box; bottom: calc((4 + var(--pp-lift, 0) + (696 - var(--ay)) * var(--z)) * var(--s));
+  width: max-content; max-width: 220px; padding: 7px 12px 8px; border-radius: 14px;
+  background: #fbf8f1; border: 1px solid var(--color-line-strong, #84918a); color: var(--color-ink, #173e42);
+  box-shadow: 0 1px 0 #fff inset, 0 8px 22px rgb(4 12 13 / .38), 0 1px 3px rgb(4 12 13 / .3);
+  font-family: var(--font-sans); font-size: 16px; line-height: 1.45; font-weight: 500; text-align: right; overflow-wrap: anywhere;
+  opacity: 0; transform-origin: 50% 100%; animation: pp-say 12s var(--ease-out-soft) infinite both;
+}
+/* Which way the bubble opens: a tail at its left or right end, the rest of the
+   paper away from the office sign. Clamped to the part of the layer that the
+   viewport shows (the layer is 114 % wide, offset 7 %, and drifts ±5.5 %). */
+.pp-say--l { left: clamp(12cqw, calc(var(--px) - 22px), calc(88cqw - 230px)); }
+.pp-say--r { right: clamp(12cqw, calc(100cqw - var(--px) - 22px), calc(88cqw - 230px)); }
+.pp-say::after { content: ""; position: absolute; bottom: -7px; width: 12px; height: 12px; background: inherit; border: inherit; border-top: 0; border-left: 0; transform: rotate(45deg); border-bottom-right-radius: 2px; }
+.pp-say--l::after { left: 16px; }
+.pp-say--r::after { right: 16px; }
 
 /* Each bubble shows for about 2.6 s inside the 12 s city cycle. */
-.pp-say { opacity: 0; transform-box: fill-box; transform-origin: 50% 100%; animation: pp-say 12s var(--ease-out-soft) infinite both; }
 @keyframes pp-say {
-  0% { opacity: 0; transform: translateY(6px) scale(.86); }
+  0% { opacity: 0; transform: translateY(6px) scale(.9); }
   3% { opacity: 1; transform: none; }
   19% { opacity: 1; transform: none; }
   23%, 100% { opacity: 0; transform: translateY(-4px); }
 }
-.cs-scene:not([data-active="true"]) .pp-say { animation: none; }
+.cs-scene:not([data-active="true"]) :is(.pp-say, .pp-subtitle) { animation: none; }
+
+/* Phone fallback: the lines run as subtitles along the scene's lower edge and
+   the residents step up above the strip (--pp-lift, city-scene.css). */
+.pp-subtitles { display: none; position: absolute; left: 0; right: 0; bottom: 0; height: 44px; background: rgb(16 41 44 / .92); border-top: 1px solid rgb(255 255 255 / .14); }
+.pp-subtitle { position: absolute; inset: 0; margin: 0; padding: 0 var(--pp-subtitle-start, 16px) 0 12px; display: flex; align-items: center; justify-content: flex-start; font-family: var(--font-sans); font-size: 15px; line-height: 1.4; font-weight: 500; color: var(--color-on-dark, #f6efe3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0; animation: pp-say 12s var(--ease-out-soft) infinite both; }
+/* On phones the slice crop shows only the pair by the office door, so a bubble
+   could not point at every speaker: all four lines run as subtitles instead. */
+@media (max-width: 720px) {
+  .pp-say { display: none; }
+  .pp-subtitles { display: block; }
+  /* The band's strip starts with the city caption (city-scene.css): leave it room. */
+  .cs--band .pp-subtitles { --pp-subtitle-start: 92px; }
+}
+/* Conversations need a street: none in the portal strip or behind the footer. */
+.cs--portal .pp-dialogue, .cs--footer .pp-dialogue { display: none; }
 
 .pp-gesture { transform-box: fill-box; transform-origin: 0% 0%; animation: pp-gesture 2.2s ease-in-out infinite alternate; }
 @keyframes pp-gesture { from { transform: rotate(-6deg); } to { transform: rotate(9deg); } }
@@ -25,9 +69,6 @@
 .pp-bob { animation: pp-bob .55s ease-in-out infinite alternate; }
 @keyframes pp-bob { from { transform: translateY(0); } to { transform: translateY(-1.4px); } }
 
-/* Conversations need room: hide them in narrow scenes and behind the footer. */
-.cs--portal .pp-lines, .cs--footer .pp-lines { display: none; }
-@media (max-width: 1180px) { .pp-lines { display: none; } }
 /* Quiet life: a slow breath in the clothes and an occasional blink. */
 .pp-breathe { transform-box: fill-box; transform-origin: 50% 100%; animation: pp-breathe 3.8s ease-in-out infinite alternate; }
 @keyframes pp-breathe { from { transform: scaleY(1); } to { transform: scaleY(1.012); } }
@@ -35,5 +76,8 @@
 @keyframes pp-blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
 .cs-scene:not([data-active="true"]) :is(.pp-breathe, .pp-blink) { animation: none; }
 @media (prefers-reduced-motion: reduce) { .pp-breathe, .pp-blink { animation: none; } }
-.pp-sign { font-family: var(--font-sans); font-size: 10.5px; font-weight: 700; fill: #f6efe3; }
-.pp-sign--latin { font-family: var(--font-display, var(--font-sans)); letter-spacing: 1.6px; font-size: 10px; fill: #f0b28a; }
+/* Reduced motion is one still frame: the first line of the exchange stays up. */
+@media (prefers-reduced-motion: reduce) { .pp-say:first-child, .pp-subtitle:first-child { opacity: 1; } }
+/* The office sign: «HBS | حلول الغد» in medium weight, on-dark ink on the sign's night board (≥ 12:1). */
+.pp-sign { font-family: var(--font-sans); font-size: 12px; font-weight: 500; fill: #f6efe3; }
+.pp-sign--latin { font-family: var(--font-display, var(--font-sans)); letter-spacing: 1.4px; font-size: 11.5px; font-weight: 600; fill: #f0b28a; }

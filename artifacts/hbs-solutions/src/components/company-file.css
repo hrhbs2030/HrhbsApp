@@ -8,7 +8,7 @@
 .cf-fact { min-width: 0; }
 .cf-fact--wide { grid-column: span 2; }
 @media (min-width: 1024px) { .cf-fact--wide { grid-column: span 1; } }
-.cf-fact dt { font-size: var(--text-xs); font-weight: 700; color: var(--color-subtle); }
+.cf-fact dt { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--color-subtle); }
 .cf-fact dd { margin: 4px 0 0; font-weight: 600; overflow-wrap: anywhere; }
 .cf-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--color-line); }
 .cf-head h2 { display: flex; align-items: center; gap: 8px; margin: 0; }
@@ -18,7 +18,7 @@
 .cf-editor-title { margin: 0 0 16px; font-size: var(--text-base); font-weight: 600; }
 .cf-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 20px; border-bottom: 1px solid var(--color-line); background: var(--color-paper); }
 .cf-search { max-width: 280px; min-height: 44px !important; }
-.cf-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--color-line-strong); background: var(--color-surface); color: var(--color-quiet); font-size: 12px; font-weight: 700; }
+.cf-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--color-line-strong); background: var(--color-surface); color: var(--color-quiet); font-size: 12px; font-weight: var(--weight-semibold); }
 .cf-chip.is-on { background: var(--color-teal); border-color: var(--color-teal); color: var(--color-on-dark); }
 /* The table sits flush inside the card. */
 .cf-table.dt-wrap { border: 0; border-radius: 0; box-shadow: none; background: transparent; }
@@ -35,9 +35,9 @@
 .cf-numbers b { color: var(--color-ink); font-weight: 600; }
 .cf-docs { display: flex; flex-wrap: wrap; gap: 6px; }
 .cf-doc { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 10px; background: var(--color-sunk); font-size: 12px; }
-.cf-renew { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; font-weight: 700; color: var(--color-copper); text-decoration: none; }
+.cf-renew { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; font-weight: var(--weight-semibold); color: var(--color-copper); text-decoration: none; }
 .cf-renew:hover { text-decoration: underline; text-underline-offset: 3px; }
-.cf-tag { padding: 1px 8px; border-radius: 6px; background: var(--color-copper-soft); color: var(--color-copper); font-size: 11px; font-weight: 700; }
+.cf-tag { padding: 1px 8px; border-radius: 6px; background: var(--color-copper-soft); color: var(--color-copper); font-size: 11px; font-weight: var(--weight-semibold); }
 .cf-num { unicode-bidi: isolate; direction: ltr; font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 639px) {
   .cf-search { max-width: none; width: 100%; }
@@ -58,7 +58,7 @@
 .xi-table { overflow-x: auto; border: 1px solid var(--color-line); border-radius: 10px; background: var(--color-field); }
 .xi-table table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .xi-table th, .xi-table td { padding: 7px 10px; border-bottom: 1px solid var(--color-line); text-align: start; white-space: nowrap; }
-.xi-table th { background: var(--color-sunk); color: var(--color-subtle); font-weight: 700; }
+.xi-table th { background: var(--color-sunk); color: var(--color-subtle); font-weight: var(--weight-medium); }
 .cf-verify { display: flex; gap: 6px; }
 .cf-verify .form-control { flex: 1; min-width: 0; }
 .cf-verify .btn { flex: none; white-space: nowrap; }

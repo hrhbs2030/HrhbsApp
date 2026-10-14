@@ -24,7 +24,9 @@ const problemCtaHref = (problem: Problem, firstSlug: string) => problem.key === 
 // Counters use the product locale (Latin digits), like the carousel and the portal.
 const ofThree = (n: number) => `${formatNumber(n)} / ${formatNumber(3)}`;
 
-const iconSize = 18;
+// Lucide stroke mirrors --icon-stroke (index.css); standalone icons are 20–24 px, inline arrows 16–18 px.
+const ICON = 1.75;
+const iconSize = 20;
 
 function ServiceLinkCard({ slug, name, summary, platform, category }: {
   slug: string; name: string; summary: string; platform?: string; category: ServiceCategory;
@@ -34,7 +36,7 @@ function ServiceLinkCard({ slug, name, summary, platform, category }: {
       <span className="discovery-result-top"><span>{categoryById[category].name}</span>{platform && <span>{platform}</span>}</span>
       <strong>{name}</strong>
       <span className="discovery-result-summary">{summary}</span>
-      <span className="discovery-result-more">عرض تفاصيل الخدمة <ArrowLeft size={15} aria-hidden="true" /></span>
+      <span className="discovery-result-more">عرض تفاصيل الخدمة <ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></span>
     </Link>
   );
 }
@@ -96,7 +98,7 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
           <h2 className="display">خلّنا نقرّب لك الخيارات</h2>
           <p>ملاحظة وصلتك، أو مؤشر تغيّر، أو وثيقة تنتهي قريبًا: اخترها وسنعرض الخدمات التي يعالجها المكتب بها. أو تصفّح الدليل واحدةً تلو الأخرى.</p>
         </div>
-        <span className="discovery-heading-mark" aria-hidden="true"><Compass size={25} strokeWidth={1.7} /></span>
+        <span className="discovery-heading-mark" aria-hidden="true"><Compass size={24} strokeWidth={ICON} aria-hidden="true" /></span>
       </div>
 
       <div className="discovery-layout">
@@ -113,14 +115,14 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
             </div>
             <h3 className="display">{currentService.name}</h3>
             <p>{currentService.summary}</p>
-            <Link href={`/services/${currentService.slug}`} className="discovery-slide-link">تفاصيل الخدمة <ArrowLeft size={16} aria-hidden="true" /></Link>
+            <Link href={`/services/${currentService.slug}`} className="discovery-slide-link">تفاصيل الخدمة <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
           </div>
           <div className="discovery-carousel-controls">
-            <button type="button" className="discovery-arrow" onClick={() => goToSlide(slide - 1)} aria-label="الخدمة السابقة" data-testid="button-service-previous"><ArrowRight size={19} aria-hidden="true" /></button>
+            <button type="button" className="discovery-arrow" onClick={() => goToSlide(slide - 1)} aria-label="الخدمة السابقة" data-testid="button-service-previous"><ArrowRight size={22} strokeWidth={ICON} aria-hidden="true" /></button>
             <div className="discovery-progress" role="progressbar" aria-label="التقدم في تصفح الخدمات" aria-valuemin={1} aria-valuemax={services.length} aria-valuenow={slide + 1}>
               <span style={{ transform: `scaleX(${(slide + 1) / services.length})` }} />
             </div>
-            <button type="button" className="discovery-arrow discovery-arrow-next" onClick={() => goToSlide(slide + 1)} aria-label="الخدمة التالية" data-testid="button-service-next"><ArrowLeft size={19} aria-hidden="true" /></button>
+            <button type="button" className="discovery-arrow discovery-arrow-next" onClick={() => goToSlide(slide + 1)} aria-label="الخدمة التالية" data-testid="button-service-next"><ArrowLeft size={22} strokeWidth={ICON} aria-hidden="true" /></button>
           </div>
           <div className="discovery-dot-row" aria-label="الانتقال إلى خدمة">
             {services.slice(visibleDotsStart, visibleDotsStart + 5).map((service, offset) => {
@@ -132,7 +134,7 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
 
         <section className="discovery-guide" aria-labelledby="guide-title">
           <div className="discovery-guide-top">
-            <span className="discovery-guide-icon"><Sparkles size={19} strokeWidth={1.8} aria-hidden="true" /></span>
+            <span className="discovery-guide-icon"><Sparkles size={20} strokeWidth={ICON} aria-hidden="true" /></span>
             <div><p className="discovery-kicker">دليل تفاعلي</p><h3 id="guide-title" className="display">نبحثها معك</h3></div>
             <button type="button" className="discovery-reset" onClick={resetGuide} data-testid="button-guide-reset">إعادة البدء</button>
           </div>
@@ -148,13 +150,13 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
                 <div className="discovery-problem-grid" role="group" aria-label="ابدأ من مشكلتك">
                   {problemEntries.map((entry) => {
                     const Icon = entry.icon;
-                    return <button key={entry.key} type="button" className="discovery-problem" onClick={() => chooseProblem(entry.key)} data-testid={`button-guide-problem-${entry.key}`}><Icon size={iconSize} strokeWidth={1.8} aria-hidden="true" /><span>{entry.label}</span><small>{entry.hint}</small></button>;
+                    return <button key={entry.key} type="button" className="discovery-problem" onClick={() => chooseProblem(entry.key)} data-testid={`button-guide-problem-${entry.key}`}><Icon size={iconSize} strokeWidth={ICON} aria-hidden="true" /><span>{entry.label}</span><small>{entry.hint}</small></button>;
                   })}
                 </div>
                 <p className="discovery-or">أو اختر مجال المعاملة</p>
                 <div className="discovery-choice-grid">
-                  {categories.map((item) => <button key={item.id} type="button" className="discovery-choice" onClick={() => chooseCategory(item.id)} data-testid={`button-guide-category-${item.id}`}><span>{item.name}</span><small>{item.description}</small><ArrowLeft size={15} aria-hidden="true" /></button>)}
-                   <button type="button" className="discovery-choice" onClick={() => chooseCategory(null)} data-testid="button-guide-category-unsure"><span>لا أعرف المجال</span><small>صف معاملتك وسنبحث في الدليل كله.</small><ArrowLeft size={15} aria-hidden="true" /></button>
+                  {categories.map((item) => <button key={item.id} type="button" className="discovery-choice" onClick={() => chooseCategory(item.id)} data-testid={`button-guide-category-${item.id}`}><span>{item.name}</span><small>{item.description}</small><ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></button>)}
+                   <button type="button" className="discovery-choice" onClick={() => chooseCategory(null)} data-testid="button-guide-category-unsure"><span>لا أعرف المجال</span><small>صف معاملتك وسنبحث في الدليل كله.</small><ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></button>
                 </div>
               </div>
             )}
@@ -164,10 +166,10 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
                 <h4>هل تعرف المنصة المرتبطة؟</h4>
                 <p>هذه خطوة اختيارية، ويمكنك المتابعة دون تحديد منصة.</p>
                 <div className="discovery-platform-choices">
-                  {categoryPlatforms.map((name) => <button key={name} type="button" onClick={() => choosePlatform(name)} data-testid={`button-guide-platform-${platforms.indexOf(name)}`}>{name}<ArrowLeft size={15} aria-hidden="true" /></button>)}
-                  <button type="button" className="discovery-skip" onClick={() => choosePlatform(null)}>لا أعرف / تخطّ <ArrowLeft size={15} aria-hidden="true" /></button>
+                  {categoryPlatforms.map((name) => <button key={name} type="button" onClick={() => choosePlatform(name)} data-testid={`button-guide-platform-${platforms.indexOf(name)}`}>{name}<ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></button>)}
+                  <button type="button" className="discovery-skip" onClick={() => choosePlatform(null)}>لا أعرف / تخطّ <ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></button>
                 </div>
-                <button type="button" className="discovery-back" onClick={backGuide}><ArrowRight size={15} aria-hidden="true" /> رجوع للمجال</button>
+                <button type="button" className="discovery-back" onClick={backGuide}><ArrowRight size={16} strokeWidth={ICON} aria-hidden="true" /> رجوع للمجال</button>
               </div>
             )}
             {step === 2 && (
@@ -177,41 +179,41 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
                 <p>{category ? `اكتب كلمة أو جملة قصيرة، أو اعرض كل خدمات المجال${platform ? ` على ${platform}` : ''}.` : 'اكتب كلمة تصف معاملتك لنبحث في جميع المجالات.'}</p>
                 <label className="discovery-description">
                   <span className="sr-only">وصف المعاملة اختياري</span>
-                  <Search size={17} aria-hidden="true" />
+                  <Search size={20} strokeWidth={ICON} aria-hidden="true" />
                    <input value={description} onChange={(event) => setDescription(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && (category || description.trim())) setStep(3); }} placeholder="مثال: ملاحظة على ملف الأجور في مُدد" data-testid="input-guide-description" />
                 </label>
                 <div className="discovery-guide-actions">
-                   <button type="button" className="btn btn-primary" disabled={!category && !description.trim()} onClick={() => setStep(3)} data-testid="button-guide-show-matches">اعرض الخدمات <ArrowLeft size={16} aria-hidden="true" /></button>
-                  <button type="button" className="discovery-back" onClick={backGuide}><ArrowRight size={15} aria-hidden="true" /> رجوع</button>
+                   <button type="button" className="btn btn-primary" disabled={!category && !description.trim()} onClick={() => setStep(3)} data-testid="button-guide-show-matches">اعرض الخدمات <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></button>
+                  <button type="button" className="discovery-back" onClick={backGuide}><ArrowRight size={16} strokeWidth={ICON} aria-hidden="true" /> رجوع</button>
                 </div>
               </div>
             )}
             {step === 3 && (
               <div className="discovery-question discovery-match-view">
-                <span className="discovery-question-count"><Check size={14} aria-hidden="true" /> {problem ? problem.title : 'اقتراحات من الدليل'}</span>
+                <span className="discovery-question-count"><Check size={16} strokeWidth={ICON} aria-hidden="true" /> {problem ? problem.title : 'اقتراحات من الدليل'}</span>
                 <h4>{problem ? 'هكذا يتعامل المكتب معها' : matches.length ? `وجدنا ${formatNumber(matches.length)} نتيجة قد تناسبك` : 'لم نجد تطابقًا واضحًا'}</h4>
                 {problem
                   ? <p className="discovery-problem-approach">{problem.approach}</p>
                   : <p className="discovery-disclaimer">هذه اقتراحات بحسب الكلمات والمجال، وليست قرارًا رسميًا بالأهلية أو إمكانية التنفيذ. يراجع المكتب تفاصيل طلبك.</p>}
                 {problem && matches.length > 0 && (
                   <div className="discovery-problem-cta">
-                    <Link href={problemCtaHref(problem, matches[0].slug)} className="btn btn-primary" data-testid="link-guide-problem-request">{problem.cta} <ArrowLeft size={16} aria-hidden="true" /></Link>
+                    <Link href={problemCtaHref(problem, matches[0].slug)} className="btn btn-primary" data-testid="link-guide-problem-request">{problem.cta} <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
                     <span>{problem.portal}</span>
                   </div>
                 )}
                 {matches.length ? (
                   <div className="discovery-match-list" data-testid="status-guide-matches">
                     {(problem ? matches : matches.slice(0, 4)).map((service) => <ServiceLinkCard key={service.slug} {...service} />)}
-                    {!problem && matches.length > 4 && <button type="button" className="discovery-show-all" onClick={() => onViewAllMatches({ query: description, category, platform })} data-testid="button-guide-view-all">عرض كل النتائج ({formatNumber(matches.length)}) <ArrowLeft size={15} aria-hidden="true" /></button>}
+                    {!problem && matches.length > 4 && <button type="button" className="discovery-show-all" onClick={() => onViewAllMatches({ query: description, category, platform })} data-testid="button-guide-view-all">عرض كل النتائج ({formatNumber(matches.length)}) <ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></button>}
                   </div>
                 ) : (
                   <div className="discovery-no-match" data-testid="status-guide-no-match">
                     <p>جرّب وصفًا آخر، أو أرسل وصفك إلى المكتب لمراجعته.</p>
-                    <Link href="/services/other-service" className="btn btn-primary">خدمة غير مدرجة <ArrowLeft size={16} aria-hidden="true" /></Link>
+                    <Link href="/services/other-service" className="btn btn-primary">خدمة غير مدرجة <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
                   </div>
                 )}
                 <div className="discovery-guide-actions">
-                  <button type="button" className="discovery-back" onClick={backGuide}><ArrowRight size={15} aria-hidden="true" /> {problem ? 'حالة أخرى' : 'تعديل الوصف'}</button>
+                  <button type="button" className="discovery-back" onClick={backGuide}><ArrowRight size={16} strokeWidth={ICON} aria-hidden="true" /> {problem ? 'حالة أخرى' : 'تعديل الوصف'}</button>
                   {!problem && <button type="button" className="discovery-back" onClick={resetGuide}>ابدأ من جديد</button>}
                 </div>
               </div>

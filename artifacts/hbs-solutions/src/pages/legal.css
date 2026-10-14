@@ -12,7 +12,7 @@
 .legal a { color: var(--color-teal-bright); font-weight: 600; }
 
 .legal-toc { padding: 20px 22px; border-radius: var(--radius-panel); background: var(--color-sage); border: 1px solid var(--color-sage-2); }
-.legal-toc p { margin: 0 0 8px; font-weight: 700; font-size: 14px; }
+.legal-toc p { margin: 0 0 8px; font-weight: var(--weight-semibold); font-size: 14px; }
 .legal-toc ol { margin: 0; padding-inline-start: 1.2em; display: grid; gap: 0; font-size: 14px; }
 .legal-toc a { display: inline-flex; align-items: center; min-height: 44px; color: var(--color-ink); text-decoration: none; transition: color var(--duration-hover) ease; }
 .legal-toc a:hover { color: var(--color-copper); }

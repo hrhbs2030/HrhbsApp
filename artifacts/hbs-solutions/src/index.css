@@ -51,7 +51,7 @@
   --color-sunk: #f1efe6;         /* inset panels, table headers, zebra rows */
   --color-sunk-2: #ebe8dd;       /* pressed / selected on sunk */
   --color-line: #e4e0d4;         /* hairlines, card borders */
-  --color-line-strong: #84918a;  /* input borders, outlined buttons — 3.2:1 on field, 3.1:1 on surface */
+  --color-line-strong: #7d8a83;  /* input borders, outlined buttons — 3.5:1 on field, 3.4:1 on surface, 3.3:1 on paper */
   --color-line-dark: #376064;    /* hairlines on the sidebar */
   --color-line-dark-2: #709590;  /* outlined controls on the sidebar */
 
@@ -65,22 +65,23 @@
   --color-sidebar-2: #245257;    /* sidebar hover */
   --color-sage: #eaf0e9;         /* calm tint */
   --color-sage-2: #dce7dd;
-  --color-copper: #a3502f;       /* the one accent — 5.1:1 on paper */
+  --color-copper: #9e4d2d;       /* the one accent — 5.4:1 on paper, 4.6:1 on sage-2 (its darkest tint) */
   --color-copper-2: #8a4125;     /* accent hover */
-  --color-copper-light: #e5a27b; /* accent on dark / active nav — ink on it 5.4:1 */
+  --color-copper-light: #edb08c; /* accent on dark / active nav — ink on it 6.2:1, 4.6:1 on sidebar-2 */
   --color-copper-soft: #f4e6db;  /* accent tint — copper on it 4.6:1 */
-  --color-focus: #a3502f;        /* focus ring on light surfaces */
-  --color-focus-dark: #e5a27b;   /* focus ring on night / sidebar */
+  --color-focus: #9e4d2d;        /* focus ring on light surfaces */
+  --color-focus-dark: #edb08c;   /* focus ring on night / sidebar */
 
   /* Text on light */
   --color-quiet: #4a605e;        /* secondary text — 6.1:1 */
-  --color-subtle: #5d706a;       /* meta text, dates — 4.8:1 */
+  --color-subtle: #55685f;       /* meta text, dates — 5.5:1 on paper, 4.7:1 on every tint */
 
   /* Text on dark */
   --color-on-dark: #f6efe3;
-  --color-on-dark-2: #b9ccc7;    /* 6.9:1 on sidebar, 10.7:1 on night */
+  --color-on-dark-2: #c2d3ce;    /* 7.5:1 on sidebar, 4.6:1 on teal-2, 11.5:1 on night */
 
-  /* Status pairs: text / soft fill / line (3:1 on the soft fill). */
+  /* Status pairs: text (4.5:1 on the soft fill and on paper) / soft fill / line.
+     The line is a decorative edge on an already tinted fill, not the cue. */
   --color-warn: #6b5210;  --color-warn-soft: #fbf3dc;  --color-warn-line: #ecd9a4;
   --color-ok: #2f6446;    --color-ok-soft: #e2eee4;    --color-ok-line: #a9cbb3;
   --color-info: #255a5e;  --color-info-soft: #e2ece8;  --color-info-line: #a6c6c2;
@@ -91,7 +92,7 @@
   --font-display: 'Readex Pro', 'IBM Plex Sans Arabic', sans-serif;
   /* Fluid type scale: phone size → desktop size between 360 px and 1280 px. */
   --text-xs: clamp(0.75rem, 0.73rem + 0.08vw, 0.8rem);
-  --text-sm: clamp(0.84rem, 0.82rem + 0.1vw, 0.9rem);
+  --text-sm: clamp(0.875rem, 0.86rem + 0.1vw, 0.925rem);
   --text-base: clamp(0.95rem, 0.92rem + 0.14vw, 1.02rem);
   --text-lg: clamp(1.06rem, 1.02rem + 0.2vw, 1.16rem);
   --text-xl: clamp(1.18rem, 1.1rem + 0.35vw, 1.32rem);
@@ -166,8 +167,8 @@
   --background: 47 30% 95%;
   --foreground: 185 48% 18%;
   --border: 44 22% 86%;
-  --input: 140 6% 54%;           /* mirrors --color-line-strong */
-  --ring: 17 55% 41%;            /* mirrors --color-focus */
+  --input: 148 5% 52%;           /* mirrors --color-line-strong */
+  --ring: 17 56% 40%;            /* mirrors --color-focus */
   --card: 45 55% 97%;
   --card-foreground: 185 48% 18%;
   --card-border: 44 22% 86%;
@@ -179,7 +180,7 @@
   --secondary-foreground: 185 48% 18%;
   --muted: 46 25% 92%;
   --muted-foreground: 174 13% 33%;
-  --accent: 17 55% 41%;
+  --accent: 17 56% 40%;
   --accent-foreground: 38 58% 93%;
   --destructive: 8 57% 42%;
   --destructive-foreground: 38 58% 93%;
@@ -189,6 +190,32 @@
   --app-font-display: 'Readex Pro', 'IBM Plex Sans Arabic', sans-serif;
   --app-font-mono: 'IBM Plex Sans Arabic', monospace;
   --radius: .85rem;
+  /* Type weights: one readable scale. Body 400/500, labels 500, headings 600.
+     Nothing here is 700; `.kbd` and tiny chips are the only places 600 may
+     stand in for "bold". Once no file under src/ asks for 700 any more
+     (scratchpad/j3-weights.mjs), drop 700 from the Google Fonts link in index.html. */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  /* Leading: Arabic body copy needs air; display lines stay tight. */
+  --leading-body: 1.75;
+  --leading-display: 1.3;
+  /* Icons (lucide): one stroke, size 20 (24 in tiles and the tab bar), colour from these tokens.
+     Solid tiles use the button pairs (on-dark on teal / on copper, ≥ 5.1:1).
+     --icon-on-dark ≥ 4.6:1 on night/sidebar/teal, --icon-on-light ≥ 5.2:1 on
+     every light tint; every tile fg/bg pair ≥ 4.6:1 (scratchpad/j3-contrast.mjs). */
+  --icon-stroke: 1.75;
+  --icon-on-dark: var(--color-on-dark-2);
+  --icon-on-light: var(--color-quiet);
+  --icon-tile-teal-bg: var(--color-teal-soft);     --icon-tile-teal-fg: var(--color-teal);
+  --icon-tile-copper-bg: var(--color-copper-soft); --icon-tile-copper-fg: var(--color-copper);
+  --icon-tile-sage-bg: var(--color-sage);          --icon-tile-sage-fg: var(--color-teal);
+  --icon-tile-ok-bg: var(--color-ok-soft);         --icon-tile-ok-fg: var(--color-ok);
+  --icon-tile-warn-bg: var(--color-warn-soft);     --icon-tile-warn-fg: var(--color-warn);
+  --icon-tile-info-bg: var(--color-info-soft);     --icon-tile-info-fg: var(--color-info);
+  --icon-tile-danger-bg: var(--color-danger-soft); --icon-tile-danger-fg: var(--color-danger);
+  --icon-tile-neutral-bg: var(--color-neutral-soft); --icon-tile-neutral-fg: var(--color-neutral);
+  --icon-tile-night-bg: var(--color-night-3);      --icon-tile-night-fg: var(--color-copper-light);
   /* Focus ring: one token, used by :focus-visible and the .focus-ring utility. */
   --focus-ring: 3px solid var(--color-focus);
   --focus-ring-dark: 2px solid var(--color-focus-dark);
@@ -197,7 +224,10 @@
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { margin: 0; min-width: 320px; background: var(--color-paper); color: var(--color-ink); font-family: var(--app-font-sans); -webkit-font-smoothing: antialiased; font-variant-numeric: lining-nums; }
+body { margin: 0; min-width: 320px; background: var(--color-paper); color: var(--color-ink); font-family: var(--app-font-sans); line-height: var(--leading-body); -webkit-font-smoothing: antialiased; font-variant-numeric: lining-nums; }
+/* Headings: semibold, tight leading, no tracking (cursive joins). Layered so a
+   utility class (font-medium, leading-tight) on the element still wins. */
+@layer base { h1, h2, h3, h4, h5, h6 { font-weight: var(--weight-semibold); line-height: var(--leading-display); } strong, b { font-weight: var(--weight-semibold); } label { font-weight: var(--weight-medium); } }
 button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .6; }
@@ -206,12 +236,12 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 /* Dark surfaces (night, sidebar, topbar) switch to the light ring so it stays visible. */
 .on-night :focus-visible, [data-tone="dark"] :focus-visible { outline: var(--focus-ring-dark); outline-offset: 3px; }
 /* Arabic display type: no tracking, so cursive joins stay intact. */
-.display { font-family: var(--font-display); letter-spacing: 0; }
+.display { font-family: var(--font-display); letter-spacing: 0; line-height: var(--leading-display); }
 .shell { width: min(100% - 48px, 1240px); margin-inline: auto; }
 .nums { font-variant-numeric: tabular-nums; unicode-bidi: plaintext; white-space: nowrap; }
 
 /* Buttons — one shape everywhere (landing included). */
-.btn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: .6rem; min-height: 48px; padding: .72rem 1.35rem; border-radius: var(--radius-control); border: 1px solid transparent; font-weight: 700; text-decoration: none; white-space: nowrap; transition: transform var(--duration-hover) var(--ease-out-soft), background-color var(--duration-hover) ease, border-color var(--duration-hover) ease, box-shadow var(--duration-hover) ease, color var(--duration-hover) ease; }
+.btn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: .6rem; min-height: 48px; padding: .72rem 1.35rem; border-radius: var(--radius-control); border: 1px solid transparent; font-weight: var(--weight-semibold); line-height: 1.5; text-decoration: none; white-space: nowrap; transition: transform var(--duration-hover) var(--ease-out-soft), background-color var(--duration-hover) ease, border-color var(--duration-hover) ease, box-shadow var(--duration-hover) ease, color var(--duration-hover) ease; }
 .btn:hover:not(:disabled) { transform: translateY(-1px); }
 .btn:active:not(:disabled), .btn[data-pressed="true"]:not(:disabled) { transform: translateY(0) scale(.98); transition-duration: var(--duration-press); }
 .btn-primary { color: var(--color-on-dark); background: var(--color-teal); box-shadow: 0 1px 0 rgb(255 255 255 / .08) inset, 0 8px 20px -12px rgb(23 75 80 / .6); }
@@ -228,7 +258,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .btn-accent:hover:not(:disabled) { background: var(--color-copper-2); }
 .btn-danger { color: var(--color-on-dark); background: var(--color-danger); }
 .btn-danger:hover:not(:disabled) { background: #8f3426; }
-.btn-sm { min-height: 40px; padding: .45rem 1rem; font-size: .85rem; }
+.btn-sm { min-height: 40px; padding: .45rem 1rem; font-size: .875rem; }
 /* Square icon-only button: always a 44px target; the label lives in aria-label. */
 .btn-icon { width: 44px; min-height: 44px; padding: 0; }
 .btn-icon.btn-sm { width: 40px; }
@@ -240,7 +270,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .btn-outline[data-loading="true"]::after, .btn-ghost[data-loading="true"]::after, .btn-light[data-loading="true"]::after { border-color: rgb(23 75 80 / .25); border-top-color: var(--color-teal); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.eyebrow { color: var(--color-copper); font-size: .8rem; font-weight: 700; }
+.eyebrow { color: var(--color-copper); font-size: .8rem; font-weight: var(--weight-medium); letter-spacing: 0; }
 /* Surface tiers as classes: card (default), panel (larger radius + shadow), sunk (inset), night. */
 .surface { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
 .surface-panel { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-panel); box-shadow: var(--shadow-panel); }
@@ -262,8 +292,8 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .band-paper { background: var(--color-paper); }
 .band-sage { background: linear-gradient(180deg, var(--color-sage), var(--color-paper)); }
 .band-night { background: var(--color-night); color: var(--color-on-dark); }
-.form-field { display: flex; flex-direction: column; gap: .5rem; color: var(--color-ink); font-weight: 700; font-size: .9rem; }
-.form-control { width: 100%; min-height: 48px; padding: .7rem .95rem; border: 1px solid var(--color-line-strong); border-radius: var(--radius-control); background: var(--color-field); color: var(--color-ink); outline: none; transition: border-color var(--duration-hover) ease, box-shadow var(--duration-hover) ease; font-weight: 400; }
+.form-field { display: flex; flex-direction: column; gap: .5rem; color: var(--color-ink); font-weight: var(--weight-medium); font-size: .9rem; }
+.form-control { width: 100%; min-height: 48px; padding: .7rem .95rem; border: 1px solid var(--color-line-strong); border-radius: var(--radius-control); background: var(--color-field); color: var(--color-ink); outline: none; transition: border-color var(--duration-hover) ease, box-shadow var(--duration-hover) ease; font-weight: var(--weight-regular); line-height: 1.5; }
 .form-control:hover:not(:disabled):not(:focus) { border-color: var(--color-quiet); }
 .form-control:focus { border-color: var(--color-teal-bright); box-shadow: 0 0 0 3px rgb(29 97 100 / .14); }
 .form-control[aria-invalid="true"] { border-color: var(--color-danger); }
@@ -271,10 +301,10 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .form-control::placeholder { color: var(--color-subtle); opacity: .85; }
 .form-control:disabled { background: var(--color-sunk); color: var(--color-quiet); }
 textarea.form-control { resize: vertical; min-height: 145px; line-height: 1.8; }
-.field-error { color: var(--color-danger); font-size: .82rem; font-weight: 600; }
-.field-hint { color: var(--color-subtle); font-size: .8rem; font-weight: 500; }
+.field-error { color: var(--color-danger); font-size: .82rem; font-weight: var(--weight-medium); }
+.field-hint { color: var(--color-subtle); font-size: .8rem; font-weight: var(--weight-regular); }
 /* Status pills: tone comes from the state class; the dot inherits the text colour. */
-.pill { display: inline-flex; align-items: center; gap: .4rem; width: fit-content; border-radius: 100px; padding: .3rem .75rem; font-size: .75rem; font-weight: 700; white-space: nowrap; line-height: 1.3; }
+.pill { display: inline-flex; align-items: center; gap: .4rem; width: fit-content; border-radius: 100px; padding: .3rem .75rem; font-size: .75rem; font-weight: var(--weight-semibold); white-space: nowrap; line-height: 1.3; }
 .pill-received, .pill-open { background: var(--color-copper-soft); color: var(--color-copper); }
 .pill-reviewing { background: var(--color-info-soft); color: var(--color-info); }
 .pill-waiting_on_customer, .pill-awaiting_payment, .pill-issued { background: var(--color-warn-soft); color: var(--color-warn); }
@@ -282,7 +312,7 @@ textarea.form-control { resize: vertical; min-height: 145px; line-height: 1.8; }
 .pill-cancelled { background: var(--color-sunk); color: var(--color-quiet); }
 .pill-completed, .pill-answered, .pill-paid { background: var(--color-ok-soft); color: var(--color-ok); }
 /* Chips: labels, filters and counts. `.chip-*` sets the tone; `.chip-select` is a toggle. */
-.chip { display: inline-flex; align-items: center; gap: .4rem; min-height: 28px; padding: .2rem .65rem; border-radius: 100px; border: 1px solid transparent; font-size: .75rem; font-weight: 700; line-height: 1.3; white-space: nowrap; background: var(--color-neutral-soft); color: var(--color-neutral); }
+.chip { display: inline-flex; align-items: center; gap: .4rem; min-height: 28px; padding: .2rem .65rem; border-radius: 100px; border: 1px solid transparent; font-size: .75rem; font-weight: var(--weight-semibold); line-height: 1.3; white-space: nowrap; background: var(--color-neutral-soft); color: var(--color-neutral); }
 .chip-ok { background: var(--color-ok-soft); color: var(--color-ok); }
 .chip-warn { background: var(--color-warn-soft); color: var(--color-warn); }
 .chip-info { background: var(--color-info-soft); color: var(--color-info); }
@@ -326,7 +356,7 @@ textarea.form-control { resize: vertical; min-height: 145px; line-height: 1.8; }
 .cl-formFieldInput::placeholder { color: var(--color-subtle) !important; opacity: 1; }
 .sr-only-focusable:not(:focus) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* Keyboard hint, e.g. ⌘K next to the search affordance. */
-.kbd { display: inline-flex; align-items: center; gap: 2px; min-height: 20px; padding: 0 6px; border-radius: 6px; border: 1px solid currentColor; font-family: var(--font-display); font-size: 11px; font-weight: 600; line-height: 1; opacity: .7; direction: ltr; }
+.kbd { display: inline-flex; align-items: center; gap: 2px; min-height: 20px; padding: 0 6px; border-radius: 6px; border: 1px solid currentColor; font-family: var(--font-display); font-size: 11px; font-weight: var(--weight-semibold); line-height: 1; opacity: .7; direction: ltr; }
 /* Scrollbar on dense office panes: thin, token-coloured. */
 .scroll-thin { scrollbar-width: thin; scrollbar-color: var(--color-line-strong) transparent; }
 @media (max-width: 767px) { .shell { width: min(100% - 32px, 1240px); } }

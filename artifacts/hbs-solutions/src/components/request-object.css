@@ -5,7 +5,7 @@
 .ro[data-stage="submitted_to_authority"] { --tone: #a9c4f0; }
 .ro[data-stage="waiting_on_customer"], .ro[data-stage="awaiting_payment"] { --tone: #e9c46a; }
 .ro[data-stage="completed"] { --tone: #9fd4a9; }
-.ro figcaption { padding: 2px 10px; border-radius: 999px; border: 1px solid rgb(255 255 255 / .14); background: rgb(8 26 28 / .4); color: var(--color-on-dark-2); font-size: 12px; font-weight: 600; line-height: 1.7; }
+.ro figcaption { padding: 2px 10px; border-radius: 999px; border: 1px solid rgb(255 255 255 / .14); background: rgb(8 26 28 / .4); color: var(--color-on-dark); font-size: 12.5px; font-weight: var(--weight-medium, 500); line-height: 1.7; }
 
 .ro-scene {
   position: relative; width: min(100%, 470px); perspective: 1400px; transform-style: preserve-3d;
@@ -36,7 +36,7 @@
 .ro--compact .ro-title { font-size: 22px; }
 .ro-pill {
   display: inline-flex; align-items: center; gap: 8px; flex: none; padding: 6px 12px; border-radius: 999px;
-  font-size: 13px; font-weight: 700; color: var(--tone); background: color-mix(in srgb, var(--tone) 14%, transparent);
+  font-size: 13px; font-weight: var(--weight-semibold, 600); color: var(--tone); background: color-mix(in srgb, var(--tone) 16%, transparent);
   border: 1px solid color-mix(in srgb, var(--tone) 35%, transparent);
   animation: ro-pill-in var(--duration-enter) var(--ease-out-soft) both;
 }
@@ -52,18 +52,19 @@
 [dir="ltr"] .ro-bar > span { transform-origin: left; }
 
 .ro-track { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.ro-track li { display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: rgb(246 239 227 / .5); transition: color var(--duration-enter) ease; }
+/* Each station reserves the pause badge's line below its label, so the card (and with it the hero and the scene band anchored to it) keeps one height while the request plays through its frames. */
+.ro-track li { position: relative; display: flex; flex-direction: column; gap: 8px; padding-bottom: 26px; font-size: 12.5px; font-weight: var(--weight-medium, 500); color: rgb(246 239 227 / .62); transition: color var(--duration-enter) ease; }
 .ro-track li[data-state="done"] { color: var(--color-on-dark-2); }
-.ro-track li[data-state="current"] { color: var(--color-on-dark); font-weight: 700; }
+.ro-track li[data-state="current"] { color: var(--color-on-dark); font-weight: var(--weight-semibold, 600); }
 .ro-dot { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgb(255 255 255 / .2); color: var(--color-night); transition: background-color var(--duration-enter) ease, border-color var(--duration-enter) ease, box-shadow var(--duration-enter) ease; }
 .ro-track li[data-state="done"] .ro-dot { background: var(--color-on-dark-2); border-color: transparent; }
 .ro-track li[data-state="current"] .ro-dot { background: var(--tone); border-color: transparent; box-shadow: 0 0 0 5px color-mix(in srgb, var(--tone) 22%, transparent); }
 /* A pause («بانتظار العميل») is a badge on the review milestone, not a fifth step. */
-.ro-pause { display: inline-flex; align-items: center; gap: 4px; width: fit-content; margin-top: 2px; padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--tone) 16%, transparent); border: 1px solid color-mix(in srgb, var(--tone) 40%, transparent); color: var(--tone); font-size: 10.5px; font-weight: 700; line-height: 1.5; white-space: nowrap; animation: ro-pill-in var(--duration-enter) var(--ease-out-soft) both; }
+.ro-pause { position: absolute; bottom: 0; inset-inline-start: 0; display: inline-flex; align-items: center; gap: 4px; width: fit-content; margin: 0; padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--tone) 16%, transparent); border: 1px solid color-mix(in srgb, var(--tone) 40%, transparent); color: var(--tone); font-size: 11px; font-weight: var(--weight-semibold, 600); line-height: 1.5; white-space: nowrap; animation: ro-pill-in var(--duration-enter) var(--ease-out-soft) both; }
 
 .ro-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 20px 0 0; padding: 14px 16px; border-radius: 14px; background: rgb(0 0 0 / .18); border: 1px solid rgb(255 255 255 / .06); }
-.ro-meta dt { font-size: 11.5px; color: var(--color-on-dark-2); }
-.ro-meta dd { margin: 4px 0 0; font-size: 14px; font-weight: 700; }
+.ro-meta dt { font-size: 12px; font-weight: var(--weight-medium, 500); color: var(--color-on-dark-2); }
+.ro-meta dd { margin: 4px 0 0; font-size: 14px; font-weight: var(--weight-semibold, 600); }
 
 .ro-glint {
   position: absolute; inset: 0; border-radius: 22px; pointer-events: none; transform: translateZ(1px);
@@ -80,7 +81,7 @@
 .rail--light .rail-line > span { background: var(--color-copper); }
 [dir="ltr"] .rail-line > span { transform-origin: left; }
 .rail-stations { position: relative; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.rail-stations button, .rail-static { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 4px; border: 0; background: none; color: rgb(246 239 227 / .55); font-size: 13px; font-weight: 600; text-align: center; }
+.rail-stations button, .rail-static { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 4px 22px; border: 0; background: none; color: rgb(246 239 227 / .7); font-size: 13px; font-weight: var(--weight-medium, 500); text-align: center; }
 .rail--light .rail-stations button, .rail--light .rail-static { color: var(--color-subtle); }
 .rail-stations button { cursor: pointer; border-radius: 10px; --mx: 0; --my: 0; transform: translate3d(calc(var(--mx) * 1px), calc(var(--my) * 1px), 0); transition: color var(--duration-hover) ease, transform .6s var(--ease-spring); }
 /* While the pointer is over the station it tracks it tightly; the spring above handles the return. */
@@ -96,18 +97,18 @@
 [data-state="current"] > * > .rail-node { background: var(--color-night); border-color: var(--color-copper-light); transform: scale(1.18); box-shadow: 0 0 0 6px rgb(229 162 123 / .18); }
 .rail--light [data-state="done"] > * > .rail-node { background: var(--color-copper); border-color: var(--color-copper); }
 .rail--light [data-state="current"] > * > .rail-node { background: var(--color-surface); border-color: var(--color-copper); box-shadow: 0 0 0 6px rgb(163 80 47 / .14); }
-[data-state="current"] > button, [data-state="current"] > .rail-static { color: var(--color-on-dark); }
-.rail-pause { display: inline-block; margin-top: -4px; padding: 1px 8px; border-radius: 999px; background: rgb(233 196 106 / .16); border: 1px solid rgb(233 196 106 / .45); color: #e9c46a; font-size: 11px; font-weight: 700; line-height: 1.6; white-space: nowrap; animation: ro-pill-in var(--duration-enter) var(--ease-out-soft) both; }
+[data-state="current"] > button, [data-state="current"] > .rail-static { color: var(--color-on-dark); font-weight: var(--weight-semibold, 600); }
+.rail-pause { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); display: inline-block; margin: 0; padding: 1px 8px; border-radius: 999px; background: rgb(233 196 106 / .16); border: 1px solid rgb(233 196 106 / .45); color: #e9c46a; font-size: 11.5px; font-weight: var(--weight-semibold, 600); line-height: 1.6; white-space: nowrap; animation: ro-pill-in var(--duration-enter) var(--ease-out-soft) both; }
 .rail--light .rail-pause { background: var(--color-warn-soft); border-color: var(--color-warn-line); color: var(--color-warn); }
 [data-paused] > * > .rail-node { border-color: #e9c46a; box-shadow: 0 0 0 6px rgb(233 196 106 / .16); }
-.rail--light [data-state="current"] > button, .rail--light [data-state="current"] > .rail-static { color: var(--color-ink); font-weight: 700; }
+.rail--light [data-state="current"] > button, .rail--light [data-state="current"] > .rail-static { color: var(--color-ink); font-weight: var(--weight-semibold, 600); }
 
 @media (max-width: 640px) {
   .ro-card { padding: 20px 18px 18px; }
   .ro-title { font-size: 21px; }
-  .ro-track li { font-size: 10.5px; }
-  .ro-pause { font-size: 9.5px; padding: 1px 6px; }
-  .rail-pause { font-size: 10px; padding: 0 6px; }
+  .ro-track li { font-size: 11.5px; }
+  .ro-pause { font-size: 10.5px; padding: 1px 6px; }
+  .rail-pause { font-size: 11px; padding: 0 6px; }
   .ro-sheet--back { transform: translate3d(-18px, 18px, -60px); }
   .ro-sheet--mid { transform: translate3d(-9px, 9px, -30px); }
   .ro-scene { transform: rotateX(6deg) rotateY(-8deg); }

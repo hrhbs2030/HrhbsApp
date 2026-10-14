@@ -76,7 +76,7 @@ function OfferEditor({ service, offer, onSaved }: { service: Service; offer: Ser
     } catch { /* shown below */ }
   }
   return <form onSubmit={submit} className="surface space-y-4 p-5">
-    <div><span className="text-xs font-bold text-subtle">{categoryNames[service.category]}</span><h2 className="display mt-1 text-lg font-semibold">{service.name}</h2></div>
+    <div><span className="text-xs font-medium text-subtle">{categoryNames[service.category]}</span><h2 className="display mt-1 text-lg font-semibold">{service.name}</h2></div>
     <div className="grid grid-cols-2 gap-3">
       <label className="form-field">أتعاب المكتب قبل الضريبة (ر.س)<input className="form-control" dir="ltr" inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)} placeholder="بعد المراجعة"/></label>
       <label className="form-field">مدة الإنجاز (أيام عمل)<input className="form-control" dir="ltr" inputMode="numeric" value={days} onChange={e => setDays(e.target.value)} placeholder="-"/></label>
@@ -87,7 +87,7 @@ function OfferEditor({ service, offer, onSaved }: { service: Service; offer: Ser
     <p className="muted text-xs leading-6">لا يظهر للعملاء إلا ما تنشره هنا. الحقل الفارغ لا يُعرض.</p>
     {invalid && <p role="alert" className="text-xs text-danger">تحقق من المبلغ ومدة الإنجاز (1-365) وعدد المستندات (15 كحد أقصى).</p>}
     {save.isError && <p role="alert" className="text-xs text-danger">تعذّر الحفظ. حاول مجددًا.</p>}
-    {saved && <p role="status" className="text-xs font-bold text-ok">تم الحفظ{published ? ' والنشر' : ''}.</p>}
+    {saved && <p role="status" className="text-xs font-semibold text-ok">تم الحفظ{published ? ' والنشر' : ''}.</p>}
     <button type="submit" className="btn btn-primary w-full" disabled={save.isPending || invalid}>{save.isPending ? 'جارٍ الحفظ…' : 'حفظ'}</button>
   </form>;
 }
@@ -119,7 +119,7 @@ function AssignmentRules() {
       <label className="form-field text-xs">أيام الإنجاز<select className="form-control" value={rule.dueDays ?? ''} disabled={saving === rule.category} onChange={e => save(rule, { dueDays: e.target.value ? Number(e.target.value) : null })}>
         <option value="">بلا موعد</option>{[1, 2, 3, 5, 7, 10, 14, 21, 30].map(d => <option key={d} value={d}>{formatNumber(d)}</option>)}</select></label>
     </div>)}</div>
-    {message && <p role="status" className="px-5 pb-3 text-xs font-bold text-ok">{message}</p>}
+    {message && <p role="status" className="px-5 pb-3 text-xs font-semibold text-ok">{message}</p>}
   </section>;
 }
 
@@ -140,7 +140,7 @@ export function OfficeCatalog() {
         {categories.map(category => {
           const items = shown.filter(s => s.category === category.id);
           if (!items.length) return null;
-          return <section key={category.id} className="mb-5"><h2 className="mb-2 text-xs font-bold text-subtle">{category.name}</h2><div className="surface overflow-hidden">{items.map(s => {
+          return <section key={category.id} className="mb-5"><h2 className="mb-2 text-xs font-medium text-subtle">{category.name}</h2><div className="surface overflow-hidden">{items.map(s => {
             const offer = bySlug.get(s.slug);
             return <button key={s.slug} type="button" aria-pressed={selected === s.slug} onClick={() => setSelected(s.slug)} className={`flex w-full items-center justify-between gap-3 border-b border-line px-5 py-3 text-right last:border-0 hover:bg-paper ${selected === s.slug ? 'bg-sage' : ''}`}>
               <span className="font-semibold">{s.name}</span>

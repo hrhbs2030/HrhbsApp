@@ -1,20 +1,54 @@
-/* «كيف تعمل البوابة» film. Transform/opacity only. */
+/* «كيف تعمل البوابة» film. Transform/opacity only.
+   Readability rules: the words are HTML (never SVG text) so they keep their
+   size at every stage width; bubbles sit in a reserved band above the heads
+   (between the stage rail and the figures), on solid paper with ink text at
+   15px / weight 500; under 640px the bubbles give way to a subtitle strip
+   under the picture, so no text ever covers a figure. */
 .hf { margin: 0; display: grid; gap: 18px; }
-.hf-stage { position: relative; overflow: hidden; aspect-ratio: 16 / 9; border-radius: 22px; border: 1px solid rgb(255 255 255 / .09); background: #0a2124; box-shadow: 0 30px 80px -40px rgb(0 0 0 / .8); }
+.hf-stage { position: relative; display: grid; overflow: hidden; border-radius: 22px; border: 1px solid rgb(255 255 255 / .09); background: #0a2124; box-shadow: 0 30px 80px -40px rgb(0 0 0 / .8); }
+.hf-frame { position: relative; overflow: hidden; aspect-ratio: 16 / 9; }
 .hf-svg { display: block; width: 100%; height: 100%; }
-.hf-text { font-family: var(--font-sans); font-size: 15px; font-weight: 700; fill: #173e42; }
-.hf-badge { font-family: var(--font-sans); font-size: 13.5px; font-weight: 700; }
-.hf-ui { font-family: var(--font-sans); font-size: 13px; font-weight: 600; fill: #f6efe3; }
-.hf-ui--head { font-size: 14px; font-weight: 700; fill: #e5a27b; }
+.hf-ui { font-family: var(--font-sans); font-size: 13px; font-weight: 500; fill: #f6efe3; }
+.hf-ui--head { font-size: 14px; font-weight: 600; fill: #e5a27b; }
 .hf-ui--dim { font-size: 11px; fill: #709590; }
 .hf-ui--query { font-size: 11.5px; fill: #f6efe3; }
-.hf-ui--btn { fill: #173e42; font-weight: 700; }
+.hf-ui--btn { fill: #173e42; font-weight: 600; }
+
+/* Words layer: every bubble/badge is placed by its tail point in stage
+   percentages (--x from the left edge, --y up from the ground). */
+.hf-words { position: absolute; inset: 0; pointer-events: none; }
+.hf-say {
+  position: absolute; left: var(--x); bottom: calc(var(--y) + 9px); transform: translateX(-50%); transform-origin: 50% calc(100% + 9px);
+  box-sizing: border-box; width: max-content; max-width: min(220px, 36%); padding: 8px 14px; border-radius: 14px;
+  background: #f6efe3; color: #173e42; border: 1px solid rgb(23 62 66 / .35);
+  font-size: 15px; font-weight: 500; line-height: 1.45; text-align: center; text-wrap: balance;
+  filter: drop-shadow(0 10px 14px rgb(0 0 0 / .45));
+  animation: hf-say .55s cubic-bezier(.22, 1.35, .36, 1) both;
+}
+/* The tail points down at the speaker's head. */
+.hf-say::after { content: ""; position: absolute; top: 100%; left: 50%; width: 0; height: 0; border: 9px solid transparent; border-top-color: #f6efe3; border-bottom: 0; transform: translateX(-50%); }
+.hf-say--copper { background: #e5a27b; border-color: rgb(23 62 66 / .45); }
+.hf-say--copper::after { border-top-color: #e5a27b; }
+@keyframes hf-say { from { opacity: 0; transform: translate(-50%, 10px) scale(.6); } 45% { opacity: 1; } to { opacity: 1; transform: translate(-50%, 0); } }
+.hf-badge {
+  position: absolute; left: var(--x); bottom: var(--y); transform: translateX(-50%); transform-origin: 50% 50%;
+  display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box; max-width: 46%; padding: 7px 14px; border-radius: 999px;
+  font-size: 14px; font-weight: 500; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums; box-shadow: 0 10px 20px -10px rgb(0 0 0 / .6);
+  animation: hf-say .55s cubic-bezier(.22, 1.35, .36, 1) both;
+}
+.hf-badge--teal { background: #0e2629; color: #bfeee6; border: 1px solid rgb(191 238 230 / .55); }
+.hf-badge--ok { background: #143224; color: #b7e8c4; border: 1px solid rgb(183 232 196 / .55); }
+.hf-badge--warn { background: #33270a; color: #f3d98f; border: 1px solid rgb(243 217 143 / .55); }
+/* The badge's status dot pulses once as the digits finish counting. */
+.hf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: hf-dot 1.2s ease-out both; }
+@keyframes hf-dot { 0%, 25% { transform: scale(1); } 50% { transform: scale(1.9); opacity: .55; } 100% { transform: scale(1); opacity: 1; } }
 
 .hf-top { position: absolute; inset: 14px 18% auto; display: flex; justify-content: center; pointer-events: none; }
-.hf-top .rail { width: 100%; padding: 10px 18px 8px; border-radius: 16px; background: rgb(8 26 28 / .72); backdrop-filter: blur(6px); }
-.hf-pre { padding: 6px 16px; border-radius: 999px; background: rgb(8 26 28 / .72); color: var(--color-on-dark-2); font-size: 13.5px; font-weight: 600; }
+.hf-top .rail { width: 100%; padding: 10px 18px 8px; border-radius: 16px; background: rgb(8 26 28 / .78); backdrop-filter: blur(6px); }
+.hf-pre { padding: 6px 16px; border-radius: 999px; background: rgb(8 26 28 / .85); color: var(--color-on-dark); font-size: 14px; font-weight: 500; }
 .hf-subs { display: none; }
-.hf-tag { position: absolute; inset-inline-start: 14px; bottom: 12px; padding: 3px 10px; border-radius: 999px; background: rgb(8 26 28 / .6); color: var(--color-on-dark-2); font-size: 12px; }
+.hf-tag { position: absolute; inset-inline-start: 14px; bottom: 12px; padding: 3px 10px; border-radius: 999px; background: rgb(8 26 28 / .85); color: var(--color-on-dark-2); font-size: 12.5px; font-weight: 500; }
 
 /* Parallax street: three groups lean toward a fine pointer (--hpx/--hpy set by
    the component, deeper layers move less) while an idle drift keeps the frame
@@ -40,11 +74,7 @@
    badges pop with a small overshoot (a spring curve), rooted at their tail. */
 .hf-pop { transform-box: fill-box; transform-origin: 50% 100%; animation: hf-pop .55s cubic-bezier(.22, 1.35, .36, 1) both; }
 .hf-pop--big { transform-origin: 50% 50%; animation-duration: .7s; }
-.hf-pop--badge { transform-origin: 50% 50%; }
 @keyframes hf-pop { from { opacity: 0; transform: translateY(10px) scale(.6); } 45% { opacity: 1; } to { opacity: 1; transform: none; } }
-/* The badge's status dot pulses once as the digits finish counting. */
-.hf-dot { transform-box: fill-box; transform-origin: 50% 50%; animation: hf-dot 1.2s ease-out both; }
-@keyframes hf-dot { 0%, 25% { transform: scale(1); } 50% { transform: scale(1.9); opacity: .55; } 100% { transform: scale(1); opacity: 1; } }
 .hf-fade { animation: hf-fade .8s ease both .2s; }
 @keyframes hf-fade { from { opacity: 0; } }
 
@@ -98,13 +128,13 @@
 /* Caption and controls */
 .hf-caption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; min-height: 3.6em; color: var(--color-on-dark-2); font-size: 16px; line-height: 1.8; }
 .hf-caption strong { color: var(--color-on-dark); font-family: var(--font-display); font-size: 20px; font-weight: 600; }
-.hf-step { color: var(--color-copper-light); font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 700; }
+.hf-step { color: var(--color-copper-light); font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 600; }
 .hf-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
-.hf-play { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid rgb(255 255 255 / .18); background: rgb(255 255 255 / .06); color: var(--color-on-dark); font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer; transition: background-color var(--duration-hover, .15s) ease; }
+.hf-play { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid rgb(255 255 255 / .18); background: rgb(255 255 255 / .06); color: var(--color-on-dark); font: inherit; font-size: 14.5px; font-weight: 500; cursor: pointer; transition: background-color var(--duration-hover, .15s) ease; }
 .hf-play:hover { background: rgb(255 255 255 / .12); }
 .hf-chapters { flex: 1; min-width: 280px; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
-.hf-chapters button { width: 100%; display: grid; gap: 8px; padding: 8px 2px; border: 0; background: none; color: var(--color-on-dark-2); font: inherit; font-size: 13px; text-align: start; cursor: pointer; }
-.hf-chapters button[aria-current] { color: var(--color-on-dark); font-weight: 700; }
+.hf-chapters button { width: 100%; display: grid; gap: 8px; padding: 8px 2px; border: 0; background: none; color: var(--color-on-dark-2); font: inherit; font-size: 13px; font-weight: 500; text-align: start; cursor: pointer; }
+.hf-chapters button[aria-current] { color: var(--color-on-dark); font-weight: 600; }
 .hf-bar { position: relative; display: block; height: 4px; overflow: hidden; border-radius: 4px; background: rgb(255 255 255 / .14); }
 .hf-fill { position: absolute; inset: 0; background: var(--color-copper-light); transform-origin: 100% 50%; transform: scaleX(0); animation: hf-fill linear both; }
 .hf-fill--static { animation: none; }
@@ -121,16 +151,22 @@
   .hf-top .rail-static { font-size: 11px; gap: 6px; }
   .hf-top .rail-node { width: 16px; height: 16px; }
   .hf-top .rail-line { top: 8px; }
-  /* Subtitle strip: ≥14px HTML text over the bottom of the stage. */
-  .hf-subs { position: absolute; inset: auto 10px 36px; display: grid; justify-items: start; gap: 6px; pointer-events: none; }
-  .hf-sub { max-width: 100%; padding: 6px 12px; border-radius: 14px 14px 14px 4px; background: #f6efe3; color: #173e42; font-size: 14px; font-weight: 700; line-height: 1.6; box-shadow: 0 8px 20px -10px rgb(0 0 0 / .7); animation: hf-pop .5s var(--ease-out-soft) both; transform-origin: 100% 100%; }
-  .hf-sub--office { justify-self: end; border-radius: 14px 14px 4px 14px; background: #e5a27b; color: #173e42; transform-origin: 0 100%; }
-  .hf-sub--status { justify-self: center; border-radius: 999px; background: #10292c; color: #8fd0c6; border: 1px solid rgb(143 208 198 / .5); }
   .hf-label { display: none; }
-  /* The phone-screen labels render at ~6px on a 390px stage: unreadable, so hidden; the subtitle strip carries the words. */
-  .hf-ui { display: none; }
   .hf-chapters button { min-height: 44px; align-content: center; }
   .hf-chapters { min-width: 0; }
   .hf-caption { font-size: 15px; }
   .hf-caption strong { font-size: 18px; }
+}
+@media (max-width: 639px) {
+  /* A taller picture (3:2) cropped at the sides keeps the figures large; the
+     bubbles give way to a subtitle strip under the picture, never over it. */
+  .hf-frame { aspect-ratio: 3 / 2; }
+  .hf-words { display: none; }
+  .hf-subs { display: grid; justify-items: start; align-content: start; gap: 6px; min-height: 92px; padding: 10px 12px 12px; border-top: 1px solid rgb(255 255 255 / .09); background: #0b1d20; }
+  .hf-sub { max-width: 100%; padding: 6px 12px; border-radius: 14px 14px 14px 4px; background: #f6efe3; color: #173e42; border: 1px solid rgb(23 62 66 / .35); font-size: 15px; font-weight: 500; line-height: 1.5; animation: hf-pop .5s var(--ease-out-soft) both; transform-origin: 100% 100%; }
+  .hf-sub--office { justify-self: end; border-radius: 14px 14px 4px 14px; background: #e5a27b; transform-origin: 0 100%; }
+  .hf-sub--status { justify-self: center; border-radius: 999px; background: #0e2629; color: #bfeee6; border-color: rgb(191 238 230 / .55); font-size: 14px; font-variant-numeric: tabular-nums; }
+  /* The phone-screen labels render at ~6px on a 390px stage: unreadable, so hidden; the subtitle strip carries the words. */
+  .hf-ui { display: none; }
+  .hf-tag { bottom: 8px; font-size: 12px; }
 }

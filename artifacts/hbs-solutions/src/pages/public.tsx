@@ -15,6 +15,7 @@ import { milestones, pauses } from '@/content/milestones';
 import { formatNumber } from '@/lib/format';
 import './public.css';
 
+// Lucide stroke mirrors --icon-stroke (index.css); tiles 20–24 px, inline arrows 16–18 px.
 const ICON = 1.75;
 const categoryIcons: Record<ServiceCategory, typeof BookUser> = { passports: BookUser, labor: BriefcaseBusiness, business: Building2, other: Shapes };
 const resultsLabel = (n: number) => (n === 0 ? 'لا توجد نتائج' : n === 1 ? 'خدمة واحدة' : n === 2 ? 'خدمتان' : n <= 10 ? `${n} خدمات` : `${n} خدمة`);
@@ -217,7 +218,7 @@ export function ServicesDirectory() {
           <div className="pub-toolbar-row">
             <label className="pub-search">
               <span className="sr-only">ابحث في الخدمات</span>
-              <Search size={19} strokeWidth={ICON} aria-hidden="true" />
+              <Search size={20} strokeWidth={ICON} aria-hidden="true" />
               <input ref={searchField} type="search" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); scrollTo(document.getElementById('directory-results')); } }} placeholder="ابحث: إقامة، سجل تجاري، تأمينات" autoComplete="off" />
             </label>
             <label className="pub-platform-filter" htmlFor="platform-filter">
@@ -232,7 +233,7 @@ export function ServicesDirectory() {
               <p className="pub-search-hint" data-testid="status-search-hint">
                 <span className="pub-search-hint-count">{resultsLabel(results.length)}</span>
                 {results.slice(0, 3).map((service) => <Link key={service.slug} href={`/services/${service.slug}`} className="pub-search-hint-link">{service.name}</Link>)}
-                {results.length > 3 && <a href="#directory-results" className="pub-search-hint-all" onClick={(e) => { e.preventDefault(); scrollTo(document.getElementById('directory-results')); }}>كل النتائج <ArrowLeft size={14} strokeWidth={ICON} aria-hidden="true" /></a>}
+                {results.length > 3 && <a href="#directory-results" className="pub-search-hint-all" onClick={(e) => { e.preventDefault(); scrollTo(document.getElementById('directory-results')); }}>كل النتائج <ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></a>}
               </p>
             )}
           </div>
@@ -247,7 +248,7 @@ export function ServicesDirectory() {
             </span>
           ))}
         </p>
-        <p id="directory-results" className="pub-count" role="status" aria-live="polite"><LayoutGrid size={15} strokeWidth={ICON} aria-hidden="true" />{resultsLabel(results.length)} · طلب الخدمة عبر المكتب بعد مراجعة الحالة، وليس ربطًا مباشرًا بالمنصة.</p>
+        <p id="directory-results" className="pub-count" role="status" aria-live="polite"><LayoutGrid size={16} strokeWidth={ICON} aria-hidden="true" />{resultsLabel(results.length)} · طلب الخدمة عبر المكتب بعد مراجعة الحالة، وليس ربطًا مباشرًا بالمنصة.</p>
         <div id="directory-list" role="tabpanel" aria-labelledby={`tab-${category ?? allTab}`}>
         {results.length ? (
           <div className="pub-groups">
@@ -258,7 +259,7 @@ export function ServicesDirectory() {
               return (
                 <section key={group.id} className="pub-group" aria-labelledby={`group-${group.slug}`}>
                   <div className="pub-group-head">
-                    <span className="pub-group-icon"><Icon size={18} strokeWidth={ICON} aria-hidden="true" /></span>
+                    <span className="pub-group-icon"><Icon size={20} strokeWidth={ICON} aria-hidden="true" /></span>
                     <div>
                       <h2 id={`group-${group.slug}`} className="display">{group.name}</h2>
                       <p>{group.description} <span className="pub-group-count">{resultsLabel(items.length)}</span></p>
@@ -273,7 +274,7 @@ export function ServicesDirectory() {
           </div>
         ) : (
           <div className="surface pub-empty">
-            <Search size={28} strokeWidth={1.5} aria-hidden="true" />
+            <Search size={28} strokeWidth={ICON} aria-hidden="true" />
             <h2 className="display">لم نجد خدمة بهذا الاسم</h2>
             <p>جرّب كلمة أخرى، أو اختر «خدمة غير مدرجة» وصِف ما تحتاجه.</p>
             <Link href="/services/other-service" className="btn btn-primary">خدمة غير مدرجة</Link>
@@ -336,7 +337,7 @@ export function ServiceDetail() {
       <PublicPage intro={<PageIntro kicker="دليل الخدمات" title="الخدمة غير موجودة" text="قد يكون الرابط قديمًا. تصفّح دليل الخدمات للعثور على ما تحتاجه." />}>
         <div className="site-wrap pub-page">
         <div className="surface pub-empty">
-            <CircleHelp size={28} strokeWidth={1.5} aria-hidden="true" />
+            <CircleHelp size={28} strokeWidth={ICON} aria-hidden="true" />
             <h2 className="display">لم نعثر على هذه الخدمة</h2>
             <p>قد يكون الرابط قديمًا. ابحث عن الخدمة في الدليل.</p>
             <Link href="/services" className="btn btn-primary">دليل الخدمات</Link>
@@ -372,7 +373,7 @@ export function ServiceDetail() {
           <div className="pub-detail-main">
             {/* On phones the sidebar lands below everything, so the same action sits right under the title band, inside the first screen even for long intros. */}
             <p className="pub-cta-inline">
-              <Link href={startHref} className="btn btn-primary">ابدأ الطلب <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
+              <Link href={startHref} className="btn btn-primary">ابدأ الطلب <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
               <span>يلزم حساب معتمد من المكتب.</span>
             </p>
             <p className="pub-detail-intro">{service.intro}</p>
@@ -382,7 +383,7 @@ export function ServiceDetail() {
               <ul className="pub-checklist">
                 {service.whatToWrite.map((item) => <li key={item}>{item}</li>)}
               </ul>
-              <p className="pub-note"><Info size={16} strokeWidth={ICON} aria-hidden="true" />هذه إرشادات لوصف حالتك، لا قائمة مستندات رسمية. يحدد المكتب ما يحتاجه من معلومات أو مستندات بعد مراجعة طلبك.</p>
+              <p className="pub-note"><Info size={18} strokeWidth={ICON} aria-hidden="true" />هذه إرشادات لوصف حالتك، لا قائمة مستندات رسمية. يحدد المكتب ما يحتاجه من معلومات أو مستندات بعد مراجعة طلبك.</p>
             </section>
 
             <section className="surface pub-block" aria-labelledby="flow-title" ref={chapters.register(1)}>
@@ -398,10 +399,10 @@ export function ServiceDetail() {
               <p className="pub-milestones" aria-label="حالات الطلب كما تظهر في حسابك">
                 <span>الحالات التي تراها في حسابك:</span>
                 {milestones.map((step, index) => (
-                  <span key={step.key} className="pub-milestone">{index > 0 && <ArrowLeft size={13} strokeWidth={ICON} aria-hidden="true" />}<strong>{step.label}</strong></span>
+                  <span key={step.key} className="pub-milestone">{index > 0 && <ArrowLeft size={14} strokeWidth={ICON} aria-hidden="true" />}<strong>{step.label}</strong></span>
                 ))}
               </p>
-              <p className="pub-note"><Info size={16} strokeWidth={ICON} aria-hidden="true" />{pauseNote}</p>
+              <p className="pub-note"><Info size={18} strokeWidth={ICON} aria-hidden="true" />{pauseNote}</p>
             </section>
 
             <section className="surface pub-block" aria-labelledby="faq-title" ref={chapters.register(2)}>
@@ -423,7 +424,7 @@ export function ServiceDetail() {
             <div className="pub-cta">
               <h2 className="display">ابدأ هذا الطلب</h2>
               <p>يُفتح النموذج واسم الخدمة معبّأ. يلزم حساب معتمد من المكتب، ولا يطلب المكتب كلمات مرور المنصات أو رموز التحقق.</p>
-              <Link href={startHref} className="btn btn-light">ابدأ الطلب <ArrowLeft size={17} strokeWidth={ICON} aria-hidden="true" /></Link>
+              <Link href={startHref} className="btn btn-light">ابدأ الطلب <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
               <Link href="/sign-up" className="pub-cta-link">لا أملك حسابًا: طلب التسجيل</Link>
             </div>
             <nav className="pub-toc" aria-label="محتويات الصفحة">
@@ -438,13 +439,13 @@ export function ServiceDetail() {
               <div className="pub-related">
                 <h2>خدمات أخرى عبر {service.platform}</h2>
                 <ul>
-                  {samePlatform.map((s) => <li key={s.slug}><Link href={`/services/${s.slug}`}>{s.name}<ArrowLeft size={15} strokeWidth={ICON} aria-hidden="true" /></Link></li>)}
+                  {samePlatform.map((s) => <li key={s.slug}><Link href={`/services/${s.slug}`}>{s.name}<ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></Link></li>)}
                 </ul>
               </div>
             )}
           </aside>
         </div>
-        <Link href="/services" className="pub-back"><ArrowRight size={16} strokeWidth={ICON} aria-hidden="true" />العودة إلى دليل الخدمات</Link>
+        <Link href="/services" className="pub-back"><ArrowRight size={18} strokeWidth={ICON} aria-hidden="true" />العودة إلى دليل الخدمات</Link>
       </div>
     </PublicPage>
   );
@@ -463,7 +464,7 @@ export function TrustPage() {
         <ul className="surface pub-facts">
           {facts.map(({ title, text, Icon }, index) => (
             <li key={title} style={stagger(index, 60)}>
-              <span className="pub-fact-icon"><Icon size={20} strokeWidth={ICON} aria-hidden="true" /></span>
+              <span className="pub-fact-icon"><Icon size={22} strokeWidth={ICON} aria-hidden="true" /></span>
               <div><h2 className="display">{title}</h2><p>{text}</p></div>
             </li>
           ))}

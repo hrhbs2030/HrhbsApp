@@ -5,8 +5,8 @@
 .notif-center-side { min-width: 0; }
 .notif-brief { position: relative; overflow: hidden; }
 .notif-brief::before { content: ""; position: absolute; inset-inline-end: -40px; top: -40px; width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle, var(--color-copper-soft), transparent 70%); pointer-events: none; }
-.notif-brief-headline { position: relative; margin: 0; font-size: var(--text-base); font-weight: 700; line-height: 1.7; }
-.notif-brief-calm { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--color-ok-soft); color: var(--color-ok); font-size: var(--text-sm); font-weight: 700; }
+.notif-brief-headline { position: relative; margin: 0; font-size: var(--text-base); font-weight: var(--weight-semibold); line-height: 1.7; }
+.notif-brief-calm { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--color-ok-soft); color: var(--color-ok); font-size: var(--text-sm); font-weight: var(--weight-semibold); }
 .notif-brief-list { position: relative; display: grid; gap: 8px; margin: 16px 0 0; padding: 0; list-style: none; }
 .notif-brief-item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 12px; padding: 12px 14px; border: 1px solid var(--color-line); border-radius: 12px; background: var(--color-surface); }
 .notif-feed { margin: 0; padding: 0; list-style: none; overflow: hidden; }
@@ -17,7 +17,7 @@
 .notif-feed-row.is-unread .notif-feed-mark { background: var(--color-copper); }
 .notif-prefs-form { display: grid; gap: 16px; }
 .notif-group { display: grid; gap: 10px; margin: 0; min-width: 0; }
-.notif-group-title { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; padding: 0; font-size: var(--text-sm); font-weight: 700; color: var(--color-ink); }
+.notif-group-title { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; padding: 0; font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--color-ink); }
 .notif-group-title svg { color: var(--color-copper); }
 .notif-option { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border-radius: 10px; background: var(--color-paper); font-size: var(--text-sm); line-height: 1.6; cursor: pointer; }
 .notif-option input { margin-top: 4px; width: 18px; height: 18px; flex: none; accent-color: var(--color-teal); }
