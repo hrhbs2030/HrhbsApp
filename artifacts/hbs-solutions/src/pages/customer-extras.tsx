@@ -10,10 +10,13 @@ import {
 import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock } from '@/components/portal-ui';
 import { Chip, SectionHeader, Surface } from '@/components/portal-kit';
 import './customer-extras.css';
-import { daysUntil, formatCalendarDate } from '@/lib/format';
+import { daysUntil, formatCalendarDate, formatDateTime } from '@/lib/format';
 import { normalizePhone } from '@/lib/phone';
 import { ExpiryBadge, ReminderForm, emptyDraft, reminderKindNames, type Draft } from '@/components/reminder-ui';
 import { ConfirmDialog } from '@/components/request-billing';
+import { renewalLink } from '@/lib/renewal-link';
+import { useCompanyRole } from '@/lib/company-role';
+import { RoleNotice, WhatsappVerifyBanner } from '@/components/customer-notices';
 
 export function Documents() {
   const qc = useQueryClient();
@@ -42,19 +45,21 @@ export function Documents() {
   }
   const initial = editing && editing !== 'new'
     ? { kind: editing.kind, label: editing.label, expiresOn: editing.expiresOn.slice(0, 10), note: editing.note ?? '' } : emptyDraft;
+  const { canCreate } = useCompanyRole();
   return <PortalLayout>
-    <PageHeading eyebrow="لا تفوّت موعد تجديد" title="تنبيهات وثائقي" subtitle="نذكّرك قبل انتهاء كل وثيقة بـ30 يومًا ثم 7 أيام ثم يوم واحد. وثائق الموظفين والتراخيص تُضاف من ملف المنشأة، وهنا أي وثيقة أخرى." action={!editing && <button type="button" className="btn btn-primary" onClick={() => { setError(null); setEditing('new'); }}><Plus size={18}/>إضافة وثيقة</button>}/>
+    <PageHeading eyebrow="لا تفوّت موعد تجديد" title="تنبيهات وثائقي" subtitle="نذكّرك قبل انتهاء كل وثيقة بـ30 يومًا ثم 7 أيام ثم يوم واحد. وثائق الموظفين والتراخيص تُضاف من ملف المنشأة، وهنا أي وثيقة أخرى." action={canCreate && !editing && <button type="button" className="btn btn-primary" onClick={() => { setError(null); setEditing('new'); }}><Plus size={18}/>إضافة وثيقة</button>}/>
     {editing && <div className="surface mb-8 p-5 sm:p-7"><h2 className="display mb-5 text-lg font-semibold">{editing === 'new' ? 'وثيقة جديدة' : 'تعديل الوثيقة'}</h2>
       <ReminderForm key={editing === 'new' ? 'new' : editing.id} initial={initial} busy={create.isPending || update.isPending} error={error} submitLabel="حفظ" onSubmit={save} onCancel={() => setEditing(null)}/></div>}
+    <RoleNotice/>
     {list.isLoading ? <LoadingBlock/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/> : !list.data?.length
-      ? <EmptyBlock title="لا توجد وثائق بعد" text="أضف أول وثيقة ليصلك تنبيه بالبريد قبل انتهائها." action="إضافة وثيقة" onAction={() => setEditing('new')}/>
+      ? <EmptyBlock title="لا توجد وثائق بعد" text="أضف أول وثيقة ليصلك تنبيه بالبريد قبل انتهائها." action={canCreate ? 'إضافة وثيقة' : undefined} onAction={canCreate ? () => setEditing('new') : undefined}/>
       : <Surface padding="none" className="overflow-hidden">{[...list.data].sort((a, b) => a.expiresOn.localeCompare(b.expiresOn)).map(item => <div key={item.id} className="doc-row" data-tone={daysUntil(item.expiresOn) < 0 ? 'danger' : daysUntil(item.expiresOn) <= 30 ? 'warn' : undefined}>
         <span className="doc-icon" aria-hidden="true"><BellRing size={17}/></span>
         <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><strong>{reminderKindNames[item.kind]}</strong><span className="text-quiet">«{item.label}»</span><ExpiryBadge expiresOn={item.expiresOn}/></div>
           <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-subtle"><span>تنتهي في {formatCalendarDate(item.expiresOn)}</span>{item.addedBy === 'office' && item.source === 'manual' && <span>أضافها المكتب</span>}{item.note && <span>{item.note}</span>}</div></div>
         <div className="flex items-center gap-1">
-          {daysUntil(item.expiresOn) <= 60 && <Link href="/requests/new" className="btn btn-outline btn-sm">اطلب التجديد</Link>}
-          {item.source === 'manual' ? <>
+          {canCreate && daysUntil(item.expiresOn) <= 60 && <Link href={renewalLink(item)} className="btn btn-outline btn-sm">اطلب التجديد</Link>}
+          {!canCreate ? null : item.source === 'manual' ? <>
             <button type="button" className="rf-btn" onClick={() => { setError(null); setEditing(item); }} aria-label={`تعديل ${item.label}`}><Pencil size={16}/></button>
             <button type="button" className="rf-btn" onClick={() => setDropping(item)} aria-label={`حذف ${item.label}`}><Trash2 size={16}/></button>
           </> : <Link href="/company" className="btn btn-outline btn-sm">من ملف المنشأة</Link>}
@@ -88,6 +93,13 @@ export function NotificationSettings() {
     (timer as unknown as { unref?: () => void }).unref?.();
     return () => globalThis.clearInterval(timer);
   }, []);
+  // Arriving from the dashboard banner (/settings#whatsapp-verification-title) lands on the verification box once it exists.
+  const loaded = !!settings.data;
+  useEffect(() => {
+    if (!loaded || typeof window === 'undefined' || typeof document === 'undefined' || !window.location?.hash) return;
+    const target = document.getElementById?.(window.location.hash.slice(1));
+    if (target) requestAnimationFrame(() => { target.scrollIntoView?.({ block: 'start', behavior: 'smooth' }); });
+  }, [loaded]);
   const savedPhone = settings.data?.whatsappPhone ?? null;
   const savedPhoneMatchesInput = !!savedPhone && normalizePhone(phone) === savedPhone;
   const localChallenge = challenge?.phone === savedPhone && savedPhoneMatchesInput ? challenge : null;
@@ -134,6 +146,7 @@ export function NotificationSettings() {
     <div className="settings">
       <div className="settings-main">
         {settings.isLoading ? <LoadingBlock/> : settings.isError ? <ErrorBlock retry={() => settings.refetch()}/> : settings.data && <form onSubmit={submit} className="settings-form">
+          <WhatsappVerifyBanner settings={settings.data} inline/>
           <Surface as="section" aria-labelledby="wa-title" className="settings-card">
             <SectionHeader id="wa-title" as="h2" title={<span className="inline-flex items-center gap-2"><MessageCircle size={18} className="text-ok" aria-hidden="true"/>رسائل واتساب</span>} description="حالة طلباتك والفواتير وتنبيهات انتهاء الوثائق، على رقمك."/>
             {!settings.data.whatsappAvailable && <p className="settings-note">رسائل واتساب غير مفعّلة من المكتب حاليًا. يمكنك حفظ رقمك الآن، وتصلك الرسائل عند تفعيلها.</p>}
@@ -141,13 +154,13 @@ export function NotificationSettings() {
             <label className="form-field mt-4">رقم الجوال لواتساب<input className="form-control text-right" dir="ltr" type="tel" inputMode="tel" placeholder="05XXXXXXXX" value={phone} onChange={e => { setDirty(true); setSaved(false); setPhoneError(null); setChallengeErrorStatus(null); setPhone(e.target.value); }} maxLength={24} aria-invalid={!!phoneError} aria-describedby={phoneError ? 'wa-phone-error' : 'wa-phone-hint'}/>{phoneError ? <span id="wa-phone-error" className="field-error" role="alert">{phoneError}</span> : <span id="wa-phone-hint" className="field-hint">تحمل الرسائل رقم الطلب وحالته فقط. لا يطلب المكتب كلمات المرور أو رموز التحقق.</span>}</label>
           </Surface>
           <Surface as="section" aria-labelledby="whatsapp-verification-title" className="settings-card">
-            <SectionHeader id="whatsapp-verification-title" as="h2" title={<span className="inline-flex items-center gap-2"><ShieldCheck size={18} className="text-teal-bright" aria-hidden="true"/>التحقق من ملكية رقم واتساب</span>} action={<Chip tone={statusTone} dot>{statusText}</Chip>}/>
+            <SectionHeader id="whatsapp-verification-title" as="h2" className="scroll-mt-24" title={<span className="inline-flex items-center gap-2"><ShieldCheck size={18} className="text-teal-bright" aria-hidden="true"/>التحقق من ملكية رقم واتساب</span>} action={<Chip tone={statusTone} dot>{statusText}</Chip>}/>
             <div className="settings-verify">
               <p className="m-0">حالة الرقم: <strong>{statusText}</strong></p>
               {status === 'not_set' ? <p className="m-0">لن تُرسل رسائل إلى رقم واتساب حتى تحفظ رقمًا وتتحقق من ملكيته.</p>
                 : status !== 'verified' && <p className="m-0 text-danger">الرقم غير موثّق؛ لا يمكنه استقبال رسائل حساسة أو ربط محادثة واتساب بحسابك حتى يثبت صاحبه ملكيته.</p>}
               {!settings.data.whatsappVerificationAvailable && <p className="m-0">إعداد التحقق غير مفعّل لدى المكتب حاليًا؛ لا يمكن طلب تحدٍ الآن.</p>}
-              {status === 'pending' && !expired && settings.data.whatsappVerificationExpiresAt && <p className="m-0">تنتهي مهلة التحقق في {new Date(settings.data.whatsappVerificationExpiresAt).toLocaleString('ar-SA')}.</p>}
+              {status === 'pending' && !expired && settings.data.whatsappVerificationExpiresAt && <p className="m-0">تنتهي مهلة التحقق في {formatDateTime(settings.data.whatsappVerificationExpiresAt)}.</p>}
               {status === 'pending' && expired && <p className="m-0 text-danger">انتهت صلاحية تحدي التحقق. اطلب تحديًا جديدًا لإكمال التحقق.</p>}
               {savedPhone && !savedPhoneMatchesInput && <p className="m-0">احفظ رقم الجوال الحالي أولًا قبل طلب التحقق.</p>}
               <div><button type="button" className="btn btn-outline btn-sm" disabled={!savedPhone || !savedPhoneMatchesInput || !settings.data.whatsappVerificationAvailable || verification.isPending} onClick={requestChallenge}>
@@ -159,7 +172,7 @@ export function NotificationSettings() {
                   <p className="m-0">{localChallenge.instructions}</p>
                   <p className="m-0">{challengeExpired ? 'انتهت صلاحية هذه المسودة؛ اطلب تحديًا جديدًا.' : 'المسودة الدقيقة لإرسالها من الرقم الذي تريد توثيقه:'}</p>
                   <pre dir="auto" className="settings-draft">{localChallenge.challengeText}</pre>
-                  {localChallenge.expiresAt && <p className="m-0">تنتهي في {new Date(localChallenge.expiresAt).toLocaleString('ar-SA')}.</p>}
+                  {localChallenge.expiresAt && <p className="m-0">تنتهي في {formatDateTime(localChallenge.expiresAt)}.</p>}
                   {challengeExpired ? <p role="alert" className="m-0 text-danger">انتهت صلاحية التحدي.</p> : officeNumber ? <a className="btn btn-primary btn-sm" href={`https://wa.me/${officeNumber}?text=${encodeURIComponent(localChallenge.challengeText)}`} target="_blank" rel="noopener noreferrer">افتح واتساب لمراجعة المسودة وإرسالها</a> : <p role="alert" className="m-0 text-danger">تعذّر إنشاء رابط آمن من رقم واتساب المكتب الوارد من الخدمة.</p>}
                   <p className="m-0 text-xs text-quiet">سيُفتح نص جاهز للمراجعة في واتساب؛ لن تُرسل الرسالة تلقائيًا. راجعها ثم أرسلها بنفسك.</p>
                 </>}

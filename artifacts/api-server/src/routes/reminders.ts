@@ -17,6 +17,7 @@ import { riyadhToday } from "../lib/document-reminders";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { officeCustomer } from "../lib/office-search";
 import { requireOfficeStaff } from "../lib/office-access";
+import { customerId } from "../lib/company-access";
 import { requireApprovedCustomer } from "./portal";
 
 const MAX_REMINDERS_PER_CUSTOMER = 50;
@@ -61,7 +62,7 @@ export function createRemindersRouter(readDocument: DocumentReader = readDocumen
 
   router.get("/reminders", requireApprovedCustomer, async (req, res): Promise<void> => {
     const rows = await db.select().from(hbsDocumentReminders)
-      .where(eq(hbsDocumentReminders.userId, getAuth(req).userId!))
+      .where(eq(hbsDocumentReminders.userId, customerId(req)))
       .orderBy(asc(hbsDocumentReminders.expiresOn), asc(hbsDocumentReminders.id));
     send(res, 200, ListRemindersResponse, rows.map(reminder));
   });
@@ -69,7 +70,8 @@ export function createRemindersRouter(readDocument: DocumentReader = readDocumen
   router.post("/reminders", requireApprovedCustomer, async (req, res): Promise<void> => {
     const input = readInput(req, CreateReminderBody);
     if (!input) { res.status(400).json({ error: "Complete the document type, name and expiry date." }); return; }
-    const userId = getAuth(req).userId!;
+    // The company's reminder, whoever in the company adds it (addedBy stays "customer").
+    const userId = customerId(req);
     const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(hbsDocumentReminders)
       .where(eq(hbsDocumentReminders.userId, userId));
     if (count >= MAX_REMINDERS_PER_CUSTOMER) {
@@ -84,7 +86,7 @@ export function createRemindersRouter(readDocument: DocumentReader = readDocumen
     const params = UpdateReminderParams.safeParse(req.params);
     const input = readInput(req, UpdateReminderBody);
     if (!params.success || !input) { res.status(400).json({ error: "Complete the document type, name and expiry date." }); return; }
-    const userId = getAuth(req).userId!;
+    const userId = customerId(req);
     const [row] = await db.update(hbsDocumentReminders).set({
       ...input,
       // A new expiry date starts the reminders again.
@@ -99,7 +101,7 @@ export function createRemindersRouter(readDocument: DocumentReader = readDocumen
     const params = DeleteReminderParams.safeParse(req.params);
     if (!params.success) { res.status(404).json({ error: "Reminder not found" }); return; }
     const [row] = await db.delete(hbsDocumentReminders).where(and(
-      eq(hbsDocumentReminders.id, params.data.id), eq(hbsDocumentReminders.userId, getAuth(req).userId!), manualOnly,
+      eq(hbsDocumentReminders.id, params.data.id), eq(hbsDocumentReminders.userId, customerId(req)), manualOnly,
     )).returning({ id: hbsDocumentReminders.id });
     if (!row) { res.status(404).json({ error: "Reminder not found" }); return; }
     res.status(204).end();

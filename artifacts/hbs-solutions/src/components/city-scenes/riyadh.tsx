@@ -134,7 +134,9 @@ export const RiyadhScene = memo(function RiyadhScene() {
     const kcL = ['', '', '']; lights(r, kcL, 682, 808, 300, 690, 5.5, 7, 2.6, 2.6, .12); lights(r, kcL, 709, 723, 130, 300, 5.5, 7, 2.6, 2.6, .12); lights(r, kcL, 767, 781, 130, 300, 5.5, 7, 2.6, 2.6, .12);
     const fsL = ['', '', '']; lights(r, fsL, 292, 370, 360, 690, 5, 7, 2.4, 2.6, .14);
     // --- foreground
-    const cars = Array.from({ length: 40 }, (_, i) => {
+    // 16 light trails (8 per direction): each one is a separate transform
+    // animation that Chromium repaints every frame, so the count is kept low.
+    const cars = Array.from({ length: 16 }, (_, i) => {
       const right = i % 2 === 1;
       return { right, y: right ? 627 + (i % 4 > 1 ? 4 : 0) : 640 + (i % 4 > 1 ? 5 : 0), w: n(50 + r() * 90), h: right ? 2 : 2.6, dur: n(7.5 + r() * 5), del: n(r() * 12) };
     });

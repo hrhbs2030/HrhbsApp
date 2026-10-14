@@ -11,14 +11,39 @@ import {
 // The in-app notification centre: one list query shared by the bell and the
 // notifications page, kept fresh by a server-sent event stream (one
 // connection per tab, however many components listen) with 60 s polling
-// when the stream cannot be opened.
+// while the stream is down.
 
 // ---- stream: a module-level singleton, reference counted ---------------------
 
-type StreamState = 'closed' | 'open' | 'failed';
+// `reconnecting`: the stream dropped and a retry is scheduled (polling covers
+// the gap); `failed`: nothing will be retried (no EventSource, office access
+// revoked) until an auth change or a reset.
+type StreamState = 'closed' | 'open' | 'reconnecting' | 'failed';
 let source: EventSource | null = null;
 let refs = 0;
 let state: StreamState = 'closed';
+let qcForRetry: QueryClient | null = null;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let attempts = 0;
+export const RECONNECT_MIN_MS = 1_000;
+export const RECONNECT_MAX_MS = 30_000;
+// Exponential backoff from 1 s to 30 s with ±25 % jitter, so many tabs do not
+// hit a restarted server in the same second.
+export function reconnectDelay(attempt: number, random: number = Math.random()): number {
+  const base = Math.min(RECONNECT_MAX_MS, RECONNECT_MIN_MS * 2 ** Math.max(0, attempt));
+  return Math.round(base * (0.75 + random * 0.5));
+}
+function clearRetry() { if (retryTimer !== null) { clearTimeout(retryTimer); retryTimer = null; } }
+function scheduleRetry() {
+  clearRetry();
+  if (!qcForRetry || refs === 0) return;
+  const timer = setTimeout(() => { retryTimer = null; if (refs > 0 && !source && state === 'reconnecting' && qcForRetry) open(qcForRetry); }, reconnectDelay(attempts));
+  (timer as unknown as { unref?: () => void }).unref?.();
+  retryTimer = timer;
+  attempts += 1;
+}
+// Back online or the tab shown again: retry at once instead of waiting out the backoff.
+function retryNow() { if (state === 'reconnecting' && !source && refs > 0 && qcForRetry) { clearRetry(); open(qcForRetry); } }
 const stateListeners = new Set<() => void>();
 function setState(next: StreamState) { state = next; for (const fn of stateListeners) fn(); }
 const subscribeState = (fn: () => void) => { stateListeners.add(fn); return () => { stateListeners.delete(fn); }; };
@@ -76,10 +101,11 @@ export function applyThreadEvent(qc: QueryClient, event: ThreadEvent) {
 }
 
 function open(qc: QueryClient) {
+  qcForRetry = qc;
   if (source || typeof EventSource === 'undefined') { if (!source) setState('failed'); return; }
   const stream = new EventSource(streamUrl(), { withCredentials: true });
   source = stream;
-  stream.addEventListener('open', () => setState('open'));
+  stream.addEventListener('open', () => { if (source === stream) { attempts = 0; setState('open'); } });
   stream.addEventListener('unread', (event) => {
     if (source !== stream) return;
     try { const { count } = JSON.parse((event as MessageEvent).data) as { count: number }; if (typeof count === 'number') applyUnread(qc, count); } catch { /* malformed event: the next poll corrects it */ }
@@ -92,14 +118,18 @@ function open(qc: QueryClient) {
     if (source !== stream) return; // a closed stream of a previous identity
     try { const item = JSON.parse((event as MessageEvent).data) as Notification; if (typeof item?.id === 'number') { applyIncoming(qc, item); pushToast(item); } } catch { /* ignored */ }
   });
-  // Any error (sign-out, proxy timeout, server restart) closes the stream for
-  // good in this tab; the list falls back to polling. A page reload reopens it.
-  stream.addEventListener('error', () => { if (source === stream) { stream.close(); source = null; setState('failed'); } });
+  // Any error (network switch, proxy idle timeout, server restart) drops the
+  // stream; the list polls meanwhile and a fresh connection is tried after a
+  // growing delay. The browser's own retry is not used because a 401/403 after
+  // sign-out would make it hammer the server forever.
+  stream.addEventListener('error', () => { if (source === stream) { stream.close(); source = null; setState('reconnecting'); scheduleRetry(); } });
 }
 function close() {
+  clearRetry();
+  attempts = 0;
   source?.close();
   source = null;
-  if (state === 'open') setState('closed');
+  if (state === 'open' || state === 'reconnecting') setState('closed');
 }
 
 // Keeps the stream open while at least one component is mounted (the bell in
@@ -114,15 +144,24 @@ export function useNotificationStream(): { live: boolean } {
     // Office access revoked: close for good, nothing is reopened.
     const onAuthChanged = () => { close(); setState('closed'); for (const id of getToastIds()) dismissToast(id); if (refs > 0) open(qc); };
     const onOfficeDenied = () => { close(); setState('failed'); for (const id of getToastIds()) dismissToast(id); };
+    const doc = typeof document === 'undefined' ? null : document;
+    const onVisible = () => { if (doc?.visibilityState !== 'hidden') retryNow(); };
     window.addEventListener('hbs:auth-changed', onAuthChanged);
     window.addEventListener('hbs:office-access-denied', onOfficeDenied);
-    return () => { window.removeEventListener('hbs:auth-changed', onAuthChanged); window.removeEventListener('hbs:office-access-denied', onOfficeDenied); refs -= 1; if (refs === 0) close(); };
+    window.addEventListener('online', retryNow);
+    doc?.addEventListener?.('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('hbs:auth-changed', onAuthChanged); window.removeEventListener('hbs:office-access-denied', onOfficeDenied);
+      window.removeEventListener('online', retryNow); doc?.removeEventListener?.('visibilitychange', onVisible);
+      refs -= 1; if (refs === 0) close();
+    };
   }, [qc]);
   const current = useSyncExternalStore(subscribeState, getState, getState);
   return { live: current === 'open' };
 }
-// Exposed for tests: forget a failed or closed stream so the next mount retries.
+// Exposed for tests and the auth reset: forget a failed, dropped or closed stream so the next mount retries.
 export function resetNotificationStream() { close(); setState('closed'); }
+export const getNotificationStreamState = () => state;
 
 // ---- toasts: new notifications surfaced while the user works ----------------
 

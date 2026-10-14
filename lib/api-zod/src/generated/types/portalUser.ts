@@ -5,6 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ActingFor } from './actingFor';
+import type { PortalUserCompanyRole } from './portalUserCompanyRole';
 import type { PortalUserOfficeRole } from './portalUserOfficeRole';
 import type { PortalUserRegistrationStatus } from './portalUserRegistrationStatus';
 import type { PortalUserRole } from './portalUserRole';
@@ -15,4 +17,11 @@ export interface PortalUser {
   officeRole: PortalUserOfficeRole;
   /** @nullable */
   registrationStatus: PortalUserRegistrationStatus;
+  /**
+     * The signed-in person's role in the company they work in; null when they have none
+     * @nullable
+     */
+  companyRole: PortalUserCompanyRole;
+  /** Set when the person is a member acting for another customer's company (null for owners and plain customers) */
+  actingFor: ActingFor | null;
 }

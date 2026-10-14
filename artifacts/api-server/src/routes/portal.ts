@@ -20,6 +20,7 @@ import {
   hbsRequestEmployees,
   hbsRequestMessages,
   hbsSubscriptions,
+  hbsCompanies,
   type HbsInquiry,
   type HbsRegistrationRequest,
   type HbsServiceRequest,
@@ -31,6 +32,9 @@ import {
   AnswerOfficeInquiryResponse,
   CreateInquiryBody,
   CreateInquiryResponse,
+  CreateOfficeServiceRequestBody,
+  CreateOfficeServiceRequestParams,
+  CreateOfficeServiceRequestResponse,
   CreateServiceRequestBody,
   CreateServiceRequestResponse,
   RequestServiceAttachmentUploadBody,
@@ -61,6 +65,7 @@ import {
   RateServiceRequestBody,
   RateServiceRequestParams,
   RateServiceRequestResponse,
+  RequestPortalWhatsappVerificationBody,
   SavePortalSettingsBody,
   ListInquiriesResponse,
   ListOfficeInquiriesResponse,
@@ -106,7 +111,10 @@ import {
 import { statusHistory } from "../lib/request-history";
 import { notifyCustomer, notifyOffice } from "../lib/customer-contact";
 import { subjectLabels, subjectOf } from "../lib/company";
-import { hasCustomerApproval, hasLegacyCustomerData, resolveCompanyAccess, resolveCompanyAccessFor } from "../lib/company-access";
+import {
+  customerContextOf, customerId, hasCustomerApproval, hasLegacyCustomerData, memberMayWrite, resolveCustomerContext,
+} from "../lib/company-access";
+import { createdByOf, type CreatedBy } from "../lib/people";
 import { applyAssignmentRule, resumeAfterCustomerReply } from "../lib/automations";
 import { checklistForService, checklistOf, linkChecklist, resumeIfChecklistComplete } from "../lib/checklist";
 import { requestReference, vatFor } from "../lib/money";
@@ -175,6 +183,7 @@ type RequestDetails = {
   subject: ReturnType<typeof subjectOf>;
   lastMessage: { by: "customer" | "office"; at: Date } | null;
   employees: RequestEmployeeItem[];
+  createdBy: CreatedBy | null;
 };
 
 // The employees a bulk request covers, by request, each with the office's
@@ -200,7 +209,7 @@ async function requestEmployeesFor(requestIds: number[]) {
 // wrote last in its conversation.
 export async function detailsFor(records: HbsServiceRequest[]): Promise<Map<number, RequestDetails>> {
   const ids = records.map(r => r.id);
-  const [attached, employees, labels, last] = await Promise.all([
+  const [attached, employees, labels, last, createdBy] = await Promise.all([
     attachmentsFor(ids),
     requestEmployeesFor(ids),
     subjectLabels(records.flatMap(r => r.employeeId ? [r.employeeId] : []), records.flatMap(r => r.licenseId ? [r.licenseId] : [])),
@@ -208,6 +217,7 @@ export async function detailsFor(records: HbsServiceRequest[]): Promise<Map<numb
       requestId: hbsRequestMessages.requestId, by: hbsRequestMessages.authorRole, at: hbsRequestMessages.createdAt,
     }).from(hbsRequestMessages).where(inArray(hbsRequestMessages.requestId, ids))
       .orderBy(hbsRequestMessages.requestId, desc(hbsRequestMessages.createdAt), desc(hbsRequestMessages.id)) : [],
+    createdByOf(records),
   ]);
   const lastBy = new Map(last.map(m => [m.requestId, { by: m.by as "customer" | "office", at: m.at }]));
   return new Map(records.map(r => [r.id, {
@@ -215,6 +225,7 @@ export async function detailsFor(records: HbsServiceRequest[]): Promise<Map<numb
     checklist: checklistOf(r.documentChecklist, (attached.get(r.id) ?? []).map(({ attachment }) => attachment)),
     subject: subjectOf(r, labels), lastMessage: lastBy.get(r.id) ?? null,
     employees: employees.get(r.id) ?? [],
+    createdBy: createdBy.get(r.id) ?? null,
   }]));
 }
 
@@ -309,16 +320,38 @@ const requirePortalAuth: RequestHandler = (req, res, next) => {
 // re-exported for the routes that import it from here.
 export { hasCustomerApproval };
 
+// Routes about the signed-in person rather than the customer's data (their
+// settings, their verification, their own read markers): any member may
+// write to them.
+const PERSONAL_WRITE_PATHS = [
+  /^\/portal\/settings$/, /^\/portal\/settings\/whatsapp-verification$/, /^\/messages\/threads\/[^/]+\/[^/]+\/read$/,
+];
+
+// An approved customer, or a company member acting for the company: the
+// handler reads the customer through customerId(req) (lib/company-access).
+// A viewer may only read; a finance member may read and (through the
+// billing routes) pay, but not open requests, inquiries or messages.
 export const requireApprovedCustomer: RequestHandler = async (req, res, next) => {
   const userId = getAuth(req).userId;
   if (!userId) {
     res.status(401).json({ error: "Sign in to continue" });
     return;
   }
-  if (!(await hasCustomerApproval(userId))) {
+  const context = await resolveCustomerContext(userId);
+  if (!context) {
     res.status(403).json({ error: "Customer registration approval required" });
     return;
   }
+  if (context.actingFor && !["GET", "HEAD", "OPTIONS"].includes(req.method) && !PERSONAL_WRITE_PATHS.some(p => p.test(req.path))) {
+    const allowed = memberMayWrite(context.companyRole);
+    if (!allowed.ok) {
+      res.status(403).json({ error: allowed.error });
+      return;
+    }
+  }
+  res.locals.customerContext = context;
+  res.locals.customerId = context.customerId;
+  res.locals.companyRole = context.companyRole;
   next();
 };
 
@@ -356,6 +389,7 @@ export function publicRequest(record: HbsServiceRequest, details?: RequestDetail
     quote: quoteOf(record),
     checklist: details?.checklist ?? [],
     employees: details?.employees ?? [],
+    ...(details?.createdBy ? { createdBy: details.createdBy } : {}),
   };
 }
 
@@ -399,7 +433,7 @@ function linkedRequestContext(record: HbsServiceRequest) {
   };
 }
 
-function inquiry(record: HbsInquiry, linkedRequest?: HbsServiceRequest | null) {
+function inquiry(record: HbsInquiry, linkedRequest?: HbsServiceRequest | null, createdBy?: CreatedBy | null) {
   return {
     id: record.id,
     subject: record.subject,
@@ -409,6 +443,7 @@ function inquiry(record: HbsInquiry, linkedRequest?: HbsServiceRequest | null) {
     answer: record.answer,
     createdAt: record.createdAt,
     answeredAt: record.answeredAt,
+    ...(createdBy ? { createdBy } : {}),
   };
 }
 
@@ -416,9 +451,10 @@ function officeInquiry(
   record: HbsInquiry,
   linkedRequest?: HbsServiceRequest | null,
   customer?: OfficeCustomer,
+  createdBy?: CreatedBy | null,
 ) {
   return {
-    ...inquiry(record, linkedRequest),
+    ...inquiry(record, linkedRequest, createdBy),
     linkedServiceRequest: linkedRequest ? linkedRequestContext(linkedRequest) : null,
     ...(customer !== undefined ? { customer } : {}),
   };
@@ -466,11 +502,18 @@ router.get("/portal/me", requirePortalAuth, async (req, res): Promise<void> => {
   // membership (or a pending invitation to one of their verified emails,
   // accepted here as /company/membership would) opens the portal like an
   // approved registration, so the shell does not send them to register.
-  if (status !== "approved" && await resolveCompanyAccessFor(userId)) status = "approved";
+  // Their role and the company they act for let the shell gate its buttons.
+  const context = await resolveCustomerContext(userId);
+  if (status !== "approved" && context) status = "approved";
+  const [company] = context?.actingFor
+    ? await db.select({ name: hbsCompanies.name }).from(hbsCompanies).where(eq(hbsCompanies.userId, context.customerId)).limit(1)
+    : [];
   res.json(GetPortalMeResponse.parse({
     role: officeRole ? "staff" : "customer",
     officeRole,
     registrationStatus: status,
+    companyRole: context?.companyRole ?? null,
+    actingFor: context?.actingFor ? { companyUserId: context.customerId, companyName: company?.name ?? null } : null,
   }));
 });
 
@@ -540,7 +583,7 @@ router.post("/portal/registration", requirePortalAuth, async (req, res): Promise
 });
 
 router.get("/portal/summary", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
-  const userId = getAuth(req).userId!;
+  const userId = customerId(req);
   const [[requests], [inquiries], recentRequests, recentInquiries] = await Promise.all([
     db.select({
       total: sql<number>`count(*)::int`,
@@ -562,7 +605,7 @@ router.get("/portal/summary", requirePortalAuth, requireApprovedCustomer, async 
       .where(eq(hbsInquiries.userId, userId))
       .orderBy(desc(hbsInquiries.createdAt), desc(hbsInquiries.id)).limit(5),
   ]);
-  const [attached, [unpaid], expiring, [counts]] = await Promise.all([
+  const [attached, [unpaid], expiring, [counts], inquiryCreators] = await Promise.all([
     detailsFor(recentRequests),
     db.select({ count: sql<number>`count(*)::int`, total: sql<number>`coalesce(sum(${hbsInvoices.totalHalalas}), 0)::bigint`.mapWith(Number) })
       // Request invoices and subscription invoices (request_id null) alike.
@@ -577,6 +620,7 @@ router.get("/portal/summary", requirePortalAuth, requireApprovedCustomer, async 
       licenses: sql<number>`(select count(*)::int from ${hbsCompanyLicenses} where user_id = ${userId})`,
       company: sql<boolean>`exists (select 1 from hbs_companies where user_id = ${userId})`,
     }).from(sql`(select 1) as one`),
+    createdByOf(recentInquiries.map(({ inquiry: record }) => record)),
   ]);
   const response = {
     totalRequests: requests.total,
@@ -584,7 +628,7 @@ router.get("/portal/summary", requirePortalAuth, requireApprovedCustomer, async 
     completedRequests: requests.completed,
     openInquiries: inquiries.open,
     recentRequests: recentRequests.map(r => publicRequest(r, attached.get(r.id))),
-    recentInquiries: recentInquiries.map(({ inquiry: record, request }) => inquiry(record, request)),
+    recentInquiries: recentInquiries.map(({ inquiry: record, request }) => inquiry(record, request, inquiryCreators.get(record.id))),
     unpaidInvoices: unpaid.count,
     unpaidTotal: unpaid.total,
     expiringSoon: expiring.map(reminderInfo),
@@ -609,7 +653,7 @@ export function reminderInfo(row: typeof hbsDocumentReminders.$inferSelect) {
 
 router.get("/service-requests", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
   const records = await db.select().from(hbsServiceRequests)
-    .where(eq(hbsServiceRequests.userId, getAuth(req).userId!))
+    .where(eq(hbsServiceRequests.userId, customerId(req)))
     .orderBy(desc(hbsServiceRequests.createdAt), desc(hbsServiceRequests.id));
   const attached = await detailsFor(records);
   res.json(ListServiceRequestsResponse.parse(records.map(r => publicRequest(r, attached.get(r.id)))));
@@ -622,7 +666,9 @@ router.post("/service-requests/attachments/upload-url", requirePortalAuth, requi
     res.status(400).json({ error: "Invalid attachment. Use PDF, JPEG or PNG up to 10 MB." });
     return;
   }
-  const userId = getAuth(req).userId!;
+  // Reserved under the customer the file belongs to (a member's upload is the
+  // company's), so the submit step and the later checks find it there.
+  const userId = customerId(req);
   const [{ count }] = await db.select({ count: sql<number>`count(*)::int` })
     .from(hbsRequestAttachments)
     .where(and(eq(hbsRequestAttachments.userId, userId), sql`${hbsRequestAttachments.requestId} is null`,
@@ -654,7 +700,8 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
     res.status(400).json({ error: "Enter a valid mobile number (05XXXXXXXX)." });
     return;
   }
-  const userId = getAuth(req).userId!;
+  const context = customerContextOf(req);
+  const userId = context.customerId;
   const requestId = parsed.data.clientRequestId;
   const existingRequest = async () => {
     if (!requestId) return null;
@@ -694,9 +741,8 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
     return;
   }
   if (employeeId || licenseId) {
-    // Employees come from the company the caller works in: their own, or the
-    // one they are a member of. The request itself stays theirs.
-    const companyUserId = (await resolveCompanyAccess(req))?.companyUserId ?? userId;
+    // Employees come from the company file of the customer the request is for.
+    const companyUserId = userId;
     const wanted = employeeIds.length ? employeeIds : employeeId ? [employeeId] : [];
     const owned = wanted.length
       ? await db.select({ id: hbsCompanyEmployees.id }).from(hbsCompanyEmployees)
@@ -729,6 +775,8 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
         userId, category: parsed.data.category, service: parsed.data.service.trim(),
         description: parsed.data.description.trim(), contactPhone,
         clientRequestId: requestId ?? null, employeeId, licenseId,
+        // A member opening it for the company is named on the request.
+        ...(context.actingFor ? { createdBy: context.userId, source: "member" } : {}),
         // The office's published list of required documents becomes the
         // request's checklist, for the customer to tick off with uploads.
         documentChecklist: await checklistForService(tx, parsed.data.serviceSlug, parsed.data.service.trim()),
@@ -774,6 +822,84 @@ router.post("/service-requests", requirePortalAuth, requireApprovedCustomer, asy
   }
 });
 
+// ---- office intake -------------------------------------------------------------
+
+// Walk-in, phone and e-mail customers: staff open the request in the
+// customer's name. It is theirs from then on (listed, messaged and invoiced
+// like one they sent), marked as opened by the office, assigned by the same
+// rule, audited, and announced to the customer.
+router.post("/office/customers/:userId/service-requests", requireOfficeStaff, async (req, res): Promise<void> => {
+  const params = CreateOfficeServiceRequestParams.safeParse(req.params);
+  if (!params.success || !(await hasCustomerApproval(params.data.userId))) {
+    res.status(404).json({ error: "Customer not found" });
+    return;
+  }
+  const customerUserId = params.data.userId;
+  const parsed = CreateOfficeServiceRequestBody.safeParse(req.body);
+  if (!parsed.success || !parsed.data.service.trim() || !parsed.data.description.trim()) {
+    res.status(400).json({ error: "Complete the service, category and description." });
+    return;
+  }
+  // The number the office will call back on: given, or the one the customer registered with.
+  const typedPhone = parsed.data.contactPhone?.trim();
+  let contactPhone = typedPhone ? normalizePhone(typedPhone) : null;
+  if (typedPhone && !(contactPhone && saudiMobile(contactPhone))) {
+    res.status(400).json({ error: "Enter a valid Saudi mobile number (05XXXXXXXX)." });
+    return;
+  }
+  if (!contactPhone) {
+    const [registration] = await db.select({ contactPhone: hbsRegistrationRequests.contactPhone })
+      .from(hbsRegistrationRequests).where(eq(hbsRegistrationRequests.userId, customerUserId)).limit(1);
+    contactPhone = registration?.contactPhone ? normalizePhone(registration.contactPhone) : null;
+    if (!contactPhone) {
+      res.status(400).json({ error: "This customer has no registered mobile number; enter one." });
+      return;
+    }
+  }
+  const subject = parsed.data.subject ?? null;
+  const employeeId = subject?.type === "employee" ? subject.id : null;
+  const licenseId = subject?.type === "license" ? subject.id : null;
+  if (subject) {
+    const owned = employeeId
+      ? await db.select({ id: hbsCompanyEmployees.id }).from(hbsCompanyEmployees)
+        .where(and(eq(hbsCompanyEmployees.id, employeeId), eq(hbsCompanyEmployees.userId, customerUserId))).limit(1)
+      : await db.select({ id: hbsCompanyLicenses.id }).from(hbsCompanyLicenses)
+        .where(and(eq(hbsCompanyLicenses.id, licenseId!), eq(hbsCompanyLicenses.userId, customerUserId))).limit(1);
+    if (!owned.length) {
+      // Same answer for missing and other-customer IDs.
+      res.status(400).json({ error: "Invalid employee or license" });
+      return;
+    }
+  }
+  const actorId = getAuth(req).userId!;
+  const phone = contactPhone;
+  const record = await db.transaction(async (tx) => {
+    const [created] = await tx.insert(hbsServiceRequests).values({
+      userId: customerUserId, category: parsed.data.category, service: parsed.data.service.trim(),
+      description: parsed.data.description.trim(), contactPhone: phone, employeeId, licenseId,
+      createdBy: actorId, source: "office",
+      documentChecklist: await checklistForService(tx, undefined, parsed.data.service.trim()),
+    }).returning();
+    await recordAudit(tx, {
+      actorId, action: "service_request.create_for_customer", targetType: "service_request", targetId: created.id,
+      details: { customerUserId, category: created.category, service: created.service, ...(subject ? { subject } : {}) },
+    });
+    return applyAssignmentRule(tx, created);
+  });
+  const [attached, customer] = await Promise.all([detailsFor([record]), customerOf(record.userId)]);
+  res.status(201).json(CreateOfficeServiceRequestResponse.parse(officeRequest(record, attached.get(record.id), customer)));
+  const created = { id: record.id, reference: requestReference(record.id, record.createdAt), service: record.service, category: record.category };
+  void notifyCustomer(record.userId, to => statusChangedMail(to, created, record.status, null),
+    { kind: "request.status", targetType: "service_request", targetId: record.id });
+  if (record.assignedTo && record.assignedTo !== actorId) {
+    const assignee = record.assignedTo;
+    const email = await staffEmail(assignee);
+    void notifyOffice(() => assignedMail(email, created,
+      record.dueAt ? new Intl.DateTimeFormat("ar-SA-u-ca-gregory", { dateStyle: "long", timeZone: "Asia/Riyadh" }).format(record.dueAt) : null),
+    { kind: "request.assigned", recipients: [assignee], targetType: "service_request", targetId: record.id });
+  }
+});
+
 router.get("/service-requests/:id", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
   const params = GetServiceRequestParams.safeParse(req.params);
   if (!params.success || params.data.id < 1) {
@@ -783,7 +909,7 @@ router.get("/service-requests/:id", requirePortalAuth, requireApprovedCustomer, 
   const [record] = await db.select().from(hbsServiceRequests)
     .where(and(
       eq(hbsServiceRequests.id, params.data.id),
-      eq(hbsServiceRequests.userId, getAuth(req).userId!),
+      eq(hbsServiceRequests.userId, customerId(req)),
     )).limit(1);
   if (!record) {
     res.status(404).json({ error: "Request not found" });
@@ -802,7 +928,7 @@ async function sendAttachment(req: Request, res: import("express").Response, sta
     .from(hbsRequestAttachments)
     .innerJoin(hbsServiceRequests, eq(hbsRequestAttachments.requestId, hbsServiceRequests.id))
     .where(and(eq(hbsRequestAttachments.id, attachmentId),
-      ...(staff ? [] : [eq(hbsServiceRequests.userId, getAuth(req).userId!)]))).limit(1);
+      ...(staff ? [] : [eq(hbsServiceRequests.userId, customerId(req))]))).limit(1);
   if (!row) { res.status(404).json({ error: "Attachment not found" }); return; }
   try {
     const file = await storage.getObjectEntityFile(row.attachment.objectPath);
@@ -879,7 +1005,7 @@ async function attachToRequest(req: Request, res: import("express").Response, of
     res.status(400).json({ error: "Invalid request" });
     return;
   }
-  const userId = getAuth(req).userId!;
+  const userId = office ? getAuth(req).userId! : customerId(req);
   const ids = body.data.attachmentIds;
   const [request] = await db.select().from(hbsServiceRequests).where(office
     ? eq(hbsServiceRequests.id, params.data.id)
@@ -959,7 +1085,7 @@ router.post("/office/service-requests/:id/attachments", requireOfficeStaff,
 async function removeAttachment(req: Request, res: import("express").Response, office: boolean) {
   const params = (office ? DeleteOfficeServiceRequestFileParams : DeleteServiceRequestFileParams).safeParse(req.params);
   if (!params.success || params.data.attachmentId < 1) { res.status(404).json({ error: "Attachment not found" }); return; }
-  const userId = getAuth(req).userId!;
+  const userId = office ? getAuth(req).userId! : customerId(req);
   const [row] = await db.select({ attachment: hbsRequestAttachments, request: hbsServiceRequests })
     .from(hbsRequestAttachments)
     .innerJoin(hbsServiceRequests, eq(hbsRequestAttachments.requestId, hbsServiceRequests.id))
@@ -1005,7 +1131,7 @@ router.get("/service-requests/:id/history", requirePortalAuth, requireApprovedCu
     .from(hbsServiceRequests)
     .where(and(
       eq(hbsServiceRequests.id, params.data.id),
-      eq(hbsServiceRequests.userId, getAuth(req).userId!),
+      eq(hbsServiceRequests.userId, customerId(req)),
     )).limit(1);
   if (!record) {
     res.status(404).json({ error: "Request not found" });
@@ -1025,7 +1151,7 @@ router.get("/service-requests/:id/history", requirePortalAuth, requireApprovedCu
 });
 
 router.get("/inquiries", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
-  const userId = getAuth(req).userId!;
+  const userId = customerId(req);
   const records = await db.select({ inquiry: hbsInquiries, request: hbsServiceRequests })
     .from(hbsInquiries)
     .leftJoin(hbsServiceRequests, and(
@@ -1034,7 +1160,8 @@ router.get("/inquiries", requirePortalAuth, requireApprovedCustomer, async (req,
     ))
     .where(eq(hbsInquiries.userId, userId))
     .orderBy(desc(hbsInquiries.createdAt), desc(hbsInquiries.id));
-  res.json(ListInquiriesResponse.parse(records.map(({ inquiry: record, request }) => inquiry(record, request))));
+  const creators = await createdByOf(records.map(({ inquiry: record }) => record));
+  res.json(ListInquiriesResponse.parse(records.map(({ inquiry: record, request }) => inquiry(record, request, creators.get(record.id)))));
 });
 
 router.post("/inquiries", requirePortalAuth, requireApprovedCustomer, async (req, res): Promise<void> => {
@@ -1043,11 +1170,12 @@ router.post("/inquiries", requirePortalAuth, requireApprovedCustomer, async (req
     res.status(400).json({ error: "Complete the inquiry" });
     return;
   }
+  const context = customerContextOf(req);
   let linkedRequest: HbsServiceRequest | null = null;
   if (parsed.data.linkedServiceRequestId != null) {
     [linkedRequest] = await db.select().from(hbsServiceRequests).where(and(
       eq(hbsServiceRequests.id, parsed.data.linkedServiceRequestId),
-      eq(hbsServiceRequests.userId, getAuth(req).userId!),
+      eq(hbsServiceRequests.userId, context.customerId),
     )).limit(1);
     if (!linkedRequest) {
       // Deliberately use the same response for missing and other-account IDs.
@@ -1056,12 +1184,13 @@ router.post("/inquiries", requirePortalAuth, requireApprovedCustomer, async (req
     }
   }
   const [record] = await db.insert(hbsInquiries).values({
-    userId: getAuth(req).userId!,
+    userId: context.customerId,
     subject: parsed.data.subject.trim(),
     message: parsed.data.message.trim(),
     linkedServiceRequestId: parsed.data.linkedServiceRequestId ?? null,
+    ...(context.actingFor ? { createdBy: context.userId, source: "member" } : {}),
   }).returning();
-  res.status(201).json(CreateInquiryResponse.parse(inquiry(record, linkedRequest)));
+  res.status(201).json(CreateInquiryResponse.parse(inquiry(record, linkedRequest, (await createdByOf([record])).get(record.id))));
   const linkedReference = linkedRequest ? publicRequest(linkedRequest).reference : null;
   void notifyOffice(() => officeNewInquiryMail(record.subject, linkedReference),
     { kind: "office.inquiry_new", targetType: "inquiry", targetId: record.id, signals: { text: `${record.subject} ${record.message}` } });
@@ -1151,7 +1280,7 @@ router.post("/service-requests/:id/rating", requirePortalAuth, requireApprovedCu
     res.status(400).json({ error: "Choose a rating from 1 to 5." });
     return;
   }
-  const userId = getAuth(req).userId!;
+  const userId = customerId(req);
   const [record] = await db.update(hbsServiceRequests).set({
     rating: body.data.rating,
     ratingComment: body.data.comment?.trim() || null,
@@ -1220,7 +1349,8 @@ router.post("/portal/settings/whatsapp-verification", requirePortalAuth, require
     res.status(503).json({ error: "WhatsApp number verification is unavailable until the office webhook is configured." });
     return;
   }
-  const rawPhone = typeof req.body?.phone === "string" ? req.body.phone.trim() : "";
+  const body = RequestPortalWhatsappVerificationBody.safeParse(req.body);
+  const rawPhone = body.success ? body.data.phone.trim() : "";
   const phone = rawPhone ? normalizePhone(rawPhone) : null;
   if (!phone || !saudiMobile(phone)) {
     res.status(400).json({ error: "Enter a Saudi mobile number (05XXXXXXXX) to verify." });
@@ -1277,7 +1407,9 @@ router.post("/portal/settings/whatsapp-verification", requirePortalAuth, require
 
 // The request, if the caller may see it: the customer's own, or any for staff.
 function conversationRequest(req: Request, office: boolean) {
-  return loadThread({ type: "request", id: Number(req.params.id) }, { userId: getAuth(req).userId!, role: office ? "office" : "customer" });
+  return loadThread({ type: "request", id: Number(req.params.id) }, office
+    ? { userId: getAuth(req).userId!, role: "office" }
+    : { userId: getAuth(req).userId!, role: "customer", customerId: customerId(req) });
 }
 
 async function listMessages(req: Request, res: import("express").Response, office: boolean) {
@@ -1588,9 +1720,12 @@ router.get("/office/inquiries", requireOfficeStaff, async (req, res): Promise<vo
     base().where(filter).orderBy(desc(hbsInquiries.createdAt), desc(hbsInquiries.id))
       .limit(pageSize).offset((page - 1) * pageSize),
   ]);
-  const customers = await customersOf(records.map(({ inquiry: record }) => record.userId));
+  const [customers, creators] = await Promise.all([
+    customersOf(records.map(({ inquiry: record }) => record.userId)),
+    createdByOf(records.map(({ inquiry: record }) => record)),
+  ]);
   const response = {
-    items: records.map(({ inquiry: record, request }) => officeInquiry(record, request, customers.get(record.userId) ?? null)),
+    items: records.map(({ inquiry: record, request }) => officeInquiry(record, request, customers.get(record.userId) ?? null, creators.get(record.id))),
     total, page, pageSize,
   };
   ListOfficeInquiriesResponse.parse(response);
@@ -1630,7 +1765,7 @@ router.patch("/office/inquiries/:id", requireOfficeStaff, async (req, res): Prom
     [linkedRequest] = await db.select().from(hbsServiceRequests)
       .where(eq(hbsServiceRequests.id, record.linkedServiceRequestId)).limit(1);
   }
-  const response = officeInquiry(record, linkedRequest, await customerOf(record.userId));
+  const response = officeInquiry(record, linkedRequest, await customerOf(record.userId), (await createdByOf([record])).get(record.id));
   AnswerOfficeInquiryResponse.parse(response);
   res.json(response);
   if (firstAnswer) void notifyCustomer(record.userId, to => inquiryAnsweredMail(to, record.subject), { kind: "inquiry.answered", targetType: "inquiry", targetId: record.id });

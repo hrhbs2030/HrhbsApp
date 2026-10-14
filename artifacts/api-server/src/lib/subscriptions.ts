@@ -7,6 +7,7 @@ import type { AuditLogEntryAction } from "@workspace/api-zod";
 import { recordAudit } from "./audit";
 import { AUTOMATION_ACTOR } from "./automations";
 import { notifyCustomerNow } from "./customer-contact";
+import { shuttingDown, trackJob } from "./lifecycle";
 import { logger } from "./logger";
 import { invoiceReference, requestReference, riyals, vatFor, VAT_RATE_BASIS_POINTS } from "./money";
 import { moyasarConfigured } from "./moyasar";
@@ -351,13 +352,16 @@ export async function renewSubscriptions(send: typeof notifyCustomerNow = notify
 export function startSubscriptionRenewals() {
   const schedule = (delay: number) => {
     setTimeout(async () => {
+      // A sweep that would start after SIGTERM is skipped; a running one is
+      // tracked so shutdown can wait for it (lib/lifecycle.ts).
+      if (shuttingDown()) return;
       try {
-        const outcome = await renewSubscriptions();
+        const outcome = await trackJob(() => renewSubscriptions());
         if (outcome.issued || outcome.pastDue || outcome.reactivated || outcome.cancelled) logger.info(outcome, "Subscription renewal sweep done");
       } catch (err) {
         logger.error({ err }, "Subscription renewal sweep failed");
       } finally {
-        schedule(SWEEP_INTERVAL_MS);
+        if (!shuttingDown()) schedule(SWEEP_INTERVAL_MS);
       }
     }, delay).unref();
   };

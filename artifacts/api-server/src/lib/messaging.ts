@@ -26,7 +26,10 @@ export type ThreadType = "request" | "inquiry";
 export type ThreadRef = { type: ThreadType; id: number };
 export type AuthorRole = "customer" | "office";
 export type MessageChannel = "portal" | "whatsapp";
-export type Viewer = { userId: string; role: AuthorRole };
+// A customer viewer may act for a company (customerId = the owner whose
+// threads they see); read markers stay their own (userId).
+export type Viewer = { userId: string; role: AuthorRole; customerId?: string };
+const ownerOf = (viewer: Viewer): string | null => (viewer.role === "customer" ? viewer.customerId ?? viewer.userId : null);
 export type MessageRow = { id: number; authorId: string; authorRole: string; body: string; channel: string; createdAt: Date };
 // For inquiries, whether this office message was the first answer (the
 // inquiry's answer column was empty): it is announced as inquiry.answered.
@@ -94,7 +97,7 @@ function threadInfoOf(record: HbsServiceRequest | HbsInquiry, type: ThreadType):
 // Missing and other-account threads look the same (null).
 export async function loadThread(thread: ThreadRef, viewer: Viewer): Promise<ThreadInfo | null> {
   if (!Number.isInteger(thread.id) || thread.id < 1 || thread.id > MAX_ID) return null;
-  const owned = viewer.role === "customer" ? viewer.userId : null;
+  const owned = ownerOf(viewer);
   if (thread.type === "request") {
     const [record] = await db.select().from(hbsServiceRequests).where(and(
       eq(hbsServiceRequests.id, thread.id), owned ? eq(hbsServiceRequests.userId, owned) : undefined)).limit(1);
@@ -172,8 +175,9 @@ const other = (role: AuthorRole): AuthorRole => (role === "customer" ? "office" 
 // An inquiry's opening text counts for staff like any customer message.
 export async function unreadTotal(viewer: Viewer): Promise<number> {
   const from = other(viewer.role);
-  const requests = viewer.role === "customer" ? sql`r.user_id = ${viewer.userId}` : sql`true`;
-  const inquiries = viewer.role === "customer" ? sql`i.user_id = ${viewer.userId}` : sql`true`;
+  const owner = ownerOf(viewer);
+  const requests = owner ? sql`r.user_id = ${owner}` : sql`true`;
+  const inquiries = owner ? sql`i.user_id = ${owner}` : sql`true`;
   const openings = viewer.role === "office"
     ? sql`(select count(*) from hbs_inquiries i
         left join hbs_thread_reads tr on tr.user_id = ${viewer.userId} and tr.thread_type = 'inquiry' and tr.thread_id = i.id
@@ -243,7 +247,8 @@ export async function listThreads(viewer: Viewer, params: ThreadListParams = {})
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 20;
   const from = other(viewer.role);
-  const owned = (column: string): SQL => (viewer.role === "customer" ? sql.raw(`${column} = `).append(sql`${viewer.userId}`) : sql`true`);
+  const owner = ownerOf(viewer);
+  const owned = (column: string): SQL => (owner ? sql.raw(`${column} = `).append(sql`${owner}`) : sql`true`);
   const reads = (type: ThreadType, idColumn: string) =>
     sql`left join hbs_thread_reads tr on tr.user_id = ${viewer.userId} and tr.thread_type = ${type} and tr.thread_id = ${sql.raw(idColumn)}`;
   const requests = sql`select 'request' as type, r.id, r.user_id as customer_user_id,

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './actingFor';
 export * from './approvedInformation';
 export * from './approvedInformationHistory';
 export * from './approvedInformationHistoryAction';
@@ -131,6 +132,8 @@ export * from './officeReportRatings';
 export * from './officeReportRevenue';
 export * from './officeServiceRequest';
 export * from './officeServiceRequestCategory';
+export * from './officeServiceRequestInput';
+export * from './officeServiceRequestInputCategory';
 export * from './officeServiceRequestPage';
 export * from './officeServiceRequestStatus';
 export * from './officeStaffInput';
@@ -152,6 +155,7 @@ export * from './portalSettingsInput';
 export * from './portalSettingsWhatsappVerificationStatus';
 export * from './portalSummary';
 export * from './portalUser';
+export * from './portalUserCompanyRole';
 export * from './portalUserOfficeRole';
 export * from './portalUserRegistrationStatus';
 export * from './portalUserRole';
@@ -177,6 +181,8 @@ export * from './reminderSource';
 export * from './reportCount';
 export * from './reportService';
 export * from './reportStaff';
+export * from './requestCreatedBy';
+export * from './requestCreatedBySource';
 export * from './requestEmployee';
 export * from './requestEmployeeStatus';
 export * from './requestEmployeeUpdate';
@@ -187,6 +193,8 @@ export * from './requestMessageAuthorRole';
 export * from './requestMessageInput';
 export * from './requestQuote';
 export * from './requestSubject';
+export * from './requestSubjectInput';
+export * from './requestSubjectInputType';
 export * from './requestSubjectType';
 export * from './serviceAttachment';
 export * from './serviceAttachmentUploadedBy';

@@ -8,7 +8,6 @@ import {
   type OfficeServiceRequest, type OfficeServiceRequestPage, type ServiceAttachment, type ServiceRequestUpdateStatus,
 } from '@workspace/api-client-react';
 import { EmptyBlock, ErrorBlock, LoadingBlock, PortalLayout, StaleBadge, Status, categoryNames, dateText, isStale, statusNames, statusOptions } from '@/components/portal-ui';
-import { OfficeCommandPalette } from '@/components/office-command';
 import { RequestFiles } from '@/components/request-files';
 import { OfficeInvoices } from '@/components/request-billing';
 import { ChecklistEditor, ExtractReminder, QuotePanel, RequestEmployees, employeeProgress } from '@/components/office-request-extras';
@@ -77,7 +76,6 @@ export function OfficeRequestPage() {
   const { prev, next, index, total } = neighbours(ids, id);
   const go = (target: number) => setLocation(`/office/requests/${target}${search ? `?${search}` : ''}`);
   return <PortalLayout staff>
-    <OfficeCommandPalette />
     <div className="orq">
       <Link href="/office/requests" className="orq-back"><ArrowRight size={15} aria-hidden="true" />طلبات العملاء</Link>
       {!valid ? <EmptyBlock title="الطلب غير متاح" text="تحقق من رابط الطلب وحاول مرة أخرى." action="طلبات العملاء" href="/office/requests" />

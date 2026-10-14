@@ -11,6 +11,10 @@ import { db, hbsCompanies, hbsCompanyMembers, hbsInquiries, hbsRegistrationReque
 //
 // Shown to a member whose role does not allow the action.
 export const COMPANY_ACCESS_DENIED = "ليست لديك صلاحية لهذا الإجراء.";
+// Shown to a viewer who tries to write through a customer route, and to a
+// finance member who tries to open requests, inquiries or messages.
+export const VIEW_ONLY_DENIED = "صلاحيتك للعرض فقط؛ اطلب من مالك المنشأة ترقيتها.";
+export const FINANCE_ONLY_DENIED = "صلاحيتك مالية فقط؛ اطلب من مالك المنشأة ترقيتها.";
 
 export type CompanyRole = "owner" | "hr" | "finance" | "viewer";
 export type CompanyAccess = { companyUserId: string; role: CompanyRole };
@@ -146,6 +150,46 @@ export async function resolveCompanyAccessFor(userId: string): Promise<CompanyAc
   // Withdrawn between the two statements: nothing to join.
   if (!joined) return null;
   return { companyUserId: joined.companyUserId, role: memberRole(joined.role) };
+}
+
+// ---- the customer a request acts for ------------------------------------------------
+
+// Who the customer routes act for. An approved customer (or a legacy one)
+// acts for themself; an accepted member acts for the company owner's data
+// with their role. `userId` stays the signed-in person for anything personal
+// (settings, verification, authorship, audit).
+export type CustomerContext = {
+  userId: string;
+  customerId: string;
+  companyRole: CompanyRole | null;
+  actingFor: boolean;
+};
+
+export async function resolveCustomerContext(userId: string): Promise<CustomerContext | null> {
+  const access = await resolveCompanyAccessFor(userId);
+  if (!access) return null;
+  return { userId, customerId: access.companyUserId, companyRole: access.role, actingFor: access.companyUserId !== userId };
+}
+
+// Set by requireApprovedCustomer (routes/portal) for the handler.
+export function customerContextOf(req: Request): CustomerContext {
+  const context = req.res?.locals.customerContext as CustomerContext | undefined;
+  if (!context) throw new Error("requireApprovedCustomer must run before this handler");
+  return context;
+}
+
+// The customer whose data the handler reads and writes: the signed-in person,
+// or the company owner when they are a member acting for the company.
+export function customerId(req: Request): string {
+  return customerContextOf(req).customerId;
+}
+
+// Customer-route writes a member's role allows. Personal routes (settings,
+// verification) are not customer data and are not gated here.
+export function memberMayWrite(role: CompanyRole | null): { ok: true } | { ok: false; error: string } {
+  if (role === "viewer") return { ok: false, error: VIEW_ONLY_DENIED };
+  if (role === "finance") return { ok: false, error: FINANCE_ONLY_DENIED };
+  return { ok: true };
 }
 
 // ---- middleware ------------------------------------------------------------------

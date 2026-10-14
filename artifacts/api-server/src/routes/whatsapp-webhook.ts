@@ -5,6 +5,7 @@ import { db, hbsCustomerSettings, hbsInquiries, hbsInquiryMessages, hbsRequestMe
 import { WhatsappWebhookVerifyQueryParams } from "@workspace/api-zod";
 import { resumeAfterCustomerReply } from "../lib/automations";
 import { notifyOffice, type OfficeNotifyMeta } from "../lib/customer-contact";
+import { shuttingDown, trackJob } from "../lib/lifecycle";
 import { logger } from "../lib/logger";
 import { requestReference } from "../lib/money";
 import { westernDigits } from "../lib/notification-intelligence";
@@ -37,9 +38,10 @@ export const VERIFICATION_CHALLENGE_PREFIX = "HBS WhatsApp verification:";
 export const INBOUND_RETENTION_DAYS = 90;
 export const UNMATCHED_BODY_CHARS = 200;
 
-// Optional maintenance only; never scheduled without an approved retention
-// policy. Keep message IDs permanently so signed redelivery cannot create
-// another transaction or attach an old message to a new phone owner.
+// Retention: message bodies older than INBOUND_RETENTION_DAYS are blanked
+// (daily, startWhatsappInboundPurge). Message IDs are kept permanently so
+// signed redelivery cannot create another transaction or attach an old
+// message to a new phone owner.
 export async function purgeOldWhatsappInbound(now = new Date()): Promise<number> {
   const cutoff = new Date(now.getTime() - INBOUND_RETENTION_DAYS * 86_400_000);
   const rows = await db.update(hbsWhatsappInbound).set({ body: "[WhatsApp message body removed by retention policy]" })
@@ -47,6 +49,28 @@ export async function purgeOldWhatsappInbound(now = new Date()): Promise<number>
       ne(hbsWhatsappInbound.body, "[WhatsApp message body removed by retention policy]")))
     .returning({ id: hbsWhatsappInbound.waMessageId });
   return rows.length;
+}
+
+const INBOUND_PURGE_INTERVAL_MS = 24 * 60 * 60_000;
+
+// Idempotent and claim-free (two servers blanking the same rows is
+// harmless). No timer holds the process open; nothing re-arms after
+// shutdown began.
+export function startWhatsappInboundPurge() {
+  const purge = (delay: number) => {
+    setTimeout(async () => {
+      if (shuttingDown()) return;
+      try {
+        const removed = await trackJob(() => purgeOldWhatsappInbound());
+        if (removed) logger.info({ removed }, "Removed WhatsApp message bodies older than 90 days");
+      } catch (err) {
+        logger.error({ err }, "WhatsApp inbound purge failed");
+      } finally {
+        if (!shuttingDown()) purge(INBOUND_PURGE_INTERVAL_MS);
+      }
+    }, delay).unref();
+  };
+  purge(20 * 60_000);
 }
 
 export type InboundHandled = "request_message" | "inquiry" | "unmatched" | "ignored";

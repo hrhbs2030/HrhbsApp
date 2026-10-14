@@ -15,6 +15,8 @@ export const hbsWhatsappInbound = pgTable("hbs_whatsapp_inbound", {
   handled: text("handled").notNull(),
 }, (table) => [
   index("hbs_whatsapp_inbound_user_idx").on(table.userId, table.receivedAt),
+  // The daily purge deletes by age.
+  index("hbs_whatsapp_inbound_received_idx").on(table.receivedAt),
   check("hbs_whatsapp_inbound_handled_check", sql`${table.handled} in ('request_message', 'inquiry', 'unmatched', 'ignored')`),
 ]);
 

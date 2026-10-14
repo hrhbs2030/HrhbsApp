@@ -53,6 +53,7 @@ const databaseChecks = [
   [api, 'test:package-d-subscriptions'],
   [api, 'test:billing-integrity'],
   [api, 'test:notifications-api'],
+  [api, 'test:notifications-stream'],
   [api, 'test:notification-pipeline'],
   [api, 'test:messaging'],
 ];

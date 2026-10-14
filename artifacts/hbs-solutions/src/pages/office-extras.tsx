@@ -10,7 +10,6 @@ import {
 import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock, categoryNames, statusNames } from '@/components/portal-ui';
 import { Chip, DataTable, FilterChip, SectionHeader, Tile, TileGrid, Toolbar, type DataColumn } from '@/components/portal-kit';
 import { BarList, ChartTable, Columns, StackedBar } from '@/components/office-charts';
-import { OfficeCommandPalette } from '@/components/office-command';
 import { chartSeries } from '@/design/tokens';
 import { Reveal, stagger } from '@/lib/motion';
 import { BarChart3, Banknote, CalendarDays, ReceiptText, Search, Star } from 'lucide-react';
@@ -36,7 +35,6 @@ export function OfficeReminders() {
     { key: 'expires', header: 'تنتهي في', cell: item => <><span className="block nums">{formatCalendarDate(item.expiresOn)}</span><ExpiryBadge expiresOn={item.expiresOn} /></> },
   ];
   return <PortalLayout staff>
-    <OfficeCommandPalette />
     <PageHeading eyebrow="فرص تجديد" title="وثائق العملاء التي تنتهي قريبًا" subtitle="وثائق أضافها العملاء أو المكتب. يصل للعميل تنبيه بالبريد قبل الانتهاء بـ30 يومًا ثم 7 ثم يوم واحد، ويمكنك التواصل معه لعرض التجديد."/>
     <Toolbar filters={<div className="flex flex-wrap gap-2" role="group" aria-label="المدة">{windows.map(days => <FilterChip key={days} active={within === days} onClick={() => setWithin(days)}>خلال {formatNumber(days)} يومًا</FilterChip>)}</div>}
       actions={list.data?.length ? <ExportButtons compact name={`وثائق تنتهي خلال ${within} يومًا`} columns={[{ key: 'kind', label: 'النوع' }, { key: 'label', label: 'الوثيقة' }, { key: 'customer', label: 'العميل' }, { key: 'phone', label: 'التواصل' }, { key: 'expiresOn', label: 'تنتهي في' }]} rows={() => (list.data ?? []).map(i => ({ kind: reminderKindNames[i.kind], label: i.label, customer: i.customer?.fullName ?? '', phone: i.contactPhone ?? '', expiresOn: i.expiresOn }))}/> : undefined} />
@@ -134,7 +132,6 @@ export function OfficeCatalog() {
   const shown = services.filter(s => !search.trim() || s.name.includes(search.trim()));
   const active = services.find(s => s.slug === selected);
   return <PortalLayout staff>
-    <OfficeCommandPalette />
     <PageHeading eyebrow="دليل الخدمات والأتمتة" title="الأسعار والمتطلبات" subtitle="وزّع الطلبات الجديدة تلقائيًا، وحدّد أتعاب كل خدمة ومدتها ومستنداتها وانشرها ليراها العميل قبل إرسال طلبه."/>
     <AssignmentRules/>
     {offers.isLoading ? <LoadingBlock/> : offers.isError ? <ErrorBlock retry={() => offers.refetch()}/> : <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
@@ -191,7 +188,6 @@ export function OfficeReports() {
     { key: 'overdue', header: 'متأخرة', nums: true, cell: s => s.overdue ? <Chip tone="danger" size="sm" dot>{formatNumber(s.overdue)}</Chip> : <span className="text-subtle">0</span> },
   ];
   return <PortalLayout staff>
-    <OfficeCommandPalette />
     <PageHeading eyebrow="الأداء" title="التقارير" subtitle="أرقام المكتب في المدة المختارة: الطلبات والإنجاز والفريق ورضا العملاء والإيرادات."/>
     <Toolbar filters={<div className="flex flex-wrap gap-2" role="group" aria-label="المدة">{periods.map(([value, name]) => <FilterChip key={value} active={days === value} onClick={() => setDays(value)}><CalendarDays size={14} aria-hidden="true"/>آخر {name}</FilterChip>)}</div>} />
     {report.isLoading ? <LoadingBlock variant="tiles"/> : report.isError ? <ErrorBlock retry={() => report.refetch()}/> : r && <div className={`rp transition-opacity ${report.isPlaceholderData ? 'opacity-60' : ''}`} aria-busy={report.isPlaceholderData || undefined}>

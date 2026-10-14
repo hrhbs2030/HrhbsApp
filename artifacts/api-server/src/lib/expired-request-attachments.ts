@@ -1,6 +1,7 @@
 import { and, asc, eq, gt, isNull, lt } from "drizzle-orm";
 import { db, hbsRequestAttachments, hbsServiceRequests } from "@workspace/db";
 import { recordAudit } from "./audit";
+import { shuttingDown, trackJob } from "./lifecycle";
 import { logger } from "./logger";
 import { ObjectNotFoundError, ObjectStorageService } from "./objectStorage";
 
@@ -127,15 +128,18 @@ export function startExpiredRequestAttachmentCleanup() {
   // holding the process open on shutdown.
   const schedule = (delay: number) => {
     setTimeout(async () => {
+      // A sweep that would start after SIGTERM is skipped; a running one is
+      // tracked so shutdown can wait for it (lib/lifecycle.ts).
+      if (shuttingDown()) return;
       try {
-        const removed = await cleanupExpiredRequestAttachments();
+        const removed = await trackJob(() => cleanupExpiredRequestAttachments());
         if (removed) logger.info({ removed }, "Removed expired temporary attachments");
-        const purged = await purgeCompletedRequestAttachments();
+        const purged = await trackJob(() => purgeCompletedRequestAttachments());
         if (purged) logger.info({ purged }, "Removed documents of requests completed over 90 days ago");
       } catch (err) {
         logger.error({ err }, "Expired attachment cleanup failed");
       } finally {
-        schedule(SWEEP_INTERVAL_MS);
+        if (!shuttingDown()) schedule(SWEEP_INTERVAL_MS);
       }
     }, delay).unref();
   };

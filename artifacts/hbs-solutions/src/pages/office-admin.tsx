@@ -8,7 +8,6 @@ import {
 } from '@workspace/api-client-react';
 import { EmptyBlock, ErrorBlock, LoadingBlock, PageHeading, Pager, PortalLayout, dateText } from '@/components/portal-ui';
 import { Chip, DataTable, FilterChip, SectionHeader, Toolbar, type DataColumn } from '@/components/portal-kit';
-import { OfficeCommandPalette } from '@/components/office-command';
 import { PrintButton } from '@/components/brand/print';
 import { ConfirmDialog } from '@/components/request-billing';
 import { LOCALE, formatDate, formatMoney, formatNumber, parseRiyals } from '@/lib/format';
@@ -82,7 +81,7 @@ export function OfficeStaff() {
       : <span className="inline-flex items-center gap-1.5 text-xs text-subtle"><ShieldCheck size={15} aria-hidden="true"/>مرتبط ببريد المكتب المعتمد</span>}</div> },
   ];
 
-  return <PortalLayout staff><OfficeCommandPalette /><PageHeading eyebrow="إدارة المكتب" title="فريق المكتب" subtitle="يدير الموظف الطلبات والاستفسارات والتسجيل. الأرشيف والفريق وسجل التدقيق للمالك فقط."/>
+  return <PortalLayout staff><PageHeading eyebrow="إدارة المكتب" title="فريق المكتب" subtitle="يدير الموظف الطلبات والاستفسارات والتسجيل. الأرشيف والفريق وسجل التدقيق للمالك فقط."/>
     <div className="space-y-6">
       <form onSubmit={submit} className="surface p-5 sm:p-6" aria-labelledby="add-staff-title">
         <SectionHeader id="add-staff-title" title="إضافة موظف" description="يجب أن يكون الموظف قد أنشأ حسابًا في البوابة وأكّد هذا البريد. تبقى صلاحيته ما دام البريد مؤكدًا في حسابه." />
@@ -155,6 +154,7 @@ const actionNames: Record<AuditLogEntry['action'], string> = {
   'service_request.auto_renew': 'طلب تجديد تلقائي ضمن الاشتراك',
   'notification.preferences': 'تعديل تفضيلات الإشعارات',
   'whatsapp.reply': 'رد على رسالة واتساب',
+  'service_request.create_for_customer': 'فتح طلب باسم العميل من المكتب',
 };
 
 // Action families for the timeline filter, by the prefix of the action key.
@@ -214,7 +214,7 @@ export function OfficeAuditLog() {
     const last = days[days.length - 1];
     if (last && last.day === day) last.entries.push(entry); else days.push({ day, entries: [entry] });
   }
-  return <PortalLayout staff><OfficeCommandPalette /><PageHeading eyebrow="إدارة المكتب" title="سجل التدقيق" subtitle="آخر 200 إجراء في المكتب: الصلاحيات، والطلبات، والمستندات، والتسجيل، ومعلومات المساعد. الأحدث أولًا." action={<PrintButton label="طباعة السجل"/>}/>
+  return <PortalLayout staff><PageHeading eyebrow="إدارة المكتب" title="سجل التدقيق" subtitle="آخر 200 إجراء في المكتب: الصلاحيات، والطلبات، والمستندات، والتسجيل، ومعلومات المساعد. الأحدث أولًا." action={<PrintButton label="طباعة السجل"/>}/>
     {log.isLoading ? <LoadingBlock variant="table"/> : log.isError ? <ErrorBlock retry={() => log.refetch()}/> : !log.data?.length ? <EmptyBlock title="لا توجد إجراءات بعد" text="ستظهر هنا إجراءات فريق المكتب فور حدوثها."/> : <>
       <Toolbar search={{ value: search, onChange: setSearch, label: 'بحث في السجل', placeholder: 'إجراء، طلب، بريد…' }}
         filters={<>
@@ -326,7 +326,7 @@ export function OfficePlans() {
     { key: 'active', header: 'الحالة', cell: plan => <Chip tone={plan.active ? 'ok' : 'neutral'} size="sm" dot>{plan.active ? 'متاحة' : 'غير متاحة'}</Chip> },
     { key: 'actions', header: <span className="sr-only">الإجراءات</span>, label: 'الإجراءات', align: 'end', width: '1%', cell: plan => <div className="ad-actions"><button type="button" className="btn btn-outline btn-sm" onClick={() => { setEditing(plan); setNotice(null); }}>تعديل</button></div> },
   ];
-  return <PortalLayout staff><OfficeCommandPalette /><PageHeading eyebrow="إدارة المكتب" title="الباقات" subtitle="باقات الاشتراك الشهري التي يختار منها أصحاب المنشآت: السعر، وحد الموظفين، وعدد الطلبات، والتجديد التلقائي." action={editing ? undefined : <button type="button" className="btn btn-primary" onClick={() => { setEditing('new'); setNotice(null); }}><Plus size={17} aria-hidden="true"/>باقة جديدة</button>}/>
+  return <PortalLayout staff><PageHeading eyebrow="إدارة المكتب" title="الباقات" subtitle="باقات الاشتراك الشهري التي يختار منها أصحاب المنشآت: السعر، وحد الموظفين، وعدد الطلبات، والتجديد التلقائي." action={editing ? undefined : <button type="button" className="btn btn-primary" onClick={() => { setEditing('new'); setNotice(null); }}><Plus size={17} aria-hidden="true"/>باقة جديدة</button>}/>
     <div className="ad-plan-grid">
       <div className="min-w-0">
         {notice && <p role="status" className="ad-notice is-ok">{notice}</p>}
@@ -379,7 +379,7 @@ export function OfficeSubscriptions() {
       <button type="button" className="btn btn-ghost btn-sm text-danger" disabled={busyId === s.id} onClick={() => setCancelling(s)}>إلغاء الاشتراك</button>
     </div> : <span className="text-xs text-subtle">—</span> },
   ];
-  return <PortalLayout staff><OfficeCommandPalette /><PageHeading eyebrow="إدارة المكتب" title="الاشتراكات" subtitle="اشتراكات المنشآت في الباقات الشهرية: حالتها، وموعد التجديد، وآخر فاتورة. الإلغاء يوقف الفواتير القادمة ولا يلغي الفاتورة الحالية."/>
+  return <PortalLayout staff><PageHeading eyebrow="إدارة المكتب" title="الاشتراكات" subtitle="اشتراكات المنشآت في الباقات الشهرية: حالتها، وموعد التجديد، وآخر فاتورة. الإلغاء يوقف الفواتير القادمة ولا يلغي الفاتورة الحالية."/>
     <div className="ad-filters" role="group" aria-label="تصفية حسب الحالة">{subscriptionFilters.map(([key, label]) => <FilterChip key={label} active={status === key} onClick={() => setStatus(key)}>{label}</FilterChip>)}</div>
     <Notice notice={notice}/>
     {list.isLoading ? <LoadingBlock variant="table"/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/> : !list.data?.total

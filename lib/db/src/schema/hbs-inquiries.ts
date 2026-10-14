@@ -12,6 +12,10 @@ export const hbsInquiries = pgTable("hbs_inquiries", {
   linkedServiceRequestId: integer("linked_service_request_id").references(() => hbsServiceRequests.id, { onDelete: "set null" }),
   status: text("status").notNull().default("open"),
   answer: text("answer"),
+  // Who opened the inquiry when it was not the customer themself (see
+  // hbs_service_requests.created_by).
+  createdBy: text("created_by"),
+  source: text("source").notNull().default("customer"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   answeredAt: timestamp("answered_at", { withTimezone: true }),
 }, (table) => [
@@ -19,6 +23,7 @@ export const hbsInquiries = pgTable("hbs_inquiries", {
   index("hbs_inquiries_linked_request_idx").on(table.linkedServiceRequestId),
   index("hbs_inquiries_status_idx").on(table.status),
   check("hbs_inquiries_status_check", sql`${table.status} in ('open', 'answered')`),
+  check("hbs_inquiries_source_check", sql`${table.source} in ('customer', 'member', 'office')`),
 ]);
 
 export const insertHbsInquirySchema = createInsertSchema(hbsInquiries).omit({

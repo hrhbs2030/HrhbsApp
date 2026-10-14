@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-zod";
 import { recordAudit } from "../lib/audit";
 import { AUTOMATION_ACTOR, resumeAfterCustomerReply } from "../lib/automations";
+import { customerContextOf } from "../lib/company-access";
 import { notifyCustomer, notifyOffice } from "../lib/customer-contact";
 import { invoiceReference, requestReference, riyals, vatFor } from "../lib/money";
 import { quoteAcceptedMail, quoteDeclinedMail, quoteSentMail } from "../lib/notify";
@@ -74,12 +75,31 @@ async function quotedRequest(tx: Parameters<Parameters<typeof db.transaction>[0]
   return request;
 }
 
+// The accepted quote's invoice is open, so the request waits for payment
+// like one the office invoices by hand (billing marks awaiting_payment by
+// default); paying it resumes review. Recorded as the automation, through the
+// status machine: a request that cannot move stays where it is.
+async function awaitPayment(requestId: number): Promise<HbsServiceRequest | null> {
+  return db.transaction(async tx => {
+    const [request] = await tx.select().from(hbsServiceRequests).where(eq(hbsServiceRequests.id, requestId)).for("update");
+    if (!request || request.status === "awaiting_payment" || !canTransition(request.status, "awaiting_payment")) return request ?? null;
+    const [updated] = await tx.update(hbsServiceRequests).set({ status: "awaiting_payment", customerMessage: null, updatedAt: new Date() })
+      .where(eq(hbsServiceRequests.id, requestId)).returning();
+    await recordAudit(tx, {
+      actorId: AUTOMATION_ACTOR, action: "service_request.update", targetType: "service_request", targetId: requestId,
+      details: { fromStatus: request.status, toStatus: "awaiting_payment", noteChanged: false, automatic: "quote_accepted" },
+    });
+    return updated;
+  });
+}
+
 router.post("/service-requests/:id/quote/accept", requireApprovedCustomer, async (req, res): Promise<void> => {
   const params = AcceptQuoteParams.safeParse(req.params);
   if (!params.success) { res.status(404).json({ error: "Request not found" }); return; }
-  const userId = getAuth(req).userId!;
+  // The company's request; the decision is audited to the person who made it.
+  const { customerId, userId } = customerContextOf(req);
   const outcome = await db.transaction(async tx => {
-    const request = await quotedRequest(tx, params.data.id, userId);
+    const request = await quotedRequest(tx, params.data.id, customerId);
     if (typeof request === "string") return request;
     const [updated] = await tx.update(hbsServiceRequests).set({ quoteAcceptedAt: new Date(), quoteDeclinedAt: null, updatedAt: new Date() })
       .where(eq(hbsServiceRequests.id, request.id)).returning();
@@ -97,8 +117,10 @@ router.post("/service-requests/:id/quote/accept", requireApprovedCustomer, async
   });
   if (outcome === "missing") { res.status(404).json({ error: "Request not found" }); return; }
   if (outcome === "closed") { res.status(409).json({ error: "There is no quote waiting for your decision." }); return; }
-  // Accepting answers the office, like a message would.
-  const current = (await resumeAfterCustomerReply(outcome.request.id, "quote_accepted")) ?? outcome.request;
+  // Accepting answers the office, like a message would; the invoice it
+  // issued then holds the request at awaiting_payment until it is paid.
+  await resumeAfterCustomerReply(outcome.request.id, "quote_accepted");
+  const current = (await awaitPayment(outcome.request.id)) ?? outcome.request;
   res.json(AcceptQuoteResponse.parse(publicRequest(current, (await detailsFor([current])).get(current.id))));
   const acceptedEmail = current.assignedTo ? await staffEmail(current.assignedTo) : null;
   void notifyOffice(() => quoteAcceptedMail(acceptedEmail, info(current),
@@ -111,10 +133,10 @@ router.post("/service-requests/:id/quote/decline", requireApprovedCustomer, asyn
   const body = DeclineQuoteBody.safeParse(req.body ?? {});
   if (!params.success) { res.status(404).json({ error: "Request not found" }); return; }
   if (!body.success) { res.status(400).json({ error: "The reason is too long." }); return; }
-  const userId = getAuth(req).userId!;
+  const { customerId, userId } = customerContextOf(req);
   const reason = body.data.reason?.trim() || null;
   const outcome = await db.transaction(async tx => {
-    const request = await quotedRequest(tx, params.data.id, userId);
+    const request = await quotedRequest(tx, params.data.id, customerId);
     if (typeof request === "string") return request;
     if (request.quoteDeclinedAt !== null) return "closed" as const;
     const [updated] = await tx.update(hbsServiceRequests).set({ quoteDeclinedAt: new Date(), updatedAt: new Date() })

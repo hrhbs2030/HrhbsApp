@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { OfficeCustomerRequestStatus } from './officeCustomerRequestStatus';
+import type { RequestCreatedBy } from './requestCreatedBy';
 import type { RequestSubject } from './requestSubject';
 
 export interface OfficeCustomerRequest {
@@ -15,4 +16,5 @@ export interface OfficeCustomerRequest {
   status: OfficeCustomerRequestStatus;
   createdAt: Date;
   subject: RequestSubject | null;
+  createdBy?: RequestCreatedBy;
 }

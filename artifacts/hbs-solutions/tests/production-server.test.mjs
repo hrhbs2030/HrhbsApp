@@ -80,8 +80,14 @@ test('production server keeps SPA, API, assets, and compressed responses distinc
   const preload = servicePage.match(/<link rel="modulepreload" href="(\/assets\/[^"]+\.js)" crossorigin>/)?.[1];
   assert.ok(preload, 'service page has a modulepreload hint');
   assert.equal((await fetchRaw(port, preload)).status, 200);
-  assert.doesNotMatch((await fetchRaw(port, '/')).body.toString(), /rel="modulepreload"/, 'home renders from the entry chunk');
+  // The landing page is lazy as well: its chunk is announced from the shell,
+  // and the vendor chunks the entry imports are announced by Vite once only.
   const homePage = (await fetchRaw(port, '/')).body.toString();
+  const homePreloads = [...homePage.matchAll(/<link rel="modulepreload"[^>]*href="(\/assets\/[^"]+\.js)"/g)].map((match) => match[1]);
+  assert.ok(homePreloads.some((href) => /\/assets\/landing-/.test(href)), 'home page preloads the landing chunk');
+  assert.ok(homePreloads.some((href) => /\/assets\/vendor-react-/.test(href)), 'home page preloads the React vendor chunk');
+  assert.equal(new Set(homePreloads).size, homePreloads.length, 'no chunk is preloaded twice');
+  assert.equal((await fetchRaw(port, homePreloads.find((href) => /\/assets\/landing-/.test(href)))).status, 200);
   assert.match(homePage, /"@type":"WebSite"/);
   assert.match(homePage, /services\?q=\{search_term_string\}/);
 
@@ -126,6 +132,16 @@ test('production server keeps SPA, API, assets, and compressed responses distinc
     assert.doesNotMatch(response.body.toString(), /<html/, path);
   }
   assert.match((await fetchRaw(port, '/robots.txt')).headers['content-type'], /^text\/plain/);
+  // /.well-known is the one dot-path that is reachable: security.txt (RFC 9116).
+  const security = await fetchRaw(port, '/.well-known/security.txt');
+  assert.equal(security.status, 200);
+  assert.match(security.headers['content-type'], /^text\/plain/);
+  const securityText = security.body.toString();
+  assert.match(securityText, /^Contact: mailto:hr@hrhbs\.com$/m);
+  assert.match(securityText, /^Preferred-Languages: ar, en$/m);
+  assert.match(securityText, /^Canonical: https:\/\/hrhbs\.com\/\.well-known\/security\.txt$/m);
+  const expires = securityText.match(/^Expires: (\S+)$/m)?.[1];
+  assert.ok(expires && Date.parse(expires) > Date.now(), 'security.txt has not expired');
   const home = await fetchRaw(port, '/');
   assert.equal(home.headers['x-frame-options'], 'DENY');
   assert.match(home.headers['content-security-policy'], /frame-ancestors 'none'/);

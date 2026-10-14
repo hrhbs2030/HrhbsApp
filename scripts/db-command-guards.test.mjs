@@ -32,6 +32,7 @@ const dbCommands = [
   'test:package-d-subscriptions',
   'test:billing-integrity',
   'test:notifications-api',
+  'test:notifications-stream',
   'test:notification-pipeline',
   'test:messaging',
 ];

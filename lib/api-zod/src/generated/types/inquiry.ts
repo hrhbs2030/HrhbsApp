@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { InquiryStatus } from './inquiryStatus';
+import type { RequestCreatedBy } from './requestCreatedBy';
 
 export interface Inquiry {
   id: number;
@@ -19,4 +20,5 @@ export interface Inquiry {
   createdAt: Date;
   /** @nullable */
   answeredAt?: Date | null;
+  createdBy?: RequestCreatedBy;
 }

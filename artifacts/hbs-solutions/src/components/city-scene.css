@@ -29,7 +29,19 @@
 .cs-retry:hover, .cs-retry:focus-visible { border-color: var(--color-copper-light); }
 .cs-retry:focus-visible { outline: 2px solid var(--color-copper-light); outline-offset: 2px; }
 .cs-scene:not([data-active="true"]) * { animation-play-state: paused; }
+/* Off screen (both scene windows out of view, see scene-window.tsx) or in a
+   hidden tab: nothing moves, so nothing is repainted. */
 .cs--paused * { animation-play-state: paused !important; }
+/* Calm variant (inner pages' band, the portal strip, every phone; set in
+   city-scene.tsx): the parallax drift, the atmosphere, the landmark lights and
+   the skyline's slow glows stay; the per-element motion goes — traffic trails,
+   twinkling windows and stars, water glints, the residents' breathing,
+   blinking, gestures and walks, strobes, birds, fountain spray. Elements that
+   are only visible mid-animation (spray, walkers, birds, the car trails
+   waiting off frame) simply stay out of the picture. */
+.cs--calm :is(.ry-car, .ry-strobe, .ry-warn, .ry-drift, .cs-twinkle, .cs-shimmer, .cs-fountain, .jd-glint, .jd-spray, .jd-blink, .jd-bob, .jz-glint, .jz-blink, .jz-fly, .pp-breathe, .pp-blink, .pp-gesture, .pp-nod, .pp-folder, .pp-walk, .pp-bob) { animation: none; }
+/* Street lamps and doorways are many small glows; one steady light reads the same. */
+.cs--calm .cs-glow { animation: none; }
 /* A paused entrance animation can otherwise leave the caption invisible. */
 @media (prefers-reduced-motion: reduce) {
   .cs, .cs-scene { transition: none; }

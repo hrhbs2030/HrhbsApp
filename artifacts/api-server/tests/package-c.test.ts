@@ -102,7 +102,10 @@ test("quotes, document checklists, overdue reminders and CR lookups", async (t) 
       const accepted = await call(customer, "POST", `/service-requests/${quoted}/quote/accept`);
       assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
       assert.ok(accepted.data.quote.acceptedAt);
-      assert.equal(accepted.data.status, "reviewing");
+      assert.equal(accepted.data.status, "awaiting_payment", "the accepted quote's invoice holds the request until it is paid");
+      const history = await call(customer, "GET", `/service-requests/${quoted}/history`);
+      assert.deepEqual(history.data.map((e: any) => e.status), ["received", "waiting_on_customer", "reviewing", "awaiting_payment"], "through the status machine");
+      assert.equal((await call(customer, "GET", "/service-requests")).data.filter((r: any) => r.status === "awaiting_payment").length, 1, "the dashboard's unpaid filter finds it");
       const invoices = await call(customer, "GET", `/service-requests/${quoted}/invoices`);
       assert.equal(invoices.data.length, 1);
       assert.deepEqual({ amount: invoices.data[0].amount, vat: invoices.data[0].vat, total: invoices.data[0].total, status: invoices.data[0].status },
@@ -111,6 +114,10 @@ test("quotes, document checklists, overdue reminders and CR lookups", async (t) 
       assert.equal((await db.select().from(hbsInvoices).where(eq(hbsInvoices.requestId, quoted)))[0].issuedBy, owner);
       assert.equal((await call(customer, "POST", `/service-requests/${quoted}/quote/accept`)).status, 409);
       assert.equal((await call(customer, "POST", `/service-requests/${quoted}/quote/decline`, {})).status, 409);
+      // Paying the invoice sends the request back to the office's review.
+      const paid = await call(owner, "PATCH", `/office/invoices/${invoices.data[0].id}`, { action: "mark_paid" });
+      assert.equal(paid.status, 200, JSON.stringify(paid.data));
+      assert.equal((await requestRow(quoted)).status, "reviewing");
       // A completed request takes no quote.
       await db.update(hbsServiceRequests).set({ status: "completed" }).where(eq(hbsServiceRequests.id, quoted));
       assert.equal((await call(owner, "POST", `/office/service-requests/${quoted}/quote`, { amount: 1_000 })).status, 409);

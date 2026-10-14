@@ -18,7 +18,6 @@ import {
 } from '@/components/portal-ui';
 import { DataTable, EmptyState, FilterChip, Tile, TileGrid, Toolbar, type DataColumn } from '@/components/portal-kit';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { OfficeCommandPalette } from '@/components/office-command';
 import { StackedBar } from '@/components/office-charts';
 import { Reveal, safeStorage, stagger } from '@/lib/motion';
 import { LOCALE } from '@/lib/format';
@@ -73,7 +72,6 @@ export function OfficeOverview() {
   const s = summary.data;
   const week = owner ? report.data : undefined;
   return <PortalLayout staff>
-    <OfficeCommandPalette />
     <PageHeading eyebrow="مساحة المكتب" title="نظرة عامة" subtitle="ما يحتاج انتباهك اليوم: الجديد، والمتأخر، وما ينتظر ردّك، والوارد غير المقروء." />
     {summary.isLoading ? <LoadingBlock variant="tiles" /> : summary.isError ? <ErrorBlock retry={() => summary.refetch()} /> : s && <div className="ov">
       <TileGrid cols={4}>
@@ -347,7 +345,6 @@ export function OfficeRequests() {
   ];
 
   return <PortalLayout staff>
-    <OfficeCommandPalette />
     <PageHeading eyebrow="صندوق الوارد" title="طلبات العملاء" subtitle="ابحث بالرقم المرجعي أو الخدمة أو تفاصيل الطلب أو رقم التواصل، وحدّث الحالة بحسب تقدم كل طلب." />
     <Toolbar className="rq-toolbar" search={{ value: search, onChange: setSearch, label: 'بحث', placeholder: 'اسم العميل، الرقم المرجعي، الخدمة، رقم التواصل...', maxLength: 120 }}
       filters={<>
@@ -568,7 +565,6 @@ export function OfficeInquiries() {
   const active = rows.find(i => i.id === selected);
   const editorRef = useRevealOnSelect(selected);
   return <PortalLayout staff>
-    <OfficeCommandPalette />
     <PageHeading eyebrow="صندوق الوارد" title="استفسارات العملاء" subtitle="اقرأ الأسئلة وتابع المحادثة مع كل عميل من مساحة واحدة." />
     <Toolbar search={{ value: search, onChange: setSearch, label: 'بحث في الاستفسارات', placeholder: 'ابحث باسم العميل أو الموضوع أو مرجع الطلب', maxLength: 120 }}
       filters={<div className="flex flex-wrap gap-2" role="group" aria-label="تصفية حسب الحالة">{inquiryFilters.map(([key, label]) => <FilterChip key={label} active={status === key} onClick={() => setStatus(key)}>{label}</FilterChip>)}</div>} />

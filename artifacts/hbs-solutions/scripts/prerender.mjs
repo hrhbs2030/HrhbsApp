@@ -51,6 +51,7 @@ export const shellOrigin = 'https://hrhbs.com';
 // prerendered page can modulepreload its chunk instead of discovering it after
 // the entry bundle has run. A trailing slash matches every nested route.
 export const routeModules = {
+  '/': 'src/pages/landing.tsx',
   '/services': 'src/pages/public.tsx',
   '/services/': 'src/pages/public.tsx',
   '/trust': 'src/pages/public.tsx',
@@ -150,18 +151,40 @@ export function buildPages({ services, categoryById, siteUrl, city, provider }) 
   return pages;
 }
 
+// Chunks the entry already loads statically (the vendor chunks from
+// manualChunks in vite.config.ts): Vite writes their modulepreload into
+// index.html itself, so a per-route hint would only repeat it.
+function entryChunks(manifest) {
+  const seen = new Set();
+  const visit = (name) => {
+    const chunk = manifest[name];
+    if (!chunk || seen.has(name)) return;
+    seen.add(name);
+    for (const dependency of chunk.imports ?? []) visit(dependency);
+  };
+  for (const [name, chunk] of Object.entries(manifest)) if (chunk.isEntry) visit(name);
+  return seen;
+}
+
 // The chunk, its static imports and its CSS for a route, from Vite's manifest
 // (build.manifest). Returns [] when the route has no lazy module or the manifest
 // no longer lists it (the page went back into the entry chunk).
 export function chunkPreloads(route, manifest, basePath = '/') {
-  const key = routeModules[route] ?? Object.entries(routeModules).find(([prefix]) => prefix.endsWith('/') && route.startsWith(prefix))?.[1];
-  if (!key || !manifest?.[key]) return [];
+  const module = routeModules[route] ?? Object.entries(routeModules).find(([prefix]) => prefix.length > 1 && prefix.endsWith('/') && route.startsWith(prefix))?.[1];
+  if (!module || !manifest) return [];
+  // A lazy module is keyed by its path; when Rollup merges it into a chunk
+  // without a facade (the landing page) the chunk is keyed by its file and
+  // carries the module's name instead.
+  const name = module.replace(/^.*\//, '').replace(/\.[jt]sx?$/, '');
+  const key = manifest[module] ? module : Object.entries(manifest).find(([, chunk]) => chunk.isDynamicEntry && chunk.name === name)?.[0];
+  if (!key) return [];
   const base = basePath.endsWith('/') ? basePath : `${basePath}/`;
   const scripts = new Set();
   const styles = new Set();
+  const preloadedByEntry = entryChunks(manifest);
   const visit = (name) => {
     const chunk = manifest[name];
-    if (!chunk || chunk.isEntry || scripts.has(chunk.file)) return;
+    if (!chunk || preloadedByEntry.has(name) || scripts.has(chunk.file)) return;
     scripts.add(chunk.file);
     for (const css of chunk.css ?? []) styles.add(css);
     for (const dependency of chunk.imports ?? []) visit(dependency);

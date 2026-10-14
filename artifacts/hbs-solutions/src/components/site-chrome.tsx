@@ -3,7 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { ArrowLeft, Menu, X } from 'lucide-react';
 import { Logo } from '@/components/brand/logo';
 import { hasSessionHint } from '@/lib/session-hint';
-import { useScrolled } from '@/lib/motion';
+import { prefersReducedMotion, useScrolled } from '@/lib/motion';
 import { cityInfo, cityOrder } from '@/components/city-scene';
 import { SceneWindow } from '@/components/scene-window';
 import { ContactList } from '@/components/contact-card';
@@ -108,22 +108,39 @@ export function SiteHeader({ tone = 'light' }: { tone?: 'dark' | 'light' }) {
   );
 }
 
-// Plain anchors keep links crawlable; on the landing page, "/#how" scrolls
-// in place instead of reloading. Everything else is a normal navigation.
+// Scrolls a landing chapter (#problems, #how, …) to just below the sticky
+// header. Used by the hash links here and by the landing page on arrival.
+export function scrollToChapter(id: string, behavior: ScrollBehavior = 'smooth'): boolean {
+  const target = document.getElementById(id);
+  if (!target) return false;
+  const header = document.querySelector<HTMLElement>('.site-header')?.offsetHeight ?? 0;
+  const top = target.getBoundingClientRect().top + window.scrollY - header;
+  window.scrollTo({ top: Math.max(0, Math.round(top)), behavior: prefersReducedMotion() ? 'auto' : behavior });
+  return true;
+}
+
+// Plain anchors keep links crawlable. "/#how" scrolls in place on the landing
+// page; from any other page it is a client-side navigation to the landing,
+// which then scrolls to the chapter once it has rendered (pages/landing.tsx).
+// Everything else is a normal in-app navigation.
 function navigateHash(event: MouseEvent<HTMLAnchorElement>, href: string) {
   const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+  const plainClick = !event.metaKey && !event.ctrlKey && !event.shiftKey && event.button === 0;
   if (href.startsWith('/#')) {
     const onLanding = window.location.pathname === `${base}/` || window.location.pathname === base || window.location.pathname === '/';
-    const target = document.getElementById(href.slice(2));
-    if (onLanding && target) {
+    if (onLanding && document.getElementById(href.slice(2))) {
       event.preventDefault();
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      scrollToChapter(href.slice(2));
       history.replaceState(null, '', href.slice(1));
+    } else if (!onLanding && plainClick) {
+      event.preventDefault();
+      window.history.pushState(null, '', `${base}${href}`);
+      window.dispatchEvent(new PopStateEvent('popstate'));
     }
     return;
   }
   // Same-app route: hand to the router so the SPA does not reload.
-  if (!event.metaKey && !event.ctrlKey && !event.shiftKey && event.button === 0) {
+  if (plainClick) {
     event.preventDefault();
     window.history.pushState(null, '', `${base}${href}`);
     window.dispatchEvent(new PopStateEvent('popstate'));

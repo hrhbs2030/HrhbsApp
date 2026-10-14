@@ -12,7 +12,8 @@ import {
   db, hbsAuditLog, hbsDocumentReminders, hbsInvoices, hbsNotificationPreferences, hbsNotifications, hbsOfficeStaff,
   hbsPushSubscriptions, hbsRegistrationRequests, hbsRequestMessages, hbsServiceRequests, hbsWhatsappInbound, pool,
 } from "@workspace/db";
-import notificationsRouter, { MAX_STREAMS_PER_USER, openStreams } from "../src/routes/notifications";
+import notificationsRouter, { MAX_STREAMS_PER_USER, openStreams, PUSH_ENDPOINT_REJECTED } from "../src/routes/notifications";
+import { MAX_PUSH_SUBSCRIPTIONS_PER_USER } from "../src/lib/web-push";
 import { createOfficeWhatsappRouter, type WhatsappSender } from "../src/routes/office-whatsapp";
 import { emit, subscriberCount } from "../src/lib/notification-stream";
 import { vatFor } from "../src/lib/money";
@@ -220,7 +221,7 @@ test("notification centre, preferences, push, brief, WhatsApp inbox and the live
     });
 
     await t.test("push: key and subscriptions follow the VAPID settings", async () => {
-      const subscription = { endpoint: "https://push.example.invalid/sub/1", keys: { p256dh: "p", auth: "a" }, userAgent: "test" };
+      const subscription = { endpoint: "https://fcm.googleapis.com/fcm/send/notif-api-1", keys: { p256dh: "p", auth: "a" }, userAgent: "test" };
       assert.deepEqual((await call(alice, "GET", "/notifications/push/key")).data, { publicKey: null });
       assert.equal((await call(alice, "PUT", "/notifications/push/subscriptions", subscription)).status, 503);
       assert.equal((await call(null, "GET", "/notifications/push/key")).status, 401);
@@ -234,6 +235,29 @@ test("notification centre, preferences, push, brief, WhatsApp inbox and the live
         assert.equal((await call(alice, "PUT", "/notifications/push/subscriptions", subscription)).status, 204);
         assert.equal((await call(alice, "PUT", "/notifications/push/subscriptions", { endpoint: "not a url", keys: subscription.keys })).status, 400);
         assert.equal((await call(alice, "PUT", "/notifications/push/subscriptions", { ...subscription, extra: 1 })).status, 400);
+        // Only https endpoints on the browser vendors' push services: the
+        // server POSTs there later, so an internal host or a stray site is refused.
+        for (const endpoint of ["http://fcm.googleapis.com/fcm/send/plain", "https://10.0.0.5:5432/", "https://push.example.invalid/sub/1", "https://fcm.googleapis.com.evil.invalid/x"]) {
+          const refused = await call(alice, "PUT", "/notifications/push/subscriptions", { ...subscription, endpoint });
+          assert.equal(refused.status, 400, endpoint);
+          assert.equal(refused.data.error, PUSH_ENDPOINT_REJECTED);
+        }
+        assert.equal((await db.select().from(hbsPushSubscriptions).where(eq(hbsPushSubscriptions.userId, alice))).length, 1, "nothing stored for refused endpoints");
+        // At most five devices per person; the oldest makes room.
+        const device = (n: number) => ({ ...subscription, endpoint: `https://web.push.apple.com/notif-api-${alice}-${n}` });
+        for (let n = 1; n <= MAX_PUSH_SUBSCRIPTIONS_PER_USER + 1; n++) {
+          assert.equal((await call(alice, "PUT", "/notifications/push/subscriptions", device(n))).status, 204);
+          await new Promise((resolve) => setTimeout(resolve, 2));
+        }
+        const devices = await db.select().from(hbsPushSubscriptions).where(eq(hbsPushSubscriptions.userId, alice)).orderBy(hbsPushSubscriptions.createdAt);
+        assert.equal(devices.length, MAX_PUSH_SUBSCRIPTIONS_PER_USER);
+        assert.equal(devices.some((d) => d.endpoint === subscription.endpoint), false, "the first (oldest) subscription was replaced");
+        assert.equal(devices.some((d) => d.endpoint === device(1).endpoint), false, "then the next oldest");
+        assert.ok(devices.every((d) => d.endpoint.includes("apple.com")));
+        assert.equal((await call(alice, "PUT", "/notifications/push/subscriptions", device(MAX_PUSH_SUBSCRIPTIONS_PER_USER + 1))).status, 204, "re-registering keeps the count");
+        assert.equal((await db.select().from(hbsPushSubscriptions).where(eq(hbsPushSubscriptions.userId, alice))).length, MAX_PUSH_SUBSCRIPTIONS_PER_USER);
+        await db.delete(hbsPushSubscriptions).where(eq(hbsPushSubscriptions.userId, alice));
+        assert.equal((await call(alice, "PUT", "/notifications/push/subscriptions", subscription)).status, 204);
         // The same browser signs in as bob: the endpoint moves to bob.
         assert.equal((await call(bob, "PUT", "/notifications/push/subscriptions", { ...subscription, keys: { p256dh: "p2", auth: "a2" } })).status, 204);
         const rows = await db.select().from(hbsPushSubscriptions).where(eq(hbsPushSubscriptions.endpoint, subscription.endpoint));
@@ -282,6 +306,7 @@ test("notification centre, preferences, push, brief, WhatsApp inbox and the live
       const reminder = brief.data.items.find((i: any) => i.kind === "reminder.expiring");
       assert.match(reminder.title, /إقامة أحمد/);
       assert.equal(reminder.priority, "urgent");
+      assert.equal(reminder.path, "/documents", "the customer's documents page, not a route that does not exist");
       const request = brief.data.items.find((i: any) => i.kind === "request.status" && i.path === `/requests/${waiting.id}`);
       assert.match(request.title, /تجديد رخصة/);
       assert.equal(request.priority, "high");
@@ -296,9 +321,10 @@ test("notification centre, preferences, push, brief, WhatsApp inbox and the live
       assert.equal(staff.status, 200, JSON.stringify(staff.data));
       const unassignedItem = staff.data.items.find((i: any) => i.kind === "office.request_new");
       assert.ok(unassignedItem, "the office sees unassigned requests");
-      assert.equal(unassignedItem.path, "/office/requests");
+      assert.equal(unassignedItem.path, "/office/requests?sort=due_soon");
       const money = staff.data.items.find((i: any) => i.kind === "office.invoice_paid");
       assert.match(money.title, /فواتير متأخرة/);
+      assert.equal(money.path, "/office/reports");
       assert.equal(staff.data.items.some((i: any) => i.kind === "invoice.overdue"), false, "no customer lines for staff");
     });
 
@@ -428,9 +454,16 @@ test("notification centre, preferences, push, brief, WhatsApp inbox and the live
       const stream = openStream(port, office);
       try {
         await stream.ready; await stream.next("unread");
+        // The Clerk lookup happened once when the stream opened; events on
+        // the open stream only consult the staff row.
+        const clerkCalls = (clerkClient.users.getUser as unknown as { mock: { callCount(): number } }).mock.callCount();
+        emit(office, { type: "notification", data: { audience: "office", title: "still staff" } });
+        await stream.next("notification");
+        assert.equal((clerkClient.users.getUser as unknown as { mock: { callCount(): number } }).mock.callCount(), clerkCalls, "no Clerk call per event");
         await db.delete(hbsOfficeStaff).where(eq(hbsOfficeStaff.userId, office));
         emit(office, { type: "notification", data: { audience: "office", title: "private after revocation" } });
         await until(() => stream.ended, "revoked office stream to close");
+        assert.ok(stream.events.some(event => event.event === "access-denied"), "the client is told why");
         assert.equal(stream.events.some(event => (event.data as { title?: string })?.title === "private after revocation"), false);
         const list = await call(office, "GET", "/notifications");
         assert.equal(list.status, 200);

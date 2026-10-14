@@ -99,9 +99,9 @@ function ProcessAside() {
     <section className="reg-card reg-aside-card">
       <h2>خطوات التسجيل</h2>
       <ol className="reg-steps">
-        <li><span className="reg-step-num">١</span><div><strong>إرسال البيانات</strong><p>الاسم ورقم التواصل.</p></div></li>
-        <li><span className="reg-step-num">٢</span><div><strong>مراجعة المكتب</strong><p>يراجع فريق المكتب طلبك.</p></div></li>
-        <li><span className="reg-step-num">٣</span><div><strong>القرار</strong><p>تظهر النتيجة في هذه الصفحة.</p></div></li>
+        <li><span className="reg-step-num nums">1</span><div><strong>إرسال البيانات</strong><p>الاسم ورقم التواصل.</p></div></li>
+        <li><span className="reg-step-num nums">2</span><div><strong>مراجعة المكتب</strong><p>يراجع فريق المكتب طلبك.</p></div></li>
+        <li><span className="reg-step-num nums">3</span><div><strong>القرار</strong><p>تظهر النتيجة في هذه الصفحة.</p></div></li>
       </ol>
     </section>
     <div className="reg-aside-note"><ShieldCheck size={19} aria-hidden="true" /><p>بريدك الإلكتروني مرتبط بحسابك، ولا يمكن تغييره من هذا النموذج. إذا كان غير صحيح، صحّحه من إعدادات حسابك قبل إرسال الطلب.</p></div>

@@ -3,7 +3,7 @@ import { ClerkProvider, SignIn, SignUp, useAuth, useClerk } from '@clerk/react';
 import { arSA } from '@clerk/localizations';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { useQueryClient } from '@tanstack/react-query';
-import { Redirect, Route, Switch, useLocation } from 'wouter';
+import { Redirect, Route, Switch, useLocation, useSearch } from 'wouter';
 import { useGetPortalMe, getGetPortalMeQueryKey } from '@workspace/api-client-react';
 import { color, font } from '@/design/tokens';
 import { SceneWindow } from '@/components/scene-window';
@@ -133,15 +133,31 @@ function ClerkStalled() {
 function AuthWait({ stalled }: { stalled: boolean }) {
   return <div dir="rtl" className="mx-auto max-w-2xl p-10">{stalled ? <ClerkStalled/> : <LoadingBlock/>}</div>;
 }
+// A visitor sent to sign in from a portal page (say «اطلب الخدمة» on a
+// service page, which opens /requests/new?service=…) comes back to that page
+// after signing in. Only root-relative portal paths are honoured, so the
+// parameter can never send anyone to another site.
+const RETURN_PARAM = 'redirect_url';
+const portalReturnPath = /^\/(dashboard|requests|inquiries|messages|documents|settings|notifications|company|office|registration)(?:[/?#]|$)/;
+export function safeReturnPath(value: string | null | undefined): string | null {
+  if (!value || !value.startsWith('/') || value.startsWith('//') || /[\s\\]/.test(value) || value.length > 2000) return null;
+  return portalReturnPath.test(value) ? value : null;
+}
+function signInHref(location: string, search: string): string {
+  const current = `${location}${search ? `?${search}` : ''}`;
+  return safeReturnPath(current) && current !== '/dashboard' ? `/sign-in?${RETURN_PARAM}=${encodeURIComponent(current)}` : '/sign-in';
+}
 function RoleGate({ children, staff = false, owner = false, registration = false }: { children: ReactNode; staff?: boolean; owner?: boolean; registration?: boolean }) {
   const { isLoaded, isSignedIn } = useAuth();
+  const [location] = useLocation();
+  const search = useSearch();
   const stalled = useClerkStalled(!!isLoaded);
   const { denied, restore } = useContext(OfficeAccessContext);
   // 60 s keeps role revocations and registration approvals flowing without a
   // request every 20 s per open tab; hidden tabs do not poll at all.
   const me = useGetPortalMe({ query: { enabled: !!isLoaded && !!isSignedIn, queryKey: getGetPortalMeQueryKey(), refetchInterval: 60_000 } });
   if (!isLoaded) return <AuthWait stalled={stalled}/>;
-  if (!isSignedIn) return <Redirect to="/sign-in"/>;
+  if (!isSignedIn) return <Redirect to={signInHref(location, search)}/>;
   if (staff && (denied || (me.data && me.data.role !== 'staff'))) return <div dir="rtl" role="alert" className="mx-auto max-w-2xl p-10">
     <div className="surface p-8 text-center"><h1 className="display text-2xl">لم تعد لديك صلاحية الوصول إلى المكتب</h1>
       <p className="muted my-4 text-sm">أُخفيت بيانات المكتب من هذا التبويب. إذا أُعيدت صلاحيتك، تحقق منها مجددًا.</p>
@@ -166,10 +182,11 @@ function HomeRoute() {
 function AuthPage({kind}:{kind:'sign-in'|'sign-up'}) {
   const { isLoaded, isSignedIn } = useAuth();
   const stalled = useClerkStalled(!!isLoaded);
-  if (isSignedIn) return <RoleGate><Redirect to="/dashboard"/></RoleGate>;
+  const returnTo = safeReturnPath(new URLSearchParams(useSearch()).get(RETURN_PARAM)) ?? '/dashboard';
+  if (isSignedIn) return <RoleGate><Redirect to={returnTo}/></RoleGate>;
   const title = kind==='sign-in' ? 'تسجيل الدخول' : 'إنشاء حساب';
   // Clerk's card carries the visible heading; the page keeps its own h1 for assistive tech.
-  return <main dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center gap-7 px-4 py-10"><SceneWindow edge="top"/><h1 className="sr-only">{title}</h1><a href={basePath || '/'} className="display rounded-full bg-night/60 px-5 py-2 text-xl font-semibold text-on-dark no-underline backdrop-blur">HBS / حلول الغد</a>{kind==='sign-up' && <p className="max-w-sm rounded-2xl bg-night/70 px-5 py-3 text-center text-sm leading-7 text-on-dark-2 backdrop-blur">أنشئ حسابًا بالبريد الإلكتروني وتحقق منه، ثم قدّم طلب تسجيل يراجعه المكتب قبل إتاحة خدمات البوابة.</p>}<div dir="rtl" className="w-full max-w-[440px]">{stalled ? <ClerkStalled/> : kind==='sign-in' ? <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /> : <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />}</div><p className="rounded-full bg-night/70 px-4 py-2 text-center text-xs text-on-dark-2 backdrop-blur">تتوفر خدمات العملاء بعد موافقة المكتب على طلب التسجيل.</p></main>;
+  return <main dir="rtl" className="relative z-[1] flex min-h-[100dvh] flex-col items-center justify-center gap-7 px-4 py-10"><SceneWindow edge="top"/><h1 className="sr-only">{title}</h1><a href={basePath || '/'} className="display rounded-full bg-night/60 px-5 py-2 text-xl font-semibold text-on-dark no-underline backdrop-blur">HBS / حلول الغد</a>{kind==='sign-up' && <p className="max-w-sm rounded-2xl bg-night/70 px-5 py-3 text-center text-sm leading-7 text-on-dark-2 backdrop-blur">أنشئ حسابًا بالبريد الإلكتروني وتحقق منه، ثم قدّم طلب تسجيل يراجعه المكتب قبل إتاحة خدمات البوابة.</p>}<div dir="rtl" className="w-full max-w-[440px]">{stalled ? <ClerkStalled/> : kind==='sign-in' ? <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} forceRedirectUrl={`${basePath}${returnTo}`} /> : <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} forceRedirectUrl={`${basePath}${returnTo}`} />}</div><p className="rounded-full bg-night/70 px-4 py-2 text-center text-xs text-on-dark-2 backdrop-blur">تتوفر خدمات العملاء بعد موافقة المكتب على طلب التسجيل.</p></main>;
 }
 // Mounted once for every portal and auth route, so Clerk is not re-initialised
 // as the visitor moves between portal pages. Its own Suspense keeps the shell

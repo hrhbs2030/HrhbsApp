@@ -1,0 +1,9 @@
+/* Notices shown above customer pages: the unverified WhatsApp number and the read-only / finance role line. */
+/* ---- WhatsApp number awaiting verification (dashboard and settings) ------- */
+.wa-verify-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 16px; border: 1px solid var(--color-warn-line); border-radius: var(--radius-card); background: var(--color-warn-soft); color: var(--color-warn); font-size: var(--text-sm); line-height: 1.7; }
+.wa-verify-banner > svg { flex: none; }
+.wa-verify-banner strong { display: block; color: var(--color-ink); }
+.wa-verify-banner span { color: var(--color-quiet); }
+.wa-verify-banner .btn { min-height: 44px; }
+.role-notice { display: flex; align-items: center; gap: 8px; margin: 0 0 20px; padding: 10px 14px; border-radius: 12px; background: var(--color-sage); color: var(--color-teal); font-size: 13.5px; line-height: 1.7; }
+.role-notice > svg { flex: none; }
