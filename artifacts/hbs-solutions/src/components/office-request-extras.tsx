@@ -44,8 +44,8 @@ export function ExtractReminder({ requestId, file, onClose }: { requestId: numbe
     } catch { setError('تعذّر حفظ التنبيه. تحقق من البيانات.'); }
   }
   return <section className="rounded-xl border border-sage-2 bg-paper p-4" aria-label="إضافة تنبيه انتهاء من مستند">
-    <h3 className="mb-3 flex items-center gap-2 text-sm font-bold"><ScanText size={16} aria-hidden="true"/>تنبيه انتهاء من «{file.name}»</h3>
-    {saved ? <div className="space-y-3"><p role="status" className="text-sm font-bold text-ok">حُفظ التنبيه، ويصل للعميل قبل الانتهاء.</p><button type="button" className="btn btn-outline btn-sm" onClick={onClose}>إغلاق</button></div>
+    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold"><ScanText size={16} aria-hidden="true"/>تنبيه انتهاء من «{file.name}»</h3>
+    {saved ? <div className="space-y-3"><p role="status" className="text-sm font-semibold text-ok">حُفظ التنبيه، ويصل للعميل قبل الانتهاء.</p><button type="button" className="btn btn-outline btn-sm" onClick={onClose}>إغلاق</button></div>
       : !draft ? <p className="text-sm text-subtle" aria-live="polite">جارٍ قراءة المستند…</p>
       : <>{hint && <p className="mb-3 rounded-lg bg-sunk p-3 text-xs leading-6 text-quiet">{hint}</p>}
         <p className="mb-3 text-xs text-subtle">راجع البيانات مع المستند قبل الحفظ.</p>
@@ -117,7 +117,7 @@ export function QuotePanel({ requestId, quote, onChanged }: { requestId: number;
     </form>}
     {!quote && !open && <p className="rf-empty">لم يُرسل عرض سعر. يصل العرض للعميل بالبريد ويقبله أو يرفضه من طلبه.</p>}
     {error && <p role="alert" className="rf-errors">{error}</p>}
-    {sent && <p role="status" className="text-xs font-bold text-ok">أُرسل عرض السعر للعميل.</p>}
+    {sent && <p role="status" className="text-xs font-semibold text-ok">أُرسل عرض السعر للعميل.</p>}
   </section>;
 }
 
@@ -185,7 +185,7 @@ export function ChecklistEditor({ requestId, checklist, attachments, onChanged }
         </select></label>}
     </li>)}</ul> : <p className="rf-empty">لم تُحدَّد مستندات مطلوبة. حدّدها ليعرف العميل ما يرفعه، وتظهر له في طلبه.</p>}
     {error && <p role="alert" className="rf-errors">{error}</p>}
-    {saved && <p role="status" className="text-xs font-bold text-ok">حُفظت القائمة وتظهر للعميل.</p>}
+    {saved && <p role="status" className="text-xs font-semibold text-ok">حُفظت القائمة وتظهر للعميل.</p>}
   </section>;
 }
 

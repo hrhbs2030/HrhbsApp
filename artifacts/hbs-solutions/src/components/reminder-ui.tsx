@@ -11,7 +11,7 @@ export function ExpiryBadge({ expiresOn }: { expiresOn: string }) {
   const days = daysUntil(expiresOn);
   const tone = days < 0 ? 'bg-danger-soft text-danger' : days <= 30 ? 'bg-warn-soft text-warn' : 'bg-sage text-teal';
   const label = days < 0 ? 'منتهية' : days === 0 ? 'تنتهي اليوم' : `بعد ${daysLabel(days)}`;
-  return <span className={`inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-bold ${tone}`}>{label}</span>;
+  return <span className={`inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-semibold ${tone}`}>{label}</span>;
 }
 
 export type Draft = { kind: ReminderKind; label: string; expiresOn: string; note: string };

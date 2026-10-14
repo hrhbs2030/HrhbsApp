@@ -340,7 +340,7 @@ export function OfficeRequests() {
     { key: 'customer', header: 'العميل', hideBelow: 'lg', cell: r => r.customer ? <span className="block truncate">{r.customer.fullName}</span> : <span className="text-subtle">—</span> },
     { key: 'status', header: 'الحالة', cell: r => <Status value={r.status} /> },
     { key: 'assignee', header: 'المسؤول', hideBelow: 'md', cell: r => memberName(members.data, r.assignedTo) ? <span className="inline-flex items-center gap-1 text-xs"><UserRound size={12} aria-hidden="true" />{memberName(members.data, r.assignedTo)}</span> : <span className="text-xs text-subtle">غير مسند</span> },
-    { key: 'due', header: 'الموعد', hideBelow: 'md', nums: true, cell: r => r.dueAt ? <span className={isOverdue(r) ? 'font-bold text-danger' : ''}>{dateText(r.dueAt)}</span> : <span className="text-subtle">—</span> },
+    { key: 'due', header: 'الموعد', hideBelow: 'md', nums: true, cell: r => r.dueAt ? <span className={isOverdue(r) ? 'font-semibold text-danger' : ''}>{dateText(r.dueAt)}</span> : <span className="text-subtle">—</span> },
     { key: 'open', header: <span className="sr-only">فتح</span>, label: 'الصفحة الكاملة', width: '1%', align: 'end', cell: r => <Link href={fullPageHref(r.id, rows)} className="rq-open" title="فتح الصفحة الكاملة"><Maximize2 size={14} aria-hidden="true" /><span className="hidden xl:inline">فتح</span><span className="sr-only xl:hidden">فتح الصفحة الكاملة</span></Link> },
   ];
 
@@ -507,7 +507,7 @@ function RequestEditor({ request, presetStatus }: { request: OfficeServiceReques
         {request.subject && <span className="w-full"><SubjectChip subject={request.subject} /></span>}
       </div>}
       <div className="rq-facts"><div><span className="muted">المجال</span><strong>{categoryNames[request.category]}</strong></div><div><span className="muted">تاريخ الإرسال</span><strong>{dateText(request.createdAt)}</strong></div><div className="col-span-2"><span className="muted">رقم التواصل</span><strong dir="ltr" className="inline-block nums">{request.contactPhone}</strong></div></div>
-      <div><div className="mb-2 text-xs font-bold text-subtle">تفاصيل العميل</div><p className="rq-description">{request.description}</p></div>
+      <div><div className="mb-2 text-xs font-medium text-subtle">تفاصيل العميل</div><p className="rq-description">{request.description}</p></div>
       {/* Bulk requests: each employee's progress, compact here; the full page has the notes. */}
       {request.employees?.length > 0 && <div><RequestEmployees compact requestId={request.id} employees={request.employees} onChanged={refreshOffice} /></div>}
       <div><ChecklistEditor requestId={request.id} checklist={request.checklist} attachments={request.attachments} onChanged={refreshOffice} /></div>
@@ -526,7 +526,7 @@ function RequestEditor({ request, presetStatus }: { request: OfficeServiceReques
           <label className="form-field">المسؤول<select className="form-control" value={assignedTo} onChange={e => setAssignedTo(e.target.value)}><option value="">غير مسند</option>{assignedTo && !members.data?.some(m => m.userId === assignedTo) && <option value={assignedTo}>عضو سابق</option>}{members.data?.map(m => <option key={m.userId} value={m.userId}>{m.email ?? m.userId}</option>)}</select></label>
           <label className="form-field">موعد الإنجاز<input className="form-control" type="date" dir="ltr" value={due} onChange={e => setDue(e.target.value)} /></label>
         </div>
-        {isOverdue({ status: request.status, dueAt: request.dueAt }) && <p className="text-xs font-bold text-danger">تجاوز الطلب موعد إنجازه.</p>}
+        {isOverdue({ status: request.status, dueAt: request.dueAt }) && <p className="text-xs font-semibold text-danger">تجاوز الطلب موعد إنجازه.</p>}
         {status === 'waiting_on_customer' && <label className="form-field">ما يحتاجه المكتب من العميل<textarea className="form-control !min-h-24" value={customerMessage} onChange={e => setCustomerMessage(e.target.value)} maxLength={2000} minLength={2} required placeholder="وضّح للعميل ما يلزم لإكمال الطلب..." /><small className="muted font-normal">تظهر هذه الرسالة للعميل في طلبه.</small></label>}
         <label className="form-field">ملاحظة المكتب الداخلية<textarea className="form-control !min-h-28" value={officeNote} onChange={e => setOfficeNote(e.target.value)} maxLength={2000} placeholder="ملاحظة داخلية للفريق..." /><small className="muted font-normal">هذه الملاحظة داخلية ولا تُعرض للعميل في البوابة.</small></label>
         {(conflict || changedSinceOpened) ? <div role="alert" className="rq-alert is-danger">تغيّر هذا الطلب منذ فتحه. راجع النسخة الجديدة قبل الحفظ. <button type="button" className="underline" onClick={reviewLatest} disabled={request.updatedAt === version}>مراجعة النسخة الجديدة</button></div> : rejected ? <p role="alert" className="rq-alert is-danger">{rejected}</p> : mutation.isError && <p role="alert" className="rq-alert is-danger">تعذّر حفظ التحديث. حاول مجددًا.</p>}
@@ -592,7 +592,7 @@ function InquiryPanel({ id, inquiry }: { id: number; inquiry: OfficeInquiry | un
       <div className="flex shrink-0 items-center gap-2">{inquiry && <Status value={inquiry.status} />}<WhatsappFollowUp link={thread?.whatsapp.link ?? null} number={thread?.whatsapp.number ?? null} verified={!!thread?.whatsapp.verified} scope="office" /></div>
     </div>
     <div className="space-y-5 p-5">
-      {inquiry?.linkedServiceRequest && <div className="iq-linked"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-xs font-bold text-subtle">طلب الخدمة المرتبط: <span dir="ltr" className="nums">{inquiry.linkedServiceRequest.reference}</span></div><Status value={inquiry.linkedServiceRequest.status} /></div><div className="mt-2 font-semibold">{inquiry.linkedServiceRequest.service}<span className="font-normal text-subtle">، {categoryNames[inquiry.linkedServiceRequest.category]}</span></div><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-subtle">{inquiry.linkedServiceRequest.description}</p></div>}
+      {inquiry?.linkedServiceRequest && <div className="iq-linked"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-xs font-medium text-subtle">طلب الخدمة المرتبط: <span dir="ltr" className="nums">{inquiry.linkedServiceRequest.reference}</span></div><Status value={inquiry.linkedServiceRequest.status} /></div><div className="mt-2 font-semibold">{inquiry.linkedServiceRequest.service}<span className="font-normal text-subtle">، {categoryNames[inquiry.linkedServiceRequest.category]}</span></div><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-subtle">{inquiry.linkedServiceRequest.description}</p></div>}
       <Conversation thread={{ type: 'inquiry', id }} scope="office" whatsapp={thread?.whatsapp ?? null} />
     </div>
   </div>;

@@ -27,11 +27,12 @@ const [received, reviewing, submitted, completed] = milestones.map((m) => m.labe
 const waiting = pauses.waiting_on_customer.label;
 
 // `lines` are what the characters say, in order, with the second each line
-// appears: the SVG bubbles read them, and under 720px they double as an HTML
-// subtitle strip (the SVG text is too small to read on a phone). Keep each
-// line at eight words or fewer: Bubble widens with text length (7.7px a
-// character) and a client-side line longer than ~36 characters runs off the
-// 960px stage.
+// appears. They render as HTML speech bubbles (readable 15px type on solid
+// paper) in a reserved band above the heads, positioned on the stage's
+// 960 × 540 coordinates, and under 640px as an HTML subtitle strip beneath the
+// picture instead (bubbles would not fit a phone-wide stage). Keep each line
+// at eight words or fewer: a bubble wraps at 220px and must stay inside the
+// band between the stage rail and the heads.
 type Line = { text: string; at: number; who?: 'office' | 'status' };
 type Scene = { title: string; text: string; seconds: number; rail: number | null; pause?: PauseKey; pose: Pose; lines: Line[] };
 const scenes: Scene[] = [
@@ -91,31 +92,39 @@ function useCountUp(text: string, delay: number, duration = 700) {
   return text.slice(0, match.index) + digits + text.slice((match.index ?? 0) + match[1].length);
 }
 
-function Bubble({ x, y, text, delay, tail = 'center', tone = 'light' }: { x: number; y: number; text: string; delay: number; tail?: 'left' | 'right' | 'center'; tone?: 'light' | 'copper' }) {
-  const w = Math.round(text.length * 7.7 + 34);
-  const h = 34;
-  const tx = tail === 'right' ? x + w / 2 - 26 : tail === 'left' ? x - w / 2 + 26 : x;
-  const fill = tone === 'copper' ? '#e5a27b' : '#f6efe3';
-  return (
-    <g className="hf-pop" style={{ animationDelay: `${delay}s` }}>
-      <rect x={x - w / 2} y={y - h} width={w} height={h} rx="15" fill={fill} />
-      <path d={`M${tx - 7} ${y - 1} L${tx} ${y + 9} L${tx + 7} ${y - 1}Z`} fill={fill} />
-      <text x={x} y={y - 11} textAnchor="middle" direction="rtl" className="hf-text">{text}</text>
-    </g>
-  );
+// Stage coordinates (960 × 540) of each speaker's bubble tail: above the
+// client's head and above the office sign, below the stage rail. HTML, so the
+// text keeps its 15px size at every stage width; the band above the heads is
+// reserved for them and the overlap check in the scratchpad guards it.
+const CLIENT_SAY = { x: 745, y: 238 };
+const OFFICE_SAY = { x: 235, y: 250 };
+const stagePos = (x: number, y: number): CSSProperties => ({ '--x': `${(x / 960 * 100).toFixed(2)}%`, '--y': `${((540 - y) / 540 * 100).toFixed(2)}%` } as CSSProperties);
+
+function Bubble({ x, y, text, delay, tone = 'light' }: { x: number; y: number; text: string; delay: number; tone?: 'light' | 'copper' }) {
+  return <span className={`hf-say hf-say--${tone}`} style={{ ...stagePos(x, y), animationDelay: `${delay}s` }}>{text}</span>;
 }
 
 function Badge({ x, y, text, delay, tone = 'teal' }: { x: number; y: number; text: string; delay: number; tone?: 'teal' | 'ok' | 'warn' }) {
-  const w = Math.round(text.length * 7.2 + 40);
-  const colors = { teal: ['#10292c', '#8fd0c6'], ok: ['#173a2a', '#9fd9b0'], warn: ['#3b2d0c', '#ecd08a'] }[tone];
   const shown = useCountUp(text, delay + .15);
   return (
-    <g className="hf-pop hf-pop--badge" style={{ animationDelay: `${delay}s` }}>
-      <rect x={x - w / 2} y={y - 17} width={w} height={34} rx="17" fill={colors[0]} stroke={colors[1]} strokeOpacity=".6" />
-      <circle cx={x + w / 2 - 17} cy={y} r="4" fill={colors[1]} className="hf-dot" style={{ animationDelay: `${delay + .4}s` }} />
-      <text x={x - 6} y={y + 5} textAnchor="middle" direction="rtl" className="hf-badge" fill={colors[1]}>{shown}</text>
-    </g>
+    <span className={`hf-badge hf-badge--${tone}`} style={{ ...stagePos(x, y), animationDelay: `${delay}s` }}>
+      <i className="hf-dot" style={{ animationDelay: `${delay + .4}s` }} aria-hidden="true" />{shown}
+    </span>
   );
+}
+
+// The words of a scene: speech bubbles and status badges, an HTML layer over
+// the picture (same `lines`, same seconds as the subtitle strip).
+function SceneWords({ index }: { index: number }) {
+  const L = scenes[index].lines;
+  switch (index) {
+    case 0: return <Bubble {...CLIENT_SAY} text={L[0].text} delay={L[0].at} />;
+    case 1: return <><Bubble {...CLIENT_SAY} text={L[0].text} delay={L[0].at} /><Badge {...OFFICE_SAY} text={L[1].text} delay={L[1].at} /></>;
+    case 2: return <><Bubble {...OFFICE_SAY} text={L[0].text} delay={L[0].at} /><Bubble {...CLIENT_SAY} text={L[1].text} delay={L[1].at} tone="copper" /></>;
+    case 3: return <><Bubble {...CLIENT_SAY} text={L[0].text} delay={L[0].at} /><Badge {...OFFICE_SAY} text={L[1].text} delay={L[1].at} /></>;
+    case 4: return <><Bubble {...OFFICE_SAY} text={L[0].text} delay={L[0].at} /><Bubble {...CLIENT_SAY} text={L[1].text} delay={L[1].at} tone="copper" /></>;
+    default: return <Bubble {...CLIENT_SAY} text={L[0].text} delay={L[0].at} />;
+  }
 }
 
 // A small document card, drawn around (0, 0).
@@ -152,9 +161,6 @@ function Check({ size = 30 }: { size?: number }) {
 
 // What changes in each scene, drawn over the shared street.
 function SceneLayer({ index }: { index: number }) {
-  const bubbleX = CLIENT.x - 10;
-  const bubbleY = 238;
-  const L = scenes[index].lines;
   switch (index) {
     case 0:
       return <g>
@@ -177,14 +183,11 @@ function SceneLayer({ index }: { index: number }) {
             </g>
           </g>
         </g>
-        <Bubble x={bubbleX + 40} y={bubbleY} text={L[0].text} delay={L[0].at} tail="left" />
       </g>;
     case 1:
       return <g>
-        <Bubble x={bubbleX + 30} y={bubbleY} text={L[0].text} delay={L[0].at} tail="left" />
         <g transform="translate(700 330)"><g className="hf-fly hf-fly--to-office"><Doc /></g></g>
         <rect x="282" y="351" width="86" height="100" fill="#ffd9a8" className="hf-flash" style={{ animationDelay: '1.9s' }} />
-        <Badge x={OFFICE.x} y={232} text={L[1].text} delay={L[1].at} />
       </g>;
     case 2:
       return <g>
@@ -193,9 +196,7 @@ function SceneLayer({ index }: { index: number }) {
           <circle r="15" fill="#bfeee6" fillOpacity=".25" stroke="#0e2629" strokeWidth="4" />
           <path d="M11 11 L22 22" stroke="#0e2629" strokeWidth="6" strokeLinecap="round" />
         </g></g>
-        <Bubble x={OFFICE.x - 20} y={250} text={L[0].text} delay={L[0].at} tail="left" />
         <g transform="translate(750 342)"><circle r="16" fill="none" stroke="#8fd0c6" strokeWidth="2.5" className="hf-ping" style={{ animationDelay: '1.9s' }} /></g>
-        <Bubble x={bubbleX + 40} y={bubbleY} text={L[1].text} delay={L[1].at} tail="left" tone="copper" />
       </g>;
     case 3:
       return <g>
@@ -203,24 +204,19 @@ function SceneLayer({ index }: { index: number }) {
           <circle r="22" fill="#3b2d0c" stroke="#ecd08a" strokeWidth="2" />
           <path d="M-8 5 Q-8 -9 0 -10 Q8 -9 8 5 L10 7 H-10Z M-3 9 Q0 13 3 9" fill="#ecd08a" />
         </g></g>
-        <Bubble x={bubbleX + 50} y={bubbleY} text={L[0].text} delay={L[0].at} tail="left" />
         <g transform="translate(700 336)"><g className="hf-fly hf-fly--to-office" style={{ animationDelay: '2.6s' }}><Doc kind="image" /></g></g>
         <rect x="282" y="351" width="86" height="100" fill="#ffd9a8" className="hf-flash" style={{ animationDelay: '4.2s' }} />
-        <Badge x={OFFICE.x} y={232} text={L[1].text} delay={L[1].at} />
       </g>;
     case 4:
       // The file leaves the office upward, towards the authority off-stage.
       return <g>
         <g transform={`translate(${OFFICE.x} 300)`}><g className="hf-fly hf-fly--up" style={{ animationDelay: '.2s' }}><Doc /></g></g>
-        <Bubble x={OFFICE.x - 10} y={250} text={L[0].text} delay={L[0].at} tail="left" />
         <g transform="translate(750 342)"><circle r="16" fill="none" stroke="#8fd0c6" strokeWidth="2.5" className="hf-ping" style={{ animationDelay: '2s' }} /></g>
-        <Bubble x={bubbleX + 40} y={bubbleY} text={L[1].text} delay={L[1].at} tail="left" tone="copper" />
       </g>;
     default:
       return <g>
         <g transform={`translate(${OFFICE.x} 222)`}><g className="hf-pop hf-pop--big" style={{ animationDelay: '.3s' }}><Check size={32} /></g></g>
         <g transform="translate(300 300)"><g className="hf-fly hf-fly--to-client" style={{ animationDelay: '1.2s' }}><Envelope /></g></g>
-        <Bubble x={bubbleX + 40} y={bubbleY} text={L[0].text} delay={L[0].at} tail="left" />
         {[[-70, -30], [60, -44], [-40, 40], [70, 30]].map(([dx, dy], i) => (
           <circle key={i} cx={OFFICE.x + dx} cy={222 + dy} r="3" fill="#e5a27b" className="hf-spark" style={{ animationDelay: `${0.5 + i * .08}s` }} />
         ))}
@@ -238,6 +234,15 @@ function Street({ pose }: { pose: Pose }) {
         <linearGradient id="hf-ground" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1a2426" /><stop offset="1" stopColor="#0b1416" /></linearGradient>
         <radialGradient id="hf-lamp"><stop offset="0" stopColor="#ffd9a8" stopOpacity=".5" /><stop offset="1" stopColor="#ffd9a8" stopOpacity="0" /></radialGradient>
         <linearGradient id="hf-haze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#4d3c43" stopOpacity="0" /><stop offset=".55" stopColor="#a86f55" stopOpacity=".22" /><stop offset="1" stopColor="#a86f55" stopOpacity=".05" /></linearGradient>
+        {/* Rim light: a warm, slightly blurred edge around each figure's silhouette so it separates from the night street. */}
+        <filter id="hf-rim" x="-12%" y="-6%" width="124%" height="112%" colorInterpolationFilters="sRGB">
+          <feMorphology in="SourceAlpha" operator="dilate" radius="1.7" result="d" />
+          <feGaussianBlur in="d" stdDeviation="1.1" result="b" />
+          <feFlood floodColor="#ffd9a8" floodOpacity=".75" />
+          <feComposite in2="b" operator="in" result="rim" />
+          <feMerge><feMergeNode in="rim" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+        <radialGradient id="hf-backlight" cx=".5" cy=".55" r=".5"><stop offset="0" stopColor="#ffd9a8" stopOpacity=".34" /><stop offset=".6" stopColor="#ffb87a" stopOpacity=".1" /><stop offset="1" stopColor="#ffb87a" stopOpacity="0" /></radialGradient>
       </defs>
       <rect width="960" height="540" fill="url(#hf-sky)" />
       {/* Sky: stars and moon, the deepest layer (least movement). */}
@@ -262,8 +267,10 @@ function Street({ pose }: { pose: Pose }) {
         <path d="M0 452 H960" stroke="#f0b28a" strokeOpacity=".25" />
         <path d="M0 500 H960" stroke="#223033" strokeWidth="2" strokeDasharray="26 22" />
         <g><rect x="598" y="300" width="4" height="152" fill="#0e1b1d" /><path d="M600 302 Q600 290 620 290 H628" stroke="#0e1b1d" strokeWidth="4" fill="none" /><circle cx="628" cy="296" r="5" fill="#ffd9a8" /><circle cx="628" cy="300" r="60" fill="url(#hf-lamp)" className="cs-glow" /></g>
-        <Storefront p={P} {...OFFICE} />
-        <g className="hf-sway"><Person kind="najdi" pose={pose} x={CLIENT.x} g={CLIENT.g} s={3.3} flip p={P} /></g>
+        <g className="hf-office" filter="url(#hf-rim)"><Storefront p={P} {...OFFICE} /></g>
+        {/* A warm pool of light behind the client, then the figure with its rim. */}
+        <ellipse cx={CLIENT.x} cy={CLIENT.g - 110} rx="150" ry="150" fill="url(#hf-backlight)" />
+        <g className="hf-sway"><g className="hf-client" filter="url(#hf-rim)"><Person kind="najdi" pose={pose} x={CLIENT.x} g={CLIENT.g} s={3.3} flip p={P} /></g></g>
       </g></g>
     </>
   );
@@ -330,32 +337,37 @@ export function HowFilm() {
   }
 
   let control: ReactNode;
-  if (ended) control = <><RotateCcw size={17} aria-hidden="true" />أعد المشاهدة</>;
-  else if (playing) control = <><Pause size={17} aria-hidden="true" />إيقاف مؤقت</>;
-  else control = <><Play size={17} aria-hidden="true" />تشغيل</>;
+  if (ended) control = <><RotateCcw size={18} strokeWidth={1.75} aria-hidden="true" />أعد المشاهدة</>;
+  else if (playing) control = <><Pause size={18} strokeWidth={1.75} aria-hidden="true" />إيقاف مؤقت</>;
+  else control = <><Play size={18} strokeWidth={1.75} aria-hidden="true" />تشغيل</>;
 
   return (
     <figure ref={ref} className="hf" aria-label="فيلم قصير يوضّح معالجة ملاحظة على ملف الأجور عبر البوابة، من إرسالها حتى إغلاقها">
       <div className="hf-stage" ref={stageRef} data-running={running ? 'true' : 'false'} data-still={reduced ? 'true' : undefined} style={{ '--hpx': 0, '--hpy': 0 } as CSSProperties}>
-        <svg className="hf-svg" viewBox="0 0 960 540" role="img" aria-hidden="true">
-          <Defs p={P} />
-          <Street pose={current.pose} />
-          <FilmContext.Provider value={{ running, still: reduced }}>
+        <div className="hf-frame">
+          {/* Phones crop the sides of the picture (xMidYMax slice) so the figures stay large. */}
+          <svg className="hf-svg" viewBox="0 0 960 540" preserveAspectRatio="xMidYMax slice" role="img" aria-hidden="true">
+            <Defs p={P} />
+            <Street pose={current.pose} />
             <g key={`${run}-${scene}`}><SceneLayer index={scene} /></g>
+          </svg>
+          {/* Speech bubbles and status badges: HTML in the band above the heads. */}
+          <FilmContext.Provider value={{ running, still: reduced }}>
+            <div className="hf-words" aria-hidden="true" key={`words-${run}-${scene}`}><SceneWords index={scene} /></div>
           </FilmContext.Provider>
-        </svg>
-        <div className="hf-top">
-          {current.rail === null
-            ? <span className="hf-pre">قبل الإرسال</span>
-            : <StageRail stage={current.rail} pause={current.pause} />}
+          <div className="hf-top">
+            {current.rail === null
+              ? <span className="hf-pre">قبل الإرسال</span>
+              : <StageRail stage={current.rail} pause={current.pause} />}
+          </div>
+          <span className="hf-tag">مشهد توضيحي</span>
         </div>
-        {/* Phone-size subtitles: the same lines as the bubbles, in readable HTML. */}
+        {/* Phone-size subtitles: the same lines as the bubbles, in a strip under the picture. */}
         <div className="hf-subs" aria-hidden="true" key={`subs-${run}-${scene}`}>
           {current.lines.map((line) => (
             <span key={line.text} className={`hf-sub${line.who ? ` hf-sub--${line.who}` : ''}`} style={{ animationDelay: `${line.at}s` }}>{line.text}</span>
           ))}
         </div>
-        <span className="hf-tag">مشهد توضيحي</span>
       </div>
 
       <figcaption className="hf-caption" aria-live="polite">

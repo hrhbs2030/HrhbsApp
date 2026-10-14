@@ -181,7 +181,7 @@ export function NewRequest() {
   return (
     <PortalLayout>
       <div className="nr">
-        <Link href="/requests" className="mb-4 inline-flex min-h-11 items-center gap-2 text-xs font-bold text-subtle no-underline hover:text-ink"><ArrowRight size={16} aria-hidden="true" />طلباتي</Link>
+        <Link href="/requests" className="mb-4 inline-flex min-h-11 items-center gap-2 text-xs font-medium text-subtle no-underline hover:text-ink"><ArrowRight size={16} aria-hidden="true" />طلباتي</Link>
         <PageHeading eyebrow="طلباتي" title="طلب خدمة جديد" subtitle="ثلاث خطوات قصيرة، ويتابع المكتب طلبك من لحظة وصوله." />
 
         <nav className="nr-stepper" aria-label="خطوات الطلب">
@@ -224,7 +224,7 @@ export function NewRequest() {
                   {suggestions.map((s) => <button key={s.slug} type="button" aria-pressed={service.trim() === s.name} onClick={() => { setService(s.name); setErrors({}); }}>{s.name}</button>)}
                 </div>}
                 <ServiceOffer slug={matched?.slug} compact />
-                {!errors.service && <p id="hint-service" className="muted mt-3 text-xs leading-6">لا تعرف اسم الخدمة؟ اكتب ما ظهر لك واسم المنصة، مثل «ملاحظة على ملف الأجور في مُدد»، ويحدد المكتب الخدمة عند المراجعة. أو تصفّح <Link href="/services" className="font-bold text-teal-bright underline">دليل الخدمات</Link>.</p>}
+                {!errors.service && <p id="hint-service" className="muted mt-3 text-xs leading-6">لا تعرف اسم الخدمة؟ اكتب ما ظهر لك واسم المنصة، مثل «ملاحظة على ملف الأجور في مُدد»، ويحدد المكتب الخدمة عند المراجعة. أو تصفّح <Link href="/services" className="font-semibold text-teal-bright underline">دليل الخدمات</Link>.</p>}
               </div>
             )}
 
@@ -238,7 +238,7 @@ export function NewRequest() {
                   </div>
                 )}
                 {company.isLoading && <p role="status" className="muted mt-4 text-sm">جارٍ تحميل ملف المنشأة لاختيار الموظفين أو التراخيص المعنية…</p>}
-                {company.isError && !company.data && <p role="alert" className="mt-4 text-sm text-danger">تعذّر تحميل ملف المنشأة؛ يمكنك متابعة الطلب دون ربط موظف أو ترخيص، أو <button type="button" className="font-bold underline" onClick={() => company.refetch()}>إعادة المحاولة</button>.</p>}
+                {company.isError && !company.data && <p role="alert" className="mt-4 text-sm text-danger">تعذّر تحميل ملف المنشأة؛ يمكنك متابعة الطلب دون ربط موظف أو ترخيص، أو <button type="button" className="font-semibold underline" onClick={() => company.refetch()}>إعادة المحاولة</button>.</p>}
                 <label className="form-field" htmlFor="field-description">ما الذي تحتاجه من المكتب؟
                   <textarea id="field-description" className="form-control" placeholder="اكتب الملاحظة كما تظهر لك، مع التاريخ والجهة. وإن كانت وثيقة تنتهي أو مؤشرًا تغيّر، فاذكر ما تراه ومتى لاحظته." value={description} onChange={(e) => { setDescription(e.target.value); clear('description'); }} onBlur={check('description')} maxLength={LIMITS.description[1]} aria-invalid={!!errors.description} aria-describedby={errors.description ? 'err-description' : 'hint-description'} />
                   {errors.description ? <span id="err-description" className="field-error" role="alert">{errors.description}</span> : <small id="hint-description" className="muted flex justify-between gap-3 font-normal"><span>صورة الملاحظة أو الشاشة تُرفق في «المستندات» أدناه. لا تشارك كلمات مرور المنصات أو رموز التحقق.</span><span className="nums shrink-0" dir="ltr">{description.trim().length}/{LIMITS.description[1]}</span></small>}

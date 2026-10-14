@@ -50,7 +50,7 @@ function Words({ text, delay = 0, className }: { text: string; delay?: number; c
 }
 
 function Mark({ size }: { size: number }) {
-  return <div className="intro-mark" style={{ width: size, height: size }}>
+  return <div className="intro-mark" style={{ '--size': `${size}px` } as CSSProperties}>
     <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
       <defs>
         <linearGradient id="intro-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#1d5a60" /><stop offset="1" stopColor="#0c2a2d" /></linearGradient>
@@ -83,11 +83,11 @@ function Card({ children, className = '', style }: { children: ReactNode; classN
 function RequestVisual() {
   return <div className="iv iv-request">
     <Card className="iv-a">
-      <div className="iv-search"><Search size={14} /><span className="iv-type">ملاحظة على ملف الأجور</span></div>
+      <div className="iv-search"><Search size={14} strokeWidth={1.75} /><span className="iv-type">ملاحظة على ملف الأجور</span></div>
       <div className="iv-chips">{['متابعة الالتزام بحماية الأجور', 'حماية الأجور', 'رخصة العمل'].map((c, i) =>
         <span key={c} className={`iv-chip ${i === 0 ? 'is-on' : ''}`} style={{ '--d': `${0.3 + i * 0.09}s` } as CSSProperties}>{c}</span>)}</div>
       <div className="iv-lines"><i style={{ '--w': '86%', '--d': '.6s' } as CSSProperties} /><i style={{ '--w': '64%', '--d': '.72s' } as CSSProperties} /><i style={{ '--w': '72%', '--d': '.84s' } as CSSProperties} /></div>
-      <span className="iv-send"><Send size={13} />إرسال الطلب</span>
+      <span className="iv-send"><Send size={13} strokeWidth={1.75} />إرسال الطلب</span>
     </Card>
     <div className="iv-ref"><span>الرقم المرجعي</span><b dir="ltr">{REF}</b></div>
   </div>;
@@ -101,7 +101,7 @@ function OfficeVisual() {
       <ol className="iv-track">{milestoneLabels.map((s, i) => <li key={s} style={{ '--d': `${0.3 + i * 0.28}s` } as CSSProperties}><span className="iv-dot"><Check size={10} strokeWidth={3} /></span>{s}</li>)}</ol>
     </Card>
     <div className="iv-chat">
-      <span className="iv-bubble is-them" style={{ '--d': '1.05s' } as CSSProperties}><MessageCircle size={13} />وجدنا السبب ورفعنا التصحيح للجهة المختصة</span>
+      <span className="iv-bubble is-them" style={{ '--d': '1.05s' } as CSSProperties}><MessageCircle size={13} strokeWidth={1.75} />وجدنا السبب ورفعنا التصحيح للجهة المختصة</span>
       <span className="iv-bubble" style={{ '--d': '1.5s' } as CSSProperties}>شكرًا، متابع معكم</span>
     </div>
   </div>;
@@ -110,11 +110,11 @@ function OfficeVisual() {
 function DocumentsVisual() {
   return <div className="iv iv-docs">
     <div className="iv-files">{['كشف الرواتب.pdf', 'عقد العمل.pdf'].map((f, i) =>
-      <span key={f} className="iv-file" style={{ '--d': `${0.25 + i * 0.18}s` } as CSSProperties}><FileText size={15} />{f}</span>)}</div>
+      <span key={f} className="iv-file" style={{ '--d': `${0.25 + i * 0.18}s` } as CSSProperties}><FileText size={15} strokeWidth={1.75} />{f}</span>)}</div>
     <Card className="iv-invoice">
       <div className="iv-head"><b>فاتورة</b><span dir="ltr">INV-2026-00012</span></div>
       <div className="iv-rows"><span>أتعاب الخدمة</span><span dir="ltr">200.00</span><span>ضريبة القيمة المضافة</span><span dir="ltr">30.00</span><b>الإجمالي</b><b dir="ltr">230.00 ر.س</b></div>
-      <span className="iv-pay"><CreditCard size={14} />دفع إلكتروني آمن</span>
+      <span className="iv-pay"><CreditCard size={14} strokeWidth={1.75} />دفع إلكتروني آمن</span>
       <span className="iv-stamp">مسددة</span>
     </Card>
   </div>;
@@ -124,11 +124,11 @@ function CompanyVisual() {
   const people = [['أحمد', 'الإقامة', 'بعد 30 يومًا', 'warn'], ['سارة', 'الجواز', 'بعد 140 يومًا', 'ok'], ['راجو', 'رخصة العمل', 'بعد 7 أيام', 'warn']] as const;
   return <div className="iv iv-company">
     <Card className="iv-a">
-      <div className="iv-head"><b><UsersRound size={14} /> ملف المنشأة</b><span>3 موظفين</span></div>
+      <div className="iv-head"><b><UsersRound size={14} strokeWidth={1.75} /> ملف المنشأة</b><span>3 موظفين</span></div>
       <ul className="iv-people">{people.map(([name, doc, when, tone], i) =>
         <li key={name} style={{ '--d': `${0.3 + i * 0.14}s` } as CSSProperties}><span className="iv-avatar">{name[0]}</span><b>{name}</b><span>{doc}</span><em className={`iv-badge is-${tone}`}>{when}</em></li>)}</ul>
     </Card>
-    <div className="iv-alert"><Bell size={15} /><span>تنبيه: إقامة أحمد تنتهي بعد 30 يومًا</span><b>طلب تجديد</b></div>
+    <div className="iv-alert"><Bell size={15} strokeWidth={1.75} /><span>تنبيه: إقامة أحمد تنتهي بعد 30 يومًا</span><b>طلب تجديد</b></div>
   </div>;
 }
 

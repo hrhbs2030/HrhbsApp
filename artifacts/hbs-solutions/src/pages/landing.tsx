@@ -1,9 +1,11 @@
-import { Fragment, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ArrowLeft, BookUser, BriefcaseBusiness, Building2, CalendarClock, FileText, Gauge, MessageSquareWarning, Search, ShieldCheck, Shapes, Hash, History, PlayCircle } from 'lucide-react';
 import { SiteFooter, SiteHeader, scrollToChapter } from '@/components/site-chrome';
 import { IntroSequence, useIntroState } from '@/components/intro';
 import { RequestObject, StageRail, type StageFrame } from '@/components/request-object';
+import { SceneWindow, useSceneWindows } from '@/components/scene-window';
+import { cityInfo, cityOrder } from '@/components/city-scene';
 import { AssistantShowcase, DashboardPreview } from '@/components/landing-previews';
 import { HowFilm } from '@/components/how-film';
 import { categories, services, type ServiceCategory } from '@/content/services';
@@ -53,6 +55,38 @@ function useHeroStage(start: boolean, reduced: boolean) {
   return { ...(picked ?? heroFrames[frame]), select: (index: number) => setPicked({ stage: index }) };
 }
 
+// The app-level city scene is anchored to the hero on the landing page
+// (landing.css, `.cs--full`): its box is as tall as the hero, so the street
+// and the people always sit in the hero's reserved scene band, under the copy
+// and the request card, at every scroll position. The hero's height is
+// published as a custom property on the root element, where the scene (a
+// sibling of the page, not a descendant) can read it.
+function useHeroHeight(ref: RefObject<HTMLElement | null>) {
+  useLayoutEffect(() => {
+    const hero = ref.current;
+    const root = document.documentElement;
+    if (!hero || typeof ResizeObserver === 'undefined') return;
+    const publish = () => root.style.setProperty('--lp-hero-h', `${Math.round(hero.getBoundingClientRect().height)}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(hero);
+    return () => { observer.disconnect(); root.style.removeProperty('--lp-hero-h'); };
+  }, [ref]);
+}
+
+// The city label for the scene band: the same city the app-level scene is
+// showing (scene-window.tsx keeps the index). Replaces the scene's own
+// caption on the landing, which otherwise sat over the people.
+function CityLabel() {
+  const city = cityInfo[cityOrder[useSceneWindows().city] ?? 'riyadh'];
+  return (
+    <div className="lp-city-card" key={city.name}>
+      <strong>{city.name}</strong>
+      <span>{city.region}</span>
+    </div>
+  );
+}
+
 // `compact` is the phone version shown in the service-areas section, where
 // the long placeholder would be cut off.
 function ServiceSearch({ compact = false }: { compact?: boolean }) {
@@ -92,7 +126,9 @@ export default function Landing() {
   const intro = useIntroState();
   const reduced = useReducedMotion();
   const rootRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLElement>(null);
   const hero = useHeroStage(!intro.playing, reduced);
+  useHeroHeight(heroRef);
   // The film returns focus to whichever replay button is visible (hero on desktop, journey section on phones).
   const replayHero = useRef<HTMLButtonElement>(null);
   const replayHow = useRef<HTMLButtonElement>(null);
@@ -128,9 +164,14 @@ export default function Landing() {
       <SiteHeader tone="dark" />
 
       <main id="main" tabIndex={-1}>
-        <section className="lp-hero" aria-labelledby="landing-title">
-          {/* Depth over the city scene: a night gradient, a copper glow and film grain. Decorative only. */}
+        <section className="lp-hero" aria-labelledby="landing-title" ref={heroRef}>
+          {/* Three layers that never overlap: the copy block and the request card
+              share the top row; the city scene gets its own full-width band
+              below them (landing.css, .lp-hero-scene). The depth tint covers the
+              copy row only, so the street band stays bright. Decorative only. */}
           <div className="lp-hero-depth" aria-hidden="true" />
+          {/* Keeps the scene playing while any part of the hero (not only the first viewport) is on screen. */}
+          <SceneWindow edge="top" className="lp-hero-window" />
           <div className="site-wrap lp-hero-grid">
             <div className="lp-hero-content">
               <h1 id="landing-title">
@@ -161,10 +202,15 @@ export default function Landing() {
             </div>
             <div className="lp-hero-visual lp-enter-visual">
               <RequestObject stage={hero.stage} pause={hero.pause} tilt caption="مثال" />
-              <div className="lp-hero-rail">
+              <div className="lp-hero-rail lp-rail">
                 <StageRail stage={hero.stage} pause={hero.pause} onSelect={hero.select} />
               </div>
             </div>
+          </div>
+          {/* The scene band: reserved height, nothing in it but the city label in its top corner. */}
+          <div className="lp-hero-scene" aria-hidden="true">
+            <div className="lp-hero-street" />
+            <div className="site-wrap lp-hero-scene-wrap"><CityLabel /></div>
           </div>
         </section>
 

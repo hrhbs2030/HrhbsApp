@@ -104,12 +104,12 @@ export function InboxCard({ item, params }: { item: WhatsappInboxItem; params: {
     </div>
     <p className="wa-bubble">{item.body}</p>
     {item.handled === 'unmatched' && <p className="wa-link-note">هذا الرقم غير مرتبط بأي عميل، فلا يُحفظ الرد في محادثة. لربطه، اطلب من صاحبه توثيق رقمه من «الإعدادات» في بوابته؛ أو ابحث عن العميل في <Link href={`/office/customers?q=${encodeURIComponent(item.customerName ?? '')}`}>ملفات العملاء</Link> وأنشئ الطلب باسمه من ملفه.</p>}
-    {item.suggestedReplies.length > 0 && <div className="mt-4"><span className="mb-1 block text-xs font-bold text-subtle">ردود مقترحة</span><div className="wa-suggest">{item.suggestedReplies.map((suggestion, index) => <button key={index} type="button" onClick={() => { setNotice(null); setText(suggestion); }}>{suggestion}</button>)}</div></div>}
+    {item.suggestedReplies.length > 0 && <div className="mt-4"><span className="mb-1 block text-xs font-medium text-subtle">ردود مقترحة</span><div className="wa-suggest">{item.suggestedReplies.map((suggestion, index) => <button key={index} type="button" onClick={() => { setNotice(null); setText(suggestion); }}>{suggestion}</button>)}</div></div>}
     <form onSubmit={send} className="wa-compose">
       {!item.canReplyFreeText && <p className="wa-template">خارج نافذة 24 ساعة: سيُرسل كقالب.</p>}
       <label className="form-field">الرد<textarea className="form-control !min-h-[96px]" value={text} maxLength={1024} onChange={(event) => { setNotice(null); setText(event.target.value); }} placeholder="اكتب ردك أو اختر ردًا مقترحًا"/></label>
       <div className="wa-compose-foot">
-        {notice ? <p role={notice.kind === 'error' ? 'alert' : 'status'} className={`m-0 text-sm ${notice.kind === 'error' ? 'text-danger' : 'font-bold text-ok'}`}>{notice.text}</p> : <span className="text-xs text-subtle nums">{formatNumber(text.length)}/1024</span>}
+        {notice ? <p role={notice.kind === 'error' ? 'alert' : 'status'} className={`m-0 text-sm ${notice.kind === 'error' ? 'text-danger' : 'font-semibold text-ok'}`}>{notice.text}</p> : <span className="text-xs text-subtle nums">{formatNumber(text.length)}/1024</span>}
         <button type="submit" className="btn btn-primary btn-sm" disabled={reply.isPending || !text.trim()} data-loading={reply.isPending || undefined}><Send size={15} aria-hidden="true"/>{reply.isPending ? 'جارٍ الإرسال…' : 'إرسال'}</button>
       </div>
     </form>

@@ -11,7 +11,7 @@ export const color = {
   field: '#fffcf6',
   sunk: '#f1efe6',
   line: '#e4e0d4',
-  lineStrong: '#84918a',
+  lineStrong: '#7d8a83',
   ink: '#173e42',
   teal: '#174b50',
   teal2: '#216067',
@@ -19,13 +19,13 @@ export const color = {
   tealSoft: '#dfeae7',
   sage: '#eaf0e9',
   sage2: '#dce7dd',
-  copper: '#a3502f',
-  copperLight: '#e5a27b',
+  copper: '#9e4d2d',
+  copperLight: '#edb08c',
   copperSoft: '#f4e6db',
   quiet: '#4a605e',
-  subtle: '#5d706a',
+  subtle: '#55685f',
   onDark: '#f6efe3',
-  onDark2: '#b9ccc7',
+  onDark2: '#c2d3ce',
   ok: '#2f6446',
   okSoft: '#e2eee4',
   warn: '#6b5210',
@@ -34,7 +34,7 @@ export const color = {
   infoSoft: '#e2ece8',
   danger: '#a83f2e',
   dangerSoft: '#f9e6df',
-  focus: '#a3502f',
+  focus: '#9e4d2d',
 } as const;
 
 // Categorical series for charts, in order of use: brand first, accent second,
@@ -45,6 +45,14 @@ export const font = {
   body: "'IBM Plex Sans Arabic', sans-serif",
   display: "'Readex Pro', 'IBM Plex Sans Arabic', sans-serif",
 } as const;
+
+// Type weights, matching --weight-* in index.css: body 400/500, labels 500,
+// headings 600. Nothing in the product is 700 (the font request omits it).
+export const weight = { regular: 400, medium: 500, semibold: 600 } as const;
+
+// Icon rules, matching --icon-* in index.css: lucide `strokeWidth={icon.stroke}`,
+// `size={icon.size}` (24 in tiles and the phone tab bar).
+export const icon = { stroke: 1.75, size: 20, sizeLg: 24, onDark: color.onDark2, onLight: color.quiet } as const;
 
 // Radius tiers in px, matching --radius-* in index.css.
 export const radius = { chip: 8, control: 10, card: 16, panel: 22, overlay: 24 } as const;

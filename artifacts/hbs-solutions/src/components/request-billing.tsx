@@ -53,7 +53,7 @@ export function printInvoice(invoice: Invoice) {
   const esc = (v: string) => v.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
   const rate = formatNumber(invoice.vatRateBasisPoints / 100);
   win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(invoice.reference)}</title>
-<style>body{font-family:Tahoma,Arial,sans-serif;margin:40px;color:#173e42}h1{font-size:22px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:24px}td,th{border:1px solid #d9d4c5;padding:10px;text-align:right}th{background:#f6f4ed}.muted{color:#5d706a;font-size:13px}.total td{font-weight:bold}</style></head><body>
+<style>body{font-family:Tahoma,Arial,sans-serif;margin:40px;color:#173e42}h1{font-size:22px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:24px}td,th{border:1px solid #d9d4c5;padding:10px;text-align:right}th{background:#f6f4ed}.muted{color:#5d706a;font-size:13px}.total td{font-weight:600}</style></head><body>
 <h1>فاتورة ضريبية مبسطة</h1><div class="muted">${esc(invoice.seller.name)}${invoice.seller.vatNumber ? ` · الرقم الضريبي ${esc(invoice.seller.vatNumber)}` : ''}</div>
 <p>رقم الفاتورة: <b dir="ltr">${esc(invoice.reference)}</b><br>تاريخ الإصدار: ${esc(formatDate(invoice.issuedAt))}<br>${invoice.requestReference === null ? 'اشتراك' : `الطلب: <span dir="ltr">${esc(invoice.requestReference)}</span>`}${invoice.quantity > 1 && invoice.unitAmount !== null ? `<br>الكمية: ${esc(formatNumber(invoice.quantity))} × ${esc(formatMoney(invoice.unitAmount))}` : ''}</p>
 <table><tr><th>البيان</th><th>المبلغ</th></tr><tr><td>${esc(invoice.description)}</td><td>${esc(formatMoney(invoice.amount))}</td></tr>
@@ -243,7 +243,7 @@ export function RatingPanel({ requestId, rating, comment, onRated }: { requestId
     <h2 className="rf-title">تقييمك للخدمة</h2>{stars(rating, false)}{comment && <p className="rb-note">«{comment}»</p>}
     {/* Happy customers are asked for a public review; others hear that the office follows up. */}
     {rating <= 3 ? <p className="rb-note">شكرًا، سيتواصل معك المكتب لتحسين التجربة.</p>
-      : contact.reviewUrl ? <p className="rb-note">شكرًا! يسعدنا تقييمك على Google: <a href={contact.reviewUrl} target="_blank" rel="noopener noreferrer" className="font-bold text-copper">اكتب تقييمك</a></p>
+      : contact.reviewUrl ? <p className="rb-note">شكرًا! يسعدنا تقييمك على Google: <a href={contact.reviewUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-copper">اكتب تقييمك</a></p>
       : <p className="rb-note">شكرًا لك، يصل تقييمك إلى إدارة المكتب.</p>}
   </section>;
   return <form onSubmit={submit} className="rb" aria-label="قيّم الخدمة">

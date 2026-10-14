@@ -10,6 +10,7 @@ import { ContactList } from '@/components/contact-card';
 import { contact } from '@/content/contact';
 import './site-chrome.css';
 
+// Lucide stroke: mirrors --icon-stroke in index.css (J3's icon tokens).
 const ICON = 1.75;
 
 // Same mark as portal-ui's Brand, declared here so the public pages do not
@@ -23,10 +24,10 @@ function Brand({ light = false }: { light?: boolean }) {
 // link to show; the portal itself re-checks the session when it opens.
 function AuthLinks({ tone, compact = false }: { tone: 'dark' | 'light'; compact?: boolean }) {
   const button = `btn ${compact ? 'btn-sm ' : ''}${tone === 'dark' ? 'btn-light' : 'btn-primary'}`;
-  if (hasSessionHint()) return <Link href="/dashboard" className={button}>حسابي <ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></Link>;
+  if (hasSessionHint()) return <Link href="/dashboard" className={button}>حسابي <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>;
   return <>
     <Link href="/sign-in" className={compact ? 'site-text-link' : 'btn btn-ghost-dark'}>تسجيل الدخول</Link>
-    <Link href="/sign-up" className={button}>طلب التسجيل <ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" /></Link>
+    <Link href="/sign-up" className={button}>طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
   </>;
 }
 
@@ -86,18 +87,18 @@ export function SiteHeader({ tone = 'light' }: { tone?: 'dark' | 'light' }) {
         </nav>
         <div className="site-actions"><AuthLinks tone={tone} compact /></div>
         <button ref={toggle} type="button" className="site-menu-toggle" aria-label="فتح القائمة" aria-expanded={open} aria-controls="site-mobile-nav" onClick={() => setOpen(true)}>
-          <Menu size={21} strokeWidth={ICON} aria-hidden="true" />
+          <Menu size={22} strokeWidth={ICON} aria-hidden="true" />
         </button>
       </div>
       {open && (
         <nav ref={sheet} id="site-mobile-nav" className="site-sheet on-night" aria-label="التنقل على الهاتف" role="dialog" aria-modal="true">
           <div className="site-wrap site-sheet-head">
             <Brand light />
-            <button type="button" className="site-sheet-close" onClick={() => setOpen(false)} aria-label="إغلاق القائمة"><X size={22} strokeWidth={ICON} aria-hidden="true" /></button>
+            <button type="button" className="site-sheet-close" onClick={() => setOpen(false)} aria-label="إغلاق القائمة"><X size={24} strokeWidth={ICON} aria-hidden="true" /></button>
           </div>
           <div className="site-wrap site-sheet-body">
             <div className="site-sheet-links">
-              {siteNavigation.map((item, index) => <a key={item.href} href={item.href} className="site-sheet-link" style={{ animationDelay: `${60 + index * 40}ms` }} aria-current={location === item.href ? 'page' : undefined} onClick={(e) => { setOpen(false); navigateHash(e, item.href); }}>{item.label}<ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></a>)}
+              {siteNavigation.map((item, index) => <a key={item.href} href={item.href} className="site-sheet-link" style={{ animationDelay: `${60 + index * 40}ms` }} aria-current={location === item.href ? 'page' : undefined} onClick={(e) => { setOpen(false); navigateHash(e, item.href); }}>{item.label}<ArrowLeft size={20} strokeWidth={ICON} aria-hidden="true" /></a>)}
             </div>
             <div className="site-sheet-actions"><AuthLinks tone="dark" /></div>
             <p className="site-sheet-tagline">{siteTagline}</p>

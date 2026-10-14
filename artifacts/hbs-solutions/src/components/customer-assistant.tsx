@@ -42,17 +42,17 @@ export function CustomerAssistant({ onAskOffice }: { onAskOffice: () => void }) 
         {answer.error?.status === 429 ? 'وصلت إلى حد الأسئلة لهذا الوقت. عد لاحقًا أو أرسل استفسارًا للمكتب.' : answer.error?.status === 401 ? 'يجب تسجيل الدخول قبل سؤال أم مشعل.' : 'تعذّر الحصول على إجابة الآن. حاول مرة أخرى أو أرسل استفسارًا للمكتب.'}
       </div>}
       {exchange && <div aria-live="polite" className="rounded-xl border border-sage-2 bg-paper p-4">
-        <div className="text-xs font-bold text-subtle">سؤالك</div>
+        <div className="text-xs font-medium text-subtle">سؤالك</div>
         <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-7">{exchange.question}</p>
-        <div className="mt-4 border-t border-sage-2 pt-4 text-xs font-bold text-teal-bright">إجابة أم مشعل</div>
+        <div className="mt-4 border-t border-sage-2 pt-4 text-xs font-medium text-teal-bright">إجابة أم مشعل</div>
         <p className="mt-1 whitespace-pre-wrap text-sm leading-8">{exchange.answer}</p>
         {exchange.sources.length > 0 && <div className="mt-3 text-xs leading-6 text-subtle">
-          <span className="font-bold">المعلومات المعتمدة:</span>{' '}
+          <span className="font-semibold">المعلومات المعتمدة:</span>{' '}
           {exchange.sources.map(source => <span key={source.id} className="me-2">{source.title}</span>)}
         </div>}
-        <button type="button" onClick={onAskOffice} className="mt-3 inline-flex min-h-11 items-center gap-2 text-xs font-bold text-copper">تحتاج ردًا رسميًا؟ أرسل استفسارًا للمكتب<ArrowLeft size={15}/></button>
+        <button type="button" onClick={onAskOffice} className="mt-3 inline-flex min-h-11 items-center gap-2 text-xs font-semibold text-copper">تحتاج ردًا رسميًا؟ أرسل استفسارًا للمكتب<ArrowLeft size={15}/></button>
       </div>}
-      <div className="border-t border-line pt-3 text-xs text-subtle">المساعد للأسئلة العامة فقط. <Link href="/requests" className="font-bold text-teal-bright">تابع طلباتك من حسابك.</Link></div>
+      <div className="border-t border-line pt-3 text-xs text-subtle">المساعد للأسئلة العامة فقط. <Link href="/requests" className="font-medium text-teal-bright">تابع طلباتك من حسابك.</Link></div>
     </div>
   </section>;
 }

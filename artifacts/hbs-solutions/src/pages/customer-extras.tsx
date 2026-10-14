@@ -168,7 +168,7 @@ export function NotificationSettings() {
               </button></div>
               {(verification.isError || challengeErrorStatus !== null) && <p role="alert" className="m-0 text-danger">{((verification.error as { status?: number })?.status ?? challengeErrorStatus) === 503 ? 'خدمة التحقق غير مهيأة لدى المكتب حاليًا.' : ((verification.error as { status?: number })?.status ?? challengeErrorStatus) === 410 ? 'انتهت صلاحية التحدي؛ اطلب تحديًا جديدًا.' : 'تعذّر طلب التحقق. تأكد من حفظ الرقم وحاول مجددًا.'}</p>}
               {localChallenge && <div className="settings-challenge">
-                {settings.data.whatsappVerificationStatus === 'verified' || localChallenge.status === 'verified' ? <p role="status" className="m-0 font-bold text-ok">تم توثيق الرقم.</p> : localChallenge.challengeText && <>
+                {settings.data.whatsappVerificationStatus === 'verified' || localChallenge.status === 'verified' ? <p role="status" className="m-0 font-semibold text-ok">تم توثيق الرقم.</p> : localChallenge.challengeText && <>
                   <p className="m-0">{localChallenge.instructions}</p>
                   <p className="m-0">{challengeExpired ? 'انتهت صلاحية هذه المسودة؛ اطلب تحديًا جديدًا.' : 'المسودة الدقيقة لإرسالها من الرقم الذي تريد توثيقه:'}</p>
                   <pre dir="auto" className="settings-draft">{localChallenge.challengeText}</pre>
@@ -182,7 +182,7 @@ export function NotificationSettings() {
           <div className="settings-save">
             <div className="min-w-0 flex-1 text-sm">
               {save.isError && <p role="alert" className="m-0 text-danger">{(save.error as { status?: number })?.status === 409 ? 'تغيّرت حالة التحقق أثناء الحفظ. حدّث الصفحة وحاول مجددًا.' : 'تعذّر حفظ الإعدادات. تحقق من رقم الجوال وحاول مجددًا.'}</p>}
-              {saved && <p role="status" className="m-0 font-bold text-ok">تم حفظ الإعدادات.</p>}
+              {saved && <p role="status" className="m-0 font-semibold text-ok">تم حفظ الإعدادات.</p>}
               {!saved && !save.isError && <p className="m-0 text-quiet">{dirty ? 'لديك تغييرات غير محفوظة.' : 'يُحفظ الرقم والموافقة معًا.'}</p>}
             </div>
             <button type="submit" className="btn btn-primary" disabled={save.isPending}>{save.isPending ? 'جارٍ الحفظ…' : 'حفظ'}</button>

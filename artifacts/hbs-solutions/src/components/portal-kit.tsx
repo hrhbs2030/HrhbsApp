@@ -248,7 +248,7 @@ export function Toast({ tone = 'info', title, body, action, onClose, className =
     <div className="min-w-0 flex-1">
       <strong className="block truncate text-sm">{title}</strong>
       {body && <p className="m-0 mt-1 text-xs leading-6 text-quiet">{body}</p>}
-      {action && <button type="button" className="mt-1 min-h-8 text-xs font-bold text-teal-bright" onClick={action.onClick}>{action.label}</button>}
+      {action && <button type="button" className="mt-1 min-h-8 text-xs font-semibold text-teal-bright" onClick={action.onClick}>{action.label}</button>}
     </div>
     {onClose && <button type="button" className="kit-toast-close" onClick={onClose} aria-label="إغلاق التنبيه"><X size={16} aria-hidden="true" /></button>}
   </div>;

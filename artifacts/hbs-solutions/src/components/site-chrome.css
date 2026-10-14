@@ -8,7 +8,7 @@
 .site-footer { position: relative; z-index: 1; }
 .site > main { flex: 1; outline: none; }
 .site-wrap { width: min(100% - 48px, 1280px); margin-inline: auto; }
-.site-skip { position: absolute; inset-inline-start: 16px; top: -60px; z-index: 100; padding: 10px 16px; border-radius: 10px; background: var(--color-surface); color: var(--color-ink); font-weight: 700; text-decoration: none; transition: top var(--duration-hover) ease; }
+.site-skip { position: absolute; inset-inline-start: 16px; top: -60px; z-index: 100; padding: 10px 16px; border-radius: 10px; background: var(--color-surface); color: var(--color-ink); font-weight: 600; text-decoration: none; transition: top var(--duration-hover) ease; }
 .site-skip:focus { top: 12px; }
 
 /* Header: sticky on paper pages; on the night hero it floats (no layout
@@ -21,31 +21,33 @@
 .site-header a { text-decoration: none; }
 /* The tagline sits beside the brand on wide screens only; the mark and words keep their own layout. */
 .site-brand { display: flex; align-items: center; gap: 18px; min-width: 0; }
-.site-tagline { display: none; flex: none; margin: 0; padding-inline-start: 18px; border-inline-start: 1px solid var(--color-line); color: var(--color-quiet); font-size: 12.5px; font-weight: 600; line-height: 1.5; max-width: 16em; }
-.site-header--dark .site-tagline { border-color: rgb(255 255 255 / .14); color: var(--color-on-dark-2); }
+.site-tagline { display: none; flex: none; margin: 0; padding-inline-start: 18px; border-inline-start: 1px solid var(--color-line); color: var(--color-quiet); font-size: 13px; font-weight: 500; line-height: 1.5; max-width: 16em; }
+.site-header--dark .site-tagline { border-color: rgb(255 255 255 / .22); color: var(--color-on-dark); text-shadow: 0 1px 10px rgb(8 26 28 / .7); }
 /* Needs room beside the nav pill and the actions: wide desktops only. */
 @media (min-width: 1400px) { .site-tagline { display: block; } }
-.site-footer-tagline { max-width: 34em; margin: 14px 0 0; color: var(--color-on-dark-2); font-size: 13.5px; line-height: 1.85; }
+.site-footer-tagline { max-width: 34em; margin: 14px 0 0; color: var(--color-on-dark); font-size: 14px; font-weight: 400; line-height: 1.85; }
 :where(.site-header a:not(.btn)) { color: inherit; }
 .site-nav { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 999px; border: 1px solid var(--color-line); background: rgb(252 250 244 / .7); }
-.site-header--dark .site-nav { border-color: rgb(255 255 255 / .1); background: rgb(255 255 255 / .04); }
-.site-nav a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 999px; font-size: 14px; font-weight: 600; color: var(--color-quiet); transition: color var(--duration-hover) ease, background-color var(--duration-hover) ease; }
-.site-header--dark .site-nav a { color: var(--color-on-dark-2); }
+.site-header--dark .site-nav { border-color: rgb(255 255 255 / .16); background: rgb(8 26 28 / .55); backdrop-filter: blur(10px); }
+.site-header--dark[data-scrolled] .site-nav { background: rgb(255 255 255 / .05); backdrop-filter: none; }
+.site-nav a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 999px; font-size: 14.5px; font-weight: 500; color: var(--color-quiet); transition: color var(--duration-hover) ease, background-color var(--duration-hover) ease; }
+.site-header--dark .site-nav a { color: var(--color-on-dark); }
 .site-nav a:hover, .site-nav a[aria-current="page"] { color: var(--color-ink); background: var(--color-sage); }
-.site-header--dark .site-nav a:hover { color: var(--color-on-dark); background: rgb(255 255 255 / .08); }
-.site-header--dark .site-nav a[aria-current="page"] { color: var(--color-on-dark); background: rgb(255 255 255 / .12); }
+.site-header--dark .site-nav a:hover { color: var(--color-on-dark); background: rgb(255 255 255 / .1); }
+.site-header--dark .site-nav a[aria-current="page"] { color: var(--color-ink); background: var(--color-copper-light); font-weight: 600; }
 .site-actions { display: flex; align-items: center; gap: 12px; }
-.site-text-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 10px; font-size: 14px; font-weight: 700; transition: background-color var(--duration-hover) ease; }
+.site-text-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 10px; font-size: 14.5px; font-weight: 500; transition: background-color var(--duration-hover) ease; }
 .site-text-link:hover { text-decoration: underline; text-underline-offset: 6px; }
-.site-header--dark .site-text-link:hover { background: rgb(255 255 255 / .08); text-decoration: none; }
-.site-menu-toggle { display: none; width: 46px; height: 46px; place-items: center; border-radius: 12px; border: 1px solid var(--color-line); background: var(--color-surface); color: var(--color-ink); transition: background-color var(--duration-hover) ease; }
-.site-header--dark .site-menu-toggle { border-color: rgb(255 255 255 / .16); background: rgb(255 255 255 / .05); color: var(--color-on-dark); }
-.site-header--dark .site-menu-toggle:hover { background: rgb(255 255 255 / .12); }
+.site-header--dark .site-text-link { text-shadow: 0 1px 10px rgb(8 26 28 / .7); }
+.site-header--dark .site-text-link:hover { background: rgb(255 255 255 / .1); text-decoration: none; }
+.site-menu-toggle { display: none; width: 46px; height: 46px; place-items: center; border-radius: 12px; border: 1px solid var(--color-line-strong); background: var(--color-surface); color: var(--color-ink); transition: background-color var(--duration-hover) ease; }
+.site-header--dark .site-menu-toggle { border-color: rgb(255 255 255 / .34); background: rgb(8 26 28 / .55); color: var(--color-on-dark); backdrop-filter: blur(8px); }
+.site-header--dark .site-menu-toggle:hover { background: rgb(8 26 28 / .75); }
 /* Phone menu: a full-screen night sheet with the brand, the links one per row, and the auth actions. */
 .site-sheet { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; overflow-y: auto; background: linear-gradient(180deg, var(--color-night-2), var(--color-night)); color: var(--color-on-dark); animation: sheet-in var(--duration-enter) var(--ease-out-soft) both; padding-bottom: env(safe-area-inset-bottom); }
 @keyframes sheet-in { from { opacity: 0; transform: translateY(-12px); } }
 .site-sheet-head { display: flex; align-items: center; justify-content: space-between; min-height: 68px; flex: none; }
-.site-sheet-close { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; border: 1px solid rgb(255 255 255 / .16); background: rgb(255 255 255 / .05); color: var(--color-on-dark); }
+.site-sheet-close { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; border: 1px solid rgb(255 255 255 / .34); background: rgb(255 255 255 / .05); color: var(--color-on-dark); }
 .site-sheet-close:hover { background: rgb(255 255 255 / .12); }
 .site-sheet-body { display: flex; flex-direction: column; gap: 24px; padding: 16px 0 32px; }
 .site-sheet-links { display: grid; gap: 4px; }
@@ -55,7 +57,7 @@
 .site-sheet-link:hover > svg, .site-sheet-link:focus-visible > svg { opacity: 1; transform: none; }
 .site-sheet-actions { display: grid; gap: 10px; padding-top: 20px; border-top: 1px solid rgb(255 255 255 / .1); }
 .site-sheet-actions .btn { width: 100%; }
-.site-sheet-tagline { margin: 0; font-size: 13px; line-height: 1.8; color: var(--color-on-dark-2); }
+.site-sheet-tagline { margin: 0; font-size: 14px; line-height: 1.8; color: var(--color-on-dark); }
 @media (max-width: 1180px) {
   .site-nav, .site-actions { display: none; }
   .site-menu-toggle { display: grid; }
@@ -70,7 +72,9 @@
   .site-header-inner { min-height: 68px; }
   /* Shield the band copy from bright moving skyline details, without covering
      the open side of the scene or its appearance elsewhere on the page. */
-  .site-band::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to left, rgb(8 26 28 / .64) 0%, rgb(8 26 28 / .55) 58%, rgb(8 26 28 / .18) 100%); }
+  /* The copy sits at the band's foot on phones, over the brightened street
+     (J2), so the shield is strongest there and fades towards the skyline. */
+  .site-band::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top, rgb(8 26 28 / .8) 0%, rgb(8 26 28 / .68) 48%, rgb(8 26 28 / .26) 74%, rgb(8 26 28 / .12) 100%); }
   .site-band > .site-wrap { position: relative; }
 }
 
@@ -79,31 +83,31 @@
 :root { --sheet-radius: 36px; }
 @media (max-width: 767px) { :root { --sheet-radius: 24px; } }
 .site-body, .lp-body { z-index: 2; border-radius: 0 0 var(--sheet-radius) var(--sheet-radius); box-shadow: 0 28px 48px -26px rgb(4 12 13 / .7); }
-.site-footer { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: flex-end; min-height: clamp(480px, 60vh, 640px); margin-top: calc(var(--sheet-radius) * -1); padding: calc(var(--sheet-radius) + 40px) 0 0; color: var(--color-on-dark-2); background: transparent; }
-.site-footer-veil { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgb(8 26 28 / 0) 0%, rgb(8 26 28 / .1) 48%, rgb(8 26 28 / .6) 68%, rgb(8 26 28 / .88) 84%, var(--color-night) 100%); }
+.site-footer { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: flex-end; min-height: clamp(480px, 60vh, 640px); margin-top: calc(var(--sheet-radius) * -1); padding: calc(var(--sheet-radius) + 40px) 0 0; color: var(--color-on-dark); background: transparent; }
+.site-footer-veil { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgb(8 26 28 / 0) 0%, rgb(8 26 28 / .3) 24%, rgb(8 26 28 / .78) 44%, rgb(8 26 28 / .93) 62%, var(--color-night) 100%); }
 .site-footer-content { position: relative; padding-bottom: calc(22px + env(safe-area-inset-bottom)); }
-:where(.site-footer a) { color: var(--color-on-dark-2); text-decoration: none; transition: color var(--duration-hover) ease; }
-:where(.site-footer a):hover { color: var(--color-on-dark); }
+:where(.site-footer a) { color: var(--color-on-dark); font-weight: 500; text-decoration: none; transition: color var(--duration-hover) ease; }
+:where(.site-footer a):hover { color: var(--color-copper-light); }
 .site-footer a:focus-visible { outline: 2px solid var(--color-copper-light); outline-offset: 4px; border-radius: 4px; }
 /* Footer grid: brand column + three link columns on desktop; stacked on phones. */
 .site-footer-main { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr); align-items: end; gap: 32px 64px; padding-bottom: 32px; }
 .site-footer-links { display: grid; grid-template-columns: repeat(3, minmax(0, auto)); justify-content: space-between; gap: 24px clamp(32px, 5vw, 80px); }
-.site-footer-links h2 { margin: 0 0 10px; color: var(--color-on-dark); font-size: 13px; font-weight: 700; }
-.site-footer-links ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; font-size: 14px; }
+.site-footer-links h2 { margin: 0 0 10px; color: var(--color-on-dark-2); font-size: 13px; font-weight: 500; }
+.site-footer-links ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; font-size: 14.5px; }
 .site-footer-links li a { display: inline-flex; align-items: center; min-height: 44px; }
 .site-footer-contact .contact-list a { font-size: 14px; }
 .site-footer-legal { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 20px; }
-.site-footer-legal a { display: inline-flex; align-items: center; min-height: 44px; font-size: 13px; color: var(--color-on-dark-2); }
-.site-footer-legal a:hover { color: var(--color-on-dark); }
+.site-footer-legal a { display: inline-flex; align-items: center; min-height: 44px; font-size: 13.5px; color: var(--color-on-dark); }
+.site-footer-legal a:hover { color: var(--color-copper-light); }
 .site-nav a, .site-text-link { white-space: nowrap; }
 .site-footer-bottom { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding-top: 30px; font-size: 13px; }
 /* A woven Sadu band takes the place of the footer rule. */
 .site-footer-bottom::before { content: ""; position: absolute; inset: 0 0 auto; height: 15px; background: var(--sadu-band-dark) repeat-x center / 42px 15px; opacity: .42; pointer-events: none; }
-.site-footer-office { margin: 8px 0 0; font-size: 13px; color: var(--color-on-dark-2); }
-.site-footer-office strong { font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--color-on-dark); }
+.site-footer-office { margin: 8px 0 0; font-size: 13.5px; color: var(--color-on-dark); }
+.site-footer-office strong { font-family: var(--font-display); font-size: 14.5px; font-weight: 600; color: var(--color-on-dark); }
 /* Static caption for the rotating skyline; the office city is named above, next to the address. */
-.site-footer-city { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--color-on-dark-2); }
-.site-footer-city strong { font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--color-on-dark); }
+.site-footer-city { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--color-on-dark); }
+.site-footer-city strong { font-family: var(--font-display); font-size: 14.5px; font-weight: 600; color: var(--color-on-dark); }
 .site-footer-city-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--color-copper-light); box-shadow: 0 0 0 4px rgb(229 162 123 / .18); }
 @media (max-width: 1023px) {
   .site-footer-main { grid-template-columns: 1fr; align-items: start; }

@@ -1,7 +1,7 @@
 import { memo, type ReactNode } from 'react';
 import { Atmosphere, Layer, blocks, rng, type Block } from './kit';
 import './jeddah.css';
-import { Residents, jeddahCrowd } from './people';
+import { Dialogue, Residents, Subtitles, jeddahCrowd } from './people';
 
 /* ---------------- Jeddah: Red Sea sunset, Jeddah Tower, King Fahd Fountain, Al-Balad ----------------
    Painted like a matte: the sun sets into a humid haze over the sea behind the (still unfinished)
@@ -336,7 +336,7 @@ export const JeddahScene = memo(function JeddahScene() {
       </g></g></g>
     </Layer>
 
-    <Layer depth={4}>
+    <Layer depth={4} after={<Dialogue crowd={jeddahCrowd} />} strip={<Subtitles crowd={jeddahCrowd} />}>
       <defs>
         <linearGradient id="jd-stone" x1="0" y1="450" x2="0" y2="700" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#6a5446" /><stop offset=".45" stopColor="#3a2d26" /><stop offset="1" stopColor="#140f0c" /></linearGradient>
         <radialGradient id="jd-spill"><stop offset="0" stopColor="#ffb064" stopOpacity=".42" /><stop offset="1" stopColor="#ffb064" stopOpacity="0" /></radialGradient>

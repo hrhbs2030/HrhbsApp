@@ -7,7 +7,10 @@ import { assistantExamples, assistantName } from '@/content/site';
 import { prefersReducedMotion } from '@/lib/motion';
 import './landing-previews.css';
 
+// Lucide stroke mirrors --icon-stroke (index.css). Ticks inside 16–18 px dots
+// keep a heavier unit stroke so the rendered line stays ~1.5 px.
 const ICON = 1.75;
+const TICK = 3;
 
 // Illustrative data only. `stage` is a milestone index (content/milestones.ts);
 // a `pause` holds the request at the review milestone with its own badge.
@@ -40,11 +43,11 @@ export function DashboardPreview() {
         <aside className="dp-side" aria-hidden="true">
           <div className="dp-brand"><LogoMark size={28} /><strong>حلول الغد</strong></div>
           <ul>
-            <li data-active="true"><LayoutDashboard size={16} strokeWidth={ICON} />نظرة عامة</li>
-            <li><Inbox size={16} strokeWidth={ICON} />طلباتي</li>
-            <li><MessageSquareText size={16} strokeWidth={ICON} />استفساراتي</li>
+            <li data-active="true"><LayoutDashboard size={18} strokeWidth={ICON} />نظرة عامة</li>
+            <li><Inbox size={18} strokeWidth={ICON} />طلباتي</li>
+            <li><MessageSquareText size={18} strokeWidth={ICON} />استفساراتي</li>
           </ul>
-          <div className="dp-user"><UserRound size={16} strokeWidth={ICON} />شركة مثال للتجارة</div>
+          <div className="dp-user"><UserRound size={18} strokeWidth={ICON} />شركة مثال للتجارة</div>
         </aside>
 
         <div className="dp-main">
@@ -58,9 +61,9 @@ export function DashboardPreview() {
 
           {waiting && (
             <button type="button" className="dp-alert" onClick={() => setSelected(demoRequests.indexOf(waiting))}>
-              <Bell size={17} strokeWidth={ICON} aria-hidden="true" />
+              <Bell size={20} strokeWidth={ICON} aria-hidden="true" />
               <span><strong>المكتب يحتاج مستندًا منك</strong> لطلب {waiting.title}</span>
-              <ArrowLeft size={15} strokeWidth={ICON} aria-hidden="true" />
+              <ArrowLeft size={16} strokeWidth={ICON} aria-hidden="true" />
             </button>
           )}
 
@@ -89,39 +92,39 @@ export function DashboardPreview() {
               <ol className="dp-track">
                 {milestoneLabels.map((label, index) => (
                   <li key={label} data-state={index < current.stage ? 'done' : index === current.stage ? 'current' : 'next'}>
-                    <span aria-hidden="true">{index < current.stage || (index === milestones.length - 1 && current.stage === index) ? <Check size={10} strokeWidth={3} /> : null}</span>
+                    <span aria-hidden="true">{index < current.stage || (index === milestones.length - 1 && current.stage === index) ? <Check size={12} strokeWidth={TICK} /> : null}</span>
                     {label}
-                    {current.pause && index === current.stage && <em className="dp-pause"><PauseCircle size={12} strokeWidth={2.2} aria-hidden="true" />{pauses[current.pause].label}</em>}
+                    {current.pause && index === current.stage && <em className="dp-pause"><PauseCircle size={14} strokeWidth={ICON} aria-hidden="true" />{pauses[current.pause].label}</em>}
                   </li>
                 ))}
               </ol>
             </section>
 
             <section className="dp-card dp-mini" aria-label="الرسائل (مثال)">
-              <h3 className="dp-card-title"><MessageSquareText size={16} strokeWidth={ICON} aria-hidden="true" />الرسائل</h3>
+              <h3 className="dp-card-title"><MessageSquareText size={18} strokeWidth={ICON} aria-hidden="true" />الرسائل</h3>
               <div className="dp-msg dp-msg--office">
-                <span><Building2 size={13} strokeWidth={ICON} aria-hidden="true" />المكتب</span>
+                <span><Building2 size={14} strokeWidth={ICON} aria-hidden="true" />المكتب</span>
                 <p>سبب الملاحظة: أجر موظف واحد في ملف الشهر الماضي يختلف عن عقده الموثق. أرفق كشف رواتب الشهر لنعدّ التصحيح.</p>
               </div>
               <div className="dp-msg dp-msg--me"><p>أرفقت الكشف الآن.</p></div>
             </section>
 
             <section className="dp-card dp-mini" aria-label="المستندات المطلوبة (مثال)">
-              <h3 className="dp-card-title"><FileText size={16} strokeWidth={ICON} aria-hidden="true" />المستندات المطلوبة</h3>
+              <h3 className="dp-card-title"><FileText size={18} strokeWidth={ICON} aria-hidden="true" />المستندات المطلوبة</h3>
               <ul className="dp-docs">
-                <li data-done="true"><Check size={12} strokeWidth={3} aria-hidden="true" />صورة الملاحظة كما ظهرت في مُدد</li>
+                <li data-done="true"><Check size={12} strokeWidth={TICK} aria-hidden="true" />صورة الملاحظة كما ظهرت في مُدد</li>
                 <li><span aria-hidden="true" />كشف رواتب الشهر الماضي</li>
               </ul>
               <p className="dp-soon">ترفعها من صفحة الطلب، ويصل تنبيه إلى المكتب، وتعود الحالة إلى «قيد المراجعة».</p>
             </section>
 
             <section className="dp-card dp-mini" aria-label="الفواتير (مثال)">
-              <h3 className="dp-card-title"><ReceiptText size={16} strokeWidth={ICON} aria-hidden="true" />الفواتير</h3>
+              <h3 className="dp-card-title"><ReceiptText size={18} strokeWidth={ICON} aria-hidden="true" />الفواتير</h3>
               <div className="dp-invoice">
                 <span className="dp-invoice-main"><strong dir="ltr">INV-2026-00012</strong><small>أتعاب الخدمة · {current.title}</small></span>
                 <span className="dp-invoice-amount nums" dir="ltr">230.00 ر.س</span>
                 <span className="dp-pill dp-pill--warn">غير مسددة</span>
-                <button type="button" className="dp-pay" disabled aria-disabled="true" title="مثال توضيحي"><CreditCard size={14} strokeWidth={ICON} aria-hidden="true" />ادفع الآن</button>
+                <button type="button" className="dp-pay" disabled aria-disabled="true" title="مثال توضيحي"><CreditCard size={16} strokeWidth={ICON} aria-hidden="true" />ادفع الآن</button>
               </div>
               <p className="dp-soon">تسدّد الفاتورة إلكترونيًا من صفحة الطلب، أو في المكتب.</p>
             </section>
@@ -152,16 +155,16 @@ export function AssistantShowcase() {
   return (
     <div className="as-grid">
       <div className="as-copy">
-        <p className="as-kicker"><Sparkles size={16} strokeWidth={ICON} aria-hidden="true" />المساعدة الآلية</p>
+        <p className="as-kicker"><Sparkles size={18} strokeWidth={ICON} aria-hidden="true" />المساعدة الآلية</p>
         <h2 id="assistant-title" className="lp-heading lp-heading--dark">اسأل «{assistantName}»</h2>
         <p className="as-lead">تسألها ماذا ترسل عند ملاحظة أو تغيّر في المؤشر، وماذا تعني كل حالة في طلبك، من داخل حسابك.</p>
         <dl className="as-split">
           <div>
-            <dt><Sparkles size={16} strokeWidth={ICON} aria-hidden="true" />{assistantName}</dt>
+            <dt><Sparkles size={18} strokeWidth={ICON} aria-hidden="true" />{assistantName}</dt>
             <dd>ترشدك إلى الخدمة المناسبة وما تكتبه في طلبك. لا ترى طلباتك ولا تنفّذ أي معاملة ولا تعالج ملاحظة.</dd>
           </div>
           <div>
-            <dt><Building2 size={16} strokeWidth={ICON} aria-hidden="true" />فريق المكتب</dt>
+            <dt><Building2 size={18} strokeWidth={ICON} aria-hidden="true" />فريق المكتب</dt>
             <dd>يحدد سبب الملاحظة، ويعدّ التصحيح، ويتابع مع الجهة المختصة، ويكتب لك في محادثة الطلب.</dd>
           </div>
         </dl>
@@ -170,7 +173,7 @@ export function AssistantShowcase() {
 
       <figure className="as-chat" aria-label={`أمثلة على أسئلة لـ${assistantName}`}>
         <div className="as-chat-head">
-          <span className="as-avatar" aria-hidden="true"><Sparkles size={18} strokeWidth={ICON} /></span>
+          <span className="as-avatar" aria-hidden="true"><Sparkles size={20} strokeWidth={ICON} /></span>
           <div>
             <strong>{assistantName}</strong>
             <small>مساعدة آلية · إرشاد فقط</small>

@@ -179,7 +179,7 @@ function Preferences({ staff }: { staff: boolean }) {
         <h3 id="notif-group-clock3" className="notif-group-title"><Clock3 size={15} aria-hidden="true"/>ساعات الهدوء (بتوقيت الرياض)</h3>
         <p className="muted m-0 mb-3 text-xs leading-6">خلالها تُؤجَّل رسائل البريد والإشعارات الفورية إلى نهايتها، ما عدا العاجل. يمكن أن تمتد بعد منتصف الليل.</p>
         <div className="flex flex-wrap gap-3">{hourSelect('من', 'quietStart')}{hourSelect('إلى', 'quietEnd')}</div>
-        <p className="mb-2 mt-4 text-sm font-bold">وتيرة البريد</p>
+        <p className="mb-2 mt-4 text-sm font-medium">وتيرة البريد</p>
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="وتيرة البريد">{([['instant', 'فور حدوثه'], ['daily', 'ملخص يومي الساعة 08:00']] as const).map(([value, label]) => <label key={value} className="chip chip-select notif-radio" data-on={draft.digest === value || undefined}><input type="radio" name="digest" className="sr-only" value={value} checked={draft.digest === value} onChange={() => setDraft({ ...draft, digest: value })}/>{label}</label>)}</div>
         <p className="muted m-0 mt-2 text-xs leading-6">العاجل يصل فورًا في الحالتين.</p>
       </Surface>
@@ -189,7 +189,7 @@ function Preferences({ staff }: { staff: boolean }) {
         <div className="notif-kinds">{kinds.map((kind) => <label key={kind} className="notif-kind"><input type="checkbox" checked={draft.mutedKinds.includes(kind)} onChange={(event) => toggleKind(kind, event.target.checked)}/>{kindLabels[kind]}</label>)}</div>
       </Surface>
       {save.isError && <p role="alert" className="m-0 text-sm text-danger">تعذّر حفظ التفضيلات. حاول مرة أخرى.</p>}
-      {saved && <p role="status" className="m-0 text-sm font-bold text-ok">تم حفظ التفضيلات.</p>}
+      {saved && <p role="status" className="m-0 text-sm font-semibold text-ok">تم حفظ التفضيلات.</p>}
       <button type="submit" className="btn btn-primary" disabled={save.isPending}>{save.isPending ? 'جارٍ الحفظ…' : 'حفظ التفضيلات'}</button>
     </form>}
   </section>;

@@ -33,10 +33,13 @@ const valueNames: Record<string, string> = {
   chamber: 'الغرفة التجارية', gosi: 'شهادة التأمينات', zakat_vat: 'شهادة الزكاة والضريبة', other: 'ترخيص آخر',
 };
 
+// Spreadsheet header cells (not UI type): write-excel-file only knows 'bold'.
+const sheetHeaderWeight = 'bold' as const;
+
 async function downloadTemplate(kind: ImportKind) {
   const { default: writeXlsxFile } = await import('write-excel-file/browser');
   const defs = columns[kind];
-  const header = defs.map(d => ({ value: d.header, fontWeight: 'bold' as const, backgroundColor: '#E2ECE8' }));
+  const header = defs.map(d => ({ value: d.header, fontWeight: sheetHeaderWeight, backgroundColor: '#E2ECE8' }));
   const example = defs.map(d => ({ value: d.example, type: String }));
   await writeXlsxFile([header, example], {
     sheet: titles[kind], rightToLeft: true, columns: defs.map(d => ({ width: Math.max(14, d.header.length + 6) })),
@@ -107,7 +110,7 @@ export function ExcelImport({ kind, onImport, onDone }: { kind: ImportKind; onIm
     {busy && <p role="status" className="xi-note">جارٍ المعالجة…</p>}
     {error && <p role="alert" className="rf-errors">{error}</p>}
     {parsed && !error && !result && <div className="space-y-3">
-      <p className="text-sm">الملف <bdi className="font-bold">{parsed.file}</bdi> فيه {formatNumber(parsed.rows.length)} صفًا جاهزًا للاستيراد.{parsed.unknown.length > 0 && <span className="text-subtle"> أعمدة لن تُستورد: {parsed.unknown.join('، ')}.</span>}</p>
+      <p className="text-sm">الملف <bdi className="font-semibold">{parsed.file}</bdi> فيه {formatNumber(parsed.rows.length)} صفًا جاهزًا للاستيراد.{parsed.unknown.length > 0 && <span className="text-subtle"> أعمدة لن تُستورد: {parsed.unknown.join('، ')}.</span>}</p>
       <div className="xi-table"><table><thead><tr><th>الصف</th>{shownKeys.map(d => <th key={d.key}>{d.header}</th>)}</tr></thead>
         <tbody>{parsed.rows.slice(0, 8).map((row, i) => <tr key={i}><td className="nums">{parsed.sheetRows[i]}</td>{shownKeys.map(d => <td key={d.key} dir={d.type === 'text' || d.type === 'date' ? 'ltr' : undefined}>{d.type === 'status' || d.type === 'kind' ? valueNames[String(row[d.key])] ?? String(row[d.key] ?? '') : String(row[d.key] ?? '')}</td>)}</tr>)}</tbody></table></div>
       {parsed.rows.length > 8 && <p className="xi-note">و{formatNumber(parsed.rows.length - 8)} صفًا آخر.</p>}
@@ -115,6 +118,6 @@ export function ExcelImport({ kind, onImport, onDone }: { kind: ImportKind; onIm
         <ul className="mt-2 list-disc pr-5">{problems.map((p, i) => <li key={i}>{p.row ? `الصف ${p.row}: ` : ''}{p.message}</li>)}</ul></div>}
       <button type="button" className="btn btn-primary" onClick={submit} disabled={busy}>{busy ? 'جارٍ الاستيراد…' : `استيراد ${formatNumber(parsed.rows.length)} صفًا`}</button>
     </div>}
-    {result && <p role="status" className="text-sm font-bold text-ok">تم الاستيراد: أُضيف {formatNumber(result.created)} وحُدّث {formatNumber(result.updated)}.</p>}
+    {result && <p role="status" className="text-sm font-semibold text-ok">تم الاستيراد: أُضيف {formatNumber(result.created)} وحُدّث {formatNumber(result.updated)}.</p>}
   </div>;
 }

@@ -11,11 +11,11 @@
 .rc-form textarea { min-height: 52px !important; resize: vertical; }
 .rc-subject { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; background: var(--color-sage); font-size: 12px; color: var(--color-quiet); }
 .rc-subject b { color: var(--color-ink); }
-.rc-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; background: var(--color-info-soft); color: var(--color-info); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.rc-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; background: var(--color-info-soft); color: var(--color-info); font-size: 12px; font-weight: var(--weight-semibold); white-space: nowrap; }
 .rc-compose { display: grid; flex: 1; min-width: 0; gap: 6px; }
-.rc-via { display: inline-flex; align-items: center; gap: 6px; width: fit-content; font-size: 12.5px; font-weight: 700; color: var(--color-ok); cursor: pointer; }
+.rc-via { display: inline-flex; align-items: center; gap: 6px; width: fit-content; font-size: 12.5px; font-weight: var(--weight-medium); color: var(--color-ok); cursor: pointer; }
 .rc-via input { accent-color: var(--color-ok); }
-.rc-channel { display: inline-flex; align-items: center; gap: 3px; margin-inline-start: 6px; padding: 1px 6px; border-radius: 6px; background: var(--color-ok-soft); color: var(--color-ok); font-size: 11px; font-weight: 700; vertical-align: middle; }
+.rc-channel { display: inline-flex; align-items: center; gap: 3px; margin-inline-start: 6px; padding: 1px 6px; border-radius: 6px; background: var(--color-ok-soft); color: var(--color-ok); font-size: 11px; font-weight: var(--weight-semibold); vertical-align: middle; }
 /* The WhatsApp follow-up button: a 44px target on every pointer. */
 .wa-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 12px; border: 1px solid var(--color-ok-soft); background: var(--color-ok-soft); color: var(--color-ok); text-decoration: none; transition: background-color .15s, color .15s; }
 a.wa-btn:hover, a.wa-btn:focus-visible { background: var(--color-ok); color: var(--color-on-dark); }
@@ -26,8 +26,8 @@ a.wa-btn:hover, a.wa-btn:focus-visible { background: var(--color-ok); color: var
 .inbox-row > a { flex: 1; min-width: 0; padding: 14px 20px; color: inherit; text-decoration: none; transition: background-color .15s; }
 .inbox-row > a:hover { background: var(--color-paper); }
 .inbox-row.is-unread .inbox-title { font-weight: 800; }
-.inbox-unread { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--color-copper); color: var(--color-on-dark); font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.inbox-type { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.inbox-unread { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--color-copper); color: var(--color-on-dark); font-size: 11.5px; font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
+.inbox-type { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 11.5px; font-weight: var(--weight-semibold); white-space: nowrap; }
 .inbox-type.is-request { background: var(--color-info-soft); color: var(--color-info); }
 .inbox-type.is-inquiry { background: var(--color-copper-soft); color: var(--color-copper); }
 .inbox-preview { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
