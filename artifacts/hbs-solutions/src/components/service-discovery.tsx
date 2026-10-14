@@ -95,7 +95,7 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
       <div className="discovery-heading">
         <div>
           <p className="eyebrow">ابدأ من مشكلتك، لا من اسم الخدمة</p>
-          <h2 className="display">خلّنا نقرّب لك الخيارات</h2>
+          <h2 className="display">ابدأ مما ظهر لك</h2>
           <p>ملاحظة وصلتك، أو مؤشر تغيّر، أو وثيقة تنتهي قريبًا: اخترها وسنعرض الخدمات التي يعالجها المكتب بها. أو تصفّح الدليل واحدةً تلو الأخرى.</p>
         </div>
         <span className="discovery-heading-mark" aria-hidden="true"><Compass size={24} strokeWidth={ICON} aria-hidden="true" /></span>
@@ -135,7 +135,7 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
         <section className="discovery-guide" aria-labelledby="guide-title">
           <div className="discovery-guide-top">
             <span className="discovery-guide-icon"><Sparkles size={20} strokeWidth={ICON} aria-hidden="true" /></span>
-            <div><p className="discovery-kicker">دليل تفاعلي</p><h3 id="guide-title" className="display">نبحثها معك</h3></div>
+            <div><p className="discovery-kicker">دليل تفاعلي</p><h3 id="guide-title" className="display">ثلاث خطوات إلى الخدمة المناسبة</h3></div>
             <button type="button" className="discovery-reset" onClick={resetGuide} data-testid="button-guide-reset">إعادة البدء</button>
           </div>
           <div className="discovery-stepper" aria-label={`الخطوة ${formatNumber(Math.min(step + 1, 3))} من ${formatNumber(3)}`}>
@@ -178,7 +178,7 @@ export function ServiceDiscovery({ onViewAllMatches }: { onViewAllMatches: (filt
                 <h4>صف المعاملة بكلماتك</h4>
                 <p>{category ? `اكتب كلمة أو جملة قصيرة، أو اعرض كل خدمات المجال${platform ? ` على ${platform}` : ''}.` : 'اكتب كلمة تصف معاملتك لنبحث في جميع المجالات.'}</p>
                 <label className="discovery-description">
-                  <span className="sr-only">وصف المعاملة اختياري</span>
+                  <span className="sr-only">وصف ما تحتاجه (اختياري)</span>
                   <Search size={20} strokeWidth={ICON} aria-hidden="true" />
                    <input value={description} onChange={(event) => setDescription(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && (category || description.trim())) setStep(3); }} placeholder="مثال: ملاحظة على ملف الأجور في مُدد" data-testid="input-guide-description" />
                 </label>

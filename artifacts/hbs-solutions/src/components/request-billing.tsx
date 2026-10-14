@@ -167,7 +167,7 @@ export function OfficeInvoices({ requestId, onChanged, employeesCount = 0 }: { r
       setOpen(false); setDescription(''); setAmount(''); setBulk(emptyBulkInvoice);
       await qc.invalidateQueries({ queryKey: key });
       onChanged();
-    } catch { setError('تعذّر إصدار الفاتورة. حاول مجددًا؛ إذا تعذّر التأكد، أعد المحاولة بالمسودة نفسها لتجنب إصدار مكرر.'); }
+    } catch { setError('تعذّر إصدار الفاتورة. حاول مرة أخرى بالمسودة نفسها؛ لن تصدر فاتورة مكررة.'); }
     finally { issueInFlight.current = false; }
   }
   // The confirmation dialog in progress: which invoice, which action, and the
@@ -243,14 +243,14 @@ export function RatingPanel({ requestId, rating, comment, onRated }: { requestId
     <h2 className="rf-title">تقييمك للخدمة</h2>{stars(rating, false)}{comment && <p className="rb-note">«{comment}»</p>}
     {/* Happy customers are asked for a public review; others hear that the office follows up. */}
     {rating <= 3 ? <p className="rb-note">شكرًا، سيتواصل معك المكتب لتحسين التجربة.</p>
-      : contact.reviewUrl ? <p className="rb-note">شكرًا! يسعدنا تقييمك على Google: <a href={contact.reviewUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-copper">اكتب تقييمك</a></p>
+      : contact.reviewUrl ? <p className="rb-note">شكرًا لك. إن أردت، اكتب تقييمك على Google: <a href={contact.reviewUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-copper">اكتب تقييمك</a></p>
       : <p className="rb-note">شكرًا لك، يصل تقييمك إلى إدارة المكتب.</p>}
   </section>;
   return <form onSubmit={submit} className="rb" aria-label="قيّم الخدمة">
     <h2 className="rf-title">كيف كانت تجربتك؟</h2>
     {stars(value, true)}
-    <label className="form-field">ملاحظة (اختياري)<textarea className="form-control !min-h-20" value={text} onChange={e => setText(e.target.value)} maxLength={1000} placeholder="ما الذي أعجبك أو يمكن تحسينه؟"/></label>
-    {mutation.isError && <p role="alert" className="rf-errors">تعذّر حفظ التقييم. حاول مجددًا.</p>}
+    <label className="form-field">تعليق (اختياري)<textarea className="form-control !min-h-20" value={text} onChange={e => setText(e.target.value)} maxLength={1000} placeholder="ما الذي أعجبك أو يمكن تحسينه؟"/></label>
+    {mutation.isError && <p role="alert" className="rf-errors">تعذّر حفظ التقييم. حاول مرة أخرى.</p>}
     <button type="submit" className="btn btn-primary btn-sm" disabled={!value || mutation.isPending}>{mutation.isPending ? 'جارٍ الإرسال…' : 'إرسال التقييم'}</button>
   </form>;
 }

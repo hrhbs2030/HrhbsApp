@@ -261,11 +261,11 @@ test('the notifications page shows the brief and the list, loads older rows by c
   assert.match(body, /الملخص الذكي/); assert.match(body, /لديك 2 أمور تحتاج انتباهك اليوم/); assert.match(body, /تأخرت 10 أيام/); assert.match(body, /دون إرسالها إلى أي خدمة خارجية/);
   assert.ok(nodes(tree, 'a').some(a => a.props.href === '/requests/5'), 'brief item links to its page');
   assert.match(body, /تحديث 100/); assert.match(body, /مهم/); assert.match(body, /3 غير مقروءة/);
-  assert.match(body, /تغيّر حالة الطلب/, 'kind label on each row');
-  await click(button(tree, 'المزيد'));
+  assert.match(body, /تحديث حالة الطلب/, 'kind label on each row');
+  await click(button(tree, 'إشعارات أقدم'));
   assert.deepEqual(log.olderArgs, [{ limit: 30, before: 71 }]);
   assert.match(text(tree.root), /تحديث 50/);
-  assert.equal(button(tree, 'المزيد'), undefined, 'a short page ends the cursor');
+  assert.equal(button(tree, 'إشعارات أقدم'), undefined, 'a short page ends the cursor');
   // Unread filter re-queries and drops the older rows.
   await click(button(tree, 'غير المقروءة فقط'));
   assert.deepEqual(log.listArgs.at(-1).params, { unread: true, limit: 30 });
@@ -278,12 +278,12 @@ test('the notifications page shows the brief and the list, loads older rows by c
   const selects = nodes(tree, 'select');
   await change(selects[0], '22'); await change(selects[1], '7');
   await act(async () => nodes(tree, 'input').find(n => n.props.type === 'radio' && n.props.value === 'daily').props.onChange());
-  const mute = checkboxes.find(n => text(n.parent).includes('رسالة جديدة في الطلب'));
+  const mute = checkboxes.find(n => text(n.parent).includes('رسالة من المكتب'));
   await change(mute, true);
   await submit(nodes(tree, 'form')[0]);
   assert.deepEqual(log.saved, [{ data: { emailEnabled: false, pushEnabled: true, quietStart: 22, quietEnd: 7, digest: 'daily', mutedKinds: ['request.message'] } }]);
   assert.ok(log.invalidated.some(key => key[0] === 'getGetNotificationPreferencesQueryKey'));
-  assert.match(text(tree.root), /تم حفظ التفضيلات/);
+  assert.match(text(tree.root), /حُفظت التفضيلات/);
   await act(async () => tree.unmount());
 });
 
@@ -316,7 +316,7 @@ test('the WhatsApp inbox shows the intent, fills the reply from a suggestion, se
   const log = setup(state);
   const tree = await mount(React.createElement(OfficeWhatsappInbox));
   const body = text(tree.root);
-  assert.match(body, /شركة النور/); assert.match(body, /رقم غير معروف/); assert.match(body, /سؤال عن الحالة/); assert.match(body, /عاجل/); assert.match(body, /80٪/);
+  assert.match(body, /شركة النور/); assert.match(body, /رقم غير معروف/); assert.match(body, /سؤال عن الحالة/); assert.match(body, /عاجل/); assert.match(body, /80%/);
   assert.match(body, /دون أي خدمة ذكاء اصطناعي خارجية/);
   assert.match(body, /خارج نافذة 24 ساعة: سيُرسل كقالب/);
   assert.ok(nodes(tree, 'a').some(a => a.props.href === '/office/requests/12'));

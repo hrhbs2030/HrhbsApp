@@ -1,13 +1,12 @@
 .rf-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .rf-title { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; font-weight: var(--weight-semibold); color: var(--color-subtle); }
-.rf-title svg { color: var(--color-copper); }
-.rf-count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--color-sage); color: var(--color-ink); font-size: 11.5px; }
+.rf-title svg { color: var(--color-teal); }
 .rf-empty { margin: 0; padding: 14px 16px; border-radius: 12px; border: 1px dashed var(--color-line-strong); color: var(--color-subtle); font-size: 13.5px; line-height: 1.8; }
 .rf-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .rf-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 10px 8px 6px; border-radius: 12px; border: 1px solid var(--color-line); background: var(--color-surface); }
 .rf-row[data-state="removed"] { background: transparent; border-style: dashed; opacity: .7; }
 .rf-row[data-state="removed"] strong { text-decoration: line-through; }
-.rf-icon { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 10px; background: var(--color-copper-soft); color: var(--color-copper); }
+.rf-icon { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 10px; background: var(--icon-tile-sage-bg); color: var(--icon-tile-sage-fg); }
 .rf-main { display: grid; gap: 2px; min-width: 0; flex: 1; }
 .rf-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: var(--color-ink); }
 .rf-main small { color: var(--color-subtle); font-size: 12px; }
@@ -29,7 +28,7 @@
 /* Required-documents checklist above the file list: one row per item, linked file name under the label. */
 .rf-check { margin-bottom: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--color-line); background: var(--color-paper); }
 .rf-check-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 12.5px; font-weight: var(--weight-medium); color: var(--color-subtle); }
-.rf-check-head svg { color: var(--color-copper); }
+.rf-check-head svg { color: var(--color-teal); }
 .rf-check ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .rf-check li { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 0; }
 .rf-check li + li { border-top: 1px solid var(--color-line); }

@@ -90,7 +90,7 @@ const taskIcons: Record<TaskKind, typeof CircleAlert> = { quote: FileSignature, 
 function NeedsYou({ requests, summary, subscription }: { requests: ServiceRequest[] | undefined; summary: PortalSummary | undefined; subscription: Subscription | null | undefined }) {
   if (!requests && !summary) return null;
   const tasks = customerTasks({ requests, summary, subscription });
-  if (!tasks.length) return <p className="needs-calm" role="status"><CircleCheck size={20} aria-hidden="true"/>لا شيء مطلوب منك الآن.</p>;
+  if (!tasks.length) return <p className="needs-calm" role="status"><CircleCheck size={20} aria-hidden="true"/>لا شيء يحتاج انتباهك الآن.</p>;
   return <section aria-labelledby="needs-you-title" className="needs">
     <div className="needs-head">
       <span className="needs-icon"><CircleAlert size={20} aria-hidden="true"/></span>
@@ -129,7 +129,7 @@ function ExpiryTimeline({ items }: { items: Reminder[] }) {
     </div>
     {shown.map((r) => <div key={r.id} className="dash-exp">
       <div className="dash-exp-main"><div className="dash-exp-title">{reminderKindNames[r.kind]} <span>«{r.label}»</span></div><div className="dash-exp-date">{formatCalendarDate(r.expiresOn)}</div></div>
-      <div className="dash-exp-side"><ExpiryBadge expiresOn={r.expiresOn}/><Link href={renewalLink(r)} className="dash-exp-renew">طلب تجديد</Link></div>
+      <div className="dash-exp-side"><ExpiryBadge expiresOn={r.expiresOn}/><Link href={renewalLink(r)} className="dash-exp-renew">اطلب التجديد</Link></div>
     </div>)}
   </>;
 }
@@ -220,7 +220,7 @@ export function Requests() {
   const filtered = q.data?.filter(r => (filter === 'all' || r.status === filter) && (!needle || [r.service, r.reference, r.description].some((x) => x?.includes(needle)))) ?? [];
   const total = (key: string) => q.data?.filter(r => key === 'all' || r.status === key).length ?? 0;
   const { canCreate } = useCompanyRole();
-  return <PortalLayout><PageHeading eyebrow="طلباتي" title="طلباتي" subtitle="كل طلباتك مع حالتها الحالية وآخر رسالة من المكتب." action={canCreate && <Link href="/requests/new" className="btn btn-primary"><Plus size={18} aria-hidden="true"/>طلب خدمة جديد</Link>}/>
+  return <PortalLayout><PageHeading eyebrow="حسابك" title="طلباتي" subtitle="كل طلباتك مع حالتها الحالية وآخر رسالة من المكتب." action={canCreate && <Link href="/requests/new" className="btn btn-primary"><Plus size={18} aria-hidden="true"/>طلب خدمة جديد</Link>}/>
     <RoleNotice/>
     {q.isLoading ? <LoadingBlock variant="table"/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : !q.data?.length ? <EmptyBlock title="لا توجد طلبات بعد" text={canCreate ? 'أرسل طلبك الأول وتابع حالته من هنا.' : 'تظهر هنا طلبات المنشأة حين تُرسل.'} action={canCreate ? 'طلب خدمة جديد' : undefined} href={canCreate ? '/requests/new' : undefined}/> : <>
       <Toolbar search={{ value: search, onChange: setSearch, label: 'بحث في الطلبات', placeholder: 'ابحث بالخدمة أو الرقم المرجعي' }} filters={<div className="flex flex-wrap gap-2" role="group" aria-label="تصفية حسب الحالة">{requestFilters.map(key => <FilterChip key={key} active={filter === key} count={total(key)} onClick={() => setFilter(key)}>{key === 'all' ? 'الكل' : statusNames[key]}</FilterChip>)}</div>}/>
@@ -270,9 +270,9 @@ export function RequestDetail() {
   const { canCreate: canWrite } = useCompanyRole();
   return <PortalLayout><div className="req"><BackLink href="/requests">طلباتي</BackLink>
     {!Number.isInteger(parsed)||parsed<=0 ? <EmptyBlock title="الطلب غير متاح" text="تحقق من رابط الطلب وحاول مرة أخرى."/> : q.isLoading ? <LoadingBlock/> : q.error?.status === 404 ? <EmptyBlock title="الطلب غير متاح" text="هذا الطلب غير موجود في حسابك."/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : r && <>
-      {justSent && <div role="status" className="rise req-notice"><CircleCheck size={22} aria-hidden="true"/><div><strong>تم إرسال طلبك إلى المكتب</strong><span>الرقم المرجعي <span dir="ltr" className="nums font-semibold">{r.reference}</span>. تابع حالته من هذه الصفحة.</span></div></div>}
+      {justSent && <div role="status" className="rise req-notice"><CircleCheck size={22} aria-hidden="true"/><div><strong>وصل طلبك إلى المكتب</strong><span>الرقم المرجعي <span dir="ltr" className="nums font-semibold">{r.reference}</span>. تابع حالته من هذه الصفحة.</span></div></div>}
       {/* One channel per request: the conversation tab. Questions unrelated to a request go through the Inquiries page. */}
-      <PageHeading eyebrow={`طلب رقم ${r.reference}`} title={r.service} meta={<><Status value={r.status}/><Chip tone="outline">{categoryNames[r.category]}</Chip>{r.subject && <SubjectChip subject={r.subject}/>}</>} action={<div className="flex flex-wrap items-center gap-2"><CustomerWhatsapp thread={{ type: 'request', id: r.id }}/><PrintButton label="طباعة الطلب"/>{/* One reply CTA per page: the waiting banner below carries it when the request waits on the customer. */}{canWrite && r.status !== 'completed' && r.status !== 'waiting_on_customer' && <button type="button" className="btn btn-primary" onClick={reply}><MessagesSquare size={17} aria-hidden="true"/>ردّ على المكتب</button>}</div>}/>
+      <PageHeading eyebrow={`طلب ${r.reference}`} title={r.service} meta={<><Status value={r.status}/><Chip tone="outline">{categoryNames[r.category]}</Chip>{r.subject && <SubjectChip subject={r.subject}/>}</>} action={<div className="flex flex-wrap items-center gap-2"><CustomerWhatsapp thread={{ type: 'request', id: r.id }}/><PrintButton label="طباعة الطلب"/>{/* One reply CTA per page: the waiting banner below carries it when the request waits on the customer. */}{canWrite && r.status !== 'completed' && r.status !== 'waiting_on_customer' && <button type="button" className="btn btn-primary" onClick={reply}><MessagesSquare size={17} aria-hidden="true"/>ردّ على المكتب</button>}</div>}/>
       <RoleNotice/>
       <div className="req-grid">
         <div className="req-rail">
@@ -330,7 +330,7 @@ function QuoteCard({ requestId, quote, canDecide = true }: { requestId: number; 
   async function run(action: () => Promise<unknown>) {
     setError(null);
     try { await action(); await refresh(); setNoting(false); }
-    catch (e) { setError((e as { status?: number })?.status === 409 ? 'تغيّرت حالة العرض. أعد تحميل الصفحة.' : 'تعذّر إرسال ردّك. حاول مجددًا.'); }
+    catch (e) { setError((e as { status?: number })?.status === 409 ? 'تغيّرت حالة العرض. أعد تحميل الصفحة.' : 'تعذّر إرسال ردّك. حاول مرة أخرى.'); }
   }
   const busy = accept.isPending || decline.isPending;
   const amounts = <dl className="m-0 mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3"><div className="min-w-0"><dt className="text-xs text-subtle">المبلغ</dt><dd className="nums m-0 font-semibold">{formatMoney(quote.amount)}</dd></div><div className="min-w-0"><dt className="text-xs text-subtle">الضريبة</dt><dd className="nums m-0 font-semibold">{formatMoney(quote.vat)}</dd></div><div className="col-span-2 min-w-0 sm:col-span-1"><dt className="text-xs text-subtle">الإجمالي</dt><dd className="nums display m-0 text-lg font-semibold">{formatMoney(quote.total)}</dd></div></dl>;
@@ -342,11 +342,11 @@ function QuoteCard({ requestId, quote, canDecide = true }: { requestId: number; 
     {amounts}
     {quote.note && <p className="mt-3 whitespace-pre-wrap rounded-lg bg-surface px-4 py-3 text-sm leading-7">{quote.note}</p>}
     {!canDecide ? <p className="mt-3 text-sm text-quiet">قبول العرض أو الملاحظة عليه لمالك المنشأة أو عضو الموارد البشرية.</p> : noting ? <form className="mt-4" onSubmit={e => { e.preventDefault(); void run(() => decline.mutateAsync({ id: requestId, data: reason.trim() ? { reason: reason.trim() } : {} })); }}>
-      <label className="form-field">ملاحظتك على العرض<textarea className="form-control !min-h-20" value={reason} onChange={e => setReason(e.target.value)} maxLength={500} placeholder="مثال: هل يشمل السعر رسوم الجهة؟" autoFocus/></label>
-      <div className="mt-3 flex flex-wrap gap-2"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{decline.isPending ? 'جارٍ الإرسال…' : 'إرسال الملاحظة'}</button><button type="button" className="btn btn-outline btn-sm" onClick={() => setNoting(false)} disabled={busy}>رجوع</button></div>
+      <label className="form-field">تحفّظك على العرض<textarea className="form-control !min-h-20" value={reason} onChange={e => setReason(e.target.value)} maxLength={500} placeholder="مثال: هل يشمل السعر رسوم الجهة؟" autoFocus/></label>
+      <div className="mt-3 flex flex-wrap gap-2"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{decline.isPending ? 'جارٍ الإرسال…' : 'إرسال التحفّظ'}</button><button type="button" className="btn btn-outline btn-sm" onClick={() => setNoting(false)} disabled={busy}>رجوع</button></div>
     </form> : <div className="mt-4 flex flex-wrap gap-2">
-      <button type="button" className="btn btn-primary" disabled={busy} onClick={() => run(() => accept.mutateAsync({ id: requestId }))}><CircleCheck size={17} aria-hidden="true"/>{accept.isPending ? 'جارٍ التأكيد…' : 'أوافق وابدأ'}</button>
-      <button type="button" className="btn btn-outline" disabled={busy} onClick={() => setNoting(true)}><MessageSquareText size={17} aria-hidden="true"/>لديّ ملاحظة</button>
+      <button type="button" className="btn btn-primary" disabled={busy} onClick={() => run(() => accept.mutateAsync({ id: requestId }))}><CircleCheck size={17} aria-hidden="true"/>{accept.isPending ? 'جارٍ التأكيد…' : 'أوافق على العرض'}</button>
+      <button type="button" className="btn btn-outline" disabled={busy} onClick={() => setNoting(true)}><MessageSquareText size={17} aria-hidden="true"/>لديّ تحفّظ</button>
     </div>}
     {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
   </section>;
@@ -394,7 +394,7 @@ function InquiryItem({ inquiry }: { inquiry: Inquiry }) {
     </div>
     <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-quiet">{inquiry.message}</p>
     {inquiry.answer && <div className="inq-answer">
-      <div className="inq-answer-head"><span>رد المكتب</span><span>{dateText(inquiry.answeredAt)}</span></div>
+      <div className="inq-answer-head"><span>ردّ المكتب</span><span>{dateText(inquiry.answeredAt)}</span></div>
       <p className="m-0 whitespace-pre-wrap text-sm leading-7">{inquiry.answer}</p>
     </div>}
     <Link href={`/inquiries/${inquiry.id}`} className="mt-3 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-teal no-underline"><MessagesSquare size={14} aria-hidden="true"/>افتح المحادثة<ArrowLeft size={14} aria-hidden="true"/></Link>
@@ -418,8 +418,8 @@ export function Inquiries() {
         <label className="form-field">الطلب المرتبط (اختياري)<select className="form-control" value={linkedServiceRequestId} onChange={e=>setLinkedServiceRequestId(e.target.value)}><option value="">بدون ربط</option>{requests.data?.map(r=><option key={r.id} value={r.id}>{r.reference} · {r.service}</option>)}</select><small className="field-hint">يطّلع المكتب على تفاصيل الطلب المرتبط ليجيبك بدقة.</small></label>
         <label className="form-field md:col-span-2">نص الاستفسار<textarea className="form-control" placeholder="اكتب سؤالك بالتفصيل" value={message} onChange={e=>setMessage(e.target.value)} minLength={10} maxLength={5000} required/><small className="field-hint">لا تشارك كلمات مرور المنصات أو رموز التحقق.</small></label>
       </div>
-      {requests.isError&&<p role="alert" className="mt-4 text-sm text-danger">تعذّر تحميل طلباتك. أعد المحاولة قبل اختيار طلب للربط.</p>}
-      {mutation.isError && <p role="alert" className="mt-4 text-sm text-danger">تعذّر إرسال الاستفسار. حاول مجددًا.</p>}
+      {requests.isError&&<p role="alert" className="mt-4 text-sm text-danger">تعذّر تحميل طلباتك. حاول مرة أخرى قبل ربط الاستفسار بطلب.</p>}
+      {mutation.isError && <p role="alert" className="mt-4 text-sm text-danger">تعذّر إرسال الاستفسار. حاول مرة أخرى.</p>}
       <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-line pt-5"><button type="button" onClick={()=>setShowForm(false)} className="btn btn-outline" disabled={mutation.isPending}>إلغاء</button><button disabled={mutation.isPending} type="submit" className="btn btn-primary">{mutation.isPending?'جارٍ الإرسال…':'إرسال الاستفسار'}<Send size={16} aria-hidden="true"/></button></div>
     </form>}
     <div className="inq-grid">

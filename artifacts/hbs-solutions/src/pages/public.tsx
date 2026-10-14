@@ -86,9 +86,9 @@ function ServiceCard({ service, index = 0 }: { service: ServiceEntry; index?: nu
   return (
     <li>
       <Link href={`/services/${service.slug}`} className="pub-service-card" style={stagger(Math.min(index, 9), 40)}>
-        <span className="pub-service-cat"><Icon size={16} strokeWidth={ICON} aria-hidden="true" />{categoryById[service.category].name}</span>
+        <span className="chip chip-teal pub-service-cat"><Icon size={16} strokeWidth={ICON} aria-hidden="true" />{categoryById[service.category].name}</span>
         <strong>{service.name}</strong>
-        {service.platform && <span className="pub-platform-name">المنصة: {service.platform}</span>}
+        {service.platform && <span className="chip chip-info chip-sm pub-platform-name">المنصة: {service.platform}</span>}
         <span className="pub-service-summary">{service.summary}</span>
         <ArrowLeft className="pub-service-arrow" size={18} strokeWidth={ICON} aria-hidden="true" />
       </Link>
@@ -147,7 +147,7 @@ function CategoryTabs({ value, onChange }: { value: ServiceCategory | null; onCh
       {items.map((item) => {
         const selected = current === item.id;
         return (
-          <button key={item.id} id={`tab-${item.id}`} type="button" role="tab" aria-selected={selected} aria-controls="directory-list" tabIndex={selected ? 0 : -1} onClick={() => onChange(item.category)}>
+          <button key={item.id} id={`tab-${item.id}`} type="button" role="tab" className="chip chip-select" aria-selected={selected} aria-controls="directory-list" tabIndex={selected ? 0 : -1} onClick={() => onChange(item.category)}>
             {item.label}
           </button>
         );
@@ -259,7 +259,7 @@ export function ServicesDirectory() {
               return (
                 <section key={group.id} className="pub-group" aria-labelledby={`group-${group.slug}`}>
                   <div className="pub-group-head">
-                    <span className="pub-group-icon"><Icon size={20} strokeWidth={ICON} aria-hidden="true" /></span>
+                    <span className="icon-tile pub-group-icon"><Icon size={20} strokeWidth={ICON} aria-hidden="true" /></span>
                     <div>
                       <h2 id={`group-${group.slug}`} className="display">{group.name}</h2>
                       <p>{group.description} <span className="pub-group-count">{resultsLabel(items.length)}</span></p>
@@ -326,7 +326,7 @@ export function ServiceDetail() {
   // one crossing the middle of the screen is marked as current.
   const toc = [
     { id: 'write-title', label: 'ما يفيد أن تكتبه في طلبك' },
-    { id: 'flow-title', label: 'كيف تتم الخدمة عبر البوابة' },
+    { id: 'flow-title', label: 'ما يحدث بعد أن ترسل الطلب' },
     { id: 'faq-title', label: 'أسئلة شائعة' },
     ...(related.length ? [{ id: 'related-title', label: 'خدمات ذات صلة' }] : []),
   ];
@@ -360,7 +360,7 @@ export function ServiceDetail() {
         <span aria-hidden="true">/</span>
         <span aria-current="page">{service.name}</span>
       </nav>
-      <span className="pub-service-cat"><Icon size={16} strokeWidth={ICON} aria-hidden="true" />{category.name}</span>
+      <span className="chip chip-dark pub-service-cat"><Icon size={16} strokeWidth={ICON} aria-hidden="true" />{category.name}</span>
       <h1 className="display pub-detail-title">{service.name}</h1>
       {service.platform && <p className="pub-detail-platform">المنصة ذات الصلة: {service.platform}</p>}
       <p className="pub-detail-lead">{service.summary}</p>
@@ -387,7 +387,7 @@ export function ServiceDetail() {
             </section>
 
             <section className="surface pub-block" aria-labelledby="flow-title" ref={chapters.register(1)}>
-              <h2 id="flow-title" className="display"><History size={20} strokeWidth={ICON} aria-hidden="true" />كيف تتم الخدمة عبر البوابة</h2>
+              <h2 id="flow-title" className="display"><History size={20} strokeWidth={ICON} aria-hidden="true" />ما يحدث بعد أن ترسل الطلب</h2>
               <ol className="pub-flow-list">
                 {steps.map((step, index) => (
                   <li key={step}>
@@ -422,7 +422,7 @@ export function ServiceDetail() {
 
           <aside className="pub-aside">
             <div className="pub-cta">
-              <h2 className="display">ابدأ هذا الطلب</h2>
+              <h2 className="display">أرسل ما ظهر لك في هذه الخدمة</h2>
               <p>يُفتح النموذج واسم الخدمة معبّأ. يلزم حساب معتمد من المكتب، ولا يطلب المكتب كلمات مرور المنصات أو رموز التحقق.</p>
               <Link href={startHref} className="btn btn-light">ابدأ الطلب <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
               <Link href="/sign-up" className="pub-cta-link">لا أملك حسابًا: طلب التسجيل</Link>
@@ -459,12 +459,12 @@ export function TrustPage() {
     { title: 'المساعد الآلي لا يرى طلباتك', text: 'يُرسل نص السؤال ومقتطفات من المعلومات المنشورة ذات الصلة إلى مزوّد المساعدة الآلية؛ لا تُرسل بيانات حسابك أو سجلات طلباتك ولا نص الملاحظات التي أرسلتها. لا تكتب معلومات حساسة، واسأل عن طلب بعينه من صفحته.', Icon: MessageSquareText },
   ];
   return (
-    <PublicPage intro={<PageIntro kicker="الخصوصية والأمان" title="كيف نتعامل مع طلباتك" text="ملاحظة على ملف الأجور، أو رخصة تنتهي، أو مؤشر تغيّر: كل ما ترسله عن منشأتك يبقى في حسابك، ويراه فريق المكتب المخوّل وحده. هنا ما يحدث له، ومن يراه، وما لا يطلبه المكتب منك." />}>
+    <PublicPage intro={<PageIntro kicker="الخصوصية والأمان" title="ما يحدث لما ترسله عن منشأتك، ومن يراه" text="ملاحظة على ملف الأجور، أو رخصة تنتهي، أو مؤشر تغيّر: كل ما ترسله عن منشأتك يبقى في حسابك، ويراه فريق المكتب المخوّل وحده. هنا ما يحدث له، ومن يراه، وما لا يطلبه المكتب منك." />}>
       <div className="site-wrap pub-page pub-split">
         <ul className="surface pub-facts">
           {facts.map(({ title, text, Icon }, index) => (
             <li key={title} style={stagger(index, 60)}>
-              <span className="pub-fact-icon"><Icon size={22} strokeWidth={ICON} aria-hidden="true" /></span>
+              <span className="icon-tile icon-tile-lg pub-fact-icon"><Icon size={22} strokeWidth={ICON} aria-hidden="true" /></span>
               <div><h2 className="display">{title}</h2><p>{text}</p></div>
             </li>
           ))}
@@ -482,7 +482,7 @@ export function TrustPage() {
 
 export function HelpPage() {
   return (
-    <PublicPage intro={<PageIntro kicker="المساعدة" title="الأسئلة الشائعة" text="وصلتك ملاحظة ولا تعرف ماذا ترسل؟ تغيّر مؤشر منشأتك؟ وثيقة تنتهي قريبًا؟ هنا إجابات قصيرة عن ذلك وعن حالات الطلب في البوابة." />}>
+    <PublicPage intro={<PageIntro kicker="المساعدة" title="وصلتك ملاحظة؟ تغيّر المؤشر؟ وثيقة تنتهي؟" text="وصلتك ملاحظة ولا تعرف ماذا ترسل؟ تغيّر مؤشر منشأتك؟ وثيقة تنتهي قريبًا؟ هنا إجابات قصيرة عن ذلك وعن حالات الطلب في البوابة." />}>
       <div className="site-wrap pub-page pub-split">
         {/* Native disclosure here, not the accordion: Radix's header is an h3, and this page has no h2 above the questions. */}
         <div className="pub-faq">

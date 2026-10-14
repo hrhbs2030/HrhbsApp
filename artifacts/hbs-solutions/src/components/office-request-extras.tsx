@@ -93,7 +93,7 @@ export function QuotePanel({ requestId, quote, onChanged }: { requestId: number;
       await onChanged();
       setSent(true);
     } catch (err) {
-      setError((err as { status?: number })?.status === 409 ? 'لا يمكن إرسال عرض سعر على هذا الطلب في حالته الحالية.' : 'تعذّر إرسال عرض السعر. حاول مجددًا.');
+      setError((err as { status?: number })?.status === 409 ? 'لا يمكن إرسال عرض سعر على هذا الطلب في حالته الحالية.' : 'تعذّر إرسال عرض السعر. حاول مرة أخرى.');
     }
   }
   const reason = declineNote(quote, messages.data);
@@ -154,7 +154,7 @@ export function ChecklistEditor({ requestId, checklist, attachments, onChanged }
       setOpen(false);
       await onChanged();
       setSaved(true);
-    } catch { setError('تعذّر حفظ القائمة. حاول مجددًا.'); }
+    } catch { setError('تعذّر حفظ القائمة. حاول مرة أخرى.'); }
   }
   // Point an item at a file the customer (or the office) already uploaded.
   async function link(item: ChecklistItem, attachmentId: number) {
@@ -173,7 +173,7 @@ export function ChecklistEditor({ requestId, checklist, attachments, onChanged }
         <button type="button" className="rf-btn" onClick={() => setItems(items.filter((_, n) => n !== index))} aria-label={`حذف المستند ${index + 1}`}><Trash2 size={16}/></button>
       </li>)}</ul>
       {items.length < MAX_CHECKLIST && <button type="button" className="btn btn-outline btn-sm" onClick={() => setItems([...items, { label: '' }])}><Plus size={15}/>إضافة مستند</button>}
-      <p className="muted text-xs leading-6">يرى العميل القائمة في طلبه ويرفع ملفًا لكل بند. الحذف لا يحذف الملفات المرفوعة.</p>
+      <p className="muted text-xs leading-6">يرى العميل القائمة في طلبه ويرفع ملفًا لكل بند. الحذف لا يحذف المستندات المرفوعة.</p>
       <div className="flex gap-2"><button type="submit" className="btn btn-primary btn-sm" disabled={save.isPending}>{save.isPending ? 'جارٍ الحفظ…' : 'حفظ القائمة'}</button><button type="button" className="btn btn-outline btn-sm" onClick={() => setOpen(false)}>إلغاء</button></div>
     </form> : checklist.length ? <ul className="oc-list">{checklist.map(item => <li key={item.key}>
       <span className="oc-main"><strong>{item.label}</strong><small>{item.attachmentName ? `مرتبط بـ «${item.attachmentName}»` : 'لم يُرفع بعد'}</small></span>
@@ -221,7 +221,7 @@ export function RequestEmployees({ requestId, employees, compact = false, onChan
       setDrafts(({ [employee.employeeId]: _, ...rest }) => rest);
       await onChanged();
     } catch (err) {
-      setErrors(e => ({ ...e, [employee.employeeId]: (err as { status?: number })?.status === 404 ? 'لم يعد هذا الموظف على الطلب.' : 'تعذّر الحفظ. حاول مجددًا.' }));
+      setErrors(e => ({ ...e, [employee.employeeId]: (err as { status?: number })?.status === 404 ? 'لم يعد هذا الموظف على الطلب.' : 'تعذّر الحفظ. حاول مرة أخرى.' }));
     } finally { setSaving(null); }
   }
   const shown = filter ? employees.filter(e => e.itemStatus === filter) : employees;
@@ -241,7 +241,7 @@ export function RequestEmployees({ requestId, employees, compact = false, onChan
       return <li key={employee.employeeId} className={`oe-row oe-${status}`}>
         <span className="oe-name"><strong>{employee.fullName}</strong>{compact && employee.note && <small>{employee.note}</small>}</span>
         <label className="oe-status"><span className="sr-only">حالة {employee.fullName}</span><select className="form-control" value={status} onChange={e => edit(employee.employeeId, { itemStatus: e.target.value as RequestEmployeeStatus })}>{employeeStatuses.map(s => <option key={s} value={s}>{employeeStatusNames[s]}</option>)}</select></label>
-        {!compact && <label className="oe-note"><span className="sr-only">ملاحظة عن {employee.fullName}</span><input className="form-control" value={note} maxLength={500} placeholder="ملاحظة (اختياري)" onChange={e => edit(employee.employeeId, { note: e.target.value })}/></label>}
+        {!compact && <label className="oe-note"><span className="sr-only">تعليق عن {employee.fullName}</span><input className="form-control" value={note} maxLength={500} placeholder="تعليق (اختياري)" onChange={e => edit(employee.employeeId, { note: e.target.value })}/></label>}
         <button type="button" className={`btn btn-sm ${dirty ? 'btn-primary' : 'btn-outline'}`} disabled={!dirty || saving === employee.employeeId} onClick={() => save(employee)} aria-label={`حفظ ${employee.fullName}`}><Save size={14}/>{saving === employee.employeeId ? 'جارٍ الحفظ…' : 'حفظ'}</button>
         {errors[employee.employeeId] && <p role="alert" className="oe-error">{errors[employee.employeeId]}</p>}
       </li>;

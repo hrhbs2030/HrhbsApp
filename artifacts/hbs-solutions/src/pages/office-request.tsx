@@ -184,8 +184,8 @@ function RequestWorkspace({ request, nav }: { request: OfficeServiceRequest; nav
   const notice: ReactNode = (conflict || changedSinceOpened) ? <span role="alert" className="orq-alert">تغيّر هذا الطلب منذ فتحه. <button type="button" className="underline" onClick={reviewLatest} disabled={request.updatedAt === version}>مراجعة النسخة الجديدة</button></span>
     : unpaidBlocksMove ? <span role="alert" className="orq-alert">{status === 'completed' ? 'توجد فاتورة غير مسددة؛ لا يمكن الإكمال قبل تسويتها.' : 'توجد فاتورة غير مسددة؛ لا يمكن نقل الطلب قبل تسويتها.'}</span>
     : rejected ? <span role="alert" className="orq-alert">{rejected}</span>
-    : mutation.isError ? <span role="alert" className="orq-alert">تعذّر حفظ التحديث. حاول مجددًا.</span>
-    : saved ? <span role="status" className="orq-ok">تم حفظ التحديث.</span> : null;
+    : mutation.isError ? <span role="alert" className="orq-alert">تعذّر حفظ التحديث. حاول مرة أخرى.</span>
+    : saved ? <span role="status" className="orq-ok">حُفظ التحديث.</span> : null;
   return <>
     <header className="orq-head surface">
       <div className="orq-head-main">
@@ -226,15 +226,15 @@ function RequestWorkspace({ request, nav }: { request: OfficeServiceRequest; nav
           <Link href={`/office/customers/${encodeURIComponent(request.userId)}`} className="btn btn-outline btn-sm w-full">ملف العميل الكامل</Link>
         </section>
         <section className="surface orq-rail-card" aria-labelledby="orq-note-title">
-          <h2 id="orq-note-title" className="orq-rail-title"><StickyNote size={14} aria-hidden="true" />الملاحظة الداخلية</h2>
-          {request.officeNote ? <p className="orq-rail-note">{request.officeNote}</p> : <p className="orq-rail-empty">لا توجد ملاحظة للفريق بعد.</p>}
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDrawer(true)}>{request.officeNote ? 'تعديل الملاحظة' : 'إضافة ملاحظة'}</button>
+          <h2 id="orq-note-title" className="orq-rail-title"><StickyNote size={14} aria-hidden="true" />المذكرة الداخلية</h2>
+          {request.officeNote ? <p className="orq-rail-note">{request.officeNote}</p> : <p className="orq-rail-empty">لا توجد مذكرة للفريق بعد.</p>}
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDrawer(true)}>{request.officeNote ? 'تعديل المذكرة' : 'إضافة مذكرة'}</button>
         </section>
         <section className="surface orq-rail-card" aria-labelledby="orq-summary-title">
           <h2 id="orq-summary-title" className="orq-rail-title">المتابعة</h2>
           <ul className="orq-checks">
             <li><ListChecks size={14} aria-hidden="true" /><span>المستندات المطلوبة</span><strong className="nums">{checklist.length ? `${formatNumber(linked)}/${formatNumber(checklist.length)}` : "—"}</strong></li>
-            <li><Contact size={14} aria-hidden="true" /><span>الملفات المرفوعة</span><strong className="nums">{formatNumber(request.attachments?.length ?? 0)}</strong></li>
+            <li><Contact size={14} aria-hidden="true" /><span>المستندات المرفوعة</span><strong className="nums">{formatNumber(request.attachments?.length ?? 0)}</strong></li>
             <li className={hasUnpaid ? 'is-warn' : ''}><ReceiptText size={14} aria-hidden="true" /><span>{hasUnpaid ? 'فواتير غير مسددة' : 'الفواتير'}</span><strong className="nums">{hasUnpaid ? formatMoney(unpaid.reduce((sum, i) => sum + (i.total ?? 0), 0)) : formatNumber(invoices.data?.length ?? 0)}</strong></li>
             {request.employees?.length > 0 && <li><UsersRound size={14} aria-hidden="true" /><span>الموظفون</span><strong className="nums">{employeeProgress(request.employees)}</strong></li>}
           </ul>
@@ -264,7 +264,7 @@ function RequestWorkspace({ request, nav }: { request: OfficeServiceRequest; nav
     <form className="orq-bar" aria-label="تحديث الطلب" onSubmit={e => { e.preventDefault(); void save(); }}>
       {drawer && <div className="orq-drawer">
         {status === 'waiting_on_customer' && <label className="form-field">ما يحتاجه المكتب من العميل<textarea className="form-control !min-h-24" value={customerMessage} onChange={e => { setCustomerMessage(e.target.value); setRejected(null); }} maxLength={2000} placeholder="وضّح للعميل ما يلزم لإكمال الطلب..." autoFocus /><small className="muted font-normal">تظهر هذه الرسالة للعميل في طلبه.</small></label>}
-        <label className="form-field">ملاحظة المكتب الداخلية<textarea className="form-control !min-h-24" value={officeNote} onChange={e => setOfficeNote(e.target.value)} maxLength={2000} placeholder="ملاحظة داخلية للفريق..." /><small className="muted font-normal">داخلية ولا تُعرض للعميل.</small></label>
+        <label className="form-field">مذكرة المكتب الداخلية<textarea className="form-control !min-h-24" value={officeNote} onChange={e => setOfficeNote(e.target.value)} maxLength={2000} placeholder="مذكرة داخلية للفريق…" /><small className="muted font-normal">داخلية ولا تُعرض للعميل.</small></label>
       </div>}
       <div className="orq-bar-row">
         {/* Only the moves allowed from the current status; the API refuses the rest. */}
@@ -272,7 +272,7 @@ function RequestWorkspace({ request, nav }: { request: OfficeServiceRequest; nav
         <label className="orq-field"><span>المسؤول</span><select className="form-control" value={assignedTo} onChange={e => setAssignedTo(e.target.value)}><option value="">غير مسند</option>{assignedTo && !members.data?.some(m => m.userId === assignedTo) && <option value={assignedTo}>عضو سابق</option>}{members.data?.map(m => <option key={m.userId} value={m.userId}>{m.email ?? m.userId}</option>)}</select></label>
         <label className="orq-field"><span>موعد الإنجاز</span><input className="form-control" type="date" dir="ltr" value={due} onChange={e => setDue(e.target.value)} /></label>
         <button type="button" className="btn btn-outline" aria-expanded={drawer} onClick={() => setDrawer(!drawer)}>{drawer ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronUp size={16} aria-hidden="true" />}تحديث{(officeNote.trim() || (status === 'waiting_on_customer' && customerMessage.trim())) && !drawer ? <span className="orq-dot" aria-label="يوجد نص" /> : null}</button>
-        <button type="submit" className="btn btn-primary" disabled={blocked} title="حفظ (S)" data-loading={mutation.isPending || undefined}>{mutation.isPending ? 'جارٍ الحفظ...' : 'حفظ'}<Save size={16} aria-hidden="true" /></button>
+        <button type="submit" className="btn btn-primary" disabled={blocked} title="حفظ (S)" data-loading={mutation.isPending || undefined}>{mutation.isPending ? 'جارٍ الحفظ…' : 'حفظ'}<Save size={16} aria-hidden="true" /></button>
       </div>
       <div className="orq-bar-foot">
         {notice}

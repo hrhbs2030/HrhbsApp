@@ -1,40 +1,66 @@
 // Mirrors the palette in src/index.css (@theme) for the few places that need
 // colour values in JavaScript, such as the Clerk sign-in theme and inline
 // SVG charts (sparklines). Pages use the CSS utilities (bg-paper, text-quiet…),
-// never these constants.
+// never these constants. tests/tokens-mirror.test.ts locks every --color-* and
+// --radius-* token in index.css to this file (camelCase name, same value).
 export const color = {
   night: '#081a1c',
   night2: '#10292c',
+  night3: '#163538',
   paper: '#f6f4ed',
   surface: '#fcfaf4',
   raised: '#fffdf8',
   field: '#fffcf6',
   sunk: '#f1efe6',
+  sunk2: '#ebe8dd',
   line: '#e4e0d4',
   lineStrong: '#7d8a83',
+  lineDark: '#243f43',
+  lineDark2: '#709590',
   ink: '#173e42',
   teal: '#174b50',
   teal2: '#216067',
   tealBright: '#1d6164',
   tealSoft: '#dfeae7',
+  sidebar: '#10292c',
+  sidebar2: '#163538',
   sage: '#eaf0e9',
   sage2: '#dce7dd',
   copper: '#9e4d2d',
+  copper2: '#8a4125',
   copperLight: '#edb08c',
+  copperLight2: '#f2bd9e',
   copperSoft: '#f4e6db',
+  focus: '#9e4d2d',
+  focusDark: '#edb08c',
   quiet: '#4a605e',
   subtle: '#55685f',
   onDark: '#f6efe3',
   onDark2: '#c2d3ce',
-  ok: '#2f6446',
-  okSoft: '#e2eee4',
+  // Alpha helpers (CSS colour strings; the only translucent colours a page may use).
+  nightLine: 'rgb(255 255 255 / .10)',
+  nightLineStrong: 'rgb(255 255 255 / .30)',
+  nightVeil: 'rgb(8 26 28 / .62)',
+  scrim: 'rgb(8 26 28 / .72)',
+  onDarkHover: 'rgb(246 239 227 / .08)',
+  copperGlow: 'rgb(237 176 140 / .18)',
+  paperVeil: 'rgb(246 244 237 / .96)',
   warn: '#6b5210',
   warnSoft: '#fbf3dc',
+  warnLine: '#ecd9a4',
+  ok: '#2f6446',
+  okSoft: '#e2eee4',
+  okLine: '#a9cbb3',
   info: '#255a5e',
   infoSoft: '#e2ece8',
+  infoLine: '#a6c6c2',
   danger: '#a83f2e',
   dangerSoft: '#f9e6df',
-  focus: '#9e4d2d',
+  dangerLine: '#ecb9a9',
+  danger2: '#8f3426',
+  neutral: '#4a605e',
+  neutralSoft: '#ecebe3',
+  neutralLine: '#cfcdc1',
 } as const;
 
 // Categorical series for charts, in order of use: brand first, accent second,
@@ -54,8 +80,9 @@ export const weight = { regular: 400, medium: 500, semibold: 600 } as const;
 // `size={icon.size}` (24 in tiles and the phone tab bar).
 export const icon = { stroke: 1.75, size: 20, sizeLg: 24, onDark: color.onDark2, onLight: color.quiet } as const;
 
-// Radius tiers in px, matching --radius-* in index.css.
-export const radius = { chip: 8, control: 10, card: 16, panel: 22, overlay: 24 } as const;
+// Radius tiers in px, matching --radius-* in index.css. `sheet` is the paper
+// sheet's corner on night: 32 on desktop, `sheetPhone` (24) at ≤ 767 px.
+export const radius = { chip: 8, control: 10, card: 16, panel: 22, overlay: 24, sheet: 32, sheetPhone: 24 } as const;
 
 // Motion vocabulary in milliseconds, matching --duration-* in index.css.
 export const motion = { press: 120, hover: 200, page: 200, enter: 320, reveal: 640, scene: 900 } as const;

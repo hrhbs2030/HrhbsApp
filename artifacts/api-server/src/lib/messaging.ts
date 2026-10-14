@@ -324,7 +324,7 @@ export function setWhatsappSender(sender: typeof sendWhatsApp | null): void {
 
 export const WHATSAPP_OFF_ERROR = "خدمة واتساب غير مفعّلة على الخادم.";
 export const WHATSAPP_UNVERIFIED_ERROR = "لا يملك العميل رقم واتساب موثّقًا ومفعّلًا للمراسلة.";
-export const WHATSAPP_SEND_FAILED_ERROR = "تعذر إرسال الرسالة عبر واتساب. حاول مرة أخرى.";
+export const WHATSAPP_SEND_FAILED_ERROR = "تعذّر إرسال الرسالة عبر واتساب. حاول مرة أخرى.";
 
 // Sends an office message to the customer's verified, opted-in number (free
 // text inside the customer's 24-hour window, the template otherwise). The

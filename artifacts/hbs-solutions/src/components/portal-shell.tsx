@@ -69,7 +69,7 @@ const appearance = {
   variables: { colorPrimary: color.teal, colorForeground: color.ink, colorMutedForeground: color.quiet, colorDanger: color.danger, colorBackground: color.surface, colorInput: color.field, colorInputForeground: color.ink, colorNeutral: color.lineStrong, fontFamily: font.body, borderRadius: '10px' },
   elements: {
     rootBox: { width: '100%', display: 'flex', justifyContent: 'center' },
-    cardBox: { width: '100%', maxWidth: '440px', borderRadius: '18px', background: color.surface, border: `1px solid ${color.line}`, boxShadow: '0 20px 70px rgba(23,75,80,.09)', overflow: 'hidden' },
+    cardBox: { width: '100%', maxWidth: '440px', borderRadius: '18px', background: color.surface, border: `1px solid ${color.line}`, boxShadow: 'var(--shadow-panel)', overflow: 'hidden' },
     card: { boxShadow: 'none', background: 'transparent', border: 'none' },
     footer: { boxShadow: 'none', background: 'transparent' },
     headerTitle: { color: color.ink, fontFamily: font.display, fontSize: '24px' },
@@ -125,7 +125,7 @@ function useClerkStalled(isLoaded: boolean): boolean {
 function ClerkStalled() {
   return <div role="alert" className="surface relative mx-auto w-full max-w-md p-8 text-center">
     <h2 className="display text-xl">تعذّر تحميل تسجيل الدخول</h2>
-    <p className="muted my-4 text-sm leading-7">تعذّر تحميل تسجيل الدخول. تحقق من الاتصال ثم أعد المحاولة.</p>
+    <p className="muted my-4 text-sm leading-7">تعذّر تحميل تسجيل الدخول. تحقق من الاتصال ثم حاول مرة أخرى.</p>
     <button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>إعادة المحاولة</button>
   </div>;
 }

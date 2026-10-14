@@ -165,7 +165,7 @@ export function NewRequest() {
         catch (error) { problems.push(uploadError(error, file.name)); }
       }
       setUploadingFiles(false);
-      if (problems.length) { setFileProblems([...problems, 'أزِل الملف الذي تعذّر رفعه أو أعد المحاولة.']); return; }
+      if (problems.length) { setFileProblems([...problems, 'أزِل الملف الذي تعذّر رفعه، أو حاول مرة أخرى.']); return; }
     }
     try {
       const attachmentIds = files.map((file) => uploaded.current.get(file)!).filter(Boolean);

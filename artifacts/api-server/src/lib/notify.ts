@@ -1,5 +1,6 @@
 import nodemailer, { type Transporter } from "nodemailer";
 import { logger } from "./logger";
+import { brand } from "./brand";
 
 // Email notifications. Sent over SMTP after the change they describe has been
 // saved; a failure is logged and never fails the request. With no SMTP
@@ -26,7 +27,7 @@ const statusLabels: Record<string, string> = {
   received: "تم الاستلام",
   reviewing: "قيد المراجعة",
   waiting_on_customer: "بانتظار العميل",
-  submitted_to_authority: "تم الرفع للجهة المختصة",
+  submitted_to_authority: "تم الرفع للجهة",
   awaiting_payment: "بانتظار السداد",
   completed: "مكتملة",
 };
@@ -69,21 +70,21 @@ const escapeHtml = (value: string) => value
 export function renderMail(mail: Mail): { html: string; text: string } {
   const url = mail.action ? `${siteUrl()}${mail.action.path}` : null;
   const paragraphs = mail.lines
-    .map((line) => `<p style="margin:0 0 12px;font-size:16px;line-height:1.9;color:#2f4a47">${escapeHtml(line)}</p>`)
+    .map((line) => `<p style="margin:0 0 12px;font-size:16px;line-height:1.9;color:${brand.ink}">${escapeHtml(line)}</p>`)
     .join("");
   const button = url && mail.action
-    ? `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:22px 0 6px"><tr><td style="border-radius:12px;background:#174b50"><a href="${escapeHtml(url)}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:700;color:#f6efe3;text-decoration:none">${escapeHtml(mail.action.label)}</a></td></tr></table>`
+    ? `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:22px 0 6px"><tr><td style="border-radius:12px;background:${brand.teal}"><a href="${escapeHtml(url)}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:700;color:${brand.onDark};text-decoration:none">${escapeHtml(mail.action.label)}</a></td></tr></table>`
     : "";
   const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(mail.subject)}</title></head>
-<body style="margin:0;padding:0;background:#f6f4ed;font-family:Tahoma,'Segoe UI',Arial,sans-serif;direction:rtl;text-align:right">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6f4ed;padding:28px 12px"><tr><td align="center">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e3ded0;border-radius:18px;overflow:hidden">
-<tr><td style="background:#081a1c;padding:20px 28px;color:#f6efe3;font-size:19px;font-weight:700">HBS <span style="color:#e5a27b">|</span> حلول الغد</td></tr>
+<body style="margin:0;padding:0;background:${brand.paper};font-family:Tahoma,'Segoe UI',Arial,sans-serif;direction:rtl;text-align:right">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${brand.paper};padding:28px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:${brand.surface};border:1px solid ${brand.line};border-radius:18px;overflow:hidden">
+<tr><td style="background:${brand.night};padding:20px 28px;color:${brand.onDark};font-size:19px;font-weight:700">HBS <span style="color:${brand.copperLight}">|</span> حلول الغد</td></tr>
 <tr><td style="padding:28px">
-<h1 style="margin:0 0 16px;font-size:22px;line-height:1.5;color:#173e42">${escapeHtml(mail.heading)}</h1>
+<h1 style="margin:0 0 16px;font-size:22px;line-height:1.5;color:${brand.ink}">${escapeHtml(mail.heading)}</h1>
 ${paragraphs}${button}
 </td></tr>
-<tr><td style="padding:18px 28px;border-top:1px solid #e3ded0;font-size:12.5px;line-height:1.8;color:#5d706a">رسالة آلية من بوابة HBS حلول الغد. لا يطلب المكتب كلمات المرور أو رموز التحقق عبر البريد.<br>للتواصل: 0555208213 · hr@hrhbs.com</td></tr>
+<tr><td style="padding:18px 28px;border-top:1px solid ${brand.line};font-size:12.5px;line-height:1.8;color:${brand.quiet}">رسالة آلية من بوابة HBS حلول الغد. لا يطلب المكتب كلمات المرور أو رموز التحقق عبر البريد.<br>للتواصل: 0555208213 · hr@hrhbs.com</td></tr>
 </table></td></tr></table></body></html>`;
   const text = [mail.heading, "", ...mail.lines, ...(url && mail.action ? ["", `${mail.action.label}: ${url}`] : []), "", "رسالة آلية من بوابة HBS حلول الغد."].join("\n");
   return { html, text };
@@ -141,7 +142,7 @@ export function statusChangedMail(to: string | null, request: RequestInfo, statu
     to,
     subject: `${copy.heading} · ${request.reference}`,
     heading: copy.heading,
-    lines: [copy.line, `رقم الطلب: ${request.reference} · الحالة: ${statusLabels[status]}`],
+    lines: [copy.line, `الحالة: «${statusLabels[status]}»`],
     action: { label: "افتح الطلب", path: `/requests/${request.id}` },
   };
 }
@@ -196,7 +197,7 @@ export function officeNewRequestMail(request: RequestInfo): Mail | null {
     to,
     subject: `طلب جديد ${request.reference}: ${request.service}`,
     heading: "طلب خدمة جديد",
-    lines: [`الخدمة: ${request.service}`, `المجال: ${categoryLabels[request.category ?? ""] ?? "غير محدد"}`, `رقم الطلب: ${request.reference}`],
+    lines: [`الخدمة: ${request.service}`, `المجال: ${categoryLabels[request.category ?? ""] ?? "غير محدد"}`],
     action: { label: "افتح طلبات العملاء", path: "/office/requests" },
   };
 }
@@ -230,7 +231,7 @@ export function officeNewFileMail(request: RequestInfo, fileNames: string): Mail
   if (!to) return null;
   return {
     to,
-    subject: `مستند جديد على الطلب ${request.reference}`,
+    subject: `مستند جديد في الطلب ${request.reference}`,
     heading: "أرفق العميل مستندًا",
     lines: [`الطلب: ${request.reference} · ${request.service}`, `الملفات: ${fileNames}`],
     action: { label: "افتح طلبات العملاء", path: "/office/requests" },
@@ -322,7 +323,7 @@ export function customerNewFileMail(to: string | null, request: RequestInfo): Ma
   if (!to) return null;
   return {
     to,
-    subject: `مستند جديد على طلبك ${request.reference}`,
+    subject: `مستند جديد في طلبك ${request.reference}`,
     heading: "أرفق المكتب مستندًا على طلبك",
     lines: [`أضاف المكتب مستندًا إلى طلبك «${request.service}». تجده في صفحة الطلب.`],
     action: { label: "افتح الطلب", path: `/requests/${request.id}` },
@@ -335,7 +336,7 @@ export function quoteSentMail(to: string | null, request: RequestInfo, total: st
     to,
     subject: `عرض سعر لطلبك ${request.reference}`,
     heading: "أرسل المكتب عرض سعر لطلبك",
-    lines: [`الطلب: «${request.service}»`, `الإجمالي شامل الضريبة: ${total}`, ...(note ? [`ملاحظة المكتب: ${note}`] : []),
+    lines: [`الطلب: «${request.service}»`, `الإجمالي شامل الضريبة: ${total}`, ...(note ? [`تعليق المكتب: ${note}`] : []),
       "راجع العرض ووافق عليه من صفحة الطلب ليبدأ المكتب العمل، أو ارفضه مع توضيح السبب."],
     action: { label: "راجع عرض السعر", path: `/requests/${request.id}` },
   };

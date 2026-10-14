@@ -127,7 +127,7 @@ function Inbox({ staff }: { staff: boolean }) {
           <button type="button" aria-pressed={type === 'inquiry'} className={chip(type === 'inquiry')} onClick={() => setType(type === 'inquiry' ? '' : 'inquiry')}>استفسارات</button>
         </>}
       </div>
-      {staff && <label className="relative flex-1"><span className="sr-only">بحث في الرسائل</span><Search className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle" size={17} aria-hidden="true"/><input className="form-control !pr-10" placeholder="ابحث بالمرجع أو الموضوع أو اسم العميل أو نص الرسالة" value={search} onChange={e => setSearch(e.target.value)} maxLength={200}/></label>}
+      {staff && <label className="relative flex-1"><span className="sr-only">بحث في الرسائل</span><Search className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle" size={17} aria-hidden="true"/><input className="form-control !pr-10" placeholder="ابحث بالرقم المرجعي أو الموضوع أو اسم العميل أو نص الرسالة" value={search} onChange={e => setSearch(e.target.value)} maxLength={200}/></label>}
     </div>
     <div className={`inbox-split ${desktop && current ? 'has-pane' : ''}`}>
       <div className="inbox-list">

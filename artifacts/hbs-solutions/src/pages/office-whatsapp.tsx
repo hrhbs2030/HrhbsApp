@@ -99,7 +99,7 @@ export function InboxCard({ item, params }: { item: WhatsappInboxItem; params: {
       <div className="wa-reader-tags">
         <Chip tone="teal" data-intent={item.intent.intent}>{intentLabels[item.intent.intent]}</Chip>
         {item.intent.urgent && <Chip tone="danger" dot>عاجل</Chip>}
-        <span className="wa-confidence" aria-label={`درجة الثقة ${formatNumber(confidence)}٪`}><span className="wa-confidence-bar" aria-hidden="true"><span style={{ width: `${confidence}%` }}/></span>{formatNumber(confidence)}٪</span>
+        <span className="wa-confidence" aria-label={`درجة الثقة ${formatNumber(confidence)}%`}><span className="wa-confidence-bar" aria-hidden="true"><span style={{ width: `${confidence}%` }}/></span>{formatNumber(confidence)}%</span>
       </div>
     </div>
     <p className="wa-bubble">{item.body}</p>

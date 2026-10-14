@@ -21,7 +21,7 @@ export const requestStatusLabels: Record<RequestStatus, string> = {
   received: "تم الاستلام",
   reviewing: "قيد المراجعة",
   waiting_on_customer: "بانتظار العميل",
-  submitted_to_authority: "تم الرفع للجهة المختصة",
+  submitted_to_authority: "تم الرفع للجهة",
   awaiting_payment: "بانتظار السداد",
   completed: "مكتملة",
 };

@@ -36,9 +36,9 @@ export function ChannelBadge({ channel }: { channel: MessageChannel | undefined 
 // server's own Arabic reason (unverified number, WhatsApp off).
 export function sendError(error: unknown): string {
   const { status, data } = (error ?? {}) as { status?: number; data?: { error?: unknown } | null };
-  if (status === 429) return 'أرسلت رسائل كثيرة. انتظر دقائق ثم أعد المحاولة.';
+  if (status === 429) return 'أرسلت رسائل كثيرة. انتظر دقائق ثم حاول مرة أخرى.';
   if (status === 409) return typeof data?.error === 'string' && /[؀-ۿ]/.test(data.error) ? data.error : 'تعذّر الإرسال عبر واتساب: رقم العميل غير موثّق أو واتساب غير مفعّل.';
-  return 'تعذّر إرسال الرسالة. حاول مجددًا.';
+  return 'تعذّر إرسال الرسالة. حاول مرة أخرى.';
 }
 
 export function Conversation({ thread, scope, closed = false, whatsapp = null, whatsappConfigured }: {

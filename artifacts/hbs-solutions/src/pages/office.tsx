@@ -183,12 +183,12 @@ function UnassignedQueue() {
     try {
       await mutation.mutateAsync({ id: r.id, data: { expectedUpdatedAt: r.updatedAt, status: r.status, assignedTo: userId } });
       await Promise.all([qc.invalidateQueries({ queryKey: getListOfficeServiceRequestsQueryKey() }), qc.invalidateQueries({ queryKey: getGetOfficeSummaryQueryKey() })]);
-    } catch (error) { setNotice(apiError(error, 'تعذّر الإسناد. حاول مجددًا.')); } finally { setBusy(null); }
+    } catch (error) { setNotice(apiError(error, 'تعذّر الإسناد. حاول مرة أخرى.')); } finally { setBusy(null); }
   }
   const rows = list.data?.items ?? [];
   return <OverviewCard id="ov-unassigned" title="غير مسندة" icon={UserRoundPlus} count={list.data?.total} href="/office/requests?assignee=unassigned">
     {rows.length ? <ul className="ov-list">{rows.map(r => <RequestLine key={r.id} r={r} side={<label><span className="sr-only">إسناد {r.reference}</span><select className="form-control ov-row-select" value="" disabled={busy === r.id} onChange={e => assign(r, e.target.value)}><option value="">{busy === r.id ? 'جارٍ الإسناد…' : 'إسناد إلى…'}</option>{members.data?.map(m => <option key={m.userId} value={m.userId}>{m.email ?? m.userId}</option>)}</select></label>} />)}</ul>
-      : <p className="ov-empty">{list.isLoading ? 'جارٍ التحميل…' : 'كل الطلبات المفتوحة مسندة.'}</p>}
+      : <p className="ov-empty">{list.isLoading ? 'جارٍ التحميل…' : 'كلها مسندة'}</p>}
     {notice && <p role="alert" className="ov-empty text-danger">{notice}</p>}
   </OverviewCard>;
 }
@@ -205,7 +205,7 @@ function InboxPreview() {
         <span className="ov-row-meta"><span className="truncate">{t.lastMessage?.preview ?? t.title}</span></span>
       </Link>
       <div className="ov-row-side"><span className="text-xs text-subtle">{formatRelative(t.updatedAt)}</span>{t.unread > 0 && <span className="ov-unread nums" aria-label={`${count(t.unread)} رسائل غير مقروءة`}>{count(t.unread)}</span>}</div>
-    </li>)}</ul> : <p className="ov-empty">{list.isLoading ? 'جارٍ التحميل…' : 'لا رسائل غير مقروءة.'}</p>}
+    </li>)}</ul> : <p className="ov-empty">{list.isLoading ? 'جارٍ التحميل…' : 'لا توجد رسائل غير مقروءة'}</p>}
   </OverviewCard>;
 }
 
@@ -313,7 +313,7 @@ export function OfficeRequests() {
     }
     await refreshOffice();
     setPicked(new Set()); setBulkBusy(false);
-    setNotice(failed ? { kind: 'error', text: `أُسند ${count(done)} وتعذّر ${count(failed)}؛ ربما تغيّرت تلك الطلبات. حدّث القائمة وأعد المحاولة.` } : { kind: 'ok', text: `أُسند ${count(done)} طلبًا إلى ${memberName(members.data, bulkAssignee) ?? bulkAssignee}.` });
+    setNotice(failed ? { kind: 'error', text: `أُسند ${count(done)} وتعذّر ${count(failed)}؛ ربما تغيّرت تلك الطلبات. حدّث القائمة وحاول مرة أخرى.` } : { kind: 'ok', text: `أُسند ${count(done)} طلبًا إلى ${memberName(members.data, bulkAssignee) ?? bulkAssignee}.` });
   }
   // Board move: statuses that need the customer's message open the editor instead.
   async function move(r: OfficeServiceRequest, target: ServiceRequestUpdateStatus) {
@@ -323,7 +323,7 @@ export function OfficeRequests() {
       await mutation.mutateAsync({ id: r.id, data: { expectedUpdatedAt: r.updatedAt, status: target } });
       await refreshOffice();
       setNotice({ kind: 'ok', text: `نُقل ${r.reference} إلى «${statusNames[target]}».` });
-    } catch (error) { setNotice({ kind: 'error', text: apiError(error, 'تعذّر نقل الطلب. حاول مجددًا.') }); } finally { setMoving(null); }
+    } catch (error) { setNotice({ kind: 'error', text: apiError(error, 'تعذّر نقل الطلب. حاول مرة أخرى.') }); } finally { setMoving(null); }
   }
   const quick: { label: string; active: boolean; onClick: () => void; count?: number }[] = [
     { label: 'المتأخرة فقط', active: overdue, onClick: () => setOverdue(!overdue) },
@@ -528,10 +528,10 @@ function RequestEditor({ request, presetStatus }: { request: OfficeServiceReques
         </div>
         {isOverdue({ status: request.status, dueAt: request.dueAt }) && <p className="text-xs font-semibold text-danger">تجاوز الطلب موعد إنجازه.</p>}
         {status === 'waiting_on_customer' && <label className="form-field">ما يحتاجه المكتب من العميل<textarea className="form-control !min-h-24" value={customerMessage} onChange={e => setCustomerMessage(e.target.value)} maxLength={2000} minLength={2} required placeholder="وضّح للعميل ما يلزم لإكمال الطلب..." /><small className="muted font-normal">تظهر هذه الرسالة للعميل في طلبه.</small></label>}
-        <label className="form-field">ملاحظة المكتب الداخلية<textarea className="form-control !min-h-28" value={officeNote} onChange={e => setOfficeNote(e.target.value)} maxLength={2000} placeholder="ملاحظة داخلية للفريق..." /><small className="muted font-normal">هذه الملاحظة داخلية ولا تُعرض للعميل في البوابة.</small></label>
-        {(conflict || changedSinceOpened) ? <div role="alert" className="rq-alert is-danger">تغيّر هذا الطلب منذ فتحه. راجع النسخة الجديدة قبل الحفظ. <button type="button" className="underline" onClick={reviewLatest} disabled={request.updatedAt === version}>مراجعة النسخة الجديدة</button></div> : rejected ? <p role="alert" className="rq-alert is-danger">{rejected}</p> : mutation.isError && <p role="alert" className="rq-alert is-danger">تعذّر حفظ التحديث. حاول مجددًا.</p>}
-        {saved && <p role="status" className="rq-alert is-ok">تم حفظ التحديث.</p>}
-        <button type="submit" disabled={mutation.isPending || conflict || changedSinceOpened || unpaidBlocksMove} className="btn btn-primary w-full" data-loading={mutation.isPending || undefined}>{mutation.isPending ? 'جارٍ الحفظ...' : 'حفظ التحديث'}<Save size={16} aria-hidden="true" /></button>
+        <label className="form-field">مذكرة المكتب الداخلية<textarea className="form-control !min-h-28" value={officeNote} onChange={e => setOfficeNote(e.target.value)} maxLength={2000} placeholder="مذكرة داخلية للفريق…" /><small className="muted font-normal">هذه المذكرة داخلية ولا تُعرض للعميل في البوابة.</small></label>
+        {(conflict || changedSinceOpened) ? <div role="alert" className="rq-alert is-danger">تغيّر هذا الطلب منذ فتحه. راجع النسخة الجديدة قبل الحفظ. <button type="button" className="underline" onClick={reviewLatest} disabled={request.updatedAt === version}>مراجعة النسخة الجديدة</button></div> : rejected ? <p role="alert" className="rq-alert is-danger">{rejected}</p> : mutation.isError && <p role="alert" className="rq-alert is-danger">تعذّر حفظ التحديث. حاول مرة أخرى.</p>}
+        {saved && <p role="status" className="rq-alert is-ok">حُفظ التحديث.</p>}
+        <button type="submit" disabled={mutation.isPending || conflict || changedSinceOpened || unpaidBlocksMove} className="btn btn-primary w-full" data-loading={mutation.isPending || undefined}>{mutation.isPending ? 'جارٍ الحفظ…' : 'حفظ التحديث'}<Save size={16} aria-hidden="true" /></button>
       </form>
     </div>
   </div>;
@@ -566,14 +566,14 @@ export function OfficeInquiries() {
   const editorRef = useRevealOnSelect(selected);
   return <PortalLayout staff>
     <PageHeading eyebrow="صندوق الوارد" title="استفسارات العملاء" subtitle="اقرأ الأسئلة وتابع المحادثة مع كل عميل من مساحة واحدة." />
-    <Toolbar search={{ value: search, onChange: setSearch, label: 'بحث في الاستفسارات', placeholder: 'ابحث باسم العميل أو الموضوع أو مرجع الطلب', maxLength: 120 }}
+    <Toolbar search={{ value: search, onChange: setSearch, label: 'بحث في الاستفسارات', placeholder: 'ابحث بالرقم المرجعي أو اسم العميل أو الموضوع', maxLength: 120 }}
       filters={<div className="flex flex-wrap gap-2" role="group" aria-label="تصفية حسب الحالة">{inquiryFilters.map(([key, label]) => <FilterChip key={label} active={status === key} onClick={() => setStatus(key)}>{label}</FilterChip>)}</div>} />
     {list.isLoading ? <LoadingBlock variant="table" /> : list.isError ? <ErrorBlock retry={() => list.refetch()} /> : <div className="rq-grid">
       <div className="min-w-0"><div className="rq-meta"><ResultCount total={list.data?.total ?? 0} /></div>
         <div className={`surface iq-list transition-opacity ${list.isPlaceholderData ? 'opacity-60' : ''}`}>{rows.length ? rows.map(i => <button type="button" aria-pressed={selected === i.id} key={i.id} onClick={() => setSelected(i.id)} className="iq-row">
           <div className="iq-row-top"><div className="min-w-0"><div className="iq-row-title">{i.subject}</div><div className="iq-row-meta">{i.customer && <span>{i.customer.fullName}</span>}<span>{dateText(i.createdAt)}</span></div></div><Status value={i.status} /></div>
           <p className="iq-row-preview">{i.message}</p>
-        </button>) : <EmptyState compact title={q || status ? 'لا توجد استفسارات مطابقة.' : 'لا توجد استفسارات بعد.'} text={q || status ? 'جرّب تصفية أخرى أو امسح البحث.' : 'تصل استفسارات العملاء هنا فور إرسالها من البوابة.'} icon={<MessageSquareText size={22} strokeWidth={1.5} />} />}</div>
+        </button>) : <EmptyState compact title={q || status ? 'لا توجد استفسارات مطابقة' : 'لا توجد استفسارات بعد'} text={q || status ? 'جرّب تصفية أخرى أو امسح البحث.' : 'تصل استفسارات العملاء هنا فور إرسالها من البوابة.'} icon={<MessageSquareText size={22} strokeWidth={1.5} />} />}</div>
         <Pager page={page} pageSize={pageSize} total={list.data?.total ?? 0} onPage={setPage} /></div>
       <div ref={editorRef} className="rq-editor-slot">{selected ? <InquiryPanel key={selected} id={selected} inquiry={active} /> : <div className="surface rq-placeholder"><MessageSquareText size={30} strokeWidth={1.5} aria-hidden="true" /><p className="m-0">اختر استفسارًا لقراءته والرد عليه.</p></div>}</div>
     </div>}

@@ -29,7 +29,7 @@ export function ReminderForm({ initial, busy, error, onSubmit, onCancel, submitL
       {Object.entries(reminderKindNames).map(([key, name]) => <option key={key} value={key}>{name}</option>)}</select></label>
     <label className="form-field">لمن هذه الوثيقة؟<input className="form-control" value={draft.label} onChange={e => setDraft({ ...draft, label: e.target.value })} minLength={2} maxLength={120} required placeholder="اسم صاحبها أو اسم المنشأة"/></label>
     <label className="form-field">تاريخ الانتهاء (ميلادي)<input className="form-control" type="date" dir="ltr" value={draft.expiresOn} onChange={e => setDraft({ ...draft, expiresOn: e.target.value })} required/></label>
-    <label className="form-field">ملاحظة (اختياري)<input className="form-control" value={draft.note} onChange={e => setDraft({ ...draft, note: e.target.value })} maxLength={500}/></label>
+    <label className="form-field">تعليق (اختياري)<input className="form-control" value={draft.note} onChange={e => setDraft({ ...draft, note: e.target.value })} maxLength={500}/></label>
     <p className="muted text-xs leading-6 md:col-span-2">لا تكتب رقم الهوية أو رقم الجواز. يكفي الاسم وتاريخ الانتهاء.</p>
     {error && <p role="alert" className="text-sm text-danger md:col-span-2">{error}</p>}
     <div className="flex flex-wrap justify-end gap-2 md:col-span-2"><button type="button" className="btn btn-outline" onClick={onCancel} disabled={busy}>إلغاء</button><button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'جارٍ الحفظ…' : submitLabel}</button></div>

@@ -2,13 +2,13 @@
 
 @media print {
   @page { size: A4; margin: 16mm 14mm 18mm; }
-  html, body { background: #fff !important; color: #111 !important; }
+  html, body { background: #fff !important; color: var(--color-ink) !important; }
   * { animation: none !important; transition: none !important; box-shadow: none !important; }
   .city-scene, .cs, .cs-underlay, .scene-window, .intro, .intro-skip, aside, .portal-topbar, .portal-band,
   .site-header, .site-footer, .no-print, button, a.btn, [role="search"] { display: none !important; }
   .portal-sheet { border-radius: 0 !important; background: #fff !important; box-shadow: none !important; }
   .portal-sheet > div { padding: 0 !important; max-width: none !important; }
-  .portal-sheet .surface { background: #fff !important; border-color: #d9d6cc !important; break-inside: avoid; }
+  .portal-sheet .surface { background: #fff !important; border-color: var(--color-line) !important; break-inside: avoid; }
   .portal-sheet a { color: inherit !important; text-decoration: none !important; }
   .portal-sheet .print-only { display: block; }
   .portal-sheet .print-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 10px; margin-bottom: 18px; border-bottom: 2px solid var(--color-teal); }

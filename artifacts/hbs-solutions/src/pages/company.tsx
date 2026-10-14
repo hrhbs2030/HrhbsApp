@@ -73,7 +73,7 @@ export function CompanyPage() {
       await leave.mutateAsync();
       await qc.invalidateQueries({ queryKey: getGetCompanyMembershipQueryKey() });
       window.location.reload();
-    } catch { setLeaveError('تعذّرت مغادرة المنشأة. حاول مجددًا.'); }
+    } catch { setLeaveError('تعذّرت مغادرة المنشأة. حاول مرة أخرى.'); }
   }
   return <PortalLayout>
     <PageHeading eyebrow="منشأتي" title={membership.data?.companyName && role !== 'owner' ? membership.data.companyName : 'ملف المنشأة'} subtitle="بيانات المنشأة وموظفوها وتراخيصها في مكان واحد. يطّلع عليها المكتب ليخدمك أسرع، وتصلك تنبيهات قبل انتهاء أي وثيقة."/>
@@ -97,7 +97,7 @@ export function CompanyPage() {
 const memberError = (e: unknown, action: 'invite' | 'update' | 'remove') => {
   const status = (e as { status?: number })?.status;
   if (status === 403) return 'هذا الإجراء لمالك المنشأة فقط.';
-  if (action === 'invite') return status === 409 ? 'هذا البريد مدعو مسبقًا، أو وصلت المنشأة إلى الحد الأقصى (10 أعضاء).' : status === 400 ? 'اكتب بريدًا إلكترونيًا صحيحًا.' : 'تعذّر إرسال الدعوة. حاول مجددًا.';
+  if (action === 'invite') return status === 409 ? 'هذا البريد مدعو مسبقًا، أو وصلت المنشأة إلى الحد الأقصى (10 أعضاء).' : status === 400 ? 'اكتب بريدًا إلكترونيًا صحيحًا.' : 'تعذّر إرسال الدعوة. حاول مرة أخرى.';
   return action === 'update' ? 'تعذّر تغيير الصلاحية.' : 'تعذّر إزالة العضو.';
 };
 
@@ -138,7 +138,7 @@ export function MembersSection() {
       <button type="submit" className="btn btn-primary" disabled={invite.isPending || !email.trim()}><MailPlus size={16}/>{invite.isPending ? 'جارٍ الإرسال…' : 'دعوة'}</button>
       <p className="muted m-0 text-xs leading-6 sm:col-span-3">يدخل العضو بالبريد نفسه بعد الدعوة، ويرى من ملف المنشأة ما تسمح به صلاحيته.</p>
     </form>
-    {list.isLoading ? <LoadingBlock/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/> : !members.length ? <p className="px-6 py-10 text-center text-sm text-subtle">لم تدعُ أحدًا بعد.</p>
+    {list.isLoading ? <LoadingBlock/> : list.isError ? <ErrorBlock retry={() => list.refetch()}/> : !members.length ? <p className="px-6 py-10 text-center text-sm text-subtle">لا يوجد أعضاء بعد. ادعُ زميلًا بالبريد ليرى من ملف المنشأة ما تسمح به صلاحيته.</p>
       : <ul className="cf-list">{members.map(m => <li key={m.id} className="cf-row items-center">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2"><strong dir="ltr" className="cp-email">{m.email}</strong><span className={`cp-role-tag is-${m.role}`}>{roleNames[m.role]}</span>
@@ -359,7 +359,7 @@ function OfficeMembersList({ query }: { query: { data?: CompanyMember[]; isLoadi
   if (query.isLoading) return <LoadingBlock/>;
   if (query.isError) return <ErrorBlock retry={() => query.refetch()}/>;
   const members = [...(query.data ?? [])].sort((a, b) => Number(b.role === 'owner') - Number(a.role === 'owner'));
-  if (!members.length) return <EmptyBlock title="لا أعضاء بعد" text="لم يدعُ مالك المنشأة أحدًا إلى ملفها."/>;
+  if (!members.length) return <EmptyBlock title="لا يوجد أعضاء بعد" text="لم يدعُ مالك المنشأة أحدًا إلى ملفها."/>;
   return <section className="surface overflow-hidden" aria-labelledby="ocf-members">
     <div className="cf-head"><h2 id="ocf-members" className="display text-lg font-semibold"><UsersRound size={19} aria-hidden="true"/>أعضاء المنشأة</h2><span className="text-xs text-subtle">{formatNumber(members.length)} من 10</span></div>
     <ul className="cf-list">{members.map(m => <li key={`${m.id}-${m.email}`} className="cf-row items-center">
@@ -381,7 +381,7 @@ export function intakeError(e: unknown): string {
   if (status === 400) return 'تحقق من البيانات: اسم الخدمة ووصف لا يقل عن 10 أحرف ورقم جوال سعودي.';
   if (status === 403) return 'ليست لديك صلاحية إنشاء طلبات باسم العملاء.';
   if (status === 404) return 'العميل غير موجود أو لم يُعتمد تسجيله بعد.';
-  return 'تعذّر إنشاء الطلب. حاول مجددًا.';
+  return 'تعذّر إنشاء الطلب. حاول مرة أخرى.';
 }
 export function OfficeIntakeDialog({ open, onOpenChange, userId, file, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; userId: string; file: OfficeCustomerFile; onCreated: (created: OfficeServiceRequest) => void }) {
   return <DialogFrame open={open} onOpenChange={onOpenChange} title={`إنشاء طلب للعميل: ${file.company?.name ?? file.customer?.fullName ?? 'عميل'}`} description="يُسجّل الطلب باسم العميل ويُبلَّغ به بالبريد، ويظهر في طلباته وفي لوحة المكتب كأي طلب آخر، مع الإشارة إلى أن المكتب أنشأه.">

@@ -87,7 +87,7 @@ export function nearestEmployeeExpiry(e: Employee): { doc: 'iqama' | 'passport' 
 }
 
 const docNames = { iqama: 'الإقامة', passport: 'الجواز', work_permit: 'رخصة العمل' } as const;
-const errorText = (e: unknown) => (e as { status?: number })?.status === 409 ? 'وصل الملف إلى الحد الأقصى.' : 'تحقق من البيانات وحاول مجددًا. رقم الهوية أو الإقامة 10 أرقام يبدأ بـ1 أو 2.';
+const errorText = (e: unknown) => (e as { status?: number })?.status === 409 ? 'وصل الملف إلى الحد الأقصى.' : 'تحقق من البيانات وحاول مرة أخرى. رقم الهوية أو الإقامة 10 أرقام يبدأ بـ1 أو 2.';
 
 function Field({ label, children, wide = false, hint }: { label: string; children: ReactNode; wide?: boolean; hint?: string }) {
   return <label className={`form-field ${wide ? 'md:col-span-2' : ''}`}>{label}{children}{hint && <small className="muted font-normal">{hint}</small>}</label>;
@@ -164,7 +164,7 @@ function CompanyForm({ company, api, onSaved, onCancel }: { company: Company | n
     try {
       await api.saveCompany({ name: v.name.trim(), crNumber: text(v.crNumber), unifiedNumber: text(v.unifiedNumber), vatNumber: text(v.vatNumber), city: text(v.city), address: text(v.address), activity: text(v.activity), contactName: text(v.contactName), contactPhone, notes: text(v.notes) });
       onSaved();
-    } catch { setError('تحقق من الاسم والأرقام (أرقام فقط) وحاول مجددًا.'); } finally { setBusy(false); }
+    } catch { setError('تحقق من الاسم والأرقام (أرقام فقط) وحاول مرة أخرى.'); } finally { setBusy(false); }
   }
   return <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
     <Field label="اسم المنشأة" wide><input className="form-control" value={v.name} onChange={set('name')} required minLength={2} maxLength={160}/></Field>
@@ -183,7 +183,7 @@ function CompanyForm({ company, api, onSaved, onCancel }: { company: Company | n
     <Field label="العنوان" wide><input className="form-control" value={v.address} onChange={set('address')} maxLength={300}/></Field>
     <Field label="اسم المسؤول"><input className="form-control" value={v.contactName} onChange={set('contactName')} maxLength={120}/></Field>
     <Field label="جوال المسؤول"><input className="form-control text-right" dir="ltr" type="tel" value={v.contactPhone} onChange={set('contactPhone')} maxLength={24}/></Field>
-    <Field label="ملاحظات" wide><textarea className="form-control !min-h-20" value={v.notes} onChange={set('notes')} maxLength={1000}/></Field>
+    <Field label="تعليق (اختياري)" wide><textarea className="form-control !min-h-20" value={v.notes} onChange={set('notes')} maxLength={1000}/></Field>
     {error && <p role="alert" className="text-sm text-danger md:col-span-2">{error}</p>}
     <div className="flex justify-end gap-2 md:col-span-2">{onCancel && <button type="button" className="btn btn-outline" onClick={onCancel}>إلغاء</button>}<button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ بيانات المنشأة'}</button></div>
   </form>;
@@ -258,7 +258,7 @@ function EmployeeForm({ employee, api, onDone }: { employee: Employee | null; ap
     <Field label="انتهاء الجواز"><input className="form-control" type="date" dir="ltr" value={v.passportExpiresOn} onChange={set('passportExpiresOn')}/></Field>
     <Field label="انتهاء رخصة العمل"><input className="form-control" type="date" dir="ltr" value={v.workPermitExpiresOn} onChange={set('workPermitExpiresOn')}/></Field>
     <Field label="الحالة"><select className="form-control" value={v.status} onChange={e => setV({ ...v, status: e.target.value as 'active' | 'left' })}><option value="active">على رأس العمل</option><option value="left">غادر المنشأة</option></select></Field>
-    <Field label="ملاحظات" wide><input className="form-control" value={v.notes} onChange={set('notes')} maxLength={500}/></Field>
+    <Field label="تعليق (اختياري)" wide><input className="form-control" value={v.notes} onChange={set('notes')} maxLength={500}/></Field>
     <p className="muted text-xs leading-6 md:col-span-3">تصل تنبيهات قبل انتهاء الإقامة والجواز ورخصة العمل للموظفين على رأس العمل. تظهر الأرقام مخفية، وكشفها من المكتب يُسجَّل.</p>
     {error && <p role="alert" className="text-sm text-danger md:col-span-3">{error}</p>}
     <div className="flex justify-end gap-2 md:col-span-3"><button type="button" className="btn btn-outline" onClick={() => onDone(false)} disabled={busy}>إلغاء</button><button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'جارٍ الحفظ…' : employee ? 'حفظ التعديل' : 'إضافة الموظف'}</button></div>
@@ -311,7 +311,7 @@ function EmployeesSection({ employees, api, office, readOnly, onChanged }: { emp
   const [removeError, setRemoveError] = useState<string | null>(null);
   async function remove(e: Employee) {
     setRemoving(null); setRemoveError(null);
-    try { await api.deleteEmployee(e.id); } catch { setRemoveError('تعذّر حذف الموظف. حدّث الصفحة وحاول مجددًا.'); }
+    try { await api.deleteEmployee(e.id); } catch { setRemoveError('تعذّر حذف الموظف. حدّث الصفحة وحاول مرة أخرى.'); }
     onChanged();
   }
   const columns: FileColumn<Employee>[] = [
@@ -374,7 +374,7 @@ function LicensesSection({ licenses, api, office, readOnly, onChanged }: { licen
   const [removeError, setRemoveError] = useState<string | null>(null);
   async function remove(l: License) {
     setRemoving(null); setRemoveError(null);
-    try { await api.deleteLicense(l.id); } catch { setRemoveError('تعذّر حذف الترخيص. حدّث الصفحة وحاول مجددًا.'); }
+    try { await api.deleteLicense(l.id); } catch { setRemoveError('تعذّر حذف الترخيص. حدّث الصفحة وحاول مرة أخرى.'); }
     onChanged();
   }
   const columns: FileColumn<License>[] = [

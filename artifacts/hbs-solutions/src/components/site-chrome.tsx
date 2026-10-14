@@ -26,8 +26,8 @@ function AuthLinks({ tone, compact = false }: { tone: 'dark' | 'light'; compact?
   const button = `btn ${compact ? 'btn-sm ' : ''}${tone === 'dark' ? 'btn-light' : 'btn-primary'}`;
   if (hasSessionHint()) return <Link href="/dashboard" className={button}>حسابي <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>;
   return <>
-    <Link href="/sign-in" className={compact ? 'site-text-link' : 'btn btn-ghost-dark'}>تسجيل الدخول</Link>
-    <Link href="/sign-up" className={button}>طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
+    <Link href="/sign-in" className={compact ? 'site-text-link' : 'btn btn-secondary-dark'}>تسجيل الدخول</Link>
+    <Link href="/sign-up" className={button}>قدّم طلب التسجيل <ArrowLeft size={18} strokeWidth={ICON} aria-hidden="true" /></Link>
   </>;
 }
 
@@ -46,6 +46,8 @@ export const siteNavigation = [
 
 // Public-site header. `tone="dark"` floats over the night hero and gains a
 // blurred night background once the page scrolls; `light` sits on paper pages.
+// On night the header is `on-night`, so the focus ring and the active pill
+// take the copper-light of the theme's night chrome.
 // The phone menu is a full-screen sheet with a focus trap and body scroll lock.
 export function SiteHeader({ tone = 'light' }: { tone?: 'dark' | 'light' }) {
   const [open, setOpen] = useState(false);
@@ -74,7 +76,7 @@ export function SiteHeader({ tone = 'light' }: { tone?: 'dark' | 'light' }) {
   }, [open]);
 
   return (
-    <header className={`site-header site-header--${tone} ${tone === 'dark' ? 'on-night' : ''}`} data-scrolled={scrolled || undefined} data-open={open || undefined}>
+    <header className={`site-header site-header--${tone} ${tone === 'dark' ? 'on-night' : ''}`} data-band={tone === 'dark' ? 'night' : 'paper'} data-scrolled={scrolled || undefined} data-open={open || undefined}>
       <div className="site-wrap site-header-inner">
         <div className="site-brand">
           <Brand light={tone === 'dark'} />
@@ -152,13 +154,17 @@ function navigateHash(event: MouseEvent<HTMLAnchorElement>, href: string) {
 // The skyline behind the footer rotates through three cities; that line is
 // decorative. The office itself is in one city (content/contact.ts), named
 // next to its address so the two never contradict each other.
+// The footer is the page's closing night band: a page may hand it a final
+// call to action (`cta`, a section of its own) that sits at the top of the
+// band, above the link columns, so there is one night band at the end, not two.
 const servedCities = cityOrder.map((key) => cityInfo[key].name).join(' · ');
-export function SiteFooter() {
+export function SiteFooter({ cta }: { cta?: ReactNode } = {}) {
   return (
-    <footer className="site-footer on-night">
+    <footer className="site-footer on-night" data-band="night">
       <SceneWindow edge="bottom" />
       <div className="site-footer-veil" aria-hidden="true" />
       <div className="site-wrap site-footer-content">
+        {cta}
         <div className="site-footer-main">
           <div className="site-footer-brand">
             <Brand light />
@@ -172,7 +178,7 @@ export function SiteFooter() {
                 <li><Link href="/sign-in">تسجيل الدخول</Link></li>
                 <li><a href="/#problems" onClick={(e) => navigateHash(e, '/#problems')}>مشاكل نحلّها</a></li>
                 <li><a href="/#how" onClick={(e) => navigateHash(e, '/#how')}>كيف تعمل البوابة</a></li>
-                <li><a href="/#dashboard" onClick={(e) => navigateHash(e, '/#dashboard')}>لوحة العميل</a></li>
+                <li><a href="/#dashboard" onClick={(e) => navigateHash(e, '/#dashboard')}>حسابك</a></li>
                 <li><a href="/#assistant" onClick={(e) => navigateHash(e, '/#assistant')}>المساعدة الآلية «أم مشعل»</a></li>
               </ul>
             </div>
@@ -213,8 +219,8 @@ export function PublicPage({ children, intro }: { children: ReactNode; intro?: R
       <a className="site-skip" href="#main">تخطَّ إلى المحتوى</a>
       <SiteHeader tone="dark" />
       <main id="main" tabIndex={-1}>
-        <section className="site-band"><div className="site-wrap">{intro}</div></section>
-        <div className="site-body">{children}</div>
+        <section className="site-band on-night" data-band="night"><div className="site-wrap">{intro}</div></section>
+        <div className="site-body" data-band="paper">{children}</div>
       </main>
       <SiteFooter />
     </div>

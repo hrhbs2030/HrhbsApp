@@ -282,7 +282,7 @@ function PlanEditor({ plan, onSaved, onCancel }: { plan: Plan | null; onSaved: (
       if (plan) await update.mutateAsync({ id: plan.id, data: checked.data }); else await create.mutateAsync({ data: checked.data });
       await onSaved();
     } catch (error) {
-      setFailure((error as { status?: number })?.status === 409 ? 'هذا المعرّف مستخدم لباقة أخرى.' : serverMessage(error, 'تعذّر حفظ الباقة. حاول مجددًا.'));
+      setFailure((error as { status?: number })?.status === 409 ? 'هذا المعرّف مستخدم لباقة أخرى.' : serverMessage(error, 'تعذّر حفظ الباقة. حاول مرة أخرى.'));
     }
   }
   const field = (key: keyof PlanForm, label: string, input: ReactNode, hint?: string) => <label className="form-field">{label}{input}{errors[key] ? <small role="alert" className="font-normal text-danger">{errors[key]}</small> : hint && <small className="muted font-normal">{hint}</small>}</label>;
@@ -364,7 +364,7 @@ export function OfficeSubscriptions() {
       await qc.invalidateQueries({ queryKey: getListOfficeSubscriptionsQueryKey() });
       setNotice({ kind: 'ok', text: done });
     } catch (error) {
-      setNotice({ kind: 'error', text: (error as { status?: number })?.status === 409 ? 'هذا الاشتراك ملغى بالفعل.' : serverMessage(error, 'تعذّر تحديث الاشتراك. حاول مجددًا.') });
+      setNotice({ kind: 'error', text: (error as { status?: number })?.status === 409 ? 'هذا الاشتراك ملغى بالفعل.' : serverMessage(error, 'تعذّر تحديث الاشتراك. حاول مرة أخرى.') });
     } finally { setBusyId(null); }
   }
   const rows = list.data?.items ?? [];
