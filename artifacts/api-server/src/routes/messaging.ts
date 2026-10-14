@@ -14,6 +14,7 @@ import {
   recentMessagesBy, recordMessage, sendViaWhatsapp, serializeMessage, type Viewer,
 } from "../lib/messaging";
 import { requireOfficeStaff } from "../lib/office-access";
+import { customerId } from "../lib/company-access";
 import { requireApprovedCustomer } from "./portal";
 
 // The unified inbox («الرسائل») for customers and staff, inquiry threads and
@@ -25,10 +26,13 @@ const router: IRouter = Router();
 export const TOO_MANY_MESSAGES_ERROR = "Too many messages. Wait a few minutes.";
 export const NOT_FOUND_ERROR = "Inquiry not found";
 
-const viewerOf = (req: Request, role: Viewer["role"]): Viewer => ({ userId: getAuth(req).userId!, role });
+const viewerOf = (req: Request, role: Viewer["role"]): Viewer =>
+  role === "office" ? { userId: getAuth(req).userId!, role } : { userId: getAuth(req).userId!, role, customerId: customerId(req) };
 
 async function threads(req: Request, res: Response, role: Viewer["role"]) {
-  const parsed = role === "office" ? ListOfficeMessageThreadsQueryParams.safeParse(req.query) : ListMessageThreadsQueryParams.safeParse(req.query);
+  // The generated schema coerces any non-empty string to true; only "true"/"1" filters.
+  const query = { ...req.query, ...(req.query.unread === undefined ? {} : { unread: req.query.unread === "true" || req.query.unread === "1" }) };
+  const parsed = role === "office" ? ListOfficeMessageThreadsQueryParams.safeParse(query) : ListMessageThreadsQueryParams.safeParse(query);
   if (!parsed.success) { res.status(400).json({ error: "Invalid thread filters" }); return; }
   const list = await listThreads(viewerOf(req, role), parsed.data);
   res.json((role === "office" ? ListOfficeMessageThreadsResponse : ListMessageThreadsResponse).parse(list));

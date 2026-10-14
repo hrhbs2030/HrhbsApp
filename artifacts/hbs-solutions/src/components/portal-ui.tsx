@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useClerk, useUser } from '@clerk/react';
-import { Archive, ArrowLeft, ArrowUpLeft, BarChart3, Bell, BellRing, Building2, Check, ChevronDown, CircleHelp, ClipboardList, Contact, CreditCard, FileClock, History, Home, Inbox, LayoutGrid, LogOut, Menu, MessageCircle, MessageSquare, Package, PanelRightClose, PanelRightOpen, Plus, Search, Settings, Tags, UserRoundCheck, UsersRound, X } from 'lucide-react';
+import { Archive, ArrowLeft, ArrowUpLeft, BarChart3, Bell, BellRing, Building2, Check, ChevronDown, Briefcase, CircleHelp, ClipboardList, Contact, CreditCard, FileClock, History, Home, Inbox, LayoutGrid, LogOut, Menu, MessageCircle, MessageSquare, Package, PanelRightClose, PanelRightOpen, Plus, Search, Settings, Tags, UserRoundCheck, UsersRound, X } from 'lucide-react';
 import { getGetPortalMeQueryKey, getListMessageThreadsQueryKey, getListOfficeMessageThreadsQueryKey, useGetPortalMe, useListMessageThreads, useListOfficeMessageThreads, type Inquiry, type ServiceRequest, type ServiceRequestStatus } from '@workspace/api-client-react';
 import { daysLabel, formatDate, formatNumber } from '@/lib/format';
 import { milestoneIndex, milestoneKeys, milestones, pauses, stageLabel, stageNote } from '@/content/milestones';
@@ -13,6 +13,7 @@ import { setMessagesUnread, useMessagesUnread } from '@/lib/use-notifications';
 import { PrintFrame } from './brand/print';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, EmptyState, PageTransition, SkeletonRows, SkeletonText, SkeletonTiles, openCommandPalette } from './portal-kit';
+import { CommandPalette } from './command-palette';
 import './portal-ui.css';
 
 // The primitives live in portal-kit.tsx (no Clerk/API imports) and are
@@ -80,6 +81,7 @@ function useMessagesBadge(staff: boolean, enabled: boolean): number {
 export const badgeText = (count: number) => count > 99 ? '99+' : formatNumber(count);
 
 type NavLink = { href: string; label: string; icon: typeof Home; badge?: number };
+export const companyRoleNames: Record<string, string> = { owner: 'مالك', hr: 'موارد بشرية', finance: 'مالية', viewer: 'قراءة' };
 const SIDEBAR_KEY = 'hbs.sidebar';
 const isActive = (location: string, href: string) => location === href || (href !== '/office' && href !== '/dashboard' && location.startsWith(href + '/'));
 
@@ -93,9 +95,15 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
   const [collapsed, setCollapsed] = useState(() => safeStorage.get(SIDEBAR_KEY) === 'rail');
   const menuRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
-  // Shares the cached /portal/me result already loaded by the route guard.
-  const me = useGetPortalMe({ query: { queryKey: getGetPortalMeQueryKey(), enabled: staff } });
+  // Shares the cached /portal/me result already loaded by the route guard:
+  // the office role for the owner links, the company role and «acting for»
+  // for members working in another customer's company.
+  const me = useGetPortalMe({ query: { queryKey: getGetPortalMeQueryKey() } });
   const owner = staff && me.data?.officeRole === 'owner';
+  const companyRole = !staff ? me.data?.companyRole ?? null : null;
+  const actingFor = !staff ? me.data?.actingFor ?? null : null;
+  // Viewers and finance members cannot open requests; the CTA would only lead to a 403.
+  const canCreate = companyRole === null || companyRole === 'owner' || companyRole === 'hr';
   useEffect(() => setMenuOpen(false), [location]);
   useEffect(() => {
     const media = window.matchMedia('(max-width: 1023px)');
@@ -138,14 +146,14 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
   }, [menuOpen, isMobile]);
   const toggleCollapsed = useCallback(() => setCollapsed((value) => { safeStorage.set(SIDEBAR_KEY, value ? 'full' : 'rail'); return !value; }), []);
   const ownerLinks: NavLink[] = owner ? [{ href: '/office/reports', label: 'التقارير', icon: BarChart3 }, { href: '/office/catalog', label: 'الأسعار والمتطلبات', icon: Tags }, { href: '/office/plans', label: 'الباقات', icon: Package }, { href: '/office/subscriptions', label: 'الاشتراكات', icon: CreditCard }, { href: '/office/legacy', label: 'الأرشيف القديم', icon: Archive }, { href: '/office/staff', label: 'فريق المكتب', icon: UsersRound }, { href: '/office/audit', label: 'سجل التدقيق', icon: History }] : [];
-  const links: NavLink[] = staff ? [{ href: '/office', label: 'نظرة عامة', icon: Home }, { href: '/office/registrations', label: 'طلبات التسجيل', icon: UserRoundCheck }, { href: '/office/requests', label: 'طلبات العملاء', icon: ClipboardList }, { href: '/office/inquiries', label: 'الاستفسارات', icon: CircleHelp }, { href: '/office/messages', label: 'الرسائل', icon: MessageSquare, badge: unreadMessages }, { href: '/office/customers', label: 'ملفات العملاء', icon: Contact }, { href: '/office/reminders', label: 'وثائق تنتهي قريبًا', icon: FileClock }, { href: '/office/whatsapp', label: 'واتساب الوارد', icon: MessageCircle }, { href: '/office/notifications', label: 'الإشعارات', icon: Bell }, ...ownerLinks] : registrationOnly ? [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }] : [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }, { href: '/dashboard', label: 'نظرة عامة', icon: Home }, { href: '/requests', label: 'طلباتي', icon: ClipboardList }, { href: '/inquiries', label: 'استفساراتي', icon: CircleHelp }, { href: '/messages', label: 'الرسائل', icon: MessageSquare, badge: unreadMessages }, { href: '/company', label: 'ملف المنشأة', icon: Building2 }, { href: '/documents', label: 'تنبيهات وثائقي', icon: BellRing }, { href: '/notifications', label: 'الإشعارات', icon: Bell }, { href: '/settings', label: 'الإعدادات', icon: Settings }];
+  const links: NavLink[] = staff ? [{ href: '/office', label: 'نظرة عامة', icon: Home }, { href: '/office/registrations', label: 'طلبات التسجيل', icon: UserRoundCheck }, { href: '/office/requests', label: 'طلبات العملاء', icon: ClipboardList }, { href: '/office/inquiries', label: 'الاستفسارات', icon: CircleHelp }, { href: '/office/messages', label: 'الرسائل', icon: MessageSquare, badge: unreadMessages }, { href: '/office/customers', label: 'ملفات العملاء', icon: Contact }, { href: '/office/reminders', label: 'وثائق تنتهي قريبًا', icon: FileClock }, { href: '/office/whatsapp', label: 'واتساب الوارد', icon: MessageCircle }, { href: '/office/notifications', label: 'الإشعارات', icon: Bell }, ...ownerLinks] : registrationOnly ? [{ href: '/registration', label: 'طلب التسجيل', icon: UserRoundCheck }] : [{ href: '/dashboard', label: 'نظرة عامة', icon: Home }, { href: '/requests', label: 'طلباتي', icon: ClipboardList }, { href: '/inquiries', label: 'استفساراتي', icon: CircleHelp }, { href: '/messages', label: 'الرسائل', icon: MessageSquare, badge: unreadMessages }, { href: '/company', label: 'ملف المنشأة', icon: Building2 }, { href: '/documents', label: 'تنبيهات وثائقي', icon: BellRing }, { href: '/notifications', label: 'الإشعارات', icon: Bell }, { href: '/settings', label: 'الإعدادات', icon: Settings }];
   // Phone tab bar: four primary destinations, the rest behind «المزيد».
   const primaryHrefs = staff ? ['/office', '/office/requests', '/office/messages', '/office/customers'] : ['/dashboard', '/requests', '/messages', '/company'];
   const tabs = primaryHrefs.map((href) => links.find((link) => link.href === href)).filter((link): link is NavLink => !!link);
   const current = links.find(({ href }) => location === href) ?? links.filter(({ href }) => location.startsWith(href + '/')).sort((a, b) => b.href.length - a.href.length)[0];
   const space = staff ? 'مساحة المكتب' : registrationOnly ? 'بوابة العملاء' : 'مساحتي';
   const accountName = user?.fullName || user?.primaryEmailAddress?.emailAddress || 'حسابي';
-  const role = staff ? (owner ? 'مالك المكتب' : 'حساب المكتب') : 'حساب العميل';
+  const role = staff ? (owner ? 'مالك المكتب' : 'حساب المكتب') : companyRole && companyRole !== 'owner' ? `عضو منشأة (${companyRoleNames[companyRole]})` : 'حساب العميل';
   const rail = collapsed && !isMobile;
   const drawer = isMobile && menuOpen;
   return <div className="portal" dir="rtl" data-sidebar={rail ? 'rail' : 'full'}>
@@ -163,7 +171,7 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
           {badge ? <span className="portal-nav-badge nums" aria-label={`${badgeText(badge)} رسائل غير مقروءة`}>{badgeText(badge)}</span> : null}
         </Link>;
       })}</nav>
-      {!staff && !registrationOnly && <Link href="/requests/new" className="portal-side-cta" data-label="طلب خدمة جديد" aria-label={rail ? 'طلب خدمة جديد' : undefined}><Plus size={18} aria-hidden="true"/><span className="portal-nav-label">طلب خدمة جديد</span></Link>}
+      {!staff && !registrationOnly && canCreate && <Link href="/requests/new" className="portal-side-cta" data-label="طلب خدمة جديد" aria-label={rail ? 'طلب خدمة جديد' : undefined}><Plus size={18} aria-hidden="true"/><span className="portal-nav-label">طلب خدمة جديد</span></Link>}
       <div className="portal-side-foot">
         <div className="portal-side-user">
           <Avatar name={user?.firstName} tone="dark" size={36}/>
@@ -181,8 +189,9 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
           <nav className="portal-crumb" aria-label="مسار الصفحة"><span>{space}</span>{current && <><span aria-hidden="true" className="portal-crumb-sep">/</span><strong aria-current="page">{current.label}</strong></>}</nav>
         </div>
         <span className="portal-topbar-brand lg:hidden" aria-hidden="true"><LogoMark size={28}/><span className="hidden min-[400px]:inline">HBS حلول الغد</span></span>
+        {actingFor && <span className="portal-acting" role="status" title={`أنت عضو في منشأة ${actingFor.companyName ?? ''}؛ ما تراه وترسله هنا باسمها.`}><Briefcase size={14} aria-hidden="true"/><span className="portal-acting-text">تتصرف باسم منشأة {actingFor.companyName ?? 'العميل'}</span></span>}
         <div className="flex flex-none items-center gap-1.5 sm:gap-2">
-          <button type="button" className="portal-search" onClick={openCommandPalette} aria-label="بحث سريع"><Search size={18} strokeWidth={1.9} aria-hidden="true"/><span className="portal-search-label">بحث</span><kbd className="kbd portal-search-kbd" aria-hidden="true">⌘K</kbd></button>
+          {!registrationOnly && <button type="button" className="portal-search" onClick={openCommandPalette} aria-label="بحث سريع" aria-keyshortcuts="Control+K Meta+K"><Search size={18} strokeWidth={1.9} aria-hidden="true"/><span className="portal-search-label">بحث</span><kbd className="kbd portal-search-kbd" aria-hidden="true">⌘K</kbd></button>}
           <Link href="/help" className="portal-topbar-help hidden lg:inline-flex"><CircleHelp size={17} strokeWidth={1.8} aria-hidden="true"/>المساعدة</Link>
           <NotificationBell staff={staff}/>
           <DropdownMenu dir="rtl" modal={false}>
@@ -200,6 +209,7 @@ export function PortalLayout({ children, staff = false, registrationOnly = false
         </div>
       </header>
       <NotificationToasts/>
+      {!registrationOnly && <CommandPalette staff={staff}/>}
       <div className="portal-band" aria-hidden="true" />
       <main id="portal-main" tabIndex={-1} className="portal-sheet flex-1"><div className="portal-content">
         <PrintFrame staff={staff} title={location === '/office/audit' ? 'سجل التدقيق' : location.startsWith('/requests/') ? 'تفاصيل الطلب' : current?.label ?? 'بوابة العملاء'}/>

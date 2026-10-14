@@ -262,9 +262,9 @@ export function PageTransition({ routeKey, children, className = '' }: { routeKe
 
 /* ---------------------------------------------------------- Command palette */
 export const commandPaletteEvent = 'hbs:command-palette';
-// Opens whichever command palette is mounted (the topbar search affordance calls this).
+// Opens the command palette PortalLayout mounts (the topbar search affordance calls this).
 export function openCommandPalette() { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(commandPaletteEvent)); }
-// Runs `onOpen` on ⌘K / Ctrl+K and on `openCommandPalette()`; the palette itself mounts in the office pages.
+// Runs `onOpen` on ⌘K / Ctrl+K and on `openCommandPalette()`; the palette itself (components/command-palette.tsx) mounts once in PortalLayout.
 export function useCommandPalette(onOpen: () => void) {
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); onOpen(); } };

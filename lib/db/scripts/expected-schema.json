@@ -126,9 +126,11 @@
       "answer": "text",
       "answered_at": "timestamp with time zone",
       "created_at": "timestamp with time zone not null",
+      "created_by": "text",
       "id": "integer not null",
       "linked_service_request_id": "integer",
       "message": "text not null",
+      "source": "text not null",
       "status": "text not null",
       "subject": "text not null",
       "user_id": "text not null"
@@ -308,6 +310,7 @@
       "client_request_id": "text",
       "contact_phone": "text not null",
       "created_at": "timestamp with time zone not null",
+      "created_by": "text",
       "customer_message": "text",
       "description": "text not null",
       "document_checklist": "jsonb not null",
@@ -326,6 +329,7 @@
       "rating": "integer",
       "rating_comment": "text",
       "service": "text not null",
+      "source": "text not null",
       "status": "text not null",
       "updated_at": "timestamp with time zone not null",
       "user_id": "text not null"
@@ -389,6 +393,10 @@
     "hbs_document_reminders_kind_check": {
       "table": "hbs_document_reminders",
       "definition": "CHECK ((kind = ANY (ARRAY['iqama'::text, 'passport'::text, 'commercial_register'::text, 'work_permit'::text, 'other'::text])))"
+    },
+    "hbs_inquiries_source_check": {
+      "table": "hbs_inquiries",
+      "definition": "CHECK ((source = ANY (ARRAY['customer'::text, 'member'::text, 'office'::text])))"
     },
     "hbs_inquiries_status_check": {
       "table": "hbs_inquiries",
@@ -481,6 +489,10 @@
     "hbs_service_requests_rating_check": {
       "table": "hbs_service_requests",
       "definition": "CHECK (((rating IS NULL) OR ((rating >= 1) AND (rating <= 5))))"
+    },
+    "hbs_service_requests_source_check": {
+      "table": "hbs_service_requests",
+      "definition": "CHECK ((source = ANY (ARRAY['customer'::text, 'member'::text, 'office'::text])))"
     },
     "hbs_service_requests_status_check": {
       "table": "hbs_service_requests",
@@ -815,6 +827,10 @@
     "hbs_whatsapp_inbound_pkey": {
       "table": "hbs_whatsapp_inbound",
       "definition": "CREATE UNIQUE INDEX hbs_whatsapp_inbound_pkey ON public.hbs_whatsapp_inbound USING btree (wa_message_id)"
+    },
+    "hbs_whatsapp_inbound_received_idx": {
+      "table": "hbs_whatsapp_inbound",
+      "definition": "CREATE INDEX hbs_whatsapp_inbound_received_idx ON public.hbs_whatsapp_inbound USING btree (received_at)"
     },
     "hbs_whatsapp_inbound_user_idx": {
       "table": "hbs_whatsapp_inbound",

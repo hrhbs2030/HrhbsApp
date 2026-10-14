@@ -434,6 +434,9 @@ const sar = (halalas: number) => `${(halalas / 100).toLocaleString("en-US", { ma
 // What needs attention, ranked: overdue money and expiring documents first,
 // then requests waiting on someone, then the office queues, then whatever
 // is unread. Deterministic, so the same inputs always give the same brief.
+// Every path is a real portal route (tests/notification-intelligence.test.ts
+// keeps the list): the customer's documents page, the office reminders,
+// requests (due soon first), reports, WhatsApp inbox and inquiries.
 export function buildBrief(input: BriefInput): NotificationBrief {
   const items: BriefItem[] = [];
   const office = input.audience === "office";
@@ -443,7 +446,7 @@ export function buildBrief(input: BriefInput): NotificationBrief {
       priority: invoice.days > 7 ? "urgent" : "high",
       title: `فاتورة ${invoice.reference} متأخرة بقيمة ${invoice.total}`,
       reason: `مضى على استحقاقها ${dayPhrase(invoice.days)}`,
-      path: invoice.path ?? (office ? "/office/invoices" : "/invoices"),
+      path: invoice.path ?? (office ? "/office/reports" : "/requests?status=awaiting_payment"),
     });
   }
   for (const reminder of [...input.expiringReminders].sort((a, b) => a.days - b.days)) {
@@ -452,7 +455,7 @@ export function buildBrief(input: BriefInput): NotificationBrief {
       priority: reminder.days <= 7 ? "urgent" : reminder.days <= 30 ? "high" : "normal",
       title: reminder.days <= 0 ? `${reminder.label} انتهت صلاحيتها` : `${reminder.label} تنتهي خلال ${dayPhrase(reminder.days)}`,
       reason: reminder.days <= 7 ? "يلزم البدء في التجديد الآن لتفادي الغرامات" : "ابدأ التجديد مبكرًا",
-      path: reminder.path ?? (office ? "/office/reminders" : "/reminders"),
+      path: reminder.path ?? (office ? "/office/reminders" : "/documents"),
     });
   }
   for (const request of input.waitingRequests) {
@@ -469,7 +472,7 @@ export function buildBrief(input: BriefInput): NotificationBrief {
     if (o.unassigned > 0) items.push({
       kind: "office.request_new", priority: "high",
       title: countPhrase(o.unassigned, { one: "طلب واحد بلا موظف مسؤول", two: "طلبان بلا موظف مسؤول", few: "طلبات بلا موظف مسؤول", many: "طلبًا بلا موظف مسؤول" }),
-      reason: "الطلبات غير المعينة تتأخر دون متابعة", path: "/office/requests",
+      reason: "الطلبات غير المعينة تتأخر دون متابعة", path: "/office/requests?sort=due_soon",
     });
     if (o.unmatchedWhatsapp > 0) items.push({
       kind: "office.whatsapp_unmatched", priority: "high",
@@ -479,7 +482,7 @@ export function buildBrief(input: BriefInput): NotificationBrief {
     if (o.overdueTotalHalalas > 0) items.push({
       kind: "office.invoice_paid", priority: "high",
       title: `فواتير متأخرة بإجمالي ${sar(o.overdueTotalHalalas)}`,
-      reason: "مبالغ مستحقة لم تُسدد بعد", path: "/office/invoices",
+      reason: "مبالغ مستحقة لم تُسدد بعد", path: "/office/reports",
     });
     if (o.openInquiries > 0) items.push({
       kind: "office.inquiry_new", priority: "normal",

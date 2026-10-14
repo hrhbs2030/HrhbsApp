@@ -4,6 +4,7 @@ import {
   db, hbsCustomerSettings, hbsNotificationPreferences, hbsNotifications, hbsOfficeStaff,
   type DeliveryOutcome, type HbsNotification,
 } from "@workspace/db";
+import { mapWithConcurrency } from "./concurrency";
 import { logger } from "./logger";
 import { getOfficeRoleForUserId } from "./office-access";
 import {
@@ -244,21 +245,25 @@ export async function publishOffice(input: OfficePublishInput, deps: PublishDeps
   if (input.mail) {
     if (deps.sendMail) await deps.sendMail(input.mail); else notify(input.mail);
   }
+  // A few recipients at a time: one staff member's slow push service must
+  // not hold up everyone else's row, and a burst of events must not open
+  // a Clerk/push call per staff member all at once.
+  const settled = await mapWithConcurrency(recipients, OFFICE_FANOUT_CONCURRENCY, async userId => {
+    if (!(await (deps.canReceiveOffice ?? canReceiveOffice)(userId))) return null;
+    // The inbox mail already went out above; held rows are mailed by the digest.
+    return publishTo(userId, "office", { ...input, mail: input.mail ?? null,
+      dedupeKey: input.dedupeKey ? `${input.dedupeKey}:recipient:${userId}` : null,
+    }, deps, { email: "record", whatsapp: false });
+  });
   const results: PublishResult[] = [];
-  for (const userId of recipients) {
-    try {
-      if (!(await (deps.canReceiveOffice ?? canReceiveOffice)(userId))) continue;
-      // The inbox mail already went out above; held rows are mailed by the digest.
-      const result = await publishTo(userId, "office", { ...input, mail: input.mail ?? null,
-        dedupeKey: input.dedupeKey ? `${input.dedupeKey}:recipient:${userId}` : null,
-      }, deps, { email: "record", whatsapp: false });
-      if (result) results.push(result);
-    } catch (err) {
-      logger.warn({ err, kind: input.kind }, "Office notification was not recorded for a staff member");
-    }
+  for (const outcome of settled) {
+    if (outcome.status === "fulfilled") { if (outcome.value) results.push(outcome.value); continue; }
+    logger.warn({ err: outcome.reason, kind: input.kind }, "Office notification was not recorded for a staff member");
   }
   return results;
 }
+
+export const OFFICE_FANOUT_CONCURRENCY = 4;
 
 export async function canReceiveOffice(userId: string): Promise<boolean> {
   try { return !!(await getOfficeRoleForUserId(userId)); }

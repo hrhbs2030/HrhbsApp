@@ -42,3 +42,24 @@
 .cp-invoices { border: 0; border-radius: 0; }
 @media (max-width: 640px) { .cf-row { padding: 14px 16px; } }
 @media print { .cp-invite, .cp-role-select, .cp-toggle, .cp-tabs { display: none; } }
+
+/* ---- office customer file: the 360° header ------------------------------- */
+.ocf-head { display: grid; gap: 16px; margin-bottom: 24px; padding: 20px; }
+@media (min-width: 640px) { .ocf-head { padding: 24px; grid-template-columns: minmax(0, 1fr) auto; } .ocf-stats { grid-column: 1 / -1; } }
+.ocf-who { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
+.ocf-avatar { flex: none; }
+.ocf-title { margin: 6px 0 0; font-size: var(--text-2xl); font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+@media (min-width: 640px) { .ocf-title { font-size: var(--text-3xl); } }
+.ocf-contact { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: var(--text-xs); color: var(--color-subtle); }
+.ocf-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.ocf-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
+.ocf-actions .btn { min-height: 44px; }
+.ocf-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+@media (min-width: 768px) { .ocf-stats { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.ocf-stat { display: grid; min-width: 0; padding: 10px 8px; border-radius: 12px; background: var(--color-paper); text-align: center; }
+.ocf-stat:has(> .ocf-stat-btn) { padding: 0; }
+.ocf-stat-num { font-size: var(--text-xl); font-weight: 600; line-height: 1.2; }
+.ocf-stat-lbl { margin-top: 2px; font-size: 11.5px; color: var(--color-subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ocf-stat-btn { display: grid; width: 100%; min-height: 44px; padding: 10px 8px; border: 0; border-radius: 12px; background: transparent; font: inherit; color: inherit; cursor: pointer; transition: background-color var(--duration-hover) ease; }
+.ocf-stat-btn:hover { background: var(--color-sage); }
+.ocf-stat-btn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }

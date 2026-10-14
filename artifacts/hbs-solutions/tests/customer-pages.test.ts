@@ -17,6 +17,8 @@ const hooks = [
   'useListPlans', 'useGetCompanySubscription', 'useStartCompanySubscription', 'useUpdateCompanySubscription', 'useListCompanyInvoices',
   'useGetOfficeCustomerFile', 'useListOfficeCustomers',
   'useGetPortalSettings', 'useSavePortalSettings', 'useRequestPortalWhatsappVerification',
+  'useGetPortalMe', 'useListOfficeCustomerMembers', 'useListOfficeRegistrations', 'useListOfficeMessageThreads', 'useListOfficeSubscriptions', 'useCreateOfficeServiceRequest',
+  'useListReminders', 'useCreateReminder', 'useUpdateReminder', 'useDeleteReminder',
 ];
 const calls = [
   'attachServiceRequestFiles', 'attachOfficeServiceRequestFiles', 'deleteServiceRequestFile', 'deleteOfficeServiceRequestFile',
@@ -29,6 +31,7 @@ const keys = [
   'getGetCompanyMembershipQueryKey', 'getListCompanyMembersQueryKey', 'getListPlansQueryKey', 'getGetCompanySubscriptionQueryKey', 'getListCompanyInvoicesQueryKey',
   'getGetOfficeCustomerFileQueryKey', 'getListOfficeCustomersQueryKey',
   'getGetPortalSettingsQueryKey', 'getListOfficeServiceRequestInvoicesQueryKey',
+  'getGetPortalMeQueryKey', 'getListOfficeCustomerMembersQueryKey', 'getListOfficeRegistrationsQueryKey', 'getListOfficeMessageThreadsQueryKey', 'getListOfficeSubscriptionsQueryKey', 'getListRemindersQueryKey',
 ];
 const uiNames = ['PortalLayout', 'PageHeading', 'LoadingBlock', 'ErrorBlock', 'EmptyBlock', 'RequestRow', 'Status', 'StatusTrack', 'dateText', 'useDebouncedValue'];
 const server = await createServer({
@@ -71,7 +74,10 @@ const server = await createServer({
 after(async () => server.close());
 const { Dashboard, RequestDetail } = await server.ssrLoadModule('/src/pages/customer.tsx');
 const { RequestFiles } = await server.ssrLoadModule('/src/components/request-files.tsx');
-const { CompanyPage } = await server.ssrLoadModule('/src/pages/company.tsx');
+const { CompanyPage, OfficeCustomerFilePage, OfficeIntakeForm, intakeError, subscriptionSummary } = await server.ssrLoadModule('/src/pages/company.tsx');
+const { Documents } = await server.ssrLoadModule('/src/pages/customer-extras.tsx');
+const { abilitiesOf } = await server.ssrLoadModule('/src/lib/company-role.ts');
+const { renewalLink } = await server.ssrLoadModule('/src/lib/renewal-link.ts');
 const { NewRequest, employeeLink } = await server.ssrLoadModule('/src/pages/new-request.tsx');
 const { RegistrationRequestPage } = await server.ssrLoadModule('/src/pages/registration.tsx');
 const { NotificationSettings } = await server.ssrLoadModule('/src/pages/customer-extras.tsx');
@@ -96,10 +102,10 @@ const mutation = fn => ({ isPending: false, isError: false, mutateAsync: fn, res
 const plan = (id, extra = {}) => ({ id, slug: `plan-${id}`, name: `باقة ${id}`, description: `وصف الباقة ${id}`, price: 100000, vat: 15000, total: 115000, employeeCap: 25, requestsPerMonth: null, autoRenewals: id === 1, active: true, sort: id, ...extra });
 const employee = (id, extra = {}) => ({ id, fullName: `موظف ${id}`, nationality: null, occupation: null, idNumberMasked: null, passportNumberMasked: null, iqamaExpiresOn: null, passportExpiresOn: null, workPermitExpiresOn: null, phone: null, status: 'active', notes: null, addedBy: 'customer', createdAt: date, updatedAt: date, ...extra });
 function setup(state) {
-  const log = { accept: [], decline: [], link: [], attach: [], invalidated: [], invite: [], updateMember: [], removeMember: [], leave: 0, reloaded: 0, start: [], updateSub: [], create: [], settingsSave: [], verification: [], invoiceIssue: [] };
+  const log = { accept: [], decline: [], link: [], attach: [], invalidated: [], invite: [], updateMember: [], removeMember: [], leave: 0, reloaded: 0, start: [], updateSub: [], create: [], settingsSave: [], verification: [], invoiceIssue: [], intake: [] };
   globalThis.window.location.reload = () => { log.reloaded += 1; };
   globalThis.__c = {
-    search: state.search ?? '', params: { id: '1' },
+    search: state.search ?? '', params: { id: '1', userId: state.userId ?? 'u1' },
      qc: { invalidateQueries: async value => { log.invalidated.push(value.queryKey); }, setQueryData: () => {} },
     ui: {
       PortalLayout: ({ children }) => children, PageHeading: ({ title }) => React.createElement('h1', null, title),
@@ -134,6 +140,15 @@ function setup(state) {
          state.settings = { ...state.settings, ...input.data, whatsappVerificationStatus: changedPhone ? input.data.whatsappPhone ? 'unverified' : 'not_set' : state.settings.whatsappVerificationStatus, whatsappVerificationExpiresAt: changedPhone ? null : state.settings.whatsappVerificationExpiresAt };
          return state.settings;
        }),
+       // The signed-in person: a plain customer unless the test sets a company role.
+       useGetPortalMe: () => query({ role: 'customer', officeRole: state.officeRole ?? null, registrationStatus: 'approved', companyRole: null, actingFor: null, ...(state.me ?? {}) }),
+       useListOfficeCustomerMembers: () => state.officeMembers === undefined ? failed(403) : query(state.officeMembers),
+       useListOfficeRegistrations: () => query(state.registrations ?? []),
+       useListOfficeMessageThreads: input => { log.threadsParams = input; return query(state.threads ?? { items: [], unreadTotal: 0, total: 0 }); },
+       useListOfficeSubscriptions: () => state.officeSubscriptions === undefined ? failed(403) : query({ items: state.officeSubscriptions, total: state.officeSubscriptions.length, page: 1, pageSize: 100 }),
+       useCreateOfficeServiceRequest: () => mutation(async input => { log.intake.push(input); if (state.intakeError) throw { status: state.intakeError }; return { id: 55, reference: 'HBS-2026-00055', ...input.data }; }),
+       useListReminders: () => query(state.reminders ?? []),
+       useCreateReminder: () => mutation(async () => {}), useUpdateReminder: () => mutation(async () => {}), useDeleteReminder: () => mutation(async () => {}),
        useRequestPortalWhatsappVerification: () => {
          const result = mutation(async input => {
            log.verification.push(input);
@@ -470,7 +485,13 @@ test('without a subscription the plans are offered; subscribing refreshes the su
   assert.ok(!cards[1].includes('تجديد تلقائي'));
   assert.match(text(tree.root), /لا توجد فواتير اشتراك بعد/);
   await click(buttons(tree, 'اشترك')[1]);
+  assert.deepEqual(log.start, [], 'nothing is issued before the confirmation');
+  const confirm = nodes(tree, 'button').find(b => b.props['data-dialog']);
+  assert.equal(text(confirm), 'تأكيد الاشتراك');
+  await click(confirm);
   assert.deepEqual(log.start, [{ data: { planId: 2, autoRenewRequests: false } }]);
+  assert.deepEqual(subscriptionSummary(plan(2), new Date('2026-01-31T10:00:00Z')), { total: '1,150.00 ر.س', renewsOn: subscriptionSummary(plan(2), new Date('2026-01-31T10:00:00Z')).renewsOn });
+  assert.match(subscriptionSummary(plan(2), new Date('2026-03-10T10:00:00Z')).renewsOn, /10 أبريل 2026/);
   for (const key of ['getGetCompanySubscriptionQueryKey', 'getListCompanyInvoicesQueryKey', 'getGetPortalSummaryQueryKey']) assert.ok(log.invalidated.some(k => k[0] === key), key);
   // Once subscribed: the plan, its status, the renewal date, the latest invoice to pay, the toggle and the cancellation.
   state.subscription = subscription('past_due', { latestInvoice: invoice(5) }); state.invoices = [invoice(5), invoice(4, { status: 'paid', canPayOnline: false }), invoice(1, { subscriptionId: null, requestId: 7, requestReference: 'REQ-7' })];
@@ -532,4 +553,118 @@ test('a labour or passport request picks several employees and sends employeeIds
   assert.ok(nodes(single, 'select').find(s => s.props.id === 'field-subject'));
   assert.equal(nodes(single, 'input').filter(i => i.props.type === 'checkbox').length, 0);
   await act(async () => single.unmount());
+});
+
+test('company members: viewers and finance see no composers or new-request actions, hr and owners do', async () => {
+  assert.deepEqual(abilitiesOf('viewer'), { canCreate: false, canPay: false, readOnly: true });
+  assert.deepEqual(abilitiesOf('finance'), { canCreate: false, canPay: true, readOnly: false });
+  assert.deepEqual(abilitiesOf('hr'), { canCreate: true, canPay: true, readOnly: false });
+  assert.deepEqual(abilitiesOf(null), { canCreate: true, canPay: true, readOnly: false });
+  const quote = { amount: 100000, vat: 15000, total: 115000, note: null, quotedAt: date, acceptedAt: null, declinedAt: null };
+  const soon = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+  const open = async (companyRole, Page) => {
+    setup({ summary: summary(), requests: [request(1, { status: 'waiting_on_customer', customerMessage: 'صورة الإقامة', quote })], reminders: [{ id: 1, kind: 'iqama', label: 'أحمد', expiresOn: soon, note: null, source: 'employee', sourceId: 4, addedBy: 'customer' }], me: { companyRole, actingFor: companyRole ? { companyUserId: 'u1', companyName: 'شركة الاختبار' } : null } });
+    const tree = await mount(React.createElement(Page));
+    const body = text(tree.root);
+    // The page heading's action is mocked away; the documents page's renewal link is the real new-request entry here.
+    const result = { renew: nodes(tree, 'a').some(a => a.props.href?.startsWith('/requests/new?')), reply: !!button(tree, 'ردّ على المكتب'), accept: !!button(tree, 'أوافق وابدأ'), readOnly: body.includes('صلاحيتك للعرض فقط'), finance: body.includes('صلاحيتك مالية') };
+    await act(async () => tree.unmount());
+    return result;
+  };
+  assert.deepEqual(await open('viewer', Dashboard), { renew: false, reply: false, accept: false, readOnly: true, finance: false });
+  assert.deepEqual(await open('finance', Dashboard), { renew: false, reply: false, accept: false, readOnly: false, finance: true });
+  assert.deepEqual(await open('viewer', Documents), { renew: false, reply: false, accept: false, readOnly: true, finance: false });
+  assert.deepEqual(await open('hr', Documents), { renew: true, reply: false, accept: false, readOnly: false, finance: false });
+  assert.deepEqual(await open('viewer', RequestDetail), { renew: false, reply: false, accept: false, readOnly: true, finance: false });
+  assert.deepEqual(await open('finance', RequestDetail), { renew: false, reply: false, accept: false, readOnly: false, finance: true });
+  assert.deepEqual(await open(null, RequestDetail), { renew: false, reply: true, accept: true, readOnly: false, finance: false });
+});
+
+test('the dashboard and the documents page point an unverified WhatsApp number at the verification box; renewals keep their prefill', async () => {
+  setup({ summary: summary(), requests: [], settings: { whatsappOptIn: true, whatsappPhone: '0501111111', whatsappAvailable: true, whatsappVerificationAvailable: true, whatsappVerificationStatus: 'unverified', whatsappVerificationExpiresAt: null } });
+  const tree = await mount(React.createElement(Dashboard));
+  const banner = tree.root.findAll(n => n.props['data-testid'] === 'banner-whatsapp-verify');
+  assert.equal(banner.length, 1);
+  assert.match(text(banner[0]), /رقم واتساب يحتاج توثيقًا/);
+  assert.ok(banner[0].findAllByType('a').some(a => a.props.href === '/settings#whatsapp-verification-title'));
+  await act(async () => tree.unmount());
+  setup({ summary: summary(), requests: [], settings: { whatsappOptIn: true, whatsappPhone: '0501111111', whatsappAvailable: true, whatsappVerificationAvailable: true, whatsappVerificationStatus: 'verified', whatsappVerificationExpiresAt: null } });
+  const verified = await mount(React.createElement(Dashboard));
+  assert.equal(verified.root.findAll(n => n.props['data-testid'] === 'banner-whatsapp-verify').length, 0);
+  await act(async () => verified.unmount());
+  // The settings page shows the same banner inline, above the form.
+  setup({ settings: { whatsappOptIn: true, whatsappPhone: '0501111111', whatsappAvailable: true, whatsappVerificationAvailable: true, whatsappVerificationStatus: 'unverified', whatsappVerificationExpiresAt: null } });
+  const settings = await mount(React.createElement(NotificationSettings));
+  const inline = settings.root.findAll(n => n.props['data-testid'] === 'banner-whatsapp-verify');
+  assert.equal(inline.length, 1);
+  assert.ok(inline[0].findAllByType('a').some(a => a.props.href === '#whatsapp-verification-title'));
+  assert.doesNotMatch(text(settings.root), /[٠-٩]/, 'dates and numbers use Latin digits');
+  await act(async () => settings.unmount());
+  // Documents: the renewal link carries the service and the employee like the dashboard does.
+  assert.equal(renewalLink({ kind: 'iqama', source: 'employee', sourceId: 4 }), '/requests/new?service=iqama-renewal&employee=4');
+  assert.equal(renewalLink({ kind: 'commercial_register', source: 'manual', sourceId: null }), `/requests/new?${new URLSearchParams({ category: 'business', name: 'تجديد commercial_register' })}`);
+});
+
+test('the office customer file: 360° header, members tab, request rows to the request page, and intake on the customer\'s behalf', async () => {
+  const soon = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+  const state = {
+    userId: 'u9', officeRole: 'owner',
+    officeFile: { userId: 'u9', customer: { fullName: 'سعد العميل', email: 'saad@example.com' }, contactPhone: '0509999999', company: { name: 'مؤسسة سعد', crNumber: null, unifiedNumber: null, vatNumber: null, city: null, address: null, activity: null, contactName: null, contactPhone: null, notes: null, updatedAt: date }, employees: [employee(1), employee(2, { status: 'left' })], licenses: [{ id: 3, kind: 'municipality', title: 'رخصة البلدية', number: null, issuedOn: null, expiresOn: soon, notes: null, createdAt: date, updatedAt: date }], requests: [{ id: 7, reference: 'HBS-2026-00007', service: 'تجديد إقامة', status: 'awaiting_payment', createdAt: date, subject: null }, { id: 8, reference: 'HBS-2026-00008', service: 'نقل كفالة', status: 'completed', createdAt: date, subject: null }], reminders: [] },
+    officeMembers: [member(0, 'owner', { email: 'saad@example.com', acceptedAt: date, memberUserId: 'u9' }), member(2, 'hr', { acceptedAt: date, memberUserId: 'u2' }), member(3, 'viewer')],
+    registrations: [{ id: 1, fullName: 'سعد العميل', contactPhone: '0509999999', note: null, status: 'approved', reason: null, createdAt: date, updatedAt: date, email: 'saad@example.com', reviewerId: 's1' }],
+    threads: { items: [{ type: 'request', id: 7, reference: 'HBS-2026-00007', title: 'تجديد إقامة', status: 'awaiting_payment', lastMessage: null, unread: 2, updatedAt: date, whatsapp: { link: 'https://wa.me/966509999999', number: '966509999999', verified: true }, customer: { fullName: 'سعد العميل', email: 'saad@example.com' } }, { type: 'inquiry', id: 1, reference: 'استفسار #1', title: 'سؤال', status: 'open', lastMessage: null, unread: 1, updatedAt: date, whatsapp: { link: null, number: null, verified: false }, customer: { fullName: 'سعد آخر', email: 'other@example.com' } }], unreadTotal: 3, total: 2 },
+    officeSubscriptions: [{ ...subscription('active'), userId: 'u9', companyName: 'مؤسسة سعد', customerName: 'سعد العميل' }],
+  };
+  const log = setup(state);
+  globalThis.__c.hooks.useGetOfficeCustomerFile = () => query(state.officeFile);
+  const tree = await mount(React.createElement(OfficeCustomerFilePage));
+  const head = tree.root.find(n => n.props['data-testid'] === 'customer-file-head');
+  const headText = text(head);
+  for (const expected of ['مؤسسة سعد', 'سعد العميل', 'تسجيل معتمد', 'واتساب موثّق', 'باقة 1 · نشط', 'يتجدد 20 أكتوبر 2026', 'إنشاء طلب للعميل']) assert.match(headText, new RegExp(expected), expected);
+  const stats = Object.fromEntries(head.findAll(n => n.props.className === 'ocf-stat').map(li => [li.findAll(n => n.props.className?.includes('ocf-stat-lbl')).map(text)[0], li.findAll(n => n.props.className?.includes('ocf-stat-num')).map(text)[0]]));
+  assert.deepEqual(stats, { 'موظفون': '1', 'تراخيص': '1', 'طلبات نشطة': '1', 'بانتظار السداد': '1', 'أعضاء المنشأة': '3', 'محادثات غير مقروءة': '1' });
+  assert.equal(log.threadsParams.q, 'سعد العميل', 'threads are looked up by the customer');
+  const links = head.findAllByType('a').map(a => [a.props.href, text(a)]);
+  assert.ok(links.some(([h, t]) => h === '/office/messages?q=%D8%B3%D8%B9%D8%AF%20%D8%A7%D9%84%D8%B9%D9%85%D9%8A%D9%84' && t.includes('الرسائل') && t.includes('(1)')));
+  assert.ok(links.some(([h, t]) => h === 'https://wa.me/966509999999' && t.includes('واتساب')));
+  assert.deepEqual(tabs(tree), ['المنشأة والموظفون', 'الطلبات', 'الوثائق والتنبيهات', 'الأعضاء']);
+  await click(button(tree, 'الطلبات'));
+  assert.ok(nodes(tree, 'a').some(a => a.props.href === '/office/requests/7'), 'rows open the request page');
+  await click(button(tree, 'الأعضاء'));
+  const rows = nodes(tree, 'li').filter(li => li.props.className?.includes('cf-row')).map(text);
+  assert.equal(rows.length, 3); assert.match(rows[0], /مالك/); assert.match(rows[1], /موارد بشرية/); assert.match(rows[2], /بانتظار القبول/);
+  assert.equal(nodes(tree, 'select').length, 0, 'the office does not edit roles');
+  await act(async () => tree.unmount());
+  // Intake: the form (the dialog's body; the modal itself needs a DOM) posts to the office endpoint with the customer's file subject and the typed phone.
+  let created = null;
+  const intake = await mount(React.createElement(OfficeIntakeForm, { userId: 'u9', file: state.officeFile, onCreated: r => { created = r; }, onCancel() {} }));
+  const form = nodes(intake, 'form').find(f => f.props.id === 'office-intake-form');
+  const field = (match) => form.findAll(n => ['input', 'textarea', 'select'].includes(n.type) && match(n))[0];
+  await act(async () => field(n => n.type === 'select' && n.props.value === 'labor').props.onChange({ target: { value: 'passports' } }));
+  await act(async () => field(n => n.type === 'input' && n.props.maxLength === 200).props.onChange({ target: { value: 'تجديد جواز' } }));
+  await act(async () => field(n => n.type === 'textarea').props.onChange({ target: { value: 'اتصل العميل وطلب تجديد جواز الموظف.' } }));
+  await act(async () => field(n => n.type === 'input' && n.props.type === 'tel').props.onChange({ target: { value: '٠٥٠١٢٣٤٥٦٧' } }));
+  await act(async () => field(n => n.type === 'select' && n.props.value === '').props.onChange({ target: { value: 'employee:1' } }));
+  await submit(form);
+  assert.deepEqual(log.intake, [{ userId: 'u9', data: { category: 'passports', service: 'تجديد جواز', description: 'اتصل العميل وطلب تجديد جواز الموظف.', contactPhone: '0501234567', subject: { type: 'employee', id: 1 } } }]);
+  assert.equal(created?.reference, 'HBS-2026-00055');
+  assert.equal(intakeError({ status: 403 }), 'ليست لديك صلاحية إنشاء طلبات باسم العملاء.');
+  assert.match(intakeError({ status: 400 }), /وصف لا يقل عن 10 أحرف/);
+  // A bad phone never reaches the server; a server refusal is shown.
+  await act(async () => field(n => n.type === 'input' && n.props.type === 'tel').props.onChange({ target: { value: '12' } }));
+  await submit(form);
+  assert.equal(log.intake.length, 1); assert.match(text(intake.root), /اكتب رقم جوال صحيحًا/);
+  await act(async () => field(n => n.type === 'input' && n.props.type === 'tel').props.onChange({ target: { value: '' } }));
+  state.intakeError = 404;
+  await submit(form);
+  assert.equal('contactPhone' in log.intake[1].data, false, 'an empty phone falls back to the registration phone server-side');
+  assert.match(text(intake.root), /العميل غير موجود/);
+  await act(async () => intake.unmount());
+  // Staff without the owner role: the subscription list is 403 and simply absent; members 403 shows a dash.
+  setup({ ...state, officeRole: 'staff', officeSubscriptions: undefined, officeMembers: undefined });
+  globalThis.__c.hooks.useGetOfficeCustomerFile = () => query(state.officeFile);
+  const staff = await mount(React.createElement(OfficeCustomerFilePage));
+  const staffHead = text(staff.root.find(n => n.props['data-testid'] === 'customer-file-head'));
+  assert.ok(!staffHead.includes('باقة 1') && !staffHead.includes('بلا اشتراك'));
+  await act(async () => staff.unmount());
 });

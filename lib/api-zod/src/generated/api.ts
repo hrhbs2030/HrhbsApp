@@ -260,7 +260,12 @@ export const UnpublishApprovedInformationResponse = zod.object({
 export const GetPortalMeResponse = zod.object({
   "role": zod.enum(['customer', 'staff']),
   "officeRole": zod.union([zod.literal('owner'),zod.literal('staff'),zod.literal(null)]).nullable(),
-  "registrationStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullable()
+  "registrationStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullable(),
+  "companyRole": zod.union([zod.literal('owner'),zod.literal('hr'),zod.literal('finance'),zod.literal('viewer'),zod.literal(null)]).nullable().describe('The signed-in person\'s role in the company they work in; null when they have none'),
+  "actingFor": zod.union([zod.object({
+  "companyUserId": zod.string().describe('The company owner\'s user ID: the customer whose data the member sees'),
+  "companyName": zod.string().nullable()
+}),zod.null()]).describe('Set when the person is a member acting for another customer\'s company (null for owners and plain customers)')
 })
 
 
@@ -390,7 +395,11 @@ export const GetPortalSummaryResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })),
   "recentInquiries": zod.array(zod.object({
   "id": zod.number().int(),
@@ -400,7 +409,11 @@ export const GetPortalSummaryResponse = zod.object({
   "status": zod.enum(['open', 'answered']),
   "answer": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
-  "answeredAt": zod.coerce.date().nullish()
+  "answeredAt": zod.coerce.date().nullish(),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 }))
 })
 
@@ -464,7 +477,11 @@ export const ListServiceRequestsResponseItem = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 export const ListServiceRequestsResponse = zod.array(ListServiceRequestsResponseItem)
 
@@ -563,7 +580,11 @@ export const CreateServiceRequestResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 
 
@@ -669,7 +690,11 @@ export const AttachServiceRequestFilesResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 
 
@@ -802,7 +827,11 @@ export const AttachOfficeServiceRequestFilesResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 
 
@@ -893,7 +922,11 @@ export const GetServiceRequestResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 
 
@@ -926,7 +959,11 @@ export const ListInquiriesResponseItem = zod.object({
   "status": zod.enum(['open', 'answered']),
   "answer": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
-  "answeredAt": zod.coerce.date().nullish()
+  "answeredAt": zod.coerce.date().nullish(),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 export const ListInquiriesResponse = zod.array(ListInquiriesResponseItem)
 
@@ -958,7 +995,11 @@ export const CreateInquiryResponse = zod.object({
   "status": zod.enum(['open', 'answered']),
   "answer": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
-  "answeredAt": zod.coerce.date().nullish()
+  "answeredAt": zod.coerce.date().nullish(),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 
 
@@ -1071,7 +1112,11 @@ export const ListOfficeServiceRequestsResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })),
   "total": zod.number().int().min(listOfficeServiceRequestsResponseTotalMin),
   "page": zod.number().int().min(1),
@@ -1207,7 +1252,11 @@ export const GetOfficeServiceRequestResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 
 
@@ -1302,7 +1351,11 @@ export const UpdateOfficeServiceRequestResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 
 
@@ -1339,7 +1392,11 @@ export const ListOfficeInquiriesResponse = zod.object({
   "status": zod.enum(['open', 'answered']),
   "answer": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
-  "answeredAt": zod.coerce.date().nullish()
+  "answeredAt": zod.coerce.date().nullish(),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 }).and(zod.object({
   "linkedServiceRequest": zod.union([zod.object({
   "reference": zod.string(),
@@ -1387,7 +1444,11 @@ export const AnswerOfficeInquiryResponse = zod.object({
   "status": zod.enum(['open', 'answered']),
   "answer": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
-  "answeredAt": zod.coerce.date().nullish()
+  "answeredAt": zod.coerce.date().nullish(),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 }).and(zod.object({
   "linkedServiceRequest": zod.union([zod.object({
   "reference": zod.string(),
@@ -1548,7 +1609,7 @@ export const ListOfficeAuditLogResponseItem = zod.object({
   "id": zod.number().int(),
   "actorId": zod.string(),
   "actorEmail": zod.string().email().nullable(),
-  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge', 'registration.approve', 'registration.reject', 'information.review', 'information.publish', 'information.unpublish', 'attachment.extract', 'invoice.issue', 'invoice.mark_paid', 'invoice.cancel', 'invoice.paid_online', 'offer.update', 'reminder.create', 'company.update', 'employee.create', 'employee.update', 'employee.delete', 'employee.reveal', 'license.create', 'license.update', 'license.delete', 'employee.import', 'license.import', 'automation.update', 'service_request.quote', 'service_request.quote_accept', 'service_request.quote_decline', 'service_request.checklist', 'company.member_invite', 'company.member_update', 'company.member_remove', 'company.member_leave', 'service_request.employee_item', 'plan.create', 'plan.update', 'subscription.start', 'subscription.update', 'service_request.auto_renew', 'notification.preferences', 'whatsapp.reply']),
+  "action": zod.enum(['staff.add', 'staff.remove', 'service_request.update', 'inquiry.answer', 'attachment.upload', 'attachment.download', 'attachment.delete', 'attachment.purge', 'registration.approve', 'registration.reject', 'information.review', 'information.publish', 'information.unpublish', 'attachment.extract', 'invoice.issue', 'invoice.mark_paid', 'invoice.cancel', 'invoice.paid_online', 'offer.update', 'reminder.create', 'company.update', 'employee.create', 'employee.update', 'employee.delete', 'employee.reveal', 'license.create', 'license.update', 'license.delete', 'employee.import', 'license.import', 'automation.update', 'service_request.quote', 'service_request.quote_accept', 'service_request.quote_decline', 'service_request.checklist', 'company.member_invite', 'company.member_update', 'company.member_remove', 'company.member_leave', 'service_request.employee_item', 'plan.create', 'plan.update', 'subscription.start', 'subscription.update', 'service_request.auto_renew', 'notification.preferences', 'whatsapp.reply', 'service_request.create_for_customer']),
   "targetType": zod.string(),
   "targetId": zod.string(),
   "details": zod.record(zod.string(), zod.unknown()),
@@ -1721,7 +1782,11 @@ export const RateServiceRequestResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 
 
@@ -2738,7 +2803,11 @@ export const GetOfficeCustomerFileResponse = zod.object({
   "type": zod.enum(['employee', 'license']),
   "id": zod.number().int(),
   "label": zod.string()
-}),zod.null()])
+}),zod.null()]),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })),
   "reminders": zod.array(zod.object({
   "sourceId": zod.number().int().nullable().describe('The employee or license ID for company-file reminders'),
@@ -3751,7 +3820,11 @@ export const SendOfficeQuoteResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 
 
@@ -3822,7 +3895,11 @@ export const AcceptQuoteResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 
 
@@ -3901,7 +3978,11 @@ export const DeclineQuoteResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 
 
@@ -3994,7 +4075,11 @@ export const SaveOfficeChecklistResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 
 
@@ -4076,7 +4161,11 @@ export const LinkAttachmentToChecklistResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 
 
@@ -4165,7 +4254,11 @@ export const LinkOfficeAttachmentToChecklistResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 
 
@@ -4335,6 +4428,111 @@ export const ListOfficeCustomerMembersResponse = zod.array(ListOfficeCustomerMem
 
 
 /**
+ * @summary Staff-only open a service request for a customer (walk-in, phone or e-mail intake)
+ */
+export const createOfficeServiceRequestPathUserIdMax = 120;
+
+
+
+export const CreateOfficeServiceRequestParams = zod.object({
+  "userId": zod.coerce.string().min(1).max(createOfficeServiceRequestPathUserIdMax)
+})
+
+export const createOfficeServiceRequestBodyServiceMax = 200;
+
+export const createOfficeServiceRequestBodyDescriptionMin = 10;
+export const createOfficeServiceRequestBodyDescriptionMax = 5000;
+
+export const createOfficeServiceRequestBodyContactPhoneMin = 9;
+export const createOfficeServiceRequestBodyContactPhoneMax = 24;
+
+export const createOfficeServiceRequestBodySubjectOneIdMax = 2147483647;
+
+
+
+export const CreateOfficeServiceRequestBody = zod.object({
+  "service": zod.string().min(1).max(createOfficeServiceRequestBodyServiceMax),
+  "category": zod.enum(['passports', 'labor', 'business', 'other']),
+  "description": zod.string().min(createOfficeServiceRequestBodyDescriptionMin).max(createOfficeServiceRequestBodyDescriptionMax),
+  "contactPhone": zod.string().min(createOfficeServiceRequestBodyContactPhoneMin).max(createOfficeServiceRequestBodyContactPhoneMax).optional().describe('Saudi mobile; omitted → the customer\'s registration phone'),
+  "subject": zod.union([zod.object({
+  "type": zod.enum(['employee', 'license']),
+  "id": zod.number().int().min(1).max(createOfficeServiceRequestBodySubjectOneIdMax)
+}),zod.null()]).optional().describe('The employee or license in the customer\'s company file the request is about')
+}).describe('A request the office opens for a customer (walk-in, phone or e-mail intake)')
+
+export const createOfficeServiceRequestResponseRatingMax = 5;
+
+
+
+export const CreateOfficeServiceRequestResponse = zod.object({
+  "id": zod.number().int(),
+  "reference": zod.string(),
+  "category": zod.enum(['passports', 'labor', 'business', 'other']),
+  "service": zod.string(),
+  "description": zod.string(),
+  "contactPhone": zod.string(),
+  "status": zod.enum(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed']),
+  "officeNote": zod.string().nullish(),
+  "customerMessage": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "uploadedBy": zod.enum(['customer', 'office']),
+  "createdAt": zod.coerce.date()
+})),
+  "customer": zod.union([zod.object({
+  "fullName": zod.string(),
+  "email": zod.string().email()
+}),zod.null()]),
+  "assignedTo": zod.string().nullable().describe('User ID of the responsible office member'),
+  "dueAt": zod.coerce.date().nullable(),
+  "rating": zod.number().int().min(1).max(createOfficeServiceRequestResponseRatingMax).nullable(),
+  "ratingComment": zod.string().nullable(),
+  "ratedAt": zod.coerce.date().nullable(),
+  "subject": zod.union([zod.object({
+  "type": zod.enum(['employee', 'license']),
+  "id": zod.number().int(),
+  "label": zod.string()
+}),zod.null()]),
+  "lastMessage": zod.union([zod.object({
+  "by": zod.enum(['customer', 'office']),
+  "at": zod.coerce.date()
+}),zod.null()]),
+  "userId": zod.string().describe('The customer\'s user ID, for opening their file'),
+  "quote": zod.union([zod.object({
+  "amount": zod.number().int().describe('Halalas before VAT'),
+  "vat": zod.number().int(),
+  "total": zod.number().int(),
+  "note": zod.string().nullable(),
+  "quotedAt": zod.coerce.date(),
+  "acceptedAt": zod.coerce.date().nullable(),
+  "declinedAt": zod.coerce.date().nullable()
+}),zod.null()]),
+  "checklist": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "attachmentId": zod.number().int().nullable(),
+  "attachmentName": zod.string().nullable()
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number().int(),
+  "fullName": zod.string(),
+  "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
+  "note": zod.string().nullable()
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
+})
+
+
+/**
  * @summary Staff-only update one employee's progress on a bulk request
  */
 export const updateOfficeRequestEmployeePathIdMax = 2147483647;
@@ -4420,7 +4618,11 @@ export const UpdateOfficeRequestEmployeeResponse = zod.object({
   "fullName": zod.string(),
   "itemStatus": zod.enum(['pending', 'in_progress', 'done', 'blocked']),
   "note": zod.string().nullable()
-})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests')
+})).describe('Employees covered by a bulk request, each with its own progress; empty for single requests'),
+  "createdBy": zod.object({
+  "source": zod.enum(['customer', 'member', 'office']),
+  "name": zod.string().nullable().describe('Display name of the member or staff member, when known')
+}).optional().describe('Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff')
 })
 
 

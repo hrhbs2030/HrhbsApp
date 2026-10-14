@@ -21,6 +21,7 @@ import { requestReference } from "../lib/money";
 import { officeCustomer, phoneMatches } from "../lib/office-search";
 import { requireOfficeStaff } from "../lib/office-access";
 import { companyAccessOf, companyPermissions, hasCustomerApproval, requireCompanyRole } from "../lib/company-access";
+import { createdByOf } from "../lib/people";
 import { ImportEmployeesResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -343,8 +344,10 @@ router.get("/office/customers/:userId", requireOfficeStaff, async (req, res): Pr
     db.select().from(hbsDocumentReminders).where(eq(hbsDocumentReminders.userId, scope.owner))
       .orderBy(asc(hbsDocumentReminders.expiresOn), asc(hbsDocumentReminders.id)),
   ]);
-  const labels = await subjectLabels(
-    requests.flatMap(r => r.employeeId ? [r.employeeId] : []), requests.flatMap(r => r.licenseId ? [r.licenseId] : []));
+  const [labels, creators] = await Promise.all([
+    subjectLabels(requests.flatMap(r => r.employeeId ? [r.employeeId] : []), requests.flatMap(r => r.licenseId ? [r.licenseId] : [])),
+    createdByOf(requests),
+  ]);
   send(res, 200, GetOfficeCustomerFileResponse, {
     userId: scope.owner,
     customer: officeCustomer(registration?.fullName ?? null, registration?.email ?? null),
@@ -353,6 +356,7 @@ router.get("/office/customers/:userId", requireOfficeStaff, async (req, res): Pr
     requests: requests.map(r => ({
       id: r.id, reference: requestReference(r.id, r.createdAt), service: r.service, status: r.status, createdAt: r.createdAt,
       subject: subjectOf(r, labels),
+      ...(creators.get(r.id) ? { createdBy: creators.get(r.id) } : {}),
     })),
     reminders: reminders.map(row => ({
       id: row.id, kind: row.kind, label: row.label, expiresOn: row.expiresOn, note: row.note,

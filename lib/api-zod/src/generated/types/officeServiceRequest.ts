@@ -9,6 +9,7 @@ import type { ChecklistItem } from './checklistItem';
 import type { OfficeCustomer } from './officeCustomer';
 import type { OfficeServiceRequestCategory } from './officeServiceRequestCategory';
 import type { OfficeServiceRequestStatus } from './officeServiceRequestStatus';
+import type { RequestCreatedBy } from './requestCreatedBy';
 import type { RequestEmployee } from './requestEmployee';
 import type { RequestLastMessage } from './requestLastMessage';
 import type { RequestQuote } from './requestQuote';
@@ -56,4 +57,5 @@ export interface OfficeServiceRequest {
   checklist: ChecklistItem[];
   /** Employees covered by a bulk request, each with its own progress; empty for single requests */
   employees: RequestEmployee[];
+  createdBy?: RequestCreatedBy;
 }

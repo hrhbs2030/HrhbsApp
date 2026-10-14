@@ -1,6 +1,7 @@
 import { and, asc, eq, or, sql } from "drizzle-orm";
 import { db, hbsInvoices, hbsPlans, hbsServiceRequests, hbsSubscriptions } from "@workspace/db";
 import { notifyCustomerNow } from "./customer-contact";
+import { shuttingDown, trackJob } from "./lifecycle";
 import { logger } from "./logger";
 import { invoiceReference, requestReference, riyals } from "./money";
 import { invoiceOverdueMail, subscriptionInvoiceMail } from "./notify";
@@ -65,13 +66,16 @@ export async function remindOverdueInvoices(send: typeof notifyCustomerNow = not
 export function startInvoiceReminders() {
   const schedule = (delay: number) => {
     setTimeout(async () => {
+      // A sweep that would start after SIGTERM is skipped; a running one is
+      // tracked so shutdown can wait for it (lib/lifecycle.ts).
+      if (shuttingDown()) return;
       try {
-        const sent = await remindOverdueInvoices();
+        const sent = await trackJob(() => remindOverdueInvoices());
         if (sent) logger.info({ sent }, "Sent overdue invoice reminders");
       } catch (err) {
         logger.error({ err }, "Invoice reminder sweep failed");
       } finally {
-        schedule(SWEEP_INTERVAL_MS);
+        if (!shuttingDown()) schedule(SWEEP_INTERVAL_MS);
       }
     }, delay).unref();
   };

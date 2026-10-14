@@ -121,6 +121,15 @@ function CategoryTabs({ value, onChange }: { value: ServiceCategory | null; onCh
   const list = useRef<HTMLDivElement>(null);
   const items: { id: string; label: string; category: ServiceCategory | null }[] = [{ id: allTab, label: 'كل المجالات', category: null }, ...categories.map((c) => ({ id: c.id, label: c.name, category: c.id }))];
   const current = value ?? allTab;
+  // On phones the rail scrolls sideways: keep the selected tab in view when it
+  // changes (not on mount, which must not move the page).
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return; }
+    const rail = list.current;
+    if (!rail || rail.scrollWidth <= rail.clientWidth) return;
+    rail.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.scrollIntoView?.({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'nearest', inline: 'nearest' });
+  }, [current]);
   function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     const tabs = [...(list.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? [])];
     const index = tabs.indexOf(document.activeElement as HTMLButtonElement);
@@ -157,7 +166,21 @@ export function ServicesDirectory() {
   const [platform, setPlatform] = useState(platforms.includes(params.get('platform') ?? '') ? params.get('platform') : null);
   const results = useMemo(() => searchServices(query, category, platform), [query, category, platform]);
   const searchField = useRef<HTMLInputElement>(null);
+  const directory = useRef<HTMLDivElement>(null);
+  // The results heading and the list carry a scroll margin equal to the sticky
+  // toolbar (public.css), so landing on them never hides the count and the
+  // first group title under it.
   const scrollTo = (el: Element | null) => el?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  // The toolbar's height (one or two rows, depending on width) feeds that margin.
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') return;
+    const tools = document.getElementById('directory-tools');
+    const root = directory.current;
+    if (!tools || !root) return;
+    const observer = new ResizeObserver(() => root.style.setProperty('--pub-tools-h', `${Math.round(tools.offsetHeight)}px`));
+    observer.observe(tools);
+    return () => observer.disconnect();
+  }, []);
   // Arriving with a query or filter (the hero search, a shared link): the
   // search field and its results sit below the wizard, so bring them up and put
   // the cursor in the field; a plain visit keeps the page at the top.
@@ -180,8 +203,8 @@ export function ServicesDirectory() {
 
   return (
     <PublicPage intro={<PageIntro kicker="دليل الخدمات" title="ما الخدمة التي تحتاجها؟" text="ابحث باسم المعاملة أو المنصة، أو ابدأ من مشكلتك: وثيقة تنتهي قريبًا، أو مؤشر تغيّر، أو ملاحظة وصلتك. يستقبل المكتب طلبك ويراجع إمكانية المساعدة قبل البدء." />}>
-      {/* On phones the toolbar comes first (CSS order): the search is the primary tool, the wizard an alternative. The toolbar sticks under the header while the catalogue scrolls. */}
-      <div className="site-wrap pub-page pub-directory">
+      {/* On phones the toolbar comes first and the results follow it directly (CSS order): the search is the primary tool, the wizard an alternative below the catalogue. The toolbar sticks under the header while the catalogue scrolls. */}
+      <div className="site-wrap pub-page pub-directory" ref={directory}>
         <div className="pub-directory-top">
           <ServiceDiscovery onViewAllMatches={({ query: nextQuery, category: nextCategory, platform: nextPlatform }) => {
             setQuery(nextQuery);
@@ -195,7 +218,7 @@ export function ServicesDirectory() {
             <label className="pub-search">
               <span className="sr-only">ابحث في الخدمات</span>
               <Search size={19} strokeWidth={ICON} aria-hidden="true" />
-              <input ref={searchField} type="search" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') scrollTo(document.getElementById('directory-results')); }} placeholder="ابحث: إقامة، سجل تجاري، تأمينات" autoComplete="off" />
+              <input ref={searchField} type="search" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); scrollTo(document.getElementById('directory-results')); } }} placeholder="ابحث: إقامة، سجل تجاري، تأمينات" autoComplete="off" />
             </label>
             <label className="pub-platform-filter" htmlFor="platform-filter">
               <span>المنصة</span>
@@ -204,6 +227,14 @@ export function ServicesDirectory() {
                 {platforms.map((name) => <option key={name} value={name}>{name}</option>)}
               </select>
             </label>
+            {/* Feedback as you type, next to the field: the count, the first matches as links, and a way to the full list. The count itself is announced from the results heading (its live region). */}
+            {query.trim() !== '' && (
+              <p className="pub-search-hint" data-testid="status-search-hint">
+                <span className="pub-search-hint-count">{resultsLabel(results.length)}</span>
+                {results.slice(0, 3).map((service) => <Link key={service.slug} href={`/services/${service.slug}`} className="pub-search-hint-link">{service.name}</Link>)}
+                {results.length > 3 && <a href="#directory-results" className="pub-search-hint-all" onClick={(e) => { e.preventDefault(); scrollTo(document.getElementById('directory-results')); }}>كل النتائج <ArrowLeft size={14} strokeWidth={ICON} aria-hidden="true" /></a>}
+              </p>
+            )}
           </div>
           <CategoryTabs value={category} onChange={setCategory} />
         </div>

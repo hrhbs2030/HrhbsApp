@@ -79,6 +79,7 @@ export const AuditLogEntryAction = {
   service_requestauto_renew: 'service_request.auto_renew',
   notificationpreferences: 'notification.preferences',
   whatsappreply: 'whatsapp.reply',
+  service_requestcreate_for_customer: 'service_request.create_for_customer',
 } as const;
 
 export type AuditLogEntryDetails = { [key: string]: unknown };
@@ -262,12 +263,40 @@ export const PortalUserRegistrationStatus = {
   rejected: 'rejected',
 } as const;
 
+/**
+ * The signed-in person's role in the company they work in; null when they have none
+ * @nullable
+ */
+export type PortalUserCompanyRole = typeof PortalUserCompanyRole[keyof typeof PortalUserCompanyRole] | null;
+
+
+export const PortalUserCompanyRole = {
+  owner: 'owner',
+  hr: 'hr',
+  finance: 'finance',
+  viewer: 'viewer',
+} as const;
+
+export interface ActingFor {
+  /** The company owner's user ID: the customer whose data the member sees */
+  companyUserId: string;
+  /** @nullable */
+  companyName: string | null;
+}
+
 export interface PortalUser {
   role: PortalUserRole;
   /** @nullable */
   officeRole: PortalUserOfficeRole;
   /** @nullable */
   registrationStatus: PortalUserRegistrationStatus;
+  /**
+     * The signed-in person's role in the company they work in; null when they have none
+     * @nullable
+     */
+  companyRole: PortalUserCompanyRole;
+  /** Set when the person is a member acting for another customer's company (null for owners and plain customers) */
+  actingFor: ActingFor | null;
 }
 
 export interface RegistrationRequestInput {
@@ -508,6 +537,27 @@ export interface RequestEmployee {
   note: string | null;
 }
 
+export type RequestCreatedBySource = typeof RequestCreatedBySource[keyof typeof RequestCreatedBySource];
+
+
+export const RequestCreatedBySource = {
+  customer: 'customer',
+  member: 'member',
+  office: 'office',
+} as const;
+
+/**
+ * Present when someone other than the customer opened the request or inquiry: a company member acting for the company, or office staff
+ */
+export interface RequestCreatedBy {
+  source: RequestCreatedBySource;
+  /**
+     * Display name of the member or staff member, when known
+     * @nullable
+     */
+  name: string | null;
+}
+
 export interface ServiceRequest {
   id: number;
   reference: string;
@@ -539,6 +589,7 @@ export interface ServiceRequest {
   checklist: ChecklistItem[];
   /** Employees covered by a bulk request, each with its own progress; empty for single requests */
   employees: RequestEmployee[];
+  createdBy?: RequestCreatedBy;
 }
 
 export type ServiceRequestStatusEventStatus = typeof ServiceRequestStatusEventStatus[keyof typeof ServiceRequestStatusEventStatus];
@@ -626,6 +677,7 @@ export interface OfficeServiceRequest {
   checklist: ChecklistItem[];
   /** Employees covered by a bulk request, each with its own progress; empty for single requests */
   employees: RequestEmployee[];
+  createdBy?: RequestCreatedBy;
 }
 
 export interface OfficeServiceRequestPage {
@@ -750,6 +802,58 @@ export interface ServiceRequestInput {
   serviceSlug?: string;
 }
 
+export type RequestSubjectInputType = typeof RequestSubjectInputType[keyof typeof RequestSubjectInputType];
+
+
+export const RequestSubjectInputType = {
+  employee: 'employee',
+  license: 'license',
+} as const;
+
+export interface RequestSubjectInput {
+  type: RequestSubjectInputType;
+  /**
+     * @minimum 1
+     * @maximum 2147483647
+     */
+  id: number;
+}
+
+export type OfficeServiceRequestInputCategory = typeof OfficeServiceRequestInputCategory[keyof typeof OfficeServiceRequestInputCategory];
+
+
+export const OfficeServiceRequestInputCategory = {
+  passports: 'passports',
+  labor: 'labor',
+  business: 'business',
+  other: 'other',
+} as const;
+
+/**
+ * A request the office opens for a customer (walk-in, phone or e-mail intake)
+ */
+export interface OfficeServiceRequestInput {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  service: string;
+  category: OfficeServiceRequestInputCategory;
+  /**
+     * @minLength 10
+     * @maxLength 5000
+     */
+  description: string;
+  /**
+     * Saudi mobile; omitted → the customer's registration phone
+     * @minLength 9
+     * @maxLength 24
+     */
+  contactPhone?: string;
+  /** The employee or license in the customer's company file the request is about */
+  subject?: RequestSubjectInput | null;
+}
+
 export type ServiceRequestUpdateStatus = typeof ServiceRequestUpdateStatus[keyof typeof ServiceRequestUpdateStatus];
 
 
@@ -808,6 +912,7 @@ export interface Inquiry {
   createdAt: string;
   /** @nullable */
   answeredAt?: string | null;
+  createdBy?: RequestCreatedBy;
 }
 
 export type LinkedServiceRequestContextCategory = typeof LinkedServiceRequestContextCategory[keyof typeof LinkedServiceRequestContextCategory];
@@ -1797,6 +1902,7 @@ export interface OfficeCustomerRequest {
   status: OfficeCustomerRequestStatus;
   createdAt: string;
   subject: RequestSubject | null;
+  createdBy?: RequestCreatedBy;
 }
 
 export interface OfficeCustomerFile {

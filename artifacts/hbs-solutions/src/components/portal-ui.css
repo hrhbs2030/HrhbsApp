@@ -32,7 +32,7 @@
 .portal-side-collapse { display: none; }
 @media (min-width: 1024px) {
   .portal-side { position: sticky; top: 0; height: 100dvh; width: var(--portal-side-w); flex: none; padding: 24px 16px 16px; transform: none; box-shadow: none; }
-  .portal-side-collapse { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 40px; margin-top: 4px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: var(--color-on-dark-2); text-align: start; white-space: nowrap; }
+  .portal-side-collapse { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; margin-top: 4px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: var(--color-on-dark-2); text-align: start; white-space: nowrap; }
   .portal-side-collapse:hover { background: var(--color-sidebar-2); color: var(--color-on-dark); }
   /* Icon rail: labels hide, every control stays 44px, the label shows as a tooltip on hover/focus. */
   .portal[data-sidebar="rail"] .portal-side { width: var(--portal-rail-w); padding-inline: 12px; }
@@ -57,18 +57,22 @@
 .portal-crumb-sep { opacity: .5; }
 @media (max-width: 479px) { .portal-crumb > span:first-child, .portal-crumb-sep { display: none; } }
 .portal-topbar-brand { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--color-on-dark); white-space: nowrap; }
-.portal-topbar-help { align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid rgb(255 255 255 / .14); font-size: 13px; font-weight: 700; color: var(--color-on-dark-2); text-decoration: none; transition: color var(--duration-hover) ease, background-color var(--duration-hover) ease; }
+.portal-topbar-help { align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid rgb(255 255 255 / .14); font-size: 13px; font-weight: 700; color: var(--color-on-dark-2); text-decoration: none; transition: color var(--duration-hover) ease, background-color var(--duration-hover) ease; }
 .portal-topbar-help:hover { color: var(--color-on-dark); background: rgb(255 255 255 / .08); }
 .portal-search { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 1px solid rgb(255 255 255 / .14); border-radius: 12px; background: rgb(255 255 255 / .04); color: var(--color-on-dark-2); font: inherit; font-size: 13px; font-weight: 600; transition: background-color var(--duration-hover) ease, color var(--duration-hover) ease; }
 .portal-search:hover { background: rgb(255 255 255 / .1); color: var(--color-on-dark); }
 .portal-search-label, .portal-search-kbd { display: none; }
+/* A member working in another customer's company: the topbar says whose company they act for. */
+.portal-acting { display: none; align-items: center; gap: 6px; min-width: 0; min-height: 32px; padding: 0 10px; border: 1px solid rgb(255 255 255 / .18); border-radius: 999px; background: rgb(255 255 255 / .08); color: var(--color-on-dark); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.portal-acting-text { overflow: hidden; text-overflow: ellipsis; }
+@media (min-width: 640px) { .portal-acting { display: inline-flex; max-width: 18rem; } }
 @media (min-width: 640px) { .portal-search { min-width: 150px; padding-inline-end: 8px; } .portal-search-label { display: inline; margin-inline-end: auto; } .portal-search-kbd { display: inline-flex; } }
 @media (max-width: 639px) { .portal-search { width: 44px; padding: 0; justify-content: center; } }
-.portal-avatar-btn { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 4px 0 6px; border: 1px solid transparent; border-radius: 999px; background: transparent; color: var(--color-on-dark-2); }
+.portal-avatar-btn { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; min-width: 44px; padding: 0 4px 0 6px; border: 1px solid transparent; border-radius: 999px; background: transparent; color: var(--color-on-dark-2); }
 .portal-avatar-btn:hover, .portal-avatar-btn[data-state="open"] { border-color: rgb(255 255 255 / .14); background: rgb(255 255 255 / .08); }
 .portal-menu { z-index: 60; min-width: 220px; padding: 6px; border-color: var(--color-line); background: var(--color-raised); color: var(--color-ink); border-radius: 14px; box-shadow: var(--shadow-overlay); }
 .portal-menu-head { padding: 8px 10px; font-size: 13px; }
-.portal-menu-item { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px; border-radius: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.portal-menu-item { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border-radius: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
 .portal-menu-item[data-highlighted] { background: var(--color-sage); color: var(--color-ink); }
 .portal-band { height: calc(var(--portal-band-h, 270px) - var(--portal-topbar-h) - 28px); flex: none; }
 .portal-sheet { position: relative; background: var(--color-paper); border-radius: 28px; box-shadow: 0 -20px 40px -24px rgb(0 0 0 / .45), 0 26px 44px -26px rgb(4 12 13 / .7); outline: none; }
@@ -79,7 +83,7 @@
 
 /* Phone tab bar */
 .portal-tabbar { position: fixed; inset-inline: 0; bottom: 0; z-index: 40; display: none; grid-template-columns: repeat(5, minmax(0, 1fr)); height: calc(var(--portal-tabbar-h) + env(safe-area-inset-bottom)); padding: 0 4px env(safe-area-inset-bottom); border-top: 1px solid var(--color-line); background: rgb(252 250 244 / .94); backdrop-filter: blur(12px) saturate(1.2); box-shadow: 0 -8px 24px -20px rgb(4 12 13 / .5); }
-.portal-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: var(--portal-tabbar-h); padding: 4px 2px; border: 0; background: transparent; font: inherit; font-size: 10.5px; font-weight: 700; color: var(--color-quiet); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--duration-hover) ease; }
+.portal-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: var(--portal-tabbar-h); padding: 4px 2px; border: 0; background: transparent; font: inherit; font-size: 11.5px; font-weight: 700; color: var(--color-quiet); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--duration-hover) ease; }
 .portal-tab-icon { position: relative; display: grid; place-items: center; width: 44px; height: 28px; border-radius: 999px; transition: background-color var(--duration-hover) ease, transform var(--duration-press) var(--ease-spring); }
 .portal-tab:active .portal-tab-icon { transform: scale(.92); }
 .portal-tab.is-active { color: var(--color-teal); }
@@ -168,7 +172,7 @@
 .notif-item-body { font-size: 12.5px; line-height: 1.7; color: var(--color-quiet); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .notif-item-meta { display: flex; gap: 6px; font-size: 11.5px; color: var(--color-subtle); }
 .notif-panel-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--color-line); background: var(--color-paper); }
-.notif-panel-link { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--color-teal-bright); text-decoration: none; cursor: pointer; }
+.notif-panel-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--color-teal-bright); text-decoration: none; cursor: pointer; }
 .notif-panel-link:hover:not(:disabled) { background: var(--color-sage); }
 .notif-panel-link:disabled { color: var(--color-subtle); cursor: default; }
 .notif-toasts { position: fixed; bottom: 16px; inset-inline-start: 16px; z-index: 70; display: flex; flex-direction: column; gap: 8px; width: min(360px, calc(100vw - 32px)); }

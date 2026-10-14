@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowLeft, Check, CheckCircle2, CircleAlert, FileJson2, FileSearch, Fingerprint, History, LockKeyhole, ShieldCheck, UploadCloud } from 'lucide-react';
 import { getListLegacyImportsQueryKey, useImportLegacyBackup, useListLegacyImports, usePreviewLegacyBackup, type LegacyBackupSummary, type LegacyImportSummary } from '@workspace/api-client-react';
 import { EmptyBlock, ErrorBlock, LoadingBlock, PageHeading, PortalLayout } from '@/components/portal-ui';
-import { OfficeCommandPalette } from '@/components/office-command';
 import { LOCALE } from '@/lib/format';
 
 const LIMIT = 5_000_000;
@@ -138,7 +137,6 @@ export default function Legacy() {
 
   const consistent = completed ? matches(completed.source, completed.stored) : false;
   return <PortalLayout staff>
-    <OfficeCommandPalette />
     <div className="rise">
       <PageHeading eyebrow="أداة المكتب / الأرشيف الخاص" title="نقل النسخ القديمة" subtitle="راجع سجلات الهاتف القديمة قبل حفظها في أرشيف منفصل عن بوابة العملاء."/>
       <div className="mb-6 rounded-2xl border border-warn-line bg-warn-soft p-5 sm:p-6">

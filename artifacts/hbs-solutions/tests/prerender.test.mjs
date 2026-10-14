@@ -132,10 +132,15 @@ test('rehost moves the shell head to the site URL and leaves the body alone', ()
 
 test('chunk preloads follow the manifest for lazy page modules only', () => {
   const manifest = {
-    'index.html': { file: 'assets/index-abc.js', isEntry: true, css: ['assets/index-abc.css'] },
-    'src/pages/public.tsx': { file: 'assets/public-xyz.js', css: ['assets/public-xyz.css'], imports: ['index.html', '_shared-123.js'] },
+    'index.html': { file: 'assets/index-abc.js', isEntry: true, css: ['assets/index-abc.css'], imports: ['_vendor-react-777.js'] },
+    // The entry's own static imports (manualChunks vendors) are preloaded by Vite from index.html already.
+    '_vendor-react-777.js': { file: 'assets/vendor-react-777.js' },
+    'src/pages/public.tsx': { file: 'assets/public-xyz.js', css: ['assets/public-xyz.css'], imports: ['index.html', '_shared-123.js', '_vendor-react-777.js'] },
     '_shared-123.js': { file: 'assets/shared-123.js', imports: ['src/pages/public.tsx'] },
     'src/pages/legal.tsx': { file: 'assets/legal-456.js' },
+    // Rollup gave the landing page a chunk without a facade: keyed by file, named after the module.
+    '_landing-789.js': { file: 'assets/landing-789.js', name: 'landing', isDynamicEntry: true, css: ['assets/landing-789.css'], imports: ['index.html', '_vendor-react-777.js'] },
+    '_landing-789.css': { file: 'assets/landing-789.css' },
   };
   assert.deepEqual(chunkPreloads('/services/iqama-renewal', manifest), [
     { rel: 'modulepreload', href: '/assets/public-xyz.js' },
@@ -143,7 +148,12 @@ test('chunk preloads follow the manifest for lazy page modules only', () => {
     { rel: 'preload', as: 'style', href: '/assets/public-xyz.css' },
   ]);
   assert.deepEqual(chunkPreloads('/terms', manifest, '/app'), [{ rel: 'modulepreload', href: '/app/assets/legal-456.js' }]);
-  assert.deepEqual(chunkPreloads('/', manifest), []);
+  // The home page is lazy too (src/App.tsx), so its chunk is announced as well.
+  assert.deepEqual(chunkPreloads('/', manifest), [
+    { rel: 'modulepreload', href: '/assets/landing-789.js' },
+    { rel: 'preload', as: 'style', href: '/assets/landing-789.css' },
+  ]);
+  assert.deepEqual(chunkPreloads('/', { 'index.html': manifest['index.html'] }), []);
   assert.deepEqual(chunkPreloads('/services', { 'index.html': manifest['index.html'] }), []);
   assert.deepEqual(chunkPreloads('/services', null), []);
   const html = renderPage(shell, { title: 't', description: 'd', canonical: 'https://example.test/terms', preloads: chunkPreloads('/terms', manifest) });

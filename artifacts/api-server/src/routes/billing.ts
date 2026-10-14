@@ -1,6 +1,6 @@
 import { getAuth } from "@clerk/express";
 import { timingSafeEqual } from "node:crypto";
-import { and, asc, desc, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { Router, type IRouter, type RequestHandler, type Response } from "express";
 import {
   db, hbsInvoiceGatewayPages, hbsInvoices, hbsServiceRequests, hbsSubscriptions, type HbsInvoice, type HbsServiceRequest,
@@ -14,13 +14,14 @@ import {
   UpdateOfficeInvoiceBody, UpdateOfficeInvoiceParams, UpdateOfficeInvoiceResponse,
 } from "@workspace/api-zod";
 import { recordAudit } from "../lib/audit";
-import { COMPANY_ACCESS_DENIED, companyPermissions, hasCustomerApproval, resolveCompanyAccess } from "../lib/company-access";
+import { COMPANY_ACCESS_DENIED, companyPermissions, customerId, hasCustomerApproval, resolveCompanyAccess } from "../lib/company-access";
 import { notifyCustomer, notifyOffice } from "../lib/customer-contact";
 import { invoiceReference, requestReference, riyals, vatFor, VAT_RATE_BASIS_POINTS } from "../lib/money";
 import {
   cancelGatewayInvoice, createGatewayInvoice, fetchGatewayInvoice, moyasarConfigured, type GatewayInvoice,
 } from "../lib/moyasar";
 import { closedInvoicePaidMail, invoiceIssuedMail, invoicePaidOfficeMail } from "../lib/notify";
+import { shuttingDown, trackJob } from "../lib/lifecycle";
 import { logger } from "../lib/logger";
 import { requireOfficeStaff } from "../lib/office-access";
 import { resumeAfterPayment } from "../lib/automations";
@@ -69,9 +70,8 @@ async function invoicesOf(request: HbsServiceRequest) {
 
 // Who may pay or refresh an invoice: an approved customer (their own
 // requests and subscription), or a company member whose role covers billing
-// (lib/company-access) for the company's subscription invoices only. The
-// company whose subscription invoices the member may act on is left in
-// res.locals.billingCompanyUserId; request invoices stay the customer's own.
+// (lib/company-access) for the company's request and subscription invoices.
+// The company the member may pay for is left in res.locals.billingCompanyUserId.
 const requireInvoiceAccess: RequestHandler = async (req, res, next) => {
   const userId = getAuth(req).userId;
   if (!userId) { res.status(401).json({ error: "Sign in to continue" }); return; }
@@ -91,7 +91,9 @@ const billingCompanyOf = (res: Response) => (res.locals.billingCompanyUserId ?? 
 // billing member owns the company's subscription invoices.
 async function customerInvoice(id: number, userId: string, billingCompanyUserId: string | null) {
   const owners = [eq(hbsServiceRequests.userId, userId), eq(hbsSubscriptions.userId, userId)];
-  if (billingCompanyUserId) owners.push(eq(hbsSubscriptions.userId, billingCompanyUserId));
+  // A billing member (finance/owner role) settles the company's request and
+  // subscription invoices alike; the company file is theirs to pay for.
+  if (billingCompanyUserId) owners.push(eq(hbsServiceRequests.userId, billingCompanyUserId), eq(hbsSubscriptions.userId, billingCompanyUserId));
   const [row] = await db.select({ invoice: hbsInvoices, request: hbsServiceRequests }).from(hbsInvoices)
     .leftJoin(hbsServiceRequests, eq(hbsInvoices.requestId, hbsServiceRequests.id))
     .leftJoin(hbsSubscriptions, eq(hbsInvoices.subscriptionId, hbsSubscriptions.id))
@@ -245,7 +247,7 @@ router.get("/service-requests/:id/invoices", requireApprovedCustomer, async (req
   const params = ListServiceRequestInvoicesParams.safeParse(req.params);
   if (!params.success) { res.status(404).json({ error: "Request not found" }); return; }
   const [request] = await db.select().from(hbsServiceRequests).where(and(
-    eq(hbsServiceRequests.id, params.data.id), eq(hbsServiceRequests.userId, getAuth(req).userId!))).limit(1);
+    eq(hbsServiceRequests.id, params.data.id), eq(hbsServiceRequests.userId, customerId(req)))).limit(1);
   if (!request) { res.status(404).json({ error: "Request not found" }); return; }
   res.json(ListServiceRequestInvoicesResponse.parse(await invoicesOf(request)));
 });
@@ -430,29 +432,66 @@ router.post("/payments/moyasar/webhook", async (req, res): Promise<void> => {
   res.status(200).end();
 });
 
+// Pages the sweep looks at per run.
+export const RECONCILE_BATCH = 200;
+
+// The former single-pointer representation (hbs_invoices.gateway_invoice_id
+// only) is copied into hbs_invoice_gateway_pages once per process: one
+// insert-select for the invoices that still lack a page row, then never
+// again while the server runs. invoiceForGatewayPage backfills lazily for
+// anything that slips through (a webhook for a page from before the
+// restart), so this is a convenience, not a correctness step.
+let legacyPagesBackfilled = false;
+
+export function resetLegacyPageBackfill(): void {
+  legacyPagesBackfilled = false;
+}
+
+async function backfillLegacyGatewayPages(): Promise<number> {
+  if (legacyPagesBackfilled) return 0;
+  const inserted = await db.execute(sql`
+    insert into ${hbsInvoiceGatewayPages} (gateway_invoice_id, invoice_id, payment_url)
+    select ${hbsInvoices.gatewayInvoiceId}, ${hbsInvoices.id}, coalesce(${hbsInvoices.paymentUrl}, '')
+    from ${hbsInvoices}
+    where ${hbsInvoices.gatewayInvoiceId} is not null
+      and not exists (select 1 from ${hbsInvoiceGatewayPages} p where p.gateway_invoice_id = ${hbsInvoices.gatewayInvoiceId})
+    on conflict do nothing
+  `);
+  legacyPagesBackfilled = true;
+  return inserted.rowCount ?? 0;
+}
+
 // Customers who pay and close the tab before returning, without a webhook,
-// would leave the invoice unpaid here: check every known payment page.
+// would leave the invoice unpaid here: check the payment pages of the
+// invoices that are still open. A page whose invoice was paid or cancelled
+// is closed (closed_at) and leaves the queue, so the sweep is O(open pages)
+// and an old page can never starve a newer one: oldest/never-checked first.
 export async function reconcileOnlinePayments(): Promise<number> {
   if (!moyasarConfigured()) return 0;
-  // Backfill the former single-pointer representation so deployments with
-  // existing invoices gain durable page mappings without losing history.
-  const legacy = await db.select({
-    id: hbsInvoices.id, gatewayInvoiceId: hbsInvoices.gatewayInvoiceId, paymentUrl: hbsInvoices.paymentUrl,
-  }).from(hbsInvoices).where(isNotNull(hbsInvoices.gatewayInvoiceId));
-  for (const item of legacy) {
-    if (item.gatewayInvoiceId) await rememberGatewayPage(item.id, { id: item.gatewayInvoiceId, url: item.paymentUrl ?? "" });
-  }
-  // Reconcile all known pages, including pages for manually closed invoices.
-  // Oldest/never-checked first prevents an old delayed payment being starved.
-  const pages = await db.select().from(hbsInvoiceGatewayPages)
-    .orderBy(sql`${hbsInvoiceGatewayPages.lastCheckedAt} asc nulls first`, asc(hbsInvoiceGatewayPages.createdAt)).limit(200);
+  await backfillLegacyGatewayPages();
+  const now = new Date();
+  // Pages of settled invoices are retired in one statement rather than one
+  // gateway call each; a late payment on such a page still arrives through
+  // the webhook or the customer's refresh (invoiceForGatewayPage).
+  await db.update(hbsInvoiceGatewayPages).set({ closedAt: now })
+    .where(and(isNull(hbsInvoiceGatewayPages.closedAt), sql`exists (
+      select 1 from ${hbsInvoices} i where i.id = ${hbsInvoiceGatewayPages.invoiceId} and i.status <> 'issued')`));
+  const pages = await db.select({ page: hbsInvoiceGatewayPages }).from(hbsInvoiceGatewayPages)
+    .innerJoin(hbsInvoices, eq(hbsInvoices.id, hbsInvoiceGatewayPages.invoiceId))
+    .where(and(isNull(hbsInvoiceGatewayPages.closedAt), eq(hbsInvoices.status, "issued")))
+    .orderBy(sql`${hbsInvoiceGatewayPages.lastCheckedAt} asc nulls first`, asc(hbsInvoiceGatewayPages.createdAt))
+    .limit(RECONCILE_BATCH);
   let settled = 0;
-  for (const page of pages) {
+  for (const { page } of pages) {
     try {
       const associated = await invoiceForGatewayPage(page.gatewayInvoiceId);
       if (!associated) continue;
-      const wasIssued = associated.invoice.status === "issued";
-      if (wasIssued && (await settleFromGateway(associated.invoice, associated.request,
+      if (associated.invoice.status !== "issued") {
+        await db.update(hbsInvoiceGatewayPages).set({ closedAt: new Date() })
+          .where(and(eq(hbsInvoiceGatewayPages.gatewayInvoiceId, page.gatewayInvoiceId), isNull(hbsInvoiceGatewayPages.closedAt)));
+        continue;
+      }
+      if ((await settleFromGateway(associated.invoice, associated.request,
         await fetchGatewayInvoice(page.gatewayInvoiceId))).status === "paid") settled++;
     } catch (err) {
       logger.warn({ err, invoiceId: page.invoiceId, gatewayInvoiceId: page.gatewayInvoiceId }, "Payment reconciliation failed for a gateway page");
@@ -462,15 +501,17 @@ export async function reconcileOnlinePayments(): Promise<number> {
   return settled;
 }
 
+// No timer holds the process open; nothing re-arms after shutdown began.
 export function startPaymentReconciliation() {
   const schedule = (delay: number) => {
     setTimeout(async () => {
+      if (shuttingDown()) return;
       try {
-        const settled = await reconcileOnlinePayments();
+        const settled = await trackJob(() => reconcileOnlinePayments());
         if (settled) logger.info({ settled }, "Reconciled online payments");
       } catch (err) {
         logger.error({ err }, "Payment reconciliation failed");
-      } finally { schedule(30 * 60_000); }
+      } finally { if (!shuttingDown()) schedule(30 * 60_000); }
     }, delay).unref();
   };
   schedule(2 * 60_000);

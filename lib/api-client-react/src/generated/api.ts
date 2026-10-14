@@ -95,6 +95,7 @@ import type {
   OfficeReminder,
   OfficeReport,
   OfficeServiceRequest,
+  OfficeServiceRequestInput,
   OfficeServiceRequestPage,
   OfficeStaffInput,
   OfficeStaffMember,
@@ -9952,6 +9953,95 @@ export function useListOfficeCustomerMembers<TData = Awaited<ReturnType<typeof l
 
 
 
+
+export const getCreateOfficeServiceRequestUrl = (userId: string,) => {
+
+
+
+
+  return `/api/office/customers/${userId}/service-requests`
+}
+
+/**
+ * @summary Staff-only open a service request for a customer (walk-in, phone or e-mail intake)
+ */
+export const createOfficeServiceRequest = async (userId: string,
+    officeServiceRequestInput: OfficeServiceRequestInput, options?: Parameters<typeof customFetch>[1]): Promise<OfficeServiceRequest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OfficeServiceRequest>(getCreateOfficeServiceRequestUrl(userId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(officeServiceRequestInput)
+  }
+);}
+
+
+
+
+
+export const getCreateOfficeServiceRequestMutationKey = () => ['createOfficeServiceRequest'] as const;
+
+export const getCreateOfficeServiceRequestMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOfficeServiceRequest>>, TError,CreateOfficeServiceRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createOfficeServiceRequest>>, TError,CreateOfficeServiceRequestMutationVariables, TContext> => {
+
+const mutationKey = getCreateOfficeServiceRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createOfficeServiceRequest>>, CreateOfficeServiceRequestMutationVariables> = (props) => {
+          const {userId,data} = props ?? {};
+
+          return  createOfficeServiceRequest(userId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateOfficeServiceRequestMutationResult = NonNullable<Awaited<ReturnType<typeof createOfficeServiceRequest>>>
+    export type CreateOfficeServiceRequestMutationBody = BodyType<OfficeServiceRequestInput>
+    export type CreateOfficeServiceRequestMutationError = ErrorType<void>
+    export type CreateOfficeServiceRequestMutationVariables = {userId: string;data: BodyType<OfficeServiceRequestInput>}
+
+    /**
+ * @summary Staff-only open a service request for a customer (walk-in, phone or e-mail intake)
+ */
+export const useCreateOfficeServiceRequest = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOfficeServiceRequest>>, TError,CreateOfficeServiceRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createOfficeServiceRequest>>,
+        TError,
+        CreateOfficeServiceRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateOfficeServiceRequestMutationOptions(options));
+    }
 
 export const getUpdateOfficeRequestEmployeeUrl = (id: number,
     employeeId: number,) => {

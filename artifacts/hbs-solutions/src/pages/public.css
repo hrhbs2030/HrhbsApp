@@ -44,10 +44,21 @@
 .pub-tabs [role="tab"] { min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--color-line-strong); background: var(--color-surface); color: var(--color-quiet); font-size: var(--text-sm); font-weight: 700; cursor: pointer; transition: background-color var(--duration-hover) ease, color var(--duration-hover) ease, border-color var(--duration-hover) ease; }
 .pub-tabs [role="tab"]:hover { border-color: var(--color-teal-bright); color: var(--color-ink); }
 .pub-tabs [role="tab"][aria-selected="true"] { background: var(--color-teal); border-color: var(--color-teal); color: var(--color-on-dark); }
+/* Live feedback under the field while typing: count, first matches, the way to the list. */
+.pub-search-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; flex-basis: 100%; margin: 0; color: var(--color-subtle); font-size: var(--text-sm); line-height: 1.6; }
+.pub-search-hint-count { font-weight: 700; color: var(--color-ink); }
+.pub-search-hint-link, .pub-search-hint-all { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; color: var(--color-teal-bright); font-weight: 700; text-decoration: none; }
+.pub-search-hint-link:hover, .pub-search-hint-all:hover { text-decoration: underline; }
+.pub-search-hint-all { color: var(--color-copper); }
 .pub-directory-intro { max-width: 48em; margin: 28px 0 0; color: var(--color-quiet); font-size: var(--text-base); line-height: 1.95; }
 .pub-directory-intro + .pub-directory-intro { margin-top: 10px; }
 .pub-directory-intro a { color: var(--color-teal-bright); font-weight: 700; }
 .pub-count { display: flex; align-items: center; gap: 8px; margin: 28px 0 16px; color: var(--color-subtle); font-size: var(--text-sm); font-weight: 600; }
+/* Scrolling to the results (Enter, «كل النتائج», the wizard's «عرض كل النتائج»)
+   lands them below the fixed header (68 px) and the sticky toolbar, whose
+   height ServicesDirectory measures into --pub-tools-h. */
+.pub-directory .pub-count, .pub-directory #directory-list { scroll-margin-top: calc(68px + var(--pub-tools-h, 132px) + 8px); }
+.pub-directory .pub-toolbar { scroll-margin-top: 68px; }
 .pub-count svg { color: var(--color-copper); flex: none; }
 .pub-groups { display: grid; gap: clamp(32px, 4vw, 48px); }
 .pub-group-head { display: flex; align-items: flex-start; gap: 14px; margin: 0 0 16px; }
@@ -57,6 +68,8 @@
 .pub-group-head p { margin: 0; color: var(--color-subtle); font-size: var(--text-sm); line-height: 1.7; }
 .pub-group-count { color: var(--color-copper); font-weight: 700; }
 .pub-service-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+/* 55 cards: the ones below the fold are laid out only as they approach the viewport (cuts the first render's style and layout work on phones); the placeholder height keeps the scrollbar honest. */
+.pub-service-grid > li { content-visibility: auto; contain-intrinsic-size: auto 220px; }
 /* Catalogue card: category chip, name, platform badge, summary, and an arrow that slides on hover. */
 .pub-service-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; height: 100%; padding: 22px 24px 24px; border-radius: var(--radius-card); border: 1px solid var(--color-line); background: var(--color-surface); color: inherit; text-decoration: none; box-shadow: var(--shadow-card); transition: transform var(--duration-hover) var(--ease-out-soft), box-shadow var(--duration-hover) ease, border-color var(--duration-hover) ease; animation: rise var(--duration-enter) var(--ease-out-soft) both; }
 .pub-service-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift); border-color: var(--color-line-strong); }
@@ -177,9 +190,14 @@
 @media (max-width: 1180px) { .pub-related-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 1024px) { .pub-service-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 900px) {
-  /* The wizard and the toolbar swap places on phones (see ServicesDirectory). */
-  .pub-directory .pub-toolbar { order: -1; margin-bottom: 28px; }
-  .pub-directory .pub-directory-top { margin-bottom: 8px; }
+  /* Phones and small tablets (see ServicesDirectory): the toolbar comes first
+     and the results follow it directly, so typing shows matches in the same
+     screen; the wizard, then the intro prose, come after the catalogue. */
+  .pub-directory .pub-toolbar { order: -1; margin-bottom: 12px; }
+  .pub-directory .pub-count { order: 0; margin-top: 8px; }
+  .pub-directory #directory-list { order: 1; }
+  .pub-directory .pub-directory-top { order: 2; margin: 40px 0 0; }
+  .pub-directory .pub-directory-intro { order: 3; }
   /* Tabs stay on one row and scroll sideways, so the sticky toolbar stays short. */
   .pub-tabs { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; scroll-snap-type: x proximity; }
   .pub-tabs::-webkit-scrollbar { display: none; }

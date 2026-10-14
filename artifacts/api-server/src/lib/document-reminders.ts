@@ -7,6 +7,7 @@ import { recordAudit } from "./audit";
 import { AUTOMATION_ACTOR, applyAssignmentRule } from "./automations";
 import { checklistForService } from "./checklist";
 import { notifyCustomerNow, notifyOffice } from "./customer-contact";
+import { shuttingDown, trackJob } from "./lifecycle";
 import { logger } from "./logger";
 import { requestReference } from "./money";
 import { officeNewRequestMail, reminderMail, type Mail } from "./notify";
@@ -177,13 +178,16 @@ export async function sendDueReminders(send: typeof notifyCustomerNow = notifyCu
 export function startDocumentReminders() {
   const schedule = (delay: number) => {
     setTimeout(async () => {
+      // A sweep that would start after SIGTERM is skipped; a running one is
+      // tracked so shutdown can wait for it (lib/lifecycle.ts).
+      if (shuttingDown()) return;
       try {
-        const sent = await sendDueReminders();
+        const sent = await trackJob(() => sendDueReminders());
         if (sent) logger.info({ sent }, "Sent document expiry reminders");
       } catch (err) {
         logger.error({ err }, "Document reminder sweep failed");
       } finally {
-        schedule(SWEEP_INTERVAL_MS);
+        if (!shuttingDown()) schedule(SWEEP_INTERVAL_MS);
       }
     }, delay).unref();
   };

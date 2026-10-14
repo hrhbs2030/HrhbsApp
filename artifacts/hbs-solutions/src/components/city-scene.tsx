@@ -78,8 +78,33 @@ function lazyCity(city: LazyCity) {
   return lazy(() => loadCity(city).then((m) => ({ default: (city === 'jeddah' ? m.JeddahScene : m.JazanScene) as ComponentType })));
 }
 
+// Tracks a media query live (phone width below).
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(query).matches);
+  useEffect(() => {
+    const list = window.matchMedia?.(query);
+    if (!list) return;
+    const update = () => setMatches(list.matches);
+    update();
+    list.addEventListener('change', update);
+    return () => list.removeEventListener('change', update);
+  }, [query]);
+  return matches;
+}
+// Below this width the scene is a phone backdrop: SVG animations are not
+// composited in Chromium, so every running one costs main-thread time on a
+// device with little to spare (city-scene.css, .cs--calm).
+const PHONE_QUERY = '(max-width: 720px)';
+
 export function CityScene({ routeKey, variant = 'full', showCaption = true }: { routeKey: string; variant?: SceneVariant; showCaption?: boolean }) {
   const reduced = useReducedMotion();
+  const phone = useMediaQuery(PHONE_QUERY);
+  // Calm variant: the inner pages' band and the portal strip, and every phone,
+  // keep the camera drift, the atmosphere and the landmark lights but drop the
+  // traffic, the twinkling windows and the residents' small motions (≤ 20
+  // running animations instead of ~115). The landing page on a desktop gets
+  // the full scene.
+  const calm = variant !== 'full' || phone;
   // Review aid: ?city=jeddah pins one city (no cycling), for design QA.
   const pinned = typeof window !== 'undefined' ? cityOrder.indexOf(new URLSearchParams(window.location.search).get('city') as CityKey) : -1;
   const [index, setIndex] = useState(pinned >= 0 ? pinned : 0);
@@ -148,7 +173,7 @@ export function CityScene({ routeKey, variant = 'full', showCaption = true }: { 
   return (
     <>
     <div className="cs-underlay" data-on={windows.bottom || undefined} aria-hidden="true" />
-    <div className={`cs cs--${variant}${expanded ? ' cs--expanded' : ''}${windows.bottom ? ' cs--footer' : ''}${paused || reduced ? ' cs--paused' : ''}`} data-snap={snap || undefined} aria-hidden="true">
+    <div className={`cs cs--${variant}${expanded ? ' cs--expanded' : ''}${windows.bottom ? ' cs--footer' : ''}${paused || reduced ? ' cs--paused' : ''}${calm ? ' cs--calm' : ''}`} data-snap={snap || undefined} aria-hidden="true">
       <>
         {mounted.map((key) => (
           <div key={key} className="cs-scene" data-active={key === active} data-city={key}>

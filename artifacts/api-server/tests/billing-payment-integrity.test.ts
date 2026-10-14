@@ -10,7 +10,7 @@ import pinoHttp from "pino-http";
 import {
   db, hbsInvoiceGatewayPages, hbsInvoices, hbsOfficeStaff, hbsServiceRequests, pool,
 } from "@workspace/db";
-import billingRouter from "../src/routes/billing";
+import billingRouter, { reconcileOnlinePayments, resetLegacyPageBackfill } from "../src/routes/billing";
 
 if (process.env.NODE_ENV === "production") throw new Error("Billing integrity tests must not run in production");
 
@@ -31,12 +31,14 @@ test("billing gateway reconciliation, safe manual closure and idempotent issue r
     id: userId, primaryEmailAddressId: null,
     emailAddresses: userId === owner ? [{ emailAddress: officeEmail, verification: { status: "verified" } }] : [],
   }));
+  const gatewayFetches = new Map<string, number>();
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     if (!url.startsWith("https://api.moyasar.com/v1/invoices/")) return oldFetch(input, init);
     const path = url.slice("https://api.moyasar.com/v1/invoices/".length);
     const isCancel = path.endsWith("/cancel");
     const id = isCancel ? path.slice(0, -"/cancel".length) : path;
+    gatewayFetches.set(id, (gatewayFetches.get(id) ?? 0) + 1);
     const state = gatewayStates.get(id);
     if (!state) return Response.json({ error: "missing" }, { status: 404 });
     if (isCancel) {
@@ -136,6 +138,54 @@ test("billing gateway reconciliation, safe manual closure and idempotent issue r
       assert.equal(fresh?.status, "paid");
       assert.equal(fresh?.paymentMethod, "online");
       assert.equal(fresh?.paymentReference, page.id);
+    });
+
+    await t.test("the sweep checks open pages only: closed invoices' pages leave the queue and cannot starve it", async () => {
+      cancelMode = "cancel";
+      const request = await makeRequest(customers[0]!);
+      // Three pages of settled invoices, never checked (they would sort first), one open page checked recently.
+      const closedPages: string[] = [];
+      for (const status of ["paid", "cancelled", "paid"] as const) {
+        const { invoice, page } = await makeInvoice(request.id, `closed-${status}`);
+        await db.update(hbsInvoices).set({ status, ...(status === "paid" ? { paidAt: new Date(), paymentMethod: "manual" } : { cancelledAt: new Date() }) })
+          .where(eq(hbsInvoices.id, invoice.id));
+        closedPages.push(page.id);
+      }
+      const { invoice: open, page: openPage } = await makeInvoice(request.id, "open");
+      await db.update(hbsInvoiceGatewayPages).set({ lastCheckedAt: new Date(Date.now() - 30 * 60_000) })
+        .where(eq(hbsInvoiceGatewayPages.gatewayInvoiceId, openPage.id));
+      gatewayStates.get(openPage.id)!.status = "paid";
+      // A legacy invoice with a gateway pointer but no page row: backfilled once.
+      const [legacy] = await db.insert(hbsInvoices).values({
+        requestId: request.id, description: "Legacy pointer", quantity: 1, amountHalalas: 5_000,
+        vatRateBasisPoints: 1_500, vatHalalas: 750, totalHalalas: 5_750, issuedBy: owner,
+        gatewayInvoiceId: `integrity-legacy-${randomUUID().slice(0, 8)}`, paymentUrl: "https://pay.invalid/legacy",
+      }).returning();
+      invoiceIds.push(legacy.id);
+      gatewayStates.set(legacy.gatewayInvoiceId!, { id: legacy.gatewayInvoiceId!, status: "initiated", amount: 5_750, currency: "SAR", url: legacy.paymentUrl! });
+      resetLegacyPageBackfill();
+
+      assert.equal(await reconcileOnlinePayments(), 1, "the open page settled its invoice");
+      const [settled] = await db.select().from(hbsInvoices).where(eq(hbsInvoices.id, open.id));
+      assert.equal(settled?.status, "paid");
+      assert.equal(settled?.paymentReference, openPage.id);
+      for (const id of closedPages) {
+        assert.equal(gatewayFetches.get(id) ?? 0, 0, `closed page ${id} was not fetched`);
+        const [page] = await db.select().from(hbsInvoiceGatewayPages).where(eq(hbsInvoiceGatewayPages.gatewayInvoiceId, id));
+        assert.ok(page?.closedAt, "closed invoices' pages are retired");
+      }
+      const [backfilled] = await db.select().from(hbsInvoiceGatewayPages).where(eq(hbsInvoiceGatewayPages.gatewayInvoiceId, legacy.gatewayInvoiceId!));
+      assert.equal(backfilled?.invoiceId, legacy.id, "the legacy pointer gained a page row");
+      assert.equal(gatewayFetches.get(legacy.gatewayInvoiceId!), 1, "and was checked as an open page");
+      // The settled page is now closed too; a second sweep touches only the legacy page.
+      const before = new Map(gatewayFetches);
+      await db.update(hbsInvoices).set({ status: "cancelled", cancelledAt: new Date() }).where(eq(hbsInvoices.id, legacy.id));
+      assert.equal(await reconcileOnlinePayments(), 0);
+      // Pages of earlier subtests' still-open invoices may be checked; none of this subtest's closed pages is.
+      const retired = [...closedPages, openPage.id, legacy.gatewayInvoiceId!];
+      assert.deepEqual(retired.filter(id => (before.get(id) ?? 0) !== (gatewayFetches.get(id) ?? 0)), [], "no gateway call for closed pages");
+      const [openPageRow] = await db.select().from(hbsInvoiceGatewayPages).where(eq(hbsInvoiceGatewayPages.gatewayInvoiceId, openPage.id));
+      assert.ok(openPageRow?.closedAt);
     });
 
     await t.test("concurrent issue retries with a key produce one invoice and reject changed payload", async () => {

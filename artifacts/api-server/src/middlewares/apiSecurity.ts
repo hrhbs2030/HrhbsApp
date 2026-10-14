@@ -158,8 +158,12 @@ const UNLIMITED_PATHS = new Set(["/healthz", "/payments/moyasar/webhook", "/webh
 // office by email or WhatsApp): kept to a human pace.
 const SENSITIVE_WRITES = [
   /^\/portal\/registration$/,
+  // Asking for a WhatsApp challenge writes a secret the customer must send.
+  /^\/portal\/settings\/whatsapp-verification$/,
   /^\/inquiries$/,
   /^\/service-requests$/,
+  // Office intake creates a request in a customer's name and mails them.
+  /^\/office\/customers\/[^/]+\/service-requests$/,
   /^\/service-requests\/[^/]+\/(messages|rating|attachments)$/,
   /^\/inquiries\/[^/]+\/messages$/,
   /^\/service-requests\/attachments\/upload-url$/,

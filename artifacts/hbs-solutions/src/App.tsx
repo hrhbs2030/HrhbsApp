@@ -3,18 +3,25 @@ import { MutationCache, QueryCache, QueryClient, QueryClientProvider, useQueryCl
 import { Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
 import { getGetPortalMeQueryKey } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
-import { serviceBySlug } from '@/content/services';
+import type { ServiceEntry } from '@/content/services';
 import { CityScene } from '@/components/city-scene';
 import { SceneWindow } from '@/components/scene-window';
 import { hasSessionHint } from '@/lib/session-hint';
-import Landing from '@/pages/landing';
 import NotFound from '@/pages/not-found';
 
-// Public pages load on demand, so landing-page visitors download only the
-// landing page. Everything that needs Clerk (auth screens, role gate, portal
-// pages) sits behind the lazy PortalShell: public routes never load the auth
-// script, and the shell stays mounted as the visitor moves between portal pages.
+// Every page loads on demand: the entry carries only the router, the city
+// scene and the site chrome, so a visitor downloads the landing page (with
+// its intro and film) or the service pages (with the whole catalogue text),
+// never both. The prerendered HTML preloads the chunk of the route it was
+// built for (scripts/prerender.mjs). Everything that needs Clerk (auth
+// screens, role gate, portal pages) sits behind the lazy PortalShell: public
+// routes never load the auth script, and the shell stays mounted as the
+// visitor moves between portal pages.
+const Landing = lazy(() => import('@/pages/landing'));
 const PortalShell = lazy(() => import('@/components/portal-shell'));
+// The catalogue is only needed for a service page's title; it comes with the
+// service page chunk (same shared module), so the title never costs a request.
+const serviceCatalogue = () => import('@/content/services');
 const publicPages = () => import('@/pages/public');
 const ServicesDirectory = lazy(() => publicPages().then(m => ({ default: m.ServicesDirectory })));
 const ServiceDetail = lazy(() => publicPages().then(m => ({ default: m.ServiceDetail })));
@@ -101,9 +108,22 @@ function Routes() {
     : location.startsWith('/sign-in') || location.startsWith('/sign-up') ? 'full'
     : isPublicPath(location) ? 'band' : isPortalPath(location) ? 'portal' : 'full';
   useEffect(()=>{
-    const title = routeTitles[location] || (location.startsWith('/services/')?(serviceBySlug[location.slice(10)]?.name ?? 'الخدمة'):location.startsWith('/requests/')?'تفاصيل الطلب':location.startsWith('/inquiries/')?'الاستفسار':location.startsWith('/office/customers/')?'ملف عميل':location.startsWith('/office/requests/')?'طلب عميل':location.startsWith('/sign-in')?'تسجيل الدخول':location.startsWith('/sign-up')?'إنشاء حساب':'الصفحة غير موجودة');
+    // A service page's title and description come from the catalogue, which
+    // loads with the page chunk; the prerendered head already carries the
+    // right values, so nothing is written until the catalogue has answered.
+    let cancelled = false;
+    if (location.startsWith('/services/')) {
+      serviceCatalogue().then(({ serviceBySlug }) => {
+        if (cancelled) return;
+        const service = serviceBySlug[location.slice(10)];
+        applyMeta(service?.name ?? 'الخدمة', service);
+      });
+    } else {
+      const title = routeTitles[location] || (location.startsWith('/requests/')?'تفاصيل الطلب':location.startsWith('/inquiries/')?'الاستفسار':location.startsWith('/office/customers/')?'ملف عميل':location.startsWith('/office/requests/')?'طلب عميل':location.startsWith('/sign-in')?'تسجيل الدخول':location.startsWith('/sign-up')?'إنشاء حساب':'الصفحة غير موجودة');
+      applyMeta(title);
+    }
+    function applyMeta(title: string, service?: ServiceEntry) {
     document.title=`${title} | HBS حلول الغد`;
-    const service = location.startsWith('/services/') ? serviceBySlug[location.slice(10)] : undefined;
     // A service address that does not exist is a "not found" page: keep it out of search results.
     const isPublic = isPublicPath(location) && !(location.startsWith('/services/') && !service);
     document.querySelector('meta[name="robots"]')?.setAttribute('content', isPublic ? 'index, follow' : 'noindex, nofollow');
@@ -143,6 +163,8 @@ function Routes() {
       }
       landed.current = '';
     }
+    }
+    return () => { cancelled = true; };
   },[location]);
   // The top window: the first screen (full), the dark band (public pages) or
   // the strip above the working sheet (portal). Footers add bottom windows.

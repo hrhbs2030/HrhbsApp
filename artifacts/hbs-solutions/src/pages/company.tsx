@@ -1,15 +1,16 @@
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Link, useParams, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, BadgeCheck, Building2, CalendarClock, CreditCard, LogOut, Mail, MailPlus, Phone, ReceiptText, Repeat, Search, ShieldCheck, Trash2, UsersRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BadgeCheck, Building2, CalendarClock, CreditCard, LogOut, Mail, MailPlus, MessageCircle, MessageSquare, Phone, Plus, ReceiptText, Repeat, Search, ShieldCheck, Trash2, UsersRound } from 'lucide-react';
 import {
-  getGetCompanyFileQueryKey, getGetCompanyMembershipQueryKey, getGetCompanySubscriptionQueryKey, getGetOfficeCustomerFileQueryKey, getGetPortalSummaryQueryKey,
-  getListCompanyInvoicesQueryKey, getListCompanyMembersQueryKey, getListOfficeCustomersQueryKey, getListPlansQueryKey,
-  useGetCompanyFile, useGetCompanyMembership, useGetCompanySubscription, useGetOfficeCustomerFile, useInviteCompanyMember, useLeaveCompanyMembership, useListCompanyInvoices,
-  useListCompanyMembers, useListOfficeCustomers, useListPlans, useRemoveCompanyMember, useStartCompanySubscription, useUpdateCompanyMember, useUpdateCompanySubscription,
-  type CompanyMember, type CompanyMemberInviteInputRole, type CompanyRole, type Plan, type Subscription, type SubscriptionStatus,
+  getGetCompanyFileQueryKey, getGetCompanyMembershipQueryKey, getGetCompanySubscriptionQueryKey, getGetOfficeCustomerFileQueryKey, getGetPortalMeQueryKey, getGetPortalSummaryQueryKey,
+  getListCompanyInvoicesQueryKey, getListCompanyMembersQueryKey, getListOfficeCustomerMembersQueryKey, getListOfficeCustomersQueryKey, getListOfficeMessageThreadsQueryKey, getListOfficeRegistrationsQueryKey, getListOfficeSubscriptionsQueryKey, getListPlansQueryKey,
+  useCreateOfficeServiceRequest, useGetCompanyFile, useGetCompanyMembership, useGetCompanySubscription, useGetOfficeCustomerFile, useGetPortalMe, useInviteCompanyMember, useLeaveCompanyMembership, useListCompanyInvoices,
+  useListCompanyMembers, useListOfficeCustomerMembers, useListOfficeCustomers, useListOfficeMessageThreads, useListOfficeRegistrations, useListOfficeSubscriptions, useListPlans, useRemoveCompanyMember, useStartCompanySubscription, useUpdateCompanyMember, useUpdateCompanySubscription,
+  type CompanyMember, type CompanyMemberInviteInputRole, type CompanyRole, type OfficeCustomerFile, type OfficeServiceRequest, type OfficeServiceRequestInput, type OfficeServiceRequestInputCategory, type Plan, type Subscription, type SubscriptionStatus,
 } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock, Status, dateText, useDebouncedValue } from '@/components/portal-ui';
+import { Avatar, Chip, DialogFrame, type ChipTone } from '@/components/portal-kit';
 import { CompanyFileView, customerCompanyApi, officeCompanyApi } from '@/components/company-file';
 import { ConfirmDialog, InvoiceRow, PayInvoiceButton, useRefreshReturnedInvoice } from '@/components/request-billing';
 import { ExpiryBadge, reminderKindNames } from '@/components/reminder-ui';
@@ -166,6 +167,12 @@ const subscriptionError = (e: unknown) => {
   return status === 409 ? 'لديك اشتراك نشط بالفعل.' : status === 404 ? 'الباقة لم تعد متاحة، أو لا يوجد اشتراك نشط.' : status === 403 ? 'هذا الإجراء لمالك المنشأة فقط.' : 'تعذّر تنفيذ الطلب. حاول بعد قليل.';
 };
 
+// The first invoice is issued the moment the subscription starts, so the
+// plan, the monthly total and the renewal date are confirmed first.
+export function subscriptionSummary(plan: Plan, now: Date = new Date()): { total: string; renewsOn: string } {
+  const renews = new Date(now); renews.setMonth(renews.getMonth() + 1);
+  return { total: formatMoney(plan.total), renewsOn: formatDate(renews) };
+}
 function PlanCard({ plan, busy, onSubscribe }: { plan: Plan; busy: boolean; onSubscribe: () => void }) {
   return <li className="cp-plan">
     <div className="flex flex-wrap items-start justify-between gap-2"><h3 className="display m-0 text-lg font-semibold">{plan.name}</h3>{plan.autoRenewals && <span className="cf-tag" title={plansCopy.autoRenewalsHint}><Repeat size={11} aria-hidden="true"/> {plansCopy.autoRenewals}</span>}</div>
@@ -189,6 +196,7 @@ export function SubscriptionSection({ returnedInvoiceId }: { returnedInvoiceId: 
   const update = useUpdateCompanySubscription();
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [choosing, setChoosing] = useState<Plan | null>(null);
   // The subscription, its invoices and the dashboard's unpaid count all move together.
   const refresh = () => Promise.all([subKey, invoicesKey, getGetPortalSummaryQueryKey()].map(queryKey => qc.invalidateQueries({ queryKey })));
   const checking = useRefreshReturnedInvoice(returnedInvoiceId, refresh);
@@ -215,9 +223,13 @@ export function SubscriptionSection({ returnedInvoiceId }: { returnedInvoiceId: 
         <p className="m-0 mb-5 text-sm leading-7 text-quiet">{plansCopy.intro}</p>
         {plans.isLoading ? <LoadingBlock/> : plans.isError ? <ErrorBlock retry={() => plans.refetch()}/> : !plans.data?.filter(p => p.active).length
           ? <EmptyBlock title={plansCopy.empty} text={plansCopy.emptyText}/>
-          : <ul className="cp-plans">{plans.data.filter(p => p.active).sort((a, b) => a.sort - b.sort).map(p => <PlanCard key={p.id} plan={p} busy={start.isPending} onSubscribe={() => run(() => start.mutateAsync({ data: { planId: p.id, autoRenewRequests: p.autoRenewals } }))}/>)}</ul>}
+          : <ul className="cp-plans">{plans.data.filter(p => p.active).sort((a, b) => a.sort - b.sort).map(p => <PlanCard key={p.id} plan={p} busy={start.isPending} onSubscribe={() => { setError(null); setChoosing(p); }}/>)}</ul>}
       </div>}
       {error && <p role="alert" className="px-6 pb-5 text-sm text-danger">{error}</p>}
+      <ConfirmDialog open={!!choosing} onOpenChange={o => { if (!o) setChoosing(null); }} busy={start.isPending} confirmLabel="تأكيد الاشتراك"
+        title={choosing ? `الاشتراك في ${choosing.name}؟` : ''}
+        description={choosing ? `${subscriptionSummary(choosing).total} شهريًا شاملة الضريبة. تصدر الفاتورة الأولى الآن وتصلك بالبريد، ويتجدد الاشتراك في ${subscriptionSummary(choosing).renewsOn}. يمكنك الإلغاء في أي وقت دون فواتير جديدة.` : undefined}
+        onConfirm={() => { const p = choosing; setChoosing(null); if (p) void run(() => start.mutateAsync({ data: { planId: p.id, autoRenewRequests: p.autoRenewals } })); }}/>
       <ConfirmDialog open={cancelling} onOpenChange={o => { if (!o) setCancelling(false); }} danger busy={update.isPending} confirmLabel="إلغاء الاشتراك"
         title={plansCopy.cancelTitle} description={plansCopy.cancelText} onConfirm={() => { setCancelling(false); void run(() => update.mutateAsync({ data: { cancel: true } })); }}/>
     </section>
@@ -255,37 +267,156 @@ export function OfficeCustomers() {
   </PortalLayout>;
 }
 
-const tabs = [['file', 'المنشأة والموظفون'], ['requests', 'الطلبات'], ['reminders', 'الوثائق والتنبيهات']] as const;
+const fileTabs = [['file', 'المنشأة والموظفون'], ['requests', 'الطلبات'], ['reminders', 'الوثائق والتنبيهات'], ['members', 'الأعضاء']] as const;
+type FileTab = (typeof fileTabs)[number][0];
+const registrationChip: Record<string, { tone: ChipTone; label: string }> = { approved: { tone: 'ok', label: 'تسجيل معتمد' }, pending: { tone: 'warn', label: 'تسجيل بانتظار المراجعة' }, rejected: { tone: 'danger', label: 'تسجيل مرفوض' } };
+const openRequestStatuses = new Set(['received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment']);
 
+// The customer in one glance: who they are, where their registration,
+// subscription, payments, members and conversations stand, and the quick
+// actions the office takes most (a request on their behalf, the messages,
+// WhatsApp). Everything comes from endpoints that already exist; the
+// subscription is owner-only on the API and simply absent for staff.
 export function OfficeCustomerFilePage() {
   const { userId: raw } = useParams<{ userId: string }>();
   const userId = decodeURIComponent(raw ?? '');
   const qc = useQueryClient();
-  const [tab, setTab] = useState<(typeof tabs)[number][0]>('file');
+  const [tab, setTab] = useState<FileTab>('file');
+  const [intake, setIntake] = useState(false);
   const file = useGetOfficeCustomerFile(userId, { query: { queryKey: getGetOfficeCustomerFileQueryKey(userId), enabled: !!userId } });
   const refresh = () => qc.invalidateQueries({ queryKey: getGetOfficeCustomerFileQueryKey(userId) });
   const d = file.data;
+  const me = useGetPortalMe({ query: { queryKey: getGetPortalMeQueryKey(), staleTime: 300_000 } });
+  const owner = me.data?.officeRole === 'owner';
+  const members = useListOfficeCustomerMembers(userId, { query: { queryKey: getListOfficeCustomerMembersQueryKey(userId), enabled: !!d, retry: false } });
+  const registrations = useListOfficeRegistrations({ query: { queryKey: getListOfficeRegistrationsQueryKey(), enabled: !!d?.customer, staleTime: 60_000 } });
+  // Staff see the customer's threads with their WhatsApp state; the owner-only subscriptions list is matched by the customer's user ID.
+  const threadParams = { q: d?.customer?.fullName ?? '', pageSize: 50 };
+  const threads = useListOfficeMessageThreads(threadParams, { query: { queryKey: getListOfficeMessageThreadsQueryKey(threadParams), enabled: !!d?.customer, staleTime: 60_000 } });
+  const subscriptions = useListOfficeSubscriptions({ pageSize: 100 }, { query: { queryKey: getListOfficeSubscriptionsQueryKey({ pageSize: 100 }), enabled: !!d && owner, retry: false, staleTime: 60_000 } });
+  const registration = d?.customer ? registrations.data?.find(r => r.email === d.customer?.email) : undefined;
+  const customerThreads = (threads.data?.items ?? []).filter(t => t.customer?.email === d?.customer?.email);
+  const unreadThreads = customerThreads.filter(t => t.unread > 0).length;
+  const whatsapp = customerThreads.find(t => t.whatsapp.number)?.whatsapp ?? null;
+  const subscription = subscriptions.data?.items.find(s => s.userId === userId) ?? null;
+  const awaitingPayment = d ? d.requests.filter(r => r.status === 'awaiting_payment').length : 0;
+  const activeRequests = d ? d.requests.filter(r => openRequestStatuses.has(r.status)).length : 0;
+  const title = d?.company?.name ?? d?.customer?.fullName ?? 'عميل';
+  const messagesHref = `/office/messages?q=${encodeURIComponent(d?.customer?.fullName ?? '')}`;
   return <PortalLayout staff>
     <Link href="/office/customers" className="mb-4 inline-flex min-h-11 items-center gap-2 text-xs font-bold text-subtle no-underline hover:text-ink"><ArrowRight size={16}/>ملفات العملاء</Link>
     {file.isLoading ? <LoadingBlock/> : file.error?.status === 404 ? <EmptyBlock title="العميل غير موجود" text="تحقق من الرابط أو ابحث في ملفات العملاء."/> : file.isError ? <ErrorBlock retry={() => file.refetch()}/> : d && <>
-      <div className="surface mb-6 flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6">
-        <div className="flex items-center gap-4"><span className="grid h-14 w-14 place-items-center rounded-2xl bg-sage text-teal"><Building2 size={26}/></span>
-          <div><span className="eyebrow">ملف عميل</span><h1 className="display text-2xl font-semibold sm:text-3xl">{d.company?.name ?? d.customer?.fullName ?? 'عميل'}</h1>
-            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-subtle">{d.customer && <span>{d.customer.fullName}</span>}{d.customer && <span className="inline-flex items-center gap-1" dir="ltr"><Mail size={12}/>{d.customer.email}</span>}{d.contactPhone && <a className="inline-flex items-center gap-1 text-inherit" dir="ltr" href={`tel:${d.contactPhone}`}><Phone size={12}/>{d.contactPhone}</a>}</div></div></div>
-        <div className="grid grid-cols-3 gap-3 text-center">{([['موظفون', d.employees.filter(e => e.status === 'active').length], ['تراخيص', d.licenses.length], ['طلبات نشطة', d.requests.filter(r => r.status !== 'completed').length]] as const).map(([label, value]) =>
-          <div key={label} className="rounded-xl bg-paper px-4 py-2"><div className="display nums text-xl font-semibold">{formatNumber(value)}</div><div className="text-xs text-subtle">{label}</div></div>)}</div>
-      </div>
-       <div className="cp-tabs" role="tablist" aria-label="أقسام ملف العميل">{tabs.map(([key, label], index) => <button key={key} id={`office-customer-tab-${key}`} role="tab" aria-controls={`office-customer-panel-${key}`} aria-selected={tab === key} tabIndex={tab === key ? 0 : -1} type="button" onClick={() => setTab(key)} onKeyDown={e => handleTabKeyDown<(typeof tabs)[number][0]>(e, index, tabs, setTab)} className="cp-tab">{label}</button>)}</div>
+      <header className="surface ocf-head" data-testid="customer-file-head">
+        <div className="ocf-who">
+          <Avatar name={title} size={56} className="ocf-avatar"/>
+          <div className="min-w-0">
+            <span className="eyebrow">ملف عميل</span>
+            <h1 className="display ocf-title">{title}</h1>
+            <div className="ocf-contact">{d.customer && d.company?.name && <span>{d.customer.fullName}</span>}{d.customer && <span className="inline-flex items-center gap-1" dir="ltr"><Mail size={12} aria-hidden="true"/>{d.customer.email}</span>}{d.contactPhone && <a className="inline-flex items-center gap-1 text-inherit" dir="ltr" href={`tel:${d.contactPhone}`}><Phone size={12} aria-hidden="true"/>{d.contactPhone}</a>}</div>
+            <div className="ocf-chips">
+              {registration ? <Chip tone={registrationChip[registration.status]?.tone ?? 'neutral'} dot size="sm">{registrationChip[registration.status]?.label ?? registration.status}</Chip> : d.customer ? <Chip tone="neutral" size="sm">بلا طلب تسجيل</Chip> : <Chip tone="neutral" size="sm">عميل سابق للتسجيل</Chip>}
+              {whatsapp && <Chip tone={whatsapp.verified ? 'ok' : 'warn'} dot size="sm" icon={<MessageCircle size={12} aria-hidden="true"/>}>{whatsapp.verified ? 'واتساب موثّق' : 'واتساب غير موثّق'}</Chip>}
+              {subscription && <Chip tone={subscription.status === 'active' ? 'ok' : subscription.status === 'past_due' ? 'warn' : 'neutral'} dot size="sm" icon={<CalendarClock size={12} aria-hidden="true"/>}>{subscription.plan.name} · {subscriptionStatusNames[subscription.status]}{subscription.status !== 'cancelled' && ` · يتجدد ${formatDate(subscription.renewsAt)}`}</Chip>}
+              {owner && subscriptions.data && !subscription && <Chip tone="neutral" size="sm">بلا اشتراك</Chip>}
+            </div>
+          </div>
+        </div>
+        <div className="ocf-actions">
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setIntake(true)} data-testid="button-office-intake"><Plus size={16} aria-hidden="true"/>إنشاء طلب للعميل</button>
+          <Link href={messagesHref} className="btn btn-outline btn-sm"><MessageSquare size={16} aria-hidden="true"/>الرسائل{unreadThreads > 0 && <span className="nums"> ({formatNumber(unreadThreads)})</span>}</Link>
+          {whatsapp?.verified && whatsapp.link && <a className="btn btn-outline btn-sm" href={whatsapp.link} target="_blank" rel="noopener noreferrer"><MessageCircle size={16} aria-hidden="true"/>واتساب</a>}
+        </div>
+        <ul className="ocf-stats" aria-label="أرقام العميل">
+          {([
+            ['موظفون', formatNumber(d.employees.filter(e => e.status === 'active').length), undefined],
+            ['تراخيص', formatNumber(d.licenses.length), undefined],
+            ['طلبات نشطة', formatNumber(activeRequests), activeRequests ? 'requests' : undefined],
+            ['بانتظار السداد', formatNumber(awaitingPayment), awaitingPayment ? 'requests' : undefined],
+            ['أعضاء المنشأة', members.data ? formatNumber(members.data.length) : '—', members.data ? 'members' : undefined],
+            ['محادثات غير مقروءة', threads.data ? formatNumber(unreadThreads) : '—', undefined],
+          ] as const).map(([label, value, target]) => <li key={label} className="ocf-stat">{target ? <button type="button" className="ocf-stat-btn" onClick={() => setTab(target)} aria-label={`${label}: ${value}، افتح`}><span className="ocf-stat-num display nums">{value}</span><span className="ocf-stat-lbl">{label}</span></button> : <><span className="ocf-stat-num display nums">{value}</span><span className="ocf-stat-lbl">{label}</span></>}</li>)}
+        </ul>
+      </header>
+      <div className="cp-tabs" role="tablist" aria-label="أقسام ملف العميل">{fileTabs.map(([key, label], index) => <button key={key} id={`office-customer-tab-${key}`} role="tab" aria-controls={`office-customer-panel-${key}`} aria-selected={tab === key} tabIndex={tab === key ? 0 : -1} type="button" onClick={() => setTab(key)} onKeyDown={e => handleTabKeyDown<FileTab>(e, index, fileTabs, setTab)} className="cp-tab">{label}</button>)}</div>
       <div id={`office-customer-panel-${tab}`} role="tabpanel" aria-labelledby={`office-customer-tab-${tab}`} tabIndex={0} className="cp-panel">
         {tab === 'file' && <CompanyFileView file={d} api={officeCompanyApi(userId)} office onChanged={refresh}/>}
-        {tab === 'requests' && (d.requests.length ? <div className="surface overflow-hidden">{d.requests.map(r => <Link key={r.id} href={`/office/requests?q=${encodeURIComponent(r.reference)}`} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 text-inherit no-underline last:border-0 hover:bg-paper">
-          <div className="min-w-0"><div className="font-bold">{r.service}</div><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span dir="ltr">{r.reference}</span><span>{dateText(r.createdAt)}</span><SubjectChip subject={r.subject}/></div></div><Status value={r.status}/>
-        </Link>)}</div> : <EmptyBlock title="لا توجد طلبات" text="لم يرسل هذا العميل طلبات بعد."/>)}
+        {tab === 'requests' && (d.requests.length ? <div className="surface overflow-hidden">{d.requests.map(r => <Link key={r.id} href={`/office/requests/${r.id}`} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 text-inherit no-underline last:border-0 hover:bg-paper">
+          <div className="min-w-0"><div className="font-bold">{r.service}</div><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle"><span dir="ltr" className="nums">{r.reference}</span><span>{dateText(r.createdAt)}</span><SubjectChip subject={r.subject}/></div></div><Status value={r.status}/>
+        </Link>)}</div> : <EmptyBlock title="لا توجد طلبات" text="لم يرسل هذا العميل طلبات بعد. يمكنك إنشاء طلب باسمه من أعلى الصفحة." action="إنشاء طلب للعميل" onAction={() => setIntake(true)}/>)}
         {tab === 'reminders' && (d.reminders.length ? <div className="surface overflow-hidden">{d.reminders.map(r => <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 last:border-0">
           <div><strong>{reminderKindNames[r.kind]}</strong> <span className="text-quiet">«{r.label}»</span><span className="block text-xs text-subtle">تنتهي في {formatCalendarDate(r.expiresOn)}{r.source !== 'manual' ? ' · من ملف المنشأة' : ''}</span></div><ExpiryBadge expiresOn={r.expiresOn}/>
         </div>)}</div> : <EmptyBlock title="لا توجد وثائق مؤرخة" text="أضف تواريخ انتهاء الموظفين والتراخيص لتظهر هنا."/>)}
+        {tab === 'members' && <OfficeMembersList query={members}/>}
       </div>
+      <OfficeIntakeDialog open={intake} onOpenChange={setIntake} userId={userId} file={d} onCreated={() => { setIntake(false); void refresh(); setTab('requests'); }}/>
     </>}
   </PortalLayout>;
 }
 
+// The company's members with their roles, as the owner sees them on /company;
+// read-only for the office (invitations stay with the owner).
+function OfficeMembersList({ query }: { query: { data?: CompanyMember[]; isLoading: boolean; isError: boolean; refetch: () => unknown } }) {
+  if (query.isLoading) return <LoadingBlock/>;
+  if (query.isError) return <ErrorBlock retry={() => query.refetch()}/>;
+  const members = [...(query.data ?? [])].sort((a, b) => Number(b.role === 'owner') - Number(a.role === 'owner'));
+  if (!members.length) return <EmptyBlock title="لا أعضاء بعد" text="لم يدعُ مالك المنشأة أحدًا إلى ملفها."/>;
+  return <section className="surface overflow-hidden" aria-labelledby="ocf-members">
+    <div className="cf-head"><h2 id="ocf-members" className="display text-lg font-semibold"><UsersRound size={19} aria-hidden="true"/>أعضاء المنشأة</h2><span className="text-xs text-subtle">{formatNumber(members.length)} من 10</span></div>
+    <ul className="cf-list">{members.map(m => <li key={`${m.id}-${m.email}`} className="cf-row items-center">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2"><strong dir="ltr" className="cp-email">{m.email}</strong><span className={`cp-role-tag is-${m.role}`}>{roleNames[m.role]}</span>
+          {m.role !== 'owner' && (m.acceptedAt ? <span className="cp-state is-accepted"><BadgeCheck size={13} aria-hidden="true"/>انضم {formatDate(m.acceptedAt)}</span> : <span className="cp-state is-pending"><Mail size={13} aria-hidden="true"/>بانتظار القبول</span>)}</div>
+        {m.role !== 'owner' && <span className="block text-xs text-subtle">دُعي {formatDate(m.invitedAt)}</span>}
+      </div>
+    </li>)}</ul>
+  </section>;
+}
+
+// Walk-in, phone and e-mail intake: the office opens the request on the
+// customer's behalf. The customer's registration phone is the default
+// contact; an employee or licence from their file can be the subject.
+const intakeCategories: [OfficeServiceRequestInputCategory, string][] = [['passports', 'الجوازات والإقامة'], ['labor', 'الموارد البشرية والعمل'], ['business', 'تأسيس الشركات والتراخيص'], ['other', 'دعم الأعمال']];
+export function intakeError(e: unknown): string {
+  const status = (e as { status?: number })?.status;
+  if (status === 400) return 'تحقق من البيانات: اسم الخدمة ووصف لا يقل عن 10 أحرف ورقم جوال سعودي.';
+  if (status === 403) return 'ليست لديك صلاحية إنشاء طلبات باسم العملاء.';
+  if (status === 404) return 'العميل غير موجود أو لم يُعتمد تسجيله بعد.';
+  return 'تعذّر إنشاء الطلب. حاول مجددًا.';
+}
+export function OfficeIntakeDialog({ open, onOpenChange, userId, file, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; userId: string; file: OfficeCustomerFile; onCreated: (created: OfficeServiceRequest) => void }) {
+  return <DialogFrame open={open} onOpenChange={onOpenChange} title={`إنشاء طلب للعميل: ${file.company?.name ?? file.customer?.fullName ?? 'عميل'}`} description="يُسجّل الطلب باسم العميل ويُبلَّغ به بالبريد، ويظهر في طلباته وفي لوحة المكتب كأي طلب آخر، مع الإشارة إلى أن المكتب أنشأه.">
+    {open && <OfficeIntakeForm userId={userId} file={file} onCreated={onCreated} onCancel={() => onOpenChange(false)}/>}
+  </DialogFrame>;
+}
+export function OfficeIntakeForm({ userId, file, onCreated, onCancel }: { userId: string; file: OfficeCustomerFile; onCreated: (created: OfficeServiceRequest) => void; onCancel: () => void }) {
+  const create = useCreateOfficeServiceRequest();
+  const [category, setCategory] = useState<OfficeServiceRequestInputCategory>('labor');
+  const [service, setService] = useState('');
+  const [description, setDescription] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [subject, setSubject] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const employees = file.employees.filter(e => e.status === 'active');
+  async function submit(e: FormEvent) {
+    e.preventDefault(); setError(null);
+    const phone = contactPhone.trim() ? normalizePhone(contactPhone) : null;
+    if (contactPhone.trim() && !phone) { setError('اكتب رقم جوال صحيحًا (مثال: 05xxxxxxxx) أو اتركه فارغًا ليُستخدم رقم تسجيل العميل.'); return; }
+    const [type, id] = subject.split(':');
+    const data: OfficeServiceRequestInput = { category, service: service.trim(), description: description.trim(), ...(phone ? { contactPhone: phone } : {}), subject: type === 'employee' || type === 'license' ? { type, id: Number(id) } : null };
+    try { const created = await create.mutateAsync({ userId, data }); onCreated(created); }
+    catch (err) { setError(intakeError(err)); }
+  }
+  return <form id="office-intake-form" onSubmit={submit} className="grid gap-4" aria-label="طلب جديد باسم العميل">
+    <div className="grid gap-4 sm:grid-cols-2">
+      <label className="form-field">مجال الخدمة<select className="form-control" value={category} onChange={e => setCategory(e.target.value as OfficeServiceRequestInputCategory)}>{intakeCategories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+      <label className="form-field">اسم الخدمة<input className="form-control" value={service} onChange={e => setService(e.target.value)} required minLength={1} maxLength={200} placeholder="مثال: تجديد إقامة"/></label>
+    </div>
+    <label className="form-field">وصف الطلب<textarea className="form-control !min-h-28" value={description} onChange={e => setDescription(e.target.value)} required minLength={10} maxLength={5000} placeholder="ما طلبه العميل بالتفصيل، كما وصل عبر الهاتف أو في المكتب."/></label>
+    <div className="grid gap-4 sm:grid-cols-2">
+      <label className="form-field">رقم التواصل (اختياري)<input className="form-control" dir="ltr" type="tel" inputMode="tel" value={contactPhone} onChange={e => setContactPhone(e.target.value)} maxLength={24} placeholder={file.contactPhone ?? '05XXXXXXXX'}/><small className="field-hint">يُستخدم رقم تسجيل العميل إن تُرك فارغًا.</small></label>
+      <label className="form-field">يخص (اختياري)<select className="form-control" value={subject} onChange={e => setSubject(e.target.value)}><option value="">بلا ربط</option>{employees.length > 0 && <optgroup label="الموظفون">{employees.map(e => <option key={`e${e.id}`} value={`employee:${e.id}`}>{e.fullName}</option>)}</optgroup>}{file.licenses.length > 0 && <optgroup label="التراخيص">{file.licenses.map(l => <option key={`l${l.id}`} value={`license:${l.id}`}>{l.title}</option>)}</optgroup>}</select></label>
+    </div>
+    {error && <p role="alert" className="m-0 text-sm text-danger">{error}</p>}
+    <div className="flex flex-wrap justify-end gap-2 border-t border-line pt-4"><button type="button" className="btn btn-outline" onClick={onCancel} disabled={create.isPending}>إلغاء</button><button type="submit" className="btn btn-primary" disabled={create.isPending}>{create.isPending ? 'جارٍ الإنشاء…' : 'إنشاء الطلب'}</button></div>
+  </form>;
+}

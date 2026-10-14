@@ -4,10 +4,11 @@ import test, { mock } from "node:test";
 import { clerkClient } from "@clerk/express";
 import { and, eq, gte, inArray } from "drizzle-orm";
 import {
-  db, hbsNotificationPreferences, hbsNotifications, hbsOfficeStaff, pool, type HbsNotification,
+  db, hbsNotificationPreferences, hbsNotifications, hbsOfficeStaff, hbsPushSubscriptions, pool, type HbsNotification,
 } from "@workspace/db";
 import { notifyCustomer, notifyCustomerNow, notifyOffice } from "../src/lib/customer-contact";
-import { deliverHeldNotifications, purgeOldNotifications, type DigestDeps } from "../src/lib/notification-digest";
+import { deliverHeldNotifications, OFFICE_ACCESS_MAX_RETRIES, purgeOldNotifications, resetOfficeAccessRetries, type DigestDeps } from "../src/lib/notification-digest";
+import { purgeFailedPushSubscriptions, sendPush as sendWebPush, type PushDeps } from "../src/lib/web-push";
 import { nextRiyadhHour, riyadhParts } from "../src/lib/notification-intelligence";
 import { subscribe, subscriberCount, type StreamEvent } from "../src/lib/notification-stream";
 import { publishCustomer, publishOffice, unreadCount } from "../src/lib/notifications";
@@ -218,6 +219,92 @@ test("notification pipeline", async (t) => {
       assert.equal(unmatched.body, "9665••••••02: السلام عليكم");
       assert.equal(unmatched.path, "/office/whatsapp");
       assert.equal((await rowsOf(owner)).some(r => r.kind === "office.whatsapp_unmatched"), false);
+    });
+
+    await t.test("a staff check that fails leaves held office rows for the next sweep, then gives up after bounded retries", async () => {
+      resetOfficeAccessRetries();
+      const now = new Date();
+      const [held] = await db.insert(hbsNotifications).values({
+        userId: staff, audience: "office", kind: "office.inquiry_new", title: "استفسار جديد", body: "b", priority: "normal",
+        groupKey: `held-${run}`, deliverAfter: new Date(now.getTime() - 60_000), delivered: { email: "held", push: "held", whatsapp: "skipped" },
+      }).returning();
+      const down: DigestDeps = { sendMail, sendPush, emailFor: async () => null, officeAccess: async () => { throw new Error("Clerk unreachable"); } };
+      for (let attempt = 1; attempt < OFFICE_ACCESS_MAX_RETRIES; attempt++) {
+        assert.deepEqual(await deliverHeldNotifications(now, down), { users: 0, mails: 0, pushes: 0 });
+        const row = await rowById(held.id);
+        assert.equal(row.digestedAt, null, `attempt ${attempt}: the row is still held, not skipped`);
+        assert.equal(row.delivered.push, "held");
+      }
+      // Clerk back: the row is delivered as usual.
+      pushes.length = 0;
+      const up: DigestDeps = { ...down, officeAccess: async () => true };
+      assert.deepEqual(await deliverHeldNotifications(now, up), { users: 1, mails: 0, pushes: 1 });
+      assert.deepEqual(pushes, [{ userId: staff, id: held.id }]);
+      // Still down after the retry budget: the rows are given up on, not held forever.
+      const [stuck] = await db.insert(hbsNotifications).values({
+        userId: staff, audience: "office", kind: "office.inquiry_new", title: "استفسار آخر", body: "b", priority: "normal",
+        groupKey: `stuck-${run}`, deliverAfter: new Date(now.getTime() - 60_000), delivered: { email: "held", push: "held", whatsapp: "skipped" },
+      }).returning();
+      resetOfficeAccessRetries();
+      for (let attempt = 1; attempt < OFFICE_ACCESS_MAX_RETRIES; attempt++) {
+        await deliverHeldNotifications(now, down);
+        assert.equal((await rowById(stuck.id)).digestedAt, null);
+      }
+      await deliverHeldNotifications(now, down);
+      const given = await rowById(stuck.id);
+      assert.ok(given.digestedAt, "skipped after the retry budget");
+      assert.equal(given.delivered.push, "skipped");
+      // A revoked member (Clerk answers "no") is skipped at once.
+      const [revoked] = await db.insert(hbsNotifications).values({
+        userId: staff, audience: "office", kind: "office.inquiry_new", title: "ثالث", body: "b", priority: "normal",
+        groupKey: `revoked-${run}`, deliverAfter: new Date(now.getTime() - 60_000), delivered: { email: "held", push: "held", whatsapp: "skipped" },
+      }).returning();
+      await deliverHeldNotifications(now, { ...down, officeAccess: async () => false });
+      assert.equal((await rowById(revoked.id)).delivered.email, "skipped");
+    });
+
+    await t.test("sendPush sends to every device at once with a timeout, drops gone devices and purges failed ones after 30 days", async () => {
+      process.env.VAPID_PUBLIC_KEY = "test-public-key";
+      process.env.VAPID_PRIVATE_KEY = "test-private-key";
+      process.env.VAPID_SUBJECT = "mailto:test@example.invalid";
+      const endpoint = (n: string) => `https://fcm.googleapis.com/fcm/send/np-${run}-${n}`;
+      try {
+        await db.insert(hbsPushSubscriptions).values([
+          { endpoint: endpoint("ok"), userId: customer, p256dh: "p", auth: "a" },
+          { endpoint: endpoint("gone"), userId: customer, p256dh: "p", auth: "a" },
+          { endpoint: endpoint("slow"), userId: customer, p256dh: "p", auth: "a" },
+        ]);
+        let inFlight = 0;
+        let peak = 0;
+        const deps: PushDeps = {
+          async send(subscription, _payload, options) {
+            inFlight++; peak = Math.max(peak, inFlight);
+            await new Promise(resolve => setTimeout(resolve, 20));
+            inFlight--;
+            assert.equal(options.timeout, 10_000, "web-push gets a socket timeout");
+            if (subscription.endpoint === endpoint("gone")) throw Object.assign(new Error("gone"), { statusCode: 410 });
+            if (subscription.endpoint === endpoint("slow")) throw Object.assign(new Error("timeout"), { statusCode: 504 });
+            return {};
+          },
+        };
+        assert.equal(await sendWebPush(customer, { title: "t", body: "b", path: null, id: 1 }, deps), "sent");
+        assert.equal(peak, 3, "all devices in parallel, not one after the other");
+        const rows = await db.select().from(hbsPushSubscriptions).where(eq(hbsPushSubscriptions.userId, customer));
+        assert.deepEqual(rows.map(r => r.endpoint).sort(), [endpoint("ok"), endpoint("slow")].sort(), "410 deletes the device");
+        assert.ok(rows.find(r => r.endpoint === endpoint("ok"))?.lastUsedAt);
+        assert.ok(rows.find(r => r.endpoint === endpoint("slow"))?.failedAt);
+        // Still failing a month later: purged. A recent failure and a working device stay.
+        const monthAgo = new Date(Date.now() - 31 * 86_400_000);
+        await db.update(hbsPushSubscriptions).set({ failedAt: monthAgo }).where(eq(hbsPushSubscriptions.endpoint, endpoint("slow")));
+        assert.equal(await purgeFailedPushSubscriptions(new Date(Date.now() - 2 * 86_400_000)), 0, "not yet 30 days at that time");
+        assert.equal(await purgeFailedPushSubscriptions(), 1);
+        assert.deepEqual((await db.select().from(hbsPushSubscriptions).where(eq(hbsPushSubscriptions.userId, customer))).map(r => r.endpoint), [endpoint("ok")]);
+      } finally {
+        delete process.env.VAPID_PUBLIC_KEY;
+        delete process.env.VAPID_PRIVATE_KEY;
+        delete process.env.VAPID_SUBJECT;
+        await db.delete(hbsPushSubscriptions).where(eq(hbsPushSubscriptions.userId, customer));
+      }
     });
 
     await t.test("read rows older than 180 days are purged; unread ones stay", async () => {

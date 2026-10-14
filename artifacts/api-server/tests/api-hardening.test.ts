@@ -106,6 +106,18 @@ test("push subscriptions and WhatsApp replies share the sensitive-write ceiling;
   });
 });
 
+test("office intake and WhatsApp verification requests share the sensitive-write ceiling", async () => {
+  await withServer(async (base) => {
+    const intake = await hit(`${base}/api/office/customers/user_1/service-requests`, "POST", API_SENSITIVE_WRITE_LIMIT);
+    assert.ok(intake.every((status) => status === 200));
+    assert.equal((await fetch(`${base}/api/office/customers/user_2/service-requests`, { method: "POST" })).status, 429);
+    assert.equal((await fetch(`${base}/api/portal/settings/whatsapp-verification`, { method: "POST" })).status, 429);
+    // Reading a customer file and saving settings are not sensitive.
+    assert.equal((await fetch(`${base}/api/office/customers/user_1`)).status, 200);
+    assert.equal((await fetch(`${base}/api/portal/settings`, { method: "PUT" })).status, 200);
+  });
+});
+
 test("writes and all requests have their own ceilings; health and the signed webhooks are exempt", async () => {
   await withServer(async (base) => {
     const writes = await hit(`${base}/api/company`, "PUT", API_WRITE_LIMIT + 1);

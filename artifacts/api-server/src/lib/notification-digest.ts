@@ -2,12 +2,13 @@ import { clerkClient } from "@clerk/express";
 import { and, asc, eq, inArray, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
 import { db, hbsNotifications, hbsOfficeStaff, type DeliveryOutcome, type HbsNotification } from "@workspace/db";
 import { customerEmail } from "./customer-contact";
+import { shuttingDown, trackJob } from "./lifecycle";
 import { logger } from "./logger";
 import { digestMail } from "./notification-intelligence";
-import { canReceiveOffice, loadPrefs, toApiNotification } from "./notifications";
-import { approvedOfficeEmail } from "./office-access";
+import { loadPrefs, toApiNotification } from "./notifications";
+import { approvedOfficeEmail, getOfficeRoleForUserId } from "./office-access";
 import { sendMailNow, type Mail } from "./notify";
-import { sendPush as defaultSendPush, type PushPayload } from "./web-push";
+import { purgeFailedPushSubscriptions, sendPush as defaultSendPush, type PushPayload } from "./web-push";
 
 // Rows the pipeline held (quiet hours, daily digest) are sent here: every
 // ten minutes the due rows are claimed per user with a conditional update,
@@ -23,7 +24,42 @@ export type DigestDeps = {
   sendMail: (mail: Mail) => Promise<void>;
   sendPush: (userId: string, payload: PushPayload) => Promise<DeliveryOutcome>;
   emailFor: (userId: string, audience: string) => Promise<string | null>;
+  // Whether the staff member may still receive office rows. Throws when
+  // that cannot be known right now (Clerk unreachable); false means revoked.
+  officeAccess?: (userId: string) => Promise<boolean>;
 };
+
+// Held office rows whose staff check failed (Clerk down, network) are left
+// for the next sweep rather than dropped as "revoked". After this many
+// sweeps in a row the rows are given up on, so an account Clerk no longer
+// knows cannot keep its rows pending forever.
+export const OFFICE_ACCESS_MAX_RETRIES = 3;
+const officeAccessFailures = new Map<string, number>();
+
+export function resetOfficeAccessRetries(): void {
+  officeAccessFailures.clear();
+}
+
+// "yes", "revoked", or "unknown" (left for the next sweep).
+async function officeAccessFor(userId: string, deps: DigestDeps): Promise<"yes" | "revoked" | "unknown"> {
+  const check = deps.officeAccess ?? (async (id: string) => !!(await getOfficeRoleForUserId(id)));
+  try {
+    const allowed = await check(userId);
+    officeAccessFailures.delete(userId);
+    return allowed ? "yes" : "revoked";
+  } catch (err) {
+    const failures = (officeAccessFailures.get(userId) ?? 0) + 1;
+    if (failures >= OFFICE_ACCESS_MAX_RETRIES) {
+      officeAccessFailures.delete(userId);
+      logger.warn({ err, userId, failures }, "Staff check kept failing; held office notifications are skipped");
+      return "revoked";
+    }
+    officeAccessFailures.set(userId, failures);
+    // Once: the first failed sweep says so, the retries stay quiet.
+    if (failures === 1) logger.warn({ err, userId }, "Staff check failed; held office notifications wait for the next sweep");
+    return "unknown";
+  }
+}
 
 // A staff member's address: their staff email, the owner's approved email
 // for the owner row, else their verified sign-in email.
@@ -59,8 +95,10 @@ export async function deliverHeldNotifications(now = new Date(), deps: DigestDep
     if (list) list.push(row); else byUser.set(row.userId, [row]);
   }
   for (const [userId, rows] of byUser) {
-    const officeAccess = rows.some(row => row.audience === "office") ? await canReceiveOffice(userId) : false;
-    const blocked = rows.filter(row => row.audience === "office" && !officeAccess);
+    const access = rows.some(row => row.audience === "office") ? await officeAccessFor(userId, deps) : "revoked";
+    // Unknown: the office rows stay held and unclaimed; customer rows go on.
+    const officeAccess = access === "yes";
+    const blocked = access === "revoked" ? rows.filter(row => row.audience === "office") : [];
     if (blocked.length) {
       await db.update(hbsNotifications).set({
         digestedAt: now,
@@ -125,29 +163,35 @@ export async function purgeOldNotifications(now = new Date()): Promise<number> {
   return removed.length;
 }
 
-// No timer holds the process open.
+// No timer holds the process open, and nothing re-arms once shutdown began.
 export function startNotificationJobs() {
   const sweep = (delay: number) => {
     setTimeout(async () => {
+      if (shuttingDown()) return;
       try {
-        const outcome = await deliverHeldNotifications();
+        const outcome = await trackJob(() => deliverHeldNotifications());
         if (outcome.users) logger.info(outcome, "Delivered held notifications");
       } catch (err) {
         logger.error({ err }, "Notification digest sweep failed");
       } finally {
-        sweep(SWEEP_INTERVAL_MS);
+        if (!shuttingDown()) sweep(SWEEP_INTERVAL_MS);
       }
     }, delay).unref();
   };
   const purge = (delay: number) => {
     setTimeout(async () => {
+      if (shuttingDown()) return;
       try {
-        const removed = await purgeOldNotifications();
-        if (removed) logger.info({ removed }, "Removed read notifications older than 180 days");
+        await trackJob(async () => {
+          const removed = await purgeOldNotifications();
+          if (removed) logger.info({ removed }, "Removed read notifications older than 180 days");
+          const devices = await purgeFailedPushSubscriptions();
+          if (devices) logger.info({ removed: devices }, "Removed push subscriptions that kept failing for 30 days");
+        });
       } catch (err) {
         logger.error({ err }, "Notification purge failed");
       } finally {
-        purge(PURGE_INTERVAL_MS);
+        if (!shuttingDown()) purge(PURGE_INTERVAL_MS);
       }
     }, delay).unref();
   };

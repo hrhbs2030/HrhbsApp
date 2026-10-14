@@ -10,6 +10,7 @@ import {
 import { recordAudit } from "../lib/audit";
 import { CHECKLIST_KEY, checklistItems, linkChecklist, resumeIfChecklistComplete } from "../lib/checklist";
 import { requireOfficeStaff } from "../lib/office-access";
+import { customerId } from "../lib/company-access";
 import { customerOf, detailsFor, officeRequest, publicRequest, requireApprovedCustomer } from "./portal";
 
 // The document checklist on a request: the office edits the list, and the
@@ -52,7 +53,8 @@ async function linkAttachment(req: Request, res: Response, office: boolean) {
   const body = (office ? LinkOfficeAttachmentToChecklistBody : LinkAttachmentToChecklistBody).safeParse(req.body);
   if (!params.success) { res.status(404).json({ error: "Request not found" }); return; }
   if (!body.success || (body.data.key !== null && !CHECKLIST_KEY.test(body.data.key))) { res.status(400).json({ error: "Invalid checklist item" }); return; }
-  const userId = getAuth(req).userId!;
+  // Customers act for their company: the request and its files are the customer's.
+  const userId = office ? getAuth(req).userId! : customerId(req);
   const key = body.data.key;
   const outcome = await db.transaction(async tx => {
     const [request] = await tx.select().from(hbsServiceRequests).where(office

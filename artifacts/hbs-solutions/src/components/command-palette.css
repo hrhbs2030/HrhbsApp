@@ -1,0 +1,19 @@
+/* The ⌘K palette (command-palette.tsx): one dialog for staff and customers. Logical properties only (RTL). */
+.ocp { padding: 0; max-width: 40rem; overflow: hidden; }
+.ocp [cmdk-input-wrapper] { display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid var(--color-line); color: var(--color-subtle); }
+.ocp [cmdk-input-wrapper] svg { margin: 0; opacity: 1; }
+.ocp-input { flex: 1; min-height: 56px; height: auto; border: 0; border-radius: 0; background: transparent; color: var(--color-ink); font: inherit; font-size: var(--text-base); outline: none; }
+.ocp-input::placeholder { color: var(--color-subtle); }
+.ocp-list { max-height: min(60vh, 420px); overflow-y: auto; padding: 8px; scrollbar-width: thin; }
+.ocp-group [cmdk-group-heading] { padding: 8px 10px 4px; font-size: 11px; font-weight: 700; color: var(--color-subtle); }
+.ocp-item { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 10px; border-radius: 10px; font-size: var(--text-sm); color: var(--color-ink); cursor: pointer; }
+.ocp-item[data-selected="true"] { background: var(--color-sage); color: var(--color-teal); }
+.ocp-item-icon { display: grid; place-items: center; width: 30px; height: 30px; flex: none; border-radius: 8px; background: var(--color-sunk); color: var(--color-quiet); }
+.ocp-item[data-selected="true"] .ocp-item-icon { background: var(--color-teal-soft); color: var(--color-teal); }
+.ocp-item-main { min-width: 0; display: grid; gap: 1px; }
+.ocp-item-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ocp-item-sub { font-size: var(--text-xs); color: var(--color-subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ocp-item-side { margin-inline-start: auto; flex: none; }
+.ocp-empty { padding: 28px 16px; text-align: center; font-size: var(--text-sm); color: var(--color-quiet); }
+.ocp-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 16px; border-top: 1px solid var(--color-line); background: var(--color-paper); font-size: 11px; color: var(--color-subtle); }
+.ocp-foot .kbd { margin-inline-end: 2px; }

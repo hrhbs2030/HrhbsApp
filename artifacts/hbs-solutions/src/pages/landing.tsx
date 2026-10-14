@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ArrowLeft, BookUser, BriefcaseBusiness, Building2, CalendarClock, FileText, Gauge, MessageSquareWarning, Search, ShieldCheck, Shapes, Hash, History, PlayCircle } from 'lucide-react';
-import { SiteFooter, SiteHeader } from '@/components/site-chrome';
+import { SiteFooter, SiteHeader, scrollToChapter } from '@/components/site-chrome';
 import { IntroSequence, useIntroState } from '@/components/intro';
 import { RequestObject, StageRail, type StageFrame } from '@/components/request-object';
 import { AssistantShowcase, DashboardPreview } from '@/components/landing-previews';
@@ -98,19 +98,28 @@ export default function Landing() {
   const replayHow = useRef<HTMLButtonElement>(null);
   let wordIndex = 0;
 
-  // Landing is lazy-loaded: the browser's initial hash scroll can happen
-  // before the target section exists in the DOM.
+  // Landing is lazy-loaded: the browser's initial hash scroll happens before
+  // the chapters exist in the DOM, and a "/#how" link from another page
+  // arrives as a client-side navigation (site-chrome navigateHash). Once the
+  // intro is out of the way, scroll to whatever chapter the hash names, after
+  // the fonts have loaded and the layout has settled so the offset is final.
   useEffect(() => {
     if (intro.playing) return;
-    const scrollToChapter = () => {
-      const id = window.location.hash.slice(1);
-      if (id !== 'dashboard' && id !== 'assistant') return;
-      window.requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: 'start' }));
+    let cancelled = false;
+    let frame = 0;
+    const goToHash = () => {
+      const id = decodeURIComponent(window.location.hash.slice(1));
+      if (!id || id === 'main') return;
+      const fonts = (document as Document & { fonts?: { ready: Promise<unknown> } }).fonts;
+      (fonts?.ready ?? Promise.resolve()).then(() => {
+        if (cancelled) return;
+        frame = window.requestAnimationFrame(() => { frame = window.requestAnimationFrame(() => { if (!cancelled) scrollToChapter(id, reduced ? 'auto' : 'smooth'); }); });
+      });
     };
-    scrollToChapter();
-    window.addEventListener('hashchange', scrollToChapter);
-    return () => window.removeEventListener('hashchange', scrollToChapter);
-  }, [intro.playing]);
+    goToHash();
+    window.addEventListener('hashchange', goToHash);
+    return () => { cancelled = true; window.cancelAnimationFrame(frame); window.removeEventListener('hashchange', goToHash); };
+  }, [intro.playing, reduced]);
 
   return (
     <div className="hbs-landing site" dir="rtl" ref={rootRef} data-intro={intro.playing ? 'playing' : 'done'}>

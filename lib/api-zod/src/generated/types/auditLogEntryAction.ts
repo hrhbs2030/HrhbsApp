@@ -57,4 +57,5 @@ export const AuditLogEntryAction = {
   service_requestauto_renew: 'service_request.auto_renew',
   notificationpreferences: 'notification.preferences',
   whatsappreply: 'whatsapp.reply',
+  service_requestcreate_for_customer: 'service_request.create_for_customer',
 } as const;

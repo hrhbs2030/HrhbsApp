@@ -36,6 +36,11 @@ export const hbsServiceRequests = pgTable("hbs_service_requests", {
   // Documents the customer must provide, copied from the service offer at
   // creation; attachments link to an item through checklist_key.
   documentChecklist: jsonb("document_checklist").$type<{ key: string; label: string }[]>().notNull().default([]),
+  // Who opened the request when it was not the customer themself: a company
+  // member acting for the company, or office staff entering a walk-in or
+  // phone request. Null when user_id created it.
+  createdBy: text("created_by"),
+  source: text("source").notNull().default("customer"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -50,6 +55,7 @@ export const hbsServiceRequests = pgTable("hbs_service_requests", {
   check("hbs_service_requests_status_check", sql`${table.status} in ('received', 'reviewing', 'waiting_on_customer', 'submitted_to_authority', 'awaiting_payment', 'completed')`),
   check("hbs_service_requests_rating_check", sql`${table.rating} is null or ${table.rating} between 1 and 5`),
   check("hbs_service_requests_quote_check", sql`${table.quoteHalalas} is null or ${table.quoteHalalas} > 0`),
+  check("hbs_service_requests_source_check", sql`${table.source} in ('customer', 'member', 'office')`),
 ]);
 
 export const insertHbsServiceRequestSchema = createInsertSchema(hbsServiceRequests).omit({

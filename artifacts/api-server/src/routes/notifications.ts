@@ -2,8 +2,8 @@ import { getAuth } from "@clerk/express";
 import { and, desc, eq, gte, isNull, lt, lte, sql } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
-  db, hbsDocumentReminders, hbsInquiries, hbsInvoices, hbsNotificationPreferences, hbsNotifications, hbsPushSubscriptions,
-  hbsServiceRequests, hbsSubscriptions, hbsWhatsappInbound, type HbsNotification, type HbsNotificationPreferences,
+  db, hbsDocumentReminders, hbsInquiries, hbsInvoices, hbsNotificationPreferences, hbsNotifications, hbsOfficeStaff,
+  hbsPushSubscriptions, hbsServiceRequests, hbsSubscriptions, hbsWhatsappInbound, type HbsNotification, type HbsNotificationPreferences,
 } from "@workspace/db";
 import {
   DeletePushSubscriptionBody, GetNotificationBriefResponse, GetNotificationPreferencesResponse, GetPushKeyResponse,
@@ -18,7 +18,7 @@ import { buildBrief, DEFAULT_PREFS, riyadhParts, type BriefInput } from "../lib/
 import { subscribe, emit } from "../lib/notification-stream";
 import { canReceiveOffice, unreadCount } from "../lib/notifications";
 import { getOfficeRole } from "../lib/office-access";
-import { publicKey, pushConfigured } from "../lib/web-push";
+import { allowedPushEndpoint, publicKey, pushConfigured, trimPushSubscriptions } from "../lib/web-push";
 import { whatsappConfigured } from "../lib/whatsapp";
 
 // The notification centre: the signed-in user's own rows (customer or office
@@ -113,11 +113,58 @@ function sseWrite(res: Response, event: string, data: unknown) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
+// Ends every open stream (graceful shutdown): clients reconnect to the
+// next server. Returns how many were open.
+export function closeNotificationStreams(): number {
+  let closed = 0;
+  for (const open of [...streams.values()]) {
+    for (const res of [...open]) { closed++; if (!res.writableEnded) res.end(); }
+  }
+  return closed;
+}
+
+// Whether office rows may still flow on an open office stream. The Clerk
+// check happened once when the stream opened; from then on only the staff
+// row is consulted (local, cheap), which is what revocation deletes.
+async function staffRowExists(userId: string): Promise<boolean> {
+  const [row] = await db.select({ userId: hbsOfficeStaff.userId }).from(hbsOfficeStaff).where(eq(hbsOfficeStaff.userId, userId)).limit(1);
+  return !!row;
+}
+
 router.get("/notifications/stream", async (req, res): Promise<void> => {
   const userId = requireUser(req, res);
   if (!userId) return;
-  const hadOfficeAccess = await canReceiveOffice(userId);
-  const count = await unreadCount(userId, hadOfficeAccess);
+  // Registered before the first await: a client that drops during the
+  // opening queries has already emitted "close", and nothing below may
+  // leak a listener or a timer for it.
+  let done = false;
+  let heartbeat: NodeJS.Timeout | null = null;
+  let unsubscribe: (() => void) | null = null;
+  const cleanup = () => {
+    if (done) return;
+    done = true;
+    if (heartbeat) clearInterval(heartbeat);
+    unsubscribe?.();
+    const rest = (streams.get(userId) ?? []).filter((other) => other !== res);
+    if (rest.length) streams.set(userId, rest); else streams.delete(userId);
+    if (!res.writableEnded) res.end();
+  };
+  req.once("close", cleanup);
+  res.once("close", cleanup);
+  const gone = () => done || req.destroyed || res.destroyed || res.writableEnded;
+
+  let hadOfficeAccess = false;
+  let count = 0;
+  try {
+    hadOfficeAccess = await canReceiveOffice(userId);
+    count = await unreadCount(userId, hadOfficeAccess);
+  } catch (err) {
+    if (!gone() && !res.headersSent) res.status(500).json({ error: "تعذر فتح البث الآن." });
+    cleanup();
+    req.log.warn({ err }, "Notification stream could not open");
+    return;
+  }
+  if (gone()) { cleanup(); return; }
   const expiresAt = getAuth(req).sessionClaims?.exp;
   // The API-wide "no-store" is replaced: proxies must not buffer or cache
   // an event stream, and nginx honours x-accel-buffering.
@@ -134,40 +181,36 @@ router.get("/notifications/stream", async (req, res): Promise<void> => {
   streams.set(userId, open);
 
   sseWrite(res, "unread", { count });
+  // Office access for the rest of this stream: no Clerk call per event or
+  // heartbeat. Null means the stream is over.
   const streamAccess = async (): Promise<boolean | null> => {
-    if (res.destroyed || res.writableEnded) return null;
-    if (typeof expiresAt === "number" && expiresAt * 1000 <= Date.now()) { res.end(); return null; }
-    const officeAccess = await canReceiveOffice(userId);
-    if (hadOfficeAccess && !officeAccess) { sseWrite(res, "access-denied", {}); res.end(); return null; }
-    return officeAccess;
+    if (gone()) { cleanup(); return null; }
+    if (typeof expiresAt === "number" && expiresAt * 1000 <= Date.now()) { cleanup(); return null; }
+    if (!hadOfficeAccess) return false;
+    if (await staffRowExists(userId)) return true;
+    if (!gone()) sseWrite(res, "access-denied", {});
+    cleanup();
+    return null;
   };
-  const unsubscribe = subscribe(userId, event => {
+  unsubscribe = subscribe(userId, event => {
     void streamAccess().then(async officeAccess => {
-      if (officeAccess === null || res.destroyed || res.writableEnded) return;
+      if (officeAccess === null || gone()) return;
       if (event.type === "notification" && typeof event.data === "object" && event.data !== null
         && "audience" in event.data && event.data.audience === "office" && !officeAccess) return;
       sseWrite(res, event.type, event.type === "unread"
         ? { count: await unreadCount(userId, officeAccess) } : event.data);
-    }).catch(() => res.end());
+    }).catch((err) => { req.log.warn({ err }, "Notification stream event failed; closing the stream"); cleanup(); });
   });
-  // A comment line keeps idle proxies from closing the connection.
-  const heartbeat = setInterval(() => {
+  // A comment line keeps idle proxies from closing the connection. The
+  // timer lives exactly as long as the response: cleanup clears it.
+  heartbeat = setInterval(() => {
     void streamAccess().then(access => {
-      if (access !== null && !res.destroyed && !res.writableEnded) res.write(": ping\n\n");
-    }).catch(() => res.end());
+      if (access !== null && !gone()) res.write(": ping\n\n");
+    }).catch((err) => { req.log.warn({ err }, "Notification stream heartbeat failed; closing the stream"); cleanup(); });
   }, HEARTBEAT_MS);
   heartbeat.unref();
-  let done = false;
-  const cleanup = () => {
-    if (done) return;
-    done = true;
-    clearInterval(heartbeat);
-    unsubscribe();
-    const rest = (streams.get(userId) ?? []).filter((other) => other !== res);
-    if (rest.length) streams.set(userId, rest); else streams.delete(userId);
-  };
-  req.on("close", cleanup);
-  res.on("close", cleanup);
+  // The client may have left while the headers went out.
+  if (gone()) cleanup();
 });
 
 // ---- smart brief -------------------------------------------------------------------------
@@ -234,7 +277,7 @@ async function customerBrief(userId: string, now: Date): Promise<BriefInput> {
       total: riyals(row.totalHalalas),
       path: row.requestId ? `/requests/${row.requestId}` : `/company?tab=subscription&invoice=${row.id}`,
     })),
-    expiringReminders: reminders.map((row) => ({ label: row.label, days: daysUntil(row.expiresOn, now), path: "/reminders" })),
+    expiringReminders: reminders.map((row) => ({ label: row.label, days: daysUntil(row.expiresOn, now), path: "/documents" })),
     waitingRequests: waiting.map((row) => ({
       reference: requestReference(row.id, row.createdAt), service: row.service, path: `/requests/${row.id}`,
     })),
@@ -321,6 +364,7 @@ router.put("/notifications/preferences", async (req, res): Promise<void> => {
 // ---- Web Push ----------------------------------------------------------------------------
 
 const PUSH_OFF = { error: "إشعارات المتصفح غير مفعّلة على الخادم." };
+export const PUSH_ENDPOINT_REJECTED = "عنوان اشتراك الإشعارات غير مدعوم: يجب أن يكون عبر https ومن خدمة إشعارات المتصفح المعروفة.";
 
 router.get("/notifications/push/key", (req, res): void => {
   if (!requireUser(req, res)) return;
@@ -334,11 +378,16 @@ router.put("/notifications/push/subscriptions", async (req, res): Promise<void> 
   const body = SavePushSubscriptionBody.strict().safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "بيانات الاشتراك غير صالحة." }); return; }
   const { endpoint, keys, userAgent } = body.data;
+  // Only the browser vendors' push services, over https: the server POSTs
+  // to this address later (lib/web-push.ts).
+  if (!allowedPushEndpoint(endpoint)) { res.status(400).json({ error: PUSH_ENDPOINT_REJECTED }); return; }
   // A browser profile that signs in as someone else re-registers the same
   // endpoint: it now belongs to the new user and starts clean.
   const values = { userId, p256dh: keys.p256dh, auth: keys.auth, userAgent: userAgent?.trim() || null, failedAt: null };
   await db.insert(hbsPushSubscriptions).values({ endpoint, ...values })
     .onConflictDoUpdate({ target: hbsPushSubscriptions.endpoint, set: values });
+  // A handful of devices per person; the oldest makes room.
+  await trimPushSubscriptions(userId);
   res.status(204).end();
 });
 

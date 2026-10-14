@@ -54,7 +54,7 @@ const server = await createServer({
 });
 after(async () => server.close());
 const { NotificationBell, NotificationToasts, badgeText } = await server.ssrLoadModule('/src/components/notification-bell.tsx');
-const { resetNotificationStream } = await server.ssrLoadModule('/src/lib/use-notifications.ts');
+const { resetNotificationStream, getNotificationStreamState, reconnectDelay, RECONNECT_MAX_MS } = await server.ssrLoadModule('/src/lib/use-notifications.ts');
 const { NotificationsPage, OfficeNotificationsPage, kindLabels, kindsFor } = await server.ssrLoadModule('/src/pages/notifications.tsx');
 const { default: OfficeWhatsappInbox, replyError } = await server.ssrLoadModule('/src/pages/office-whatsapp.tsx');
 const { urlBase64ToUint8Array, pushSupported, swUrl, swScope } = await server.ssrLoadModule('/src/lib/push.ts');
@@ -179,8 +179,41 @@ test('the stream opens once per app with credentials, updates the count, toasts 
   assert.equal(tree.root.findAll(n => n.props.className === 'notif-toast').length, 0);
   await act(async () => stream.dispatch('error'));
   assert.equal(stream.closed, true);
-  assert.equal(log.listArgs.at(-1).refetchInterval, 60_000, 'polling once the stream failed');
+  assert.equal(log.listArgs.at(-1).refetchInterval, 60_000, 'polling once the stream dropped');
+  assert.equal(getNotificationStreamState(), 'reconnecting', 'a retry is scheduled rather than giving up');
   await act(async () => tree.unmount());
+  delete globalThis.EventSource;
+  resetNotificationStream();
+});
+
+test('a dropped stream reconnects with backoff: at once when the browser comes back online, and never after the bells unmount', async () => {
+  for (const [attempt, low, high] of [[0, 750, 1250], [1, 1500, 2500], [3, 6000, 10000], [10, 22500, 37500]]) {
+    assert.equal(reconnectDelay(attempt, 0), low); assert.equal(reconnectDelay(attempt, 1), high);
+  }
+  assert.equal(RECONNECT_MAX_MS, 30_000);
+  resetNotificationStream();
+  FakeEventSource.instances = [];
+  globalThis.EventSource = FakeEventSource;
+  const state = { list: { items: [], unreadCount: 0 } };
+  const log = setup(state);
+  const tree = await mount(React.createElement('div', null, bellTree()));
+  const first = FakeEventSource.instances[0];
+  await act(async () => first.dispatch('open'));
+  await act(async () => first.dispatch('error'));
+  assert.equal(first.closed, true);
+  assert.equal(FakeEventSource.instances.length, 1, 'the retry waits for its delay');
+  await act(async () => { window.dispatchEvent(new Event('online')); });
+  assert.equal(FakeEventSource.instances.length, 2, 'back online: a fresh connection at once');
+  const second = FakeEventSource.instances[1];
+  await act(async () => second.dispatch('open'));
+  assert.equal(getNotificationStreamState(), 'open');
+  assert.equal(log.listArgs.at(-1).refetchInterval, false, 'polling stops again once live');
+  await act(async () => second.dispatch('error'));
+  await act(async () => tree.unmount());
+  assert.equal(getNotificationStreamState(), 'closed', 'unmounting the last bell cancels the pending retry');
+  await act(async () => { window.dispatchEvent(new Event('online')); });
+  await new Promise(resolve => setTimeout(resolve, 1400));
+  assert.equal(FakeEventSource.instances.length, 2, 'nothing reconnects without a listener');
   delete globalThis.EventSource;
   resetNotificationStream();
 });

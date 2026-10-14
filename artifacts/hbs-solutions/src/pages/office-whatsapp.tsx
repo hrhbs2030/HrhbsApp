@@ -8,7 +8,6 @@ import {
 } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock } from '@/components/portal-ui';
 import { Avatar, Chip, EmptyState, FilterChip, Toolbar } from '@/components/portal-kit';
-import { OfficeCommandPalette } from '@/components/office-command';
 import { formatDateTime, formatNumber, formatRelative } from '@/lib/format';
 import './office.css';
 
@@ -46,7 +45,6 @@ export default function OfficeWhatsappInbox() {
   useEffect(() => { setReading(false); }, [handled]);
   const selected = items.find(i => i.waMessageId === selectedId) ?? items[0];
   return <PortalLayout staff>
-    <OfficeCommandPalette />
     <PageHeading eyebrow="قنوات التواصل" title="واتساب الوارد" subtitle="رسائل العملاء الواردة عبر واتساب. يقرأ النظام مقصد كل رسالة ويقترح ردًا جاهزًا، وتُرسل ردودك من رقم المكتب."/>
     <Toolbar filters={<div className="flex flex-wrap gap-2" role="group" aria-label="التصفية">{filters.map(([value, label]) => <FilterChip key={value} active={handled === value} onClick={() => setHandled(value)}>{label}</FilterChip>)}</div>} />
     <p className="muted mb-4 text-xs leading-6">تصنيف المقصد والردود المقترحة تُحسب داخل النظام بقواعد لغوية عربية، دون أي خدمة ذكاء اصطناعي خارجية.</p>
@@ -105,6 +103,7 @@ export function InboxCard({ item, params }: { item: WhatsappInboxItem; params: {
       </div>
     </div>
     <p className="wa-bubble">{item.body}</p>
+    {item.handled === 'unmatched' && <p className="wa-link-note">هذا الرقم غير مرتبط بأي عميل، فلا يُحفظ الرد في محادثة. لربطه، اطلب من صاحبه توثيق رقمه من «الإعدادات» في بوابته؛ أو ابحث عن العميل في <Link href={`/office/customers?q=${encodeURIComponent(item.customerName ?? '')}`}>ملفات العملاء</Link> وأنشئ الطلب باسمه من ملفه.</p>}
     {item.suggestedReplies.length > 0 && <div className="mt-4"><span className="mb-1 block text-xs font-bold text-subtle">ردود مقترحة</span><div className="wa-suggest">{item.suggestedReplies.map((suggestion, index) => <button key={index} type="button" onClick={() => { setNotice(null); setText(suggestion); }}>{suggestion}</button>)}</div></div>}
     <form onSubmit={send} className="wa-compose">
       {!item.canReplyFreeText && <p className="wa-template">خارج نافذة 24 ساعة: سيُرسل كقالب.</p>}

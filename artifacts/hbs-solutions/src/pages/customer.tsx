@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent, type 
 import { Link, useParams, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, BellRing, Building2, CalendarClock, CircleAlert, CircleCheck, ClipboardList, CreditCard, FileClock, FileSignature, Link2, MessageSquareText, MessagesSquare, Paperclip, Plus, ReceiptText, Send, UserRoundCheck, UsersRound } from 'lucide-react';
-import { getGetCompanySubscriptionQueryKey, getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, getListInquiriesQueryKey, getGetServiceRequestQueryKey, getGetServiceRequestHistoryQueryKey, getListServiceRequestInvoicesQueryKey, useGetCompanySubscription, useGetServiceRequestHistory, useGetPortalSummary, useListServiceRequests, useGetServiceRequest, useListInquiries, useCreateInquiry, useAcceptQuote, useDeclineQuote, type Inquiry, type PortalSummary, type Reminder, type RequestEmployee, type RequestEmployeeStatus, type RequestQuote, type ServiceRequest, type Subscription } from '@workspace/api-client-react';
+import { getGetCompanySubscriptionQueryKey, getGetPortalSettingsQueryKey, getGetPortalSummaryQueryKey, getListServiceRequestsQueryKey, getListInquiriesQueryKey, getGetServiceRequestQueryKey, getGetServiceRequestHistoryQueryKey, getListServiceRequestInvoicesQueryKey, useGetCompanySubscription, useGetPortalSettings, useGetServiceRequestHistory, useGetPortalSummary, useListServiceRequests, useGetServiceRequest, useListInquiries, useCreateInquiry, useAcceptQuote, useDeclineQuote, type Inquiry, type PortalSummary, type Reminder, type RequestEmployee, type RequestEmployeeStatus, type RequestQuote, type ServiceRequest, type Subscription } from '@workspace/api-client-react';
 import { PortalLayout, PageHeading, LoadingBlock, ErrorBlock, EmptyBlock, RequestRow, Status, StatusTrack, dateText, categoryNames, statusNames } from '@/components/portal-ui';
 import { Chip, EmptyState, FilterChip, KeyValueList, SectionHeader, Surface, Tile, TileGrid, Toolbar } from '@/components/portal-kit';
 import { chartSeries } from '@/design/tokens';
@@ -15,6 +15,9 @@ import { CustomerWhatsapp } from '@/components/whatsapp-follow-up';
 import { RequestFiles } from '@/components/request-files';
 import { CustomerInvoices, RatingPanel } from '@/components/request-billing';
 import { customerTasks, type TaskKind } from '@/lib/tasks';
+import { useCompanyRole } from '@/lib/company-role';
+import { renewalLink } from '@/lib/renewal-link';
+import { RoleNotice, WhatsappVerifyBanner } from '@/components/customer-notices';
 import './customer.css';
 
 const count = (value: number) => new Intl.NumberFormat(LOCALE).format(value);
@@ -111,15 +114,6 @@ function recentThreads(d: PortalSummary): ThreadLine[] {
   return [...requests, ...inquiries].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, 6);
 }
 
-// Renewal request for a reminder: the matching service, linked to its employee or license.
-function renewalLink(r: Reminder) {
-  const service: Record<string, string> = { iqama: 'iqama-renewal', passport: 'passport-info-update', work_permit: 'work-permit' };
-  const params = new URLSearchParams();
-  if (service[r.kind]) params.set('service', service[r.kind]);
-  else { params.set('category', r.kind === 'commercial_register' ? 'business' : 'other'); params.set('name', `تجديد ${reminderKindNames[r.kind]}`); }
-  if (r.source !== 'manual' && r.sourceId) params.set(r.source, String(r.sourceId));
-  return `/requests/new?${params}`;
-}
 const expiryTone = (days: number) => days < 0 ? 'danger' : days <= 30 ? 'warn' : 'ok';
 
 // Sixty days from today on one track, each document a dot, then the rows.
@@ -146,6 +140,8 @@ function ExpiryTimeline({ items }: { items: Reminder[] }) {
 export function Dashboard() {
   const q = useGetPortalSummary({query:{queryKey:getGetPortalSummaryQueryKey(),refetchInterval:30000}});
   const requests = useListServiceRequests({query:{queryKey:getListServiceRequestsQueryKey(),refetchInterval:30000}});
+  const settings = useGetPortalSettings({ query: { queryKey: getGetPortalSettingsQueryKey(), retry: false, staleTime: 60_000 } });
+  const { canCreate } = useCompanyRole();
   const d = q.data;
   // Only company accounts can hold a subscription; for anyone else (or until
   // the server has it) the call fails quietly and the task list ignores it.
@@ -158,8 +154,10 @@ export function Dashboard() {
   const urgent = d ? d.expiringSoon.filter((r) => daysUntil(r.expiresOn) <= 30).length : 0;
   const completion = d && d.totalRequests ? Math.round((d.completedRequests / d.totalRequests) * 100) : 0;
   const threads = d ? recentThreads(d) : [];
-  return <PortalLayout><PageHeading eyebrow={greeting()} title="نظرة عامة" subtitle="ما يحتاج انتباهك، وأرقام منشأتك، وآخر ما دار مع المكتب." action={<Link href="/requests/new" className="btn btn-primary"><Plus size={18} aria-hidden="true"/>طلب خدمة جديد</Link>}/>
+  return <PortalLayout><PageHeading eyebrow={greeting()} title="نظرة عامة" subtitle="ما يحتاج انتباهك، وأرقام منشأتك، وآخر ما دار مع المكتب." action={canCreate && <Link href="/requests/new" className="btn btn-primary"><Plus size={18} aria-hidden="true"/>طلب خدمة جديد</Link>}/>
     <div className="dash">
+      <RoleNotice/>
+      <WhatsappVerifyBanner settings={settings.data}/>
       <NeedsYou requests={requests.data} summary={d} subscription={sub.data?.subscription}/>
       {q.isLoading ? <LoadingBlock variant="tiles"/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : d && <>
         <TileGrid>
@@ -189,7 +187,7 @@ export function Dashboard() {
                 : <EmptyBlock title="لا توجد محادثات بعد" text="تظهر هنا رسائل المكتب على طلباتك واستفساراتك." action="استفسار جديد" href="/inquiries"/>}
             </section>
             <section className="min-w-0" aria-labelledby="dash-recent"><SectionHeader id="dash-recent" title="أحدث الطلبات" count={d.recentRequests.length || undefined} action={d.recentRequests.length ? <Link href="/requests" className="btn btn-ghost btn-sm">عرض الكل<ArrowLeft size={15} aria-hidden="true"/></Link> : undefined}/>
-              {d.recentRequests.length ? <Surface padding="none" className="overflow-hidden">{d.recentRequests.map(r => <RequestRow key={r.id} request={r}/>)}</Surface> : <EmptyBlock title="لا توجد طلبات بعد" text="أرسل طلبك الأول وتابع حالته من هنا." action="طلب خدمة جديد" href="/requests/new"/>}
+              {d.recentRequests.length ? <Surface padding="none" className="overflow-hidden">{d.recentRequests.map(r => <RequestRow key={r.id} request={r}/>)}</Surface> : <EmptyBlock title="لا توجد طلبات بعد" text={canCreate ? 'أرسل طلبك الأول وتابع حالته من هنا.' : 'تظهر هنا طلبات المنشأة حين تُرسل.'} action={canCreate ? 'طلب خدمة جديد' : undefined} href={canCreate ? '/requests/new' : undefined}/>}
             </section>
           </div>
           <div className="dash-col">
@@ -221,8 +219,10 @@ export function Requests() {
   const needle = search.trim();
   const filtered = q.data?.filter(r => (filter === 'all' || r.status === filter) && (!needle || [r.service, r.reference, r.description].some((x) => x?.includes(needle)))) ?? [];
   const total = (key: string) => q.data?.filter(r => key === 'all' || r.status === key).length ?? 0;
-  return <PortalLayout><PageHeading eyebrow="طلباتي" title="طلباتي" subtitle="كل طلباتك مع حالتها الحالية وآخر رسالة من المكتب." action={<Link href="/requests/new" className="btn btn-primary"><Plus size={18} aria-hidden="true"/>طلب خدمة جديد</Link>}/>
-    {q.isLoading ? <LoadingBlock variant="table"/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : !q.data?.length ? <EmptyBlock title="لا توجد طلبات بعد" text="أرسل طلبك الأول وتابع حالته من هنا." action="طلب خدمة جديد" href="/requests/new"/> : <>
+  const { canCreate } = useCompanyRole();
+  return <PortalLayout><PageHeading eyebrow="طلباتي" title="طلباتي" subtitle="كل طلباتك مع حالتها الحالية وآخر رسالة من المكتب." action={canCreate && <Link href="/requests/new" className="btn btn-primary"><Plus size={18} aria-hidden="true"/>طلب خدمة جديد</Link>}/>
+    <RoleNotice/>
+    {q.isLoading ? <LoadingBlock variant="table"/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : !q.data?.length ? <EmptyBlock title="لا توجد طلبات بعد" text={canCreate ? 'أرسل طلبك الأول وتابع حالته من هنا.' : 'تظهر هنا طلبات المنشأة حين تُرسل.'} action={canCreate ? 'طلب خدمة جديد' : undefined} href={canCreate ? '/requests/new' : undefined}/> : <>
       <Toolbar search={{ value: search, onChange: setSearch, label: 'بحث في الطلبات', placeholder: 'ابحث بالخدمة أو الرقم المرجعي' }} filters={<div className="flex flex-wrap gap-2" role="group" aria-label="تصفية حسب الحالة">{requestFilters.map(key => <FilterChip key={key} active={filter === key} count={total(key)} onClick={() => setFilter(key)}>{key === 'all' ? 'الكل' : statusNames[key]}</FilterChip>)}</div>}/>
       {filtered.length ? <Surface padding="none" className="reqs-rows">{filtered.map(r => <RequestRow key={r.id} request={r}/>)}</Surface> : <EmptyBlock title={needle ? 'لا توجد طلبات مطابقة' : 'لا توجد طلبات بهذه الحالة'} text={needle ? 'جرّب كلمة أخرى أو أزل التصفية.' : 'اختر حالة أخرى لعرض طلباتك.'}/>}
     </>}
@@ -266,11 +266,14 @@ export function RequestDetail() {
   const r = q.data;
   const missing = r ? r.checklist.filter((item) => item.attachmentId === null).length : 0;
   const pendingQuote = !!r?.quote && !r.quote.acceptedAt && !r.quote.declinedAt;
+  // Viewers and finance members read the request; only hr and the owner reply, upload, and answer quotes.
+  const { canCreate: canWrite } = useCompanyRole();
   return <PortalLayout><div className="req"><BackLink href="/requests">طلباتي</BackLink>
     {!Number.isInteger(parsed)||parsed<=0 ? <EmptyBlock title="الطلب غير متاح" text="تحقق من رابط الطلب وحاول مرة أخرى."/> : q.isLoading ? <LoadingBlock/> : q.error?.status === 404 ? <EmptyBlock title="الطلب غير متاح" text="هذا الطلب غير موجود في حسابك."/> : q.isError ? <ErrorBlock retry={() => q.refetch()}/> : r && <>
       {justSent && <div role="status" className="rise req-notice"><CircleCheck size={22} aria-hidden="true"/><div><strong>تم إرسال طلبك إلى المكتب</strong><span>الرقم المرجعي <span dir="ltr" className="nums font-bold">{r.reference}</span>. تابع حالته من هذه الصفحة.</span></div></div>}
       {/* One channel per request: the conversation tab. Questions unrelated to a request go through the Inquiries page. */}
-      <PageHeading eyebrow={`طلب رقم ${r.reference}`} title={r.service} meta={<><Status value={r.status}/><Chip tone="outline">{categoryNames[r.category]}</Chip>{r.subject && <SubjectChip subject={r.subject}/>}</>} action={<div className="flex flex-wrap items-center gap-2"><CustomerWhatsapp thread={{ type: 'request', id: r.id }}/><PrintButton label="طباعة الطلب"/>{/* One reply CTA per page: the waiting banner below carries it when the request waits on the customer. */}{r.status !== 'completed' && r.status !== 'waiting_on_customer' && <button type="button" className="btn btn-primary" onClick={reply}><MessagesSquare size={17} aria-hidden="true"/>ردّ على المكتب</button>}</div>}/>
+      <PageHeading eyebrow={`طلب رقم ${r.reference}`} title={r.service} meta={<><Status value={r.status}/><Chip tone="outline">{categoryNames[r.category]}</Chip>{r.subject && <SubjectChip subject={r.subject}/>}</>} action={<div className="flex flex-wrap items-center gap-2"><CustomerWhatsapp thread={{ type: 'request', id: r.id }}/><PrintButton label="طباعة الطلب"/>{/* One reply CTA per page: the waiting banner below carries it when the request waits on the customer. */}{canWrite && r.status !== 'completed' && r.status !== 'waiting_on_customer' && <button type="button" className="btn btn-primary" onClick={reply}><MessagesSquare size={17} aria-hidden="true"/>ردّ على المكتب</button>}</div>}/>
+      <RoleNotice/>
       <div className="req-grid">
         <div className="req-rail">
           <Surface padding="none" className="req-card">
@@ -278,16 +281,16 @@ export function RequestDetail() {
               <StatusTrack status={r.status} createdAt={r.createdAt} updatedAt={r.updatedAt}/>
               {r.status==='waiting_on_customer'&&<div className="req-waiting"><span className="req-waiting-text"><CircleAlert size={16} aria-hidden="true"/>{r.customerMessage
                 ? <span><strong>المكتب يحتاج منك:</strong><span className="whitespace-pre-line break-words">{r.customerMessage}</span><small>أرفق المطلوب في «المستندات»، أو ردّ على المكتب في المحادثة.</small></span>
-                : <span>اسأل المكتب في المحادثة عمّا يلزم لإكمال الطلب.</span>}</span><span className="req-waiting-actions"><button type="button" className="btn btn-primary btn-sm" onClick={reply}><MessagesSquare size={15} aria-hidden="true"/>ردّ على المكتب</button><button type="button" className="btn btn-outline btn-sm !text-warn" onClick={toDocuments}><Paperclip size={15} aria-hidden="true"/>أرفق المستندات</button></span></div>}
+                : <span>اسأل المكتب في المحادثة عمّا يلزم لإكمال الطلب.</span>}</span>{canWrite && <span className="req-waiting-actions"><button type="button" className="btn btn-primary btn-sm" onClick={reply}><MessagesSquare size={15} aria-hidden="true"/>ردّ على المكتب</button><button type="button" className="btn btn-outline btn-sm !text-warn" onClick={toDocuments}><Paperclip size={15} aria-hidden="true"/>أرفق المستندات</button></span>}</div>}
               <StatusHistory id={r.id} updatedAt={r.updatedAt}/>
             </section>
-            {r.quote && <QuoteCard requestId={r.id} quote={r.quote}/>}
+            {r.quote && <QuoteCard requestId={r.id} quote={r.quote} canDecide={canWrite}/>}
             <div className="req-card-sec bg-paper">
               <KeyValueList items={[{ label: 'مجال الخدمة', value: categoryNames[r.category] }, { label: 'رقم التواصل', value: <span dir="ltr">{r.contactPhone}</span>, nums: true }, { label: 'أُرسل في', value: dateText(r.createdAt) }, { label: 'آخر تحديث', value: dateText(r.updatedAt) }]}/>
             </div>
             <div className="req-card-sec"><h2 className="req-sec-title"><ClipboardList size={15} aria-hidden="true"/>تفاصيل الطلب</h2><p className="req-desc">{r.description}</p></div>
             {(r.employees?.length ?? 0) > 0 && <RequestEmployees employees={r.employees}/>}
-            {r.status === 'completed' && <div className="req-card-sec"><RatingPanel requestId={r.id} rating={r.rating} comment={r.ratingComment} onRated={() => q.refetch()}/></div>}
+            {canWrite && r.status === 'completed' && <div className="req-card-sec"><RatingPanel requestId={r.id} rating={r.rating} comment={r.ratingComment} onRated={() => q.refetch()}/></div>}
           </Surface>
         </div>
         <div className="req-work">
@@ -298,15 +301,15 @@ export function RequestDetail() {
           </button>)}</div>
           <Surface padding="none" className="req-card">
             <div id={`req-panel-${tab}`} role="tabpanel" aria-labelledby={`req-tab-${tab}`} tabIndex={0} className="req-panel">
-              {tab === 'conversation' && <RequestConversation requestId={r.id} scope="customer" closed={r.status === 'completed'}/>}
-              {tab === 'documents' && <div id="documents" className="scroll-mt-24"><RequestFiles scope="customer" requestId={r.id} attachments={r.attachments} checklist={r.checklist} canUpload={r.status !== 'completed'} onChanged={() => q.refetch()}/></div>}
+              {tab === 'conversation' && <RequestConversation requestId={r.id} scope="customer" closed={r.status === 'completed' || !canWrite}/>}
+              {tab === 'documents' && <div id="documents" className="scroll-mt-24"><RequestFiles scope="customer" requestId={r.id} attachments={r.attachments} checklist={r.checklist} canUpload={canWrite && r.status !== 'completed'} onChanged={() => q.refetch()}/></div>}
               {tab === 'invoices' && <div id="invoices" className="req-invoices scroll-mt-24"><CustomerInvoices requestId={r.id} returnedInvoiceId={returnedInvoiceId}/><div className="req-invoices-empty"><EmptyState compact icon={<ReceiptText size={22} strokeWidth={1.5} aria-hidden="true"/>} title="لا توجد فواتير بعد" text="تظهر الفاتورة هنا عندما يصدرها المكتب، وتسددها من الصفحة نفسها."/></div></div>}
             </div>
           </Surface>
         </div>
       </div>
-      {r.status !== 'completed' && <div className="req-bar" aria-label="إجراءات الطلب">
-        {pendingQuote ? <button type="button" className="btn btn-primary" onClick={toQuote}><FileSignature size={17} aria-hidden="true"/>راجع عرض السعر</button>
+      {r.status !== 'completed' && (canWrite || r.status === 'awaiting_payment') && <div className="req-bar" aria-label="إجراءات الطلب">
+        {pendingQuote && canWrite ? <button type="button" className="btn btn-primary" onClick={toQuote}><FileSignature size={17} aria-hidden="true"/>راجع عرض السعر</button>
           : r.status === 'awaiting_payment' ? <button type="button" className="btn btn-primary" onClick={() => setTab('invoices')}><CreditCard size={17} aria-hidden="true"/>الفواتير</button>
           : <button type="button" className="btn btn-primary" onClick={reply}><MessagesSquare size={17} aria-hidden="true"/>ردّ على المكتب</button>}
         <button type="button" className="btn btn-outline" onClick={toDocuments}><Paperclip size={17} aria-hidden="true"/>المستندات</button>
@@ -316,7 +319,7 @@ export function RequestDetail() {
 }
 // The office's price before work starts. Accepting issues the invoice (the
 // invoices section below picks it up), declining sends the note as a message.
-function QuoteCard({ requestId, quote }: { requestId: number; quote: RequestQuote }) {
+function QuoteCard({ requestId, quote, canDecide = true }: { requestId: number; quote: RequestQuote; canDecide?: boolean }) {
   const qc = useQueryClient();
   const accept = useAcceptQuote();
   const decline = useDeclineQuote();
@@ -338,7 +341,7 @@ function QuoteCard({ requestId, quote }: { requestId: number; quote: RequestQuot
     <p className="mt-1 text-sm leading-7 text-quiet">أرسل المكتب سعر هذه الخدمة بتاريخ {formatDateTime(quote.quotedAt)}. بموافقتك تُصدر الفاتورة ويبدأ العمل.</p>
     {amounts}
     {quote.note && <p className="mt-3 whitespace-pre-wrap rounded-lg bg-surface px-4 py-3 text-sm leading-7">{quote.note}</p>}
-    {noting ? <form className="mt-4" onSubmit={e => { e.preventDefault(); void run(() => decline.mutateAsync({ id: requestId, data: reason.trim() ? { reason: reason.trim() } : {} })); }}>
+    {!canDecide ? <p className="mt-3 text-sm text-quiet">قبول العرض أو الملاحظة عليه لمالك المنشأة أو عضو الموارد البشرية.</p> : noting ? <form className="mt-4" onSubmit={e => { e.preventDefault(); void run(() => decline.mutateAsync({ id: requestId, data: reason.trim() ? { reason: reason.trim() } : {} })); }}>
       <label className="form-field">ملاحظتك على العرض<textarea className="form-control !min-h-20" value={reason} onChange={e => setReason(e.target.value)} maxLength={500} placeholder="مثال: هل يشمل السعر رسوم الجهة؟" autoFocus/></label>
       <div className="mt-3 flex flex-wrap gap-2"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{decline.isPending ? 'جارٍ الإرسال…' : 'إرسال الملاحظة'}</button><button type="button" className="btn btn-outline btn-sm" onClick={() => setNoting(false)} disabled={busy}>رجوع</button></div>
     </form> : <div className="mt-4 flex flex-wrap gap-2">
@@ -404,9 +407,11 @@ function InquiryItem({ inquiry }: { inquiry: Inquiry }) {
 export function Inquiries() {
   const q=useListInquiries({query:{queryKey:getListInquiriesQueryKey(),refetchInterval:30000}}); const requests=useListServiceRequests({query:{queryKey:getListServiceRequestsQueryKey(),refetchInterval:30000}}); const qc=useQueryClient(); const mutation=useCreateInquiry(); const [subject,setSubject]=useState(''); const [message,setMessage]=useState(''); const [linkedServiceRequestId,setLinkedServiceRequestId]=useState(''); const [showForm,setShowForm]=useState(false);
   async function submit(e:FormEvent) { e.preventDefault(); try { await mutation.mutateAsync({data:{subject:subject.trim(),message:message.trim(),linkedServiceRequestId:linkedServiceRequestId?Number(linkedServiceRequestId):null}}); setSubject('');setMessage('');setLinkedServiceRequestId('');setShowForm(false); await Promise.all([qc.invalidateQueries({queryKey:getListInquiriesQueryKey()}),qc.invalidateQueries({queryKey:getGetPortalSummaryQueryKey()})]); } catch { /* error shown */ } }
-  function openForm() { setShowForm(true); requestAnimationFrame(() => document.getElementById('inquiry-subject')?.focus()); }
-  return <PortalLayout><PageHeading eyebrow="تواصل مع المكتب" title="استفساراتي" subtitle="أسئلة عامة لا تخص طلبًا بعينه؛ يجيبك المكتب هنا وتستمر المحادثة." action={!showForm && <button type="button" onClick={openForm} className="btn btn-primary"><Plus size={18} aria-hidden="true"/>استفسار جديد</button>}/>
-    {showForm && <form onSubmit={submit} className="surface rise mb-8 p-6 sm:p-8" aria-labelledby="inquiry-form-title">
+  const { canCreate } = useCompanyRole();
+  function openForm() { if (!canCreate) return; setShowForm(true); requestAnimationFrame(() => document.getElementById('inquiry-subject')?.focus()); }
+  return <PortalLayout><PageHeading eyebrow="تواصل مع المكتب" title="استفساراتي" subtitle="أسئلة عامة لا تخص طلبًا بعينه؛ يجيبك المكتب هنا وتستمر المحادثة." action={canCreate && !showForm && <button type="button" onClick={openForm} className="btn btn-primary"><Plus size={18} aria-hidden="true"/>استفسار جديد</button>}/>
+    <RoleNotice/>
+    {canCreate && showForm && <form onSubmit={submit} className="surface rise mb-8 p-6 sm:p-8" aria-labelledby="inquiry-form-title">
       <SectionHeader id="inquiry-form-title" title="استفسار جديد" description="اكتب سؤالك بوضوح ليصلك رد دقيق من المكتب."/>
       <div className="grid gap-5 md:grid-cols-2">
         <label className="form-field">الموضوع<input id="inquiry-subject" className="form-control" placeholder="موضوع الاستفسار باختصار" value={subject} onChange={e=>setSubject(e.target.value)} minLength={3} maxLength={160} required/></label>
@@ -418,8 +423,8 @@ export function Inquiries() {
       <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-line pt-5"><button type="button" onClick={()=>setShowForm(false)} className="btn btn-outline" disabled={mutation.isPending}>إلغاء</button><button disabled={mutation.isPending} type="submit" className="btn btn-primary">{mutation.isPending?'جارٍ الإرسال…':'إرسال الاستفسار'}<Send size={16} aria-hidden="true"/></button></div>
     </form>}
     <div className="inq-grid">
-      <section aria-labelledby="inquiries-list-title" className="min-w-0"><h2 id="inquiries-list-title" className="sr-only">سجل الاستفسارات</h2>{q.isLoading?<LoadingBlock/>:q.isError?<ErrorBlock retry={()=>q.refetch()}/>:!q.data?.length?<EmptyBlock title="لا توجد استفسارات بعد" text="يظهر هنا كل استفسار ترسله مع رد المكتب عليه." action="استفسار جديد" onAction={openForm}/>:<Surface padding="none" className="overflow-hidden">{q.data.map(i=><InquiryItem key={i.id} inquiry={i}/>)}</Surface>}</section>
-      <CustomerAssistant onAskOffice={openForm}/>
+      <section aria-labelledby="inquiries-list-title" className="min-w-0"><h2 id="inquiries-list-title" className="sr-only">سجل الاستفسارات</h2>{q.isLoading?<LoadingBlock/>:q.isError?<ErrorBlock retry={()=>q.refetch()}/>:!q.data?.length?<EmptyBlock title="لا توجد استفسارات بعد" text="يظهر هنا كل استفسار ترسله مع رد المكتب عليه." action={canCreate ? 'استفسار جديد' : undefined} onAction={canCreate ? openForm : undefined}/>:<Surface padding="none" className="overflow-hidden">{q.data.map(i=><InquiryItem key={i.id} inquiry={i}/>)}</Surface>}</section>
+      {canCreate && <CustomerAssistant onAskOffice={openForm}/>}
     </div>
   </PortalLayout>;
 }

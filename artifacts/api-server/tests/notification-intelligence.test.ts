@@ -207,7 +207,7 @@ test("buildBrief ranks urgent money and documents first and counts the headline"
   assert.match(brief.items[0].title, /INV-7/);
   assert.match(brief.items[1].title, /إقامة محمد/);
   assert.equal(brief.items[1].reason.length > 0, true);
-  assert.equal(brief.items[2].path, "/invoices");
+  assert.equal(brief.items[2].path, "/requests?status=awaiting_payment");
   assert.equal(brief.items[3].path, "/requests/41");
   assert.equal(brief.items[4].path, "/requests/3");
   // The two low notifications of one kind fold into a single line.
@@ -223,13 +223,66 @@ test("buildBrief office queues and the empty state", () => {
   assert.deepEqual(empty.items, []);
   assert.equal(empty.headline, "كل شيء هادئ، لا يوجد ما يحتاج انتباهك الآن.");
   const busy = buildBrief({ audience: "office", now: utc("2026-10-11T09:00:00Z"), unread: [], overdueInvoices: [], expiringReminders: [], waitingRequests: [], office: { unassigned: 2, openInquiries: 1, unmatchedWhatsapp: 3, overdueTotalHalalas: 123_450 } });
-  assert.deepEqual(busy.items.map(item => item.path), ["/office/requests", "/office/whatsapp", "/office/invoices", "/office/inquiries"]);
+  assert.deepEqual(busy.items.map(item => item.path), ["/office/requests?sort=due_soon", "/office/whatsapp", "/office/reports", "/office/inquiries"]);
   assert.equal(busy.items[0].title, "طلبان بلا موظف مسؤول");
   assert.equal(busy.items[1].title, "3 رسائل واتساب بلا رد");
   assert.match(busy.items[2].title, /1,234\.5 ر\.س/);
   assert.equal(busy.headline, "لديك 3 أمور تحتاج انتباهك اليوم.");
   const calm = buildBrief({ audience: "customer", now: utc("2026-10-11T09:00:00Z"), unread: [notification({ id: 9, kind: "request.status" })], overdueInvoices: [], expiringReminders: [], waitingRequests: [] });
   assert.equal(calm.headline, "لديك تحديث واحد دون أمور عاجلة.");
+});
+
+// The portal's routes (artifacts/hbs-solutions/src/App.tsx and the portal
+// shell), as patterns. A brief item that points anywhere else is a dead link.
+const KNOWN_ROUTES = [
+  /^\/dashboard$/, /^\/requests$/, /^\/requests\/new$/, /^\/requests\/\d+$/, /^\/inquiries$/, /^\/inquiries\/\d+$/, /^\/messages$/,
+  /^\/documents$/, /^\/company$/, /^\/notifications$/, /^\/settings$/,
+  /^\/office$/, /^\/office\/requests$/, /^\/office\/requests\/\d+$/, /^\/office\/inquiries$/, /^\/office\/messages$/, /^\/office\/reminders$/,
+  /^\/office\/reports$/, /^\/office\/whatsapp$/, /^\/office\/customers$/, /^\/office\/customers\/[^/]+$/, /^\/office\/notifications$/,
+];
+const KNOWN_QUERIES: Record<string, RegExp> = {
+  "/requests": /^status=(awaiting_payment|received|reviewing|waiting_on_customer|submitted_to_authority|completed)$/,
+  "/office/requests": /^(sort=(newest|oldest_update|due_soon)|overdue=true|assignee=me)(&(sort=(newest|oldest_update|due_soon)|overdue=true|assignee=me))*$/,
+  "/company": /^tab=subscription(&invoice=\d+)?$/,
+};
+function assertKnownRoute(path: string | null | undefined) {
+  if (path == null) return;
+  const [pathname, query = ""] = path.split("#")[0].split("?");
+  assert.ok(KNOWN_ROUTES.some(route => route.test(pathname)), `unknown route in brief: ${path}`);
+  if (query) assert.match(query, KNOWN_QUERIES[pathname] ?? /^$/, `unknown query in brief: ${path}`);
+}
+
+test("every path buildBrief emits is a real portal route", () => {
+  const now = utc("2026-10-11T09:00:00Z");
+  const unread = (Object.keys(KINDS) as (keyof typeof KINDS)[]).map((kind, index) =>
+    notification({ id: index + 1, kind, priority: index % 2 ? "high" : "low", path: index % 3 ? null : `/requests/${index + 1}` }));
+  const customer = buildBrief({
+    audience: "customer", now, unread: unread.filter(n => n.audience === "customer"),
+    overdueInvoices: [{ reference: "INV-1", days: 9, total: "1 ر.س" }, { reference: "INV-2", days: 1, total: "1 ر.س", path: "/company?tab=subscription&invoice=2" }],
+    expiringReminders: [{ label: "إقامة", days: 3 }, { label: "رخصة", days: 40, path: "/documents" }],
+    waitingRequests: [{ reference: "HBS-2026-00041", service: "خدمة", path: "/requests/41" }, { reference: "HBS-2026-00042", service: "خدمة" }],
+  });
+  const office = buildBrief({
+    audience: "office", now, unread: unread.filter(n => n.audience === "office"),
+    overdueInvoices: [{ reference: "INV-3", days: 9, total: "1 ر.س" }], expiringReminders: [{ label: "إقامة", days: 3 }],
+    waitingRequests: [{ reference: "HBS-2026-00043", service: "خدمة" }],
+    office: { unassigned: 2, openInquiries: 1, unmatchedWhatsapp: 3, overdueTotalHalalas: 100 },
+  });
+  // MAX_BRIEF_ITEMS trims the list; check the full, untrimmed set of paths by
+  // building each section on its own too.
+  const sections = [
+    customer, office,
+    buildBrief({ audience: "customer", now, unread: [], overdueInvoices: [{ reference: "INV-1", days: 9, total: "1" }], expiringReminders: [], waitingRequests: [] }),
+    buildBrief({ audience: "customer", now, unread: [], overdueInvoices: [], expiringReminders: [{ label: "إقامة", days: 3 }], waitingRequests: [] }),
+    buildBrief({ audience: "customer", now, unread: unread.filter(n => n.audience === "customer" && n.priority === "low"), overdueInvoices: [], expiringReminders: [], waitingRequests: [] }),
+    buildBrief({ audience: "office", now, unread: [], overdueInvoices: [{ reference: "INV-1", days: 9, total: "1" }], expiringReminders: [{ label: "إقامة", days: 3 }], waitingRequests: [], office: { unassigned: 1, openInquiries: 1, unmatchedWhatsapp: 1, overdueTotalHalalas: 1 } }),
+  ];
+  let checked = 0;
+  for (const brief of sections) for (const item of brief.items) { assertKnownRoute(item.path); if (item.path) checked++; }
+  assert.ok(checked >= 12, `expected a spread of paths, checked ${checked}`);
+  assert.throws(() => assertKnownRoute("/reminders"), /unknown route/);
+  assert.throws(() => assertKnownRoute("/office/invoices"), /unknown route/);
+  assert.throws(() => assertKnownRoute("/office/requests?sort=nope"), /unknown query/);
 });
 
 test("digestMail groups by kind with counts and links to the notification centre", () => {

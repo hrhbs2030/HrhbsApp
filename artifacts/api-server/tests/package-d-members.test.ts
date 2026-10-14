@@ -9,13 +9,15 @@ import pino from "pino";
 import pinoHttp from "pino-http";
 import {
   db, hbsAuditLog, hbsCompanies, hbsCompanyEmployees, hbsCompanyLicenses, hbsCompanyMembers, hbsDocumentReminders,
-  hbsInvoiceGatewayPages, hbsInvoices, hbsOfficeStaff, hbsPlans, hbsRequestEmployees, hbsServiceRequests, hbsSubscriptions, pool,
+  hbsInquiries, hbsInvoiceGatewayPages, hbsInvoices, hbsOfficeStaff, hbsPlans, hbsRequestEmployees, hbsServiceRequests, hbsSubscriptions, pool,
 } from "@workspace/db";
 import portalRouter from "../src/routes/portal";
 import companyRouter from "../src/routes/company";
 import companyMembersRouter from "../src/routes/company-members";
 import billingRouter from "../src/routes/billing";
 import subscriptionsRouter from "../src/routes/subscriptions";
+import messagingRouter from "../src/routes/messaging";
+import { createRemindersRouter } from "../src/routes/reminders";
 import { forgetVerifiedEmails, verifiedEmailsOf } from "../src/lib/company-access";
 import { vatFor } from "../src/lib/money";
 
@@ -53,7 +55,7 @@ function testApp() {
     Object.assign(req, { auth });
     next();
   });
-  for (const router of [portalRouter, companyRouter, companyMembersRouter, billingRouter, subscriptionsRouter]) app.use("/api", router);
+  for (const router of [portalRouter, companyRouter, companyMembersRouter, billingRouter, subscriptionsRouter, messagingRouter, createRemindersRouter()]) app.use("/api", router);
   return app;
 }
 
@@ -164,7 +166,13 @@ test("company members, roles, bulk requests and invoice quantities", async (t) =
       // The shell lets a member in without a registration: /portal/me reports them approved.
       const me = await call(viewer, "GET", "/portal/me");
       assert.equal(me.status, 200, JSON.stringify(me.data));
-      assert.deepEqual(me.data, { role: "customer", officeRole: null, registrationStatus: "approved" });
+      assert.deepEqual(me.data, {
+        role: "customer", officeRole: null, registrationStatus: "approved", companyRole: "viewer",
+        actingFor: { companyUserId: owner, companyName: "شركة الاختبار" },
+      });
+      const ownerMe = await call(owner, "GET", "/portal/me");
+      assert.deepEqual({ companyRole: ownerMe.data.companyRole, actingFor: ownerMe.data.actingFor }, { companyRole: "owner", actingFor: null }, "owners act for themselves");
+      assert.deepEqual({ companyRole: (await call(stranger, "GET", "/portal/me")).data.companyRole }, { companyRole: null });
       assert.equal((await call(viewer, "GET", "/company")).status, 200, "the file opens for a viewer");
       assert.equal((await call(viewer, "PUT", "/company", { name: "x" })).status, 403, "read only");
       assert.deepEqual((await call(owner, "GET", "/company/membership")).data, { role: "owner", companyUserId: owner, companyName: "شركة الاختبار" });
@@ -272,6 +280,79 @@ test("company members, roles, bulk requests and invoice quantities", async (t) =
       assert.deepEqual(byMembers.map(a => a.action).sort(), ["employee.create", "employee.create", "employee.create", "employee.reveal", "employee.update", "license.create"]);
       assert.ok(!JSON.stringify(byMembers).includes("2000000011"), "numbers never enter the audit log");
       assert.equal((await auditsFor(owner)).filter(a => a.actorId === owner && a.action.startsWith("employee")).length, 0, "the owner's own reveals are not audited");
+    });
+
+    await t.test("members act for the company on the customer routes: hr opens requests, viewer only reads, finance only pays", async () => {
+      const base = { category: "passports", service: "تجديد إقامة", description: "Renew the iqama of our employee please.", contactPhone: "0500000001" };
+      // The owner's requests are the company's: every member reads them.
+      assert.equal((await call(viewer, "GET", "/portal/summary")).status, 200, "the dashboard opens for a viewer");
+      assert.equal((await call(finance, "GET", "/service-requests")).status, 200);
+      assert.equal((await call(stranger, "GET", "/service-requests")).status, 403, "no company, no customer data");
+
+      const viewOnly = "صلاحيتك للعرض فقط؛ اطلب من مالك المنشأة ترقيتها.";
+      const viewerWrite = await call(viewer, "POST", "/service-requests", base);
+      assert.equal(viewerWrite.status, 403);
+      assert.equal(viewerWrite.data.error, viewOnly);
+      assert.equal((await call(viewer, "POST", "/inquiries", { subject: "س", message: "سؤال" })).data.error, viewOnly);
+      assert.equal((await call(viewer, "POST", "/reminders", { kind: "iqama", label: "x", expiresOn: "2031-01-01" })).status, 403);
+      const financeWrite = await call(finance, "POST", "/service-requests", base);
+      assert.equal(financeWrite.status, 403);
+      assert.equal(financeWrite.data.error, "صلاحيتك مالية فقط؛ اطلب من مالك المنشأة ترقيتها.");
+      assert.equal((await call(finance, "POST", "/inquiries", { subject: "س", message: "سؤال" })).status, 403);
+      // Personal settings are not company data: any member keeps their own.
+      assert.equal((await call(viewer, "PUT", "/portal/settings", { whatsappOptIn: false, whatsappPhone: null })).status, 200);
+      assert.equal((await call(viewer, "GET", "/portal/settings")).status, 200);
+
+      const created = await call(hr, "POST", "/service-requests", { ...base, employeeId: employeeIds[0] });
+      assert.equal(created.status, 201, JSON.stringify(created.data));
+      requestIds.push(created.data.id);
+      assert.deepEqual(created.data.createdBy, { source: "member", name: null }, "opened by a member whose Clerk profile has no name");
+      assert.deepEqual(created.data.subject, { type: "employee", id: employeeIds[0], label: "أحمد" }, "the company's employee");
+      const [row] = await db.select().from(hbsServiceRequests).where(eq(hbsServiceRequests.id, created.data.id));
+      assert.deepEqual({ userId: row.userId, createdBy: row.createdBy, source: row.source }, { userId: owner, createdBy: hr, source: "member" });
+
+      const ownerList = await call(owner, "GET", "/service-requests");
+      const inOwnerList = ownerList.data.find((r: any) => r.id === created.data.id);
+      assert.ok(inOwnerList, "the request is the company's: the owner sees it");
+      assert.deepEqual(inOwnerList.createdBy, { source: "member", name: null });
+      assert.equal((await call(owner, "GET", "/service-requests")).data.find((r: any) => r.id === fixtures[0].id).createdBy, undefined, "the owner's own requests carry no label");
+      assert.equal((await call(viewer, "GET", `/service-requests/${created.data.id}`)).status, 200);
+      assert.equal((await call(hr, "GET", `/service-requests/${created.data.id}/history`)).status, 200);
+      assert.equal((await call(other, "GET", `/service-requests/${created.data.id}`)).status, 404, "another company");
+      assert.equal((await call(owner, "GET", "/portal/summary")).data.recentRequests[0].id, created.data.id);
+
+      const file = await call(office, "GET", `/office/customers/${owner}`);
+      assert.equal(file.status, 200, JSON.stringify(file.data));
+      const inFile = file.data.requests.find((r: any) => r.id === created.data.id);
+      assert.deepEqual(inFile?.createdBy, { source: "member", name: null }, "the office customer file names the member");
+      const office_page = await call(office, "GET", `/office/service-requests?q=${encodeURIComponent("تجديد إقامة")}`);
+      const inOffice = office_page.data.items.find((r: any) => r.id === created.data.id);
+      assert.deepEqual({ userId: inOffice?.userId, createdBy: inOffice?.createdBy }, { userId: owner, createdBy: { source: "member", name: null } });
+      assert.deepEqual((await call(office, "GET", `/office/service-requests/${created.data.id}`)).data.createdBy, { source: "member", name: null });
+
+      // Conversations: the member writes as the company; the owner reads the thread; the office answers.
+      const sent = await call(hr, "POST", `/service-requests/${created.data.id}/messages`, { body: "هل من جديد؟" });
+      assert.equal(sent.status, 201, JSON.stringify(sent.data));
+      assert.equal((await call(viewer, "POST", `/service-requests/${created.data.id}/messages`, { body: "x" })).status, 403);
+      assert.equal((await call(office, "POST", `/office/service-requests/${created.data.id}/messages`, { body: "قريبًا" })).status, 201);
+      const threads = await call(viewer, "GET", "/messages/threads");
+      assert.equal(threads.status, 200, JSON.stringify(threads.data));
+      const thread = threads.data.items.find((item: any) => item.type === "request" && item.id === created.data.id);
+      assert.ok(thread, "a member sees the company's threads");
+      assert.equal(thread.unread, 1, "the office's reply is unread for this member");
+      assert.equal((await call(owner, "GET", `/service-requests/${created.data.id}/messages`)).data.length, 2);
+      assert.equal((await call(finance, "GET", `/service-requests/${created.data.id}/messages`)).data.length, 2);
+      assert.equal((await call(viewer, "GET", "/messages/threads?unread=false")).data.items.some((item: any) => item.id === created.data.id), true, "unread=false is not a filter");
+      assert.equal((await call(viewer, "POST", `/messages/threads/request/${created.data.id}/read`)).status, 200, "reading is not a write to company data");
+      assert.equal((await call(viewer, "GET", "/messages/threads?unread=true")).data.items.some((item: any) => item.id === created.data.id), false);
+      assert.equal((await call(owner, "GET", "/messages/threads?unread=true")).data.items.find((item: any) => item.id === created.data.id)?.unread, 1, "read markers are per person");
+
+      const inquiry = await call(hr, "POST", "/inquiries", { subject: "استفسار", message: "متى ينتهي؟", linkedServiceRequestId: created.data.id });
+      assert.equal(inquiry.status, 201, JSON.stringify(inquiry.data));
+      assert.deepEqual(inquiry.data.createdBy, { source: "member", name: null });
+      assert.equal((await call(owner, "GET", "/inquiries")).data[0].createdBy.source, "member");
+      assert.equal((await call(office, "GET", "/office/inquiries")).data.items.find((i: any) => i.id === inquiry.data.id).createdBy.source, "member");
+      await db.delete(hbsInquiries).where(eq(hbsInquiries.id, inquiry.data.id));
     });
 
     let bulkId = 0;

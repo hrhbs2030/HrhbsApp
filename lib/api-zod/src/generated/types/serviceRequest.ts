@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ChecklistItem } from './checklistItem';
+import type { RequestCreatedBy } from './requestCreatedBy';
 import type { RequestEmployee } from './requestEmployee';
 import type { RequestLastMessage } from './requestLastMessage';
 import type { RequestQuote } from './requestQuote';
@@ -45,4 +46,5 @@ export interface ServiceRequest {
   checklist: ChecklistItem[];
   /** Employees covered by a bulk request, each with its own progress; empty for single requests */
   employees: RequestEmployee[];
+  createdBy?: RequestCreatedBy;
 }

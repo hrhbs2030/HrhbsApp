@@ -8,8 +8,8 @@ import express from "express";
 import pino from "pino";
 import pinoHttp from "pino-http";
 import {
-  db, hbsAuditLog, hbsCustomerSettings, hbsDocumentReminders, hbsInvoiceGatewayPages, hbsInvoices, hbsOfficeStaff,
-  hbsServiceOffers, hbsServiceRequests, pool,
+  db, hbsAssignmentRules, hbsAuditLog, hbsCompanyEmployees, hbsCustomerSettings, hbsDocumentReminders, hbsInvoiceGatewayPages, hbsInvoices, hbsOfficeStaff,
+  hbsRegistrationRequests, hbsServiceOffers, hbsServiceRequests, pool,
 } from "@workspace/db";
 import portalRouter from "../src/routes/portal";
 import billingRouter, { settleFromGateway } from "../src/routes/billing";
@@ -197,6 +197,60 @@ test("assignment, statuses, ratings, invoices, reminders, catalogue and reports"
       assert.equal(rated.data.rating, 4);
       assert.equal(rated.data.ratingComment, "Quick");
       assert.equal((await call(customerA, "POST", `/service-requests/${reqA.id}/rating`, { rating: 1 })).status, 409);
+    });
+
+    await t.test("office intake: staff open a request in the customer's name", async () => {
+      const path = (userId: string) => `/office/customers/${userId}/service-requests`;
+      const body = { category: "labor", service: "نقل خدمات", description: "Walk-in customer asked for a sponsorship transfer." };
+      assert.equal((await call(customerA, "POST", path(customerB), body)).status, 403, "customers cannot use it");
+      assert.equal((await call(staff, "POST", path(outsider), body)).status, 404, "not a customer");
+      assert.equal((await call(staff, "POST", path(customerA), { ...body, description: "short" })).status, 400);
+      assert.equal((await call(staff, "POST", path(customerA), { ...body, contactPhone: "12345" })).status, 400, "not a Saudi mobile");
+      const noPhone = await call(staff, "POST", path(customerA), body);
+      assert.equal(noPhone.status, 400, "no registration phone to fall back on");
+      assert.match(noPhone.data.error, /mobile number/);
+      const [foreign] = await db.insert(hbsCompanyEmployees).values({ userId: customerB, createdBy: customerB, fullName: "موظف آخر" }).returning();
+      const [own] = await db.insert(hbsCompanyEmployees).values({ userId: customerA, createdBy: customerA, fullName: "موظفنا" }).returning();
+      await db.delete(hbsAssignmentRules).where(eq(hbsAssignmentRules.category, "labor"));
+      await db.insert(hbsAssignmentRules).values({ category: "labor", assignee: owner, dueDays: 3, updatedBy: owner });
+      try {
+        assert.equal((await call(staff, "POST", path(customerA), { ...body, contactPhone: "0551234567", subject: { type: "employee", id: foreign.id } })).status, 400, "another customer's employee");
+        await db.insert(hbsRegistrationRequests).values({ userId: customerA, fullName: "عميل أ", email: "a@example.invalid", contactPhone: "+966 55 000 0000", status: "approved" });
+        const created = await call(staff, "POST", path(customerA), { ...body, subject: { type: "employee", id: own.id } });
+        assert.equal(created.status, 201, JSON.stringify(created.data));
+        requestIds.push(created.data.id);
+        assert.deepEqual({
+          userId: created.data.userId, status: created.data.status, contactPhone: created.data.contactPhone,
+          createdBy: created.data.createdBy, subject: created.data.subject, customer: created.data.customer,
+        }, {
+          userId: customerA, status: "received", contactPhone: "0550000000", createdBy: { source: "office", name: null },
+          subject: { type: "employee", id: own.id, label: "موظفنا" }, customer: { fullName: "عميل أ", email: "a@example.invalid" },
+        });
+        assert.equal(created.data.assignedTo, owner, "the category's assignment rule applies");
+        const [row] = await db.select().from(hbsServiceRequests).where(eq(hbsServiceRequests.id, created.data.id));
+        assert.deepEqual({ createdBy: row.createdBy, source: row.source, employeeId: row.employeeId }, { createdBy: staff, source: "office", employeeId: own.id });
+        const audits = await db.select().from(hbsAuditLog).where(eq(hbsAuditLog.targetId, String(created.data.id))).orderBy(hbsAuditLog.id);
+        assert.deepEqual(audits.map(a => [a.actorId, a.action]), [[staff, "service_request.create_for_customer"], ["automation", "service_request.update"]]);
+        assert.deepEqual(audits[0].details, { customerUserId: customerA, category: "labor", service: "نقل خدمات", subject: { type: "employee", id: own.id } });
+
+        // The customer owns it from here on: listed, opened and answered like their own.
+        const mine = await call(customerA, "GET", `/service-requests/${created.data.id}`);
+        assert.equal(mine.status, 200);
+        assert.deepEqual(mine.data.createdBy, { source: "office", name: null });
+        assert.equal((await call(customerB, "GET", `/service-requests/${created.data.id}`)).status, 404);
+        assert.ok((await call(customerA, "GET", "/service-requests")).data.some((r: any) => r.id === created.data.id));
+        assert.equal((await call(staff, "GET", `/office/service-requests/${created.data.id}`)).data.createdBy.source, "office");
+        assert.equal((await call(customerA, "POST", `/service-requests/${created.data.id}/messages`, { body: "شكرًا" })).status, 201);
+        const typed = await call(owner, "POST", path(customerA), { ...body, contactPhone: "055 765 4321" });
+        assert.equal(typed.status, 201);
+        requestIds.push(typed.data.id);
+        assert.equal(typed.data.contactPhone, "0557654321", "a typed number wins over the registration phone");
+        assert.equal(typed.data.subject, null);
+      } finally {
+        await db.delete(hbsAssignmentRules).where(eq(hbsAssignmentRules.category, "labor"));
+        await db.delete(hbsRegistrationRequests).where(eq(hbsRegistrationRequests.userId, customerA));
+        await db.delete(hbsCompanyEmployees).where(inArray(hbsCompanyEmployees.id, [foreign.id, own.id]));
+      }
     });
 
     await t.test("notification settings validate Saudi mobiles", async () => {

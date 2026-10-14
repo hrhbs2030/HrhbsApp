@@ -174,6 +174,22 @@ export default defineConfig({
     // .vite/manifest.json lets the prerender step add modulepreload hints for
     // the lazy public/legal page chunks; server.mjs never serves dot-directories.
     manifest: true,
+    rollupOptions: {
+      output: {
+        // The framework in its own long-lived chunks: React and React Query
+        // change only on a dependency bump, so they stay cached across deploys
+        // while the app's entry changes with every release. Vite preloads them
+        // from index.html; scripts/prerender.mjs leaves them out of the per-route
+        // hints. (framer-motion is installed but not imported by the site.)
+        manualChunks(id) {
+          if (!id.includes('/node_modules/')) return undefined;
+          if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'vendor-react';
+          if (id.includes('/node_modules/@tanstack/')) return 'vendor-query';
+          if (/\/node_modules\/(framer-motion|motion-dom|motion-utils)\//.test(id)) return 'vendor-motion';
+          return undefined;
+        },
+      },
+    },
   },
   server: {
     port,
